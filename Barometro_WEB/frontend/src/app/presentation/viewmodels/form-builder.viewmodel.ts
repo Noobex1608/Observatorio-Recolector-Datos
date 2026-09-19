@@ -1,5 +1,5 @@
-﻿import { Injectable, computed, inject, signal } from '@angular/core';
-import { Form, FormQuestion, FormQuestionBranchRule, FormService } from '@core/services/form.service';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Form, FormQuestion, FormQuestionBranchRule, FormQuestionProperties, FormService } from '@core/services/form.service';
 import { Project, ProjectService } from '@core/services/project.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -19,6 +19,7 @@ export interface FormQuestionDraft {
   likertRows: string[];
   likertColumns: string[];
   branchRules: FormQuestionBranchRuleDraft[];
+  properties: FormQuestionProperties;
   required: boolean;
   order: number;
   sectionName: string | null;
@@ -41,7 +42,7 @@ export interface FormQuestionBranchRuleDraft {
   nextQuestionTempId: string | null;
 }
 
-const SELECT_TYPES: FormQuestion['type'][] = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'];
+const SELECT_TYPES: FormQuestion['type'][] = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'];
 const BRANCHABLE_TYPES: FormQuestion['type'][] = ['SINGLE_CHOICE'];
 const DEFAULT_LIKERT_OPTIONS = [
   'Totalmente en desacuerdo',
@@ -247,7 +248,8 @@ export class FormBuilderViewModel {
       likertRows: type === 'LIKERT' ? [...DEFAULT_LIKERT_ROWS] : [],
       likertColumns: type === 'LIKERT' ? [...DEFAULT_LIKERT_OPTIONS] : [],
       branchRules: this.getInitialBranchRules(type),
-      required: true,
+      properties: this.getDefaultProperties(type),
+      required: type === 'NOTE' ? false : true,
       order: this.getQuestionsForParent(null).length,
       sectionName: null,
       sectionTempId: null,
@@ -272,6 +274,7 @@ export class FormBuilderViewModel {
       likertRows: [],
       likertColumns: [],
       branchRules: [],
+      properties: this.getDefaultProperties('TEXT'),
       required: true,
       order: this.getQuestionsForParent(parentTempId).length,
       sectionName: parent.sectionName,
@@ -689,9 +692,61 @@ export class FormBuilderViewModel {
       LIKERT: 'forms.builder.types.LIKERT',
       TEXT: 'forms.builder.types.TEXT',
       NUMBER: 'forms.builder.types.NUMBER',
+      NOTE: 'forms.builder.types.NOTE',
+      DATE: 'forms.builder.types.DATE',
+      TIME: 'forms.builder.types.TIME',
+      DATETIME: 'forms.builder.types.DATETIME',
+      GPS: 'forms.builder.types.GPS',
+      MULTIMEDIA: 'forms.builder.types.MULTIMEDIA',
+      SIGNATURE: 'forms.builder.types.SIGNATURE',
+      RANKING: 'forms.builder.types.RANKING',
+      RATING: 'forms.builder.types.RATING',
+      BARCODE: 'forms.builder.types.BARCODE',
+      CALCULATE: 'forms.builder.types.CALCULATE',
     };
 
-    return labels[type];
+    return labels[type] || type;
+  }
+
+  updateQuestionProperty(tempId: string, key: keyof FormQuestionProperties, value: any): void {
+    this.questions.update((questions) =>
+      questions.map((question) => {
+        if (question.tempId !== tempId) return question;
+        return {
+          ...question,
+          properties: {
+            ...question.properties,
+            [key]: value,
+          },
+        };
+      }),
+    );
+    this.clearMessages();
+  }
+
+  getDefaultProperties(type: FormQuestion['type']): FormQuestionProperties {
+    switch (type) {
+      case 'NOTE':
+        return { help_text: '' };
+      case 'DATE':
+      case 'TIME':
+      case 'DATETIME':
+        return { min_date: '', max_date: '', default_now: false };
+      case 'GPS':
+        return { capture_accuracy: true, allow_manual_fallback: true };
+      case 'MULTIMEDIA':
+        return { allowed_media: 'both', max_file_size_mb: 10 };
+      case 'SIGNATURE':
+        return { pen_color: '#000000', background_color: '#ffffff' };
+      case 'RATING':
+        return { max_rating: 5, icon_type: 'star' };
+      case 'BARCODE':
+        return { allowed_formats: 'ALL', allow_manual_input: true };
+      case 'CALCULATE':
+        return { expression: '' };
+      default:
+        return {};
+    }
   }
 
   getQuestionDisplayLabel(question: FormQuestionDraft): string {
@@ -713,7 +768,8 @@ export class FormBuilderViewModel {
       likertRows: this.normalizeLikertRows(question),
       likertColumns: this.normalizeLikertColumns(question),
       branchRules: this.normalizeBranchRules(question),
-      required: question.required,
+      properties: question.properties ?? this.getDefaultProperties(question.type),
+      required: question.type === 'NOTE' ? false : question.required,
       order,
       sectionName: question.section_name ?? null,
       sectionTempId: null,
@@ -790,7 +846,7 @@ export class FormBuilderViewModel {
       return question.options.map((option) => String(option));
     }
 
-    return SELECT_TYPES.includes(question.type) ? [''] : [];
+    return SELECT_TYPES.includes(question.type) ? (question.type === 'RANKING' ? ['Opción 1', 'Opción 2'] : ['']) : [];
   }
 
   private normalizeLikertRows(question: FormQuestion): string[] {
@@ -844,7 +900,9 @@ export class FormBuilderViewModel {
   }
 
   private getInitialOptions(type: FormQuestion['type']): string[] {
-    if (SELECT_TYPES.includes(type)) return [''];
+    if (SELECT_TYPES.includes(type)) {
+      return type === 'RANKING' ? ['Opción 1', 'Opción 2'] : [''];
+    }
     return [];
   }
 
@@ -868,10 +926,11 @@ export class FormBuilderViewModel {
 
     return {
       type: question.type,
-      label: question.label.trim() || this.translate.instant('forms.builder.types.LIKERT'),
-      required: question.required,
+      label: question.label.trim() || (question.type === 'NOTE' ? 'Nota Informativa' : this.translate.instant('forms.builder.types.LIKERT')),
+      required: question.type === 'NOTE' ? false : question.required,
       order: question.order,
       options,
+      properties: question.properties,
       section_name: question.sectionTempId
         ? this.sections().find((section) => section.tempId === question.sectionTempId)?.title.trim() || null
         : null,

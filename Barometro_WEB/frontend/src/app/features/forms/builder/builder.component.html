@@ -1,4 +1,4 @@
-﻿<section class="builder-shell">
+<section class="builder-shell">
   <header class="builder-topbar">
     <div>
       <p class="eyebrow">{{ 'forms.builder.eyebrow' | translate }}</p>
@@ -214,7 +214,7 @@
                   [class.question-card--drop-after]="isDropTarget(entry.question.tempId, 'after')"
                   (dragover)="onDragOver($event, entry.question.tempId)"
                   (drop)="onDrop($event, entry.question.tempId)"
-                  style="margin-left: {{ entry.level * 20 }}px;"
+                  [style.margin-left.px]="entry.level * 20"
                 >
                   <div class="question-card-header">
                     <div class="question-title-row">
@@ -316,7 +316,7 @@
                     />
                   </label>
 
-                  @if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE'].includes(question.type)) {
+                  @if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'].includes(question.type)) {
                     <div class="options-block">
                       <div class="options-header">
                         <span>{{ 'forms.builder.optionsLabel' | translate }}</span>
@@ -485,15 +485,213 @@
                     </div>
                   }
 
-                  <label class="toggle-row">
-                    <input
-                      type="checkbox"
-                      [checked]="question.required"
-                      (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    />
-                    <span>{{ 'forms.builder.required' | translate }}</span>
-                  </label>
+                  @if (['NOTE', 'DATE', 'TIME', 'DATETIME', 'GPS', 'MULTIMEDIA', 'SIGNATURE', 'RATING', 'BARCODE', 'CALCULATE'].includes(question.type)) {
+                    <div class="properties-panel">
+                      @if (question.type === 'NOTE') {
+                        <label class="field">
+                          <span>Texto orientativo / ayuda (Help Text)</span>
+                          <textarea
+                            rows="2"
+                            [ngModel]="question.properties.help_text"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'help_text', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            placeholder="Escribe aclaraciones o notas para el encuestador..."
+                          ></textarea>
+                        </label>
+                      }
+
+                      @if (['DATE', 'TIME', 'DATETIME'].includes(question.type)) {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Límite Mínimo (Opcional)</span>
+                            <input
+                              type="text"
+                              [ngModel]="question.properties.min_date"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'min_date', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              placeholder="Ej. 2026-01-01"
+                            />
+                          </label>
+                          <label class="field">
+                            <span>Límite Máximo (Opcional)</span>
+                            <input
+                              type="text"
+                              [ngModel]="question.properties.max_date"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_date', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              placeholder="Ej. 2026-12-31"
+                            />
+                          </label>
+                          <label class="toggle-row">
+                            <input
+                              type="checkbox"
+                              [checked]="question.properties.default_now"
+                              (change)="vm.updateQuestionProperty(question.tempId, 'default_now', $any($event.target).checked)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                            <span>Establecer valor actual por defecto</span>
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'GPS') {
+                        <div class="properties-grid">
+                          <label class="toggle-row">
+                            <input
+                              type="checkbox"
+                              [checked]="question.properties.capture_accuracy"
+                              (change)="vm.updateQuestionProperty(question.tempId, 'capture_accuracy', $any($event.target).checked)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                            <span>Requerir alta precisión de satélite (GPS)</span>
+                          </label>
+                          <label class="toggle-row">
+                            <input
+                              type="checkbox"
+                              [checked]="question.properties.allow_manual_fallback"
+                              (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_fallback', $any($event.target).checked)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                            <span>Permitir ingreso manual si falla la ubicación</span>
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'MULTIMEDIA') {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Archivos permitidos</span>
+                            <select
+                              [ngModel]="question.properties.allowed_media || 'both'"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_media', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            >
+                              <option value="both">Imágenes y Audio</option>
+                              <option value="image">Solo Fotos</option>
+                              <option value="audio">Solo Audio</option>
+                            </select>
+                          </label>
+                          <label class="field">
+                            <span>Tamaño máximo (MB)</span>
+                            <input
+                              type="number"
+                              [ngModel]="question.properties.max_file_size_mb || 10"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_file_size_mb', +$event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              min="1"
+                              max="100"
+                            />
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'SIGNATURE') {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Color de pluma (Tinta)</span>
+                            <input
+                              type="color"
+                              [ngModel]="question.properties.pen_color || '#000000'"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'pen_color', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                          </label>
+                          <label class="field">
+                            <span>Color de lienzo</span>
+                            <input
+                              type="color"
+                              [ngModel]="question.properties.background_color || '#ffffff'"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'background_color', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'RATING') {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Escala máxima (3 a 10)</span>
+                            <select
+                              [ngModel]="question.properties.max_rating || 5"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_rating', +$event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            >
+                              <option [ngValue]="3">3 niveles</option>
+                              <option [ngValue]="5">5 niveles (Estándar)</option>
+                              <option [ngValue]="7">7 niveles</option>
+                              <option [ngValue]="10">10 niveles</option>
+                            </select>
+                          </label>
+                          <label class="field">
+                            <span>Tipo de indicador</span>
+                            <select
+                              [ngModel]="question.properties.icon_type || 'star'"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'icon_type', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            >
+                              <option value="star">Estrellas (★ ★ ★ ★ ★)</option>
+                              <option value="number">Números (1, 2, 3...)</option>
+                            </select>
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'BARCODE') {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Formatos de escáner</span>
+                            <select
+                              [ngModel]="question.properties.allowed_formats || 'ALL'"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_formats', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            >
+                              <option value="ALL">Todos (QR y Códigos de Barras)</option>
+                              <option value="QR">Solo Código QR</option>
+                              <option value="BARCODE">Solo Códigos 1D (EAN/UPC)</option>
+                            </select>
+                          </label>
+                          <label class="toggle-row">
+                            <input
+                              type="checkbox"
+                              [checked]="question.properties.allow_manual_input"
+                              (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_input', $any($event.target).checked)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            />
+                            <span>Permitir ingreso manual si la cámara falla</span>
+                          </label>
+                        </div>
+                      }
+
+                      @if (question.type === 'CALCULATE') {
+                        <div class="properties-grid">
+                          <label class="field">
+                            <span>Fórmula relacional (Expresión)</span>
+                            <input
+                              type="text"
+                              [ngModel]="question.properties.expression"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'expression', $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              placeholder="Ej. ${q1} + ${q2}"
+                            />
+                            <small class="help-text">Sintaxis: ${{ '${id_pregunta}' }} para operar variables de preguntas anteriores.</small>
+                          </label>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (question.type !== 'NOTE') {
+                    <label class="toggle-row">
+                      <input
+                        type="checkbox"
+                        [checked]="question.required"
+                        (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
+                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                      />
+                      <span>{{ 'forms.builder.required' | translate }}</span>
+                    </label>
+                  }
                 </article>
               }
             </section>
@@ -519,7 +717,7 @@
                   [class.question-card--drop-after]="isDropTarget(question.tempId, 'after')"
                   (dragover)="onDragOver($event, question.tempId)"
                   (drop)="onDrop($event, question.tempId)"
-                  style="margin-left: {{ entry.level * 20 }}px;"
+                  [style.margin-left.px]="entry.level * 20"
                 >
                   <div class="question-card-header">
                     <div class="question-title-row">

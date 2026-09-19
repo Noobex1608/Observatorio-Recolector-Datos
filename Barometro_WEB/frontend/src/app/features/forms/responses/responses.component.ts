@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,9 +6,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { FormQuestion } from '@core/services/form.service';
 import { BarChartComponent } from '@presentation/components/charts/bar-chart.component';
 import { PieChartComponent } from '@presentation/components/charts/pie-chart.component';
 import { FormResponseRow, FormResponsesViewModel } from '@presentation/viewmodels/form-responses.viewmodel';
+import { AnswerViewerComponent } from '@shared/components/answer-viewer/answer-viewer.component';
 import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
@@ -23,6 +25,7 @@ import { TranslateModule } from '@ngx-translate/core';
     MatTableModule,
     BarChartComponent,
     PieChartComponent,
+    AnswerViewerComponent,
     TranslateModule,
   ],
   templateUrl: './responses.component.html',
@@ -60,7 +63,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
     this.setImmersiveModal(false);
   }
 
-  previewFields(): { key: string; label: string; value: string }[] {
+  previewFields(): { key: string; label: string; value: string; rawValue: any; question: FormQuestion | undefined }[] {
     if (!this.selectedResponse) return [];
     const response = this.selectedResponse;
 
@@ -71,6 +74,8 @@ export class ResponsesComponent implements OnInit, OnDestroy {
         key: column.key,
         label: column.label,
         value: response.answers[column.key] || '-',
+        rawValue: response.rawAnswers?.[column.key],
+        question: this.vm.getQuestionById(column.key),
       }));
   }
 

@@ -1,4 +1,4 @@
-﻿<div class="responses-container">
+<div class="responses-container">
   <div class="page-header">
     <a routerLink="/admin/dashboard" class="back-link">
       <mat-icon>arrow_back</mat-icon>
@@ -169,7 +169,16 @@
                   @if (col.key === '_submitted') {
                     {{ row.submitted_at | date: 'dd/MM/yyyy HH:mm' }}
                   } @else {
-                    {{ row.answers[col.key] || '-' }}
+                    @let q = vm.getQuestionById(col.key);
+                    @if (q) {
+                      <app-answer-viewer
+                        [question]="q"
+                        [value]="row.rawAnswers?.[col.key]"
+                        [formattedValue]="row.answers[col.key] || ''"
+                      />
+                    } @else {
+                      {{ row.answers[col.key] || '-' }}
+                    }
                   }
                 </td>
               </ng-container>
@@ -226,9 +235,19 @@
         @for (field of previewFields(); track field.key) {
           <article class="answered-question">
             <span class="answered-label">{{ field.label }}</span>
-            <p class="answered-value" [class.empty-answer]="field.value === '-'">
-              {{ field.value === '-' ? ('forms.responses.noAnswer' | translate) : field.value }}
-            </p>
+            <div class="answered-value-container">
+              @if (field.question) {
+                <app-answer-viewer
+                  [question]="field.question"
+                  [value]="field.rawValue"
+                  [formattedValue]="field.value"
+                />
+              } @else {
+                <p class="answered-value" [class.empty-answer]="field.value === '-'">
+                  {{ field.value === '-' ? ('forms.responses.noAnswer' | translate) : field.value }}
+                </p>
+              }
+            </div>
           </article>
         }
       </div>

@@ -21,15 +21,52 @@ export interface Form {
   access_role?: 'PROJECT' | 'RECOLECTOR' | null;
 }
 
+export type QuestionType =
+  | 'MULTIPLE_CHOICE'
+  | 'SINGLE_CHOICE'
+  | 'LIKERT'
+  | 'TEXT'
+  | 'NUMBER'
+  | 'NOTE'
+  | 'DATE'
+  | 'TIME'
+  | 'DATETIME'
+  | 'GPS'
+  | 'MULTIMEDIA'
+  | 'SIGNATURE'
+  | 'RANKING'
+  | 'RATING'
+  | 'BARCODE'
+  | 'CALCULATE';
+
+export interface FormQuestionProperties {
+  help_text?: string;
+  min_date?: string;
+  max_date?: string;
+  default_now?: boolean;
+  capture_accuracy?: boolean;
+  allow_manual_fallback?: boolean;
+  allowed_media?: 'image' | 'audio' | 'both';
+  max_file_size_mb?: number;
+  pen_color?: string;
+  background_color?: string;
+  max_rating?: number;
+  icon_type?: 'star' | 'number';
+  allowed_formats?: 'QR' | 'BARCODE' | 'ALL';
+  allow_manual_input?: boolean;
+  expression?: string;
+}
+
 export interface FormQuestion {
   id: string;
   form_id: string;
-  type: 'MULTIPLE_CHOICE' | 'SINGLE_CHOICE' | 'LIKERT' | 'TEXT' | 'NUMBER';
+  type: QuestionType;
   label: string;
   options?: string[] | LikertOptions | null;
   likert_rows?: string[] | null;
   likert_columns?: string[] | null;
   branch_rules?: FormQuestionBranchRule[] | null;
+  properties?: FormQuestionProperties | null;
   required: boolean;
   order: number;
   section_name?: string | null;

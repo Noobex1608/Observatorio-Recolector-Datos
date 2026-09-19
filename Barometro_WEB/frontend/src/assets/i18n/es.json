@@ -383,14 +383,36 @@
         "MULTIPLE_CHOICE": "Seleccion multiple",
         "LIKERT": "Escala Likert",
         "TEXT": "Texto",
-        "NUMBER": "Numero"
+        "NUMBER": "Numero",
+        "NOTE": "Nota Informativa",
+        "DATE": "Fecha",
+        "TIME": "Hora",
+        "DATETIME": "Fecha y Hora",
+        "GPS": "Ubicación GPS",
+        "MULTIMEDIA": "Multimedia",
+        "SIGNATURE": "Firma Digital",
+        "RANKING": "Ranking / Orden",
+        "RATING": "Calificación",
+        "BARCODE": "Código de Barras / QR",
+        "CALCULATE": "Cálculo Reactivo"
       },
       "hints": {
         "SINGLE_CHOICE": "Una sola respuesta",
         "MULTIPLE_CHOICE": "Varias respuestas",
         "LIKERT": "Nivel de acuerdo",
         "TEXT": "Respuesta abierta",
-        "NUMBER": "Valor numerico"
+        "NUMBER": "Valor numerico",
+        "NOTE": "Texto informativo sin valor de respuesta",
+        "DATE": "Selección de fecha ISO",
+        "TIME": "Selección de hora (H:i)",
+        "DATETIME": "Marca de tiempo completa",
+        "GPS": "Coordenadas latitud y longitud",
+        "MULTIMEDIA": "Captura de foto o audio",
+        "SIGNATURE": "Firma manuscrita en canvas",
+        "RANKING": "Priorización de opciones",
+        "RATING": "Escala de estrellas o puntuación",
+        "BARCODE": "Escaneo de código QR / barras",
+        "CALCULATE": "Fórmula calculada en background"
       },
       "messages": {
         "invalid": "Selecciona un proyecto y completa el titulo, las preguntas y sus opciones antes de guardar",

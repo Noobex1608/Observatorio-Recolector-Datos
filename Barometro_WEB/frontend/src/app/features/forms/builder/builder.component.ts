@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -85,6 +85,72 @@ export class BuilderComponent implements OnInit, OnDestroy {
       labelKey: 'forms.builder.types.NUMBER',
       hintKey: 'forms.builder.hints.NUMBER',
       icon: 'tag',
+    },
+    {
+      value: 'NOTE',
+      labelKey: 'forms.builder.types.NOTE',
+      hintKey: 'forms.builder.hints.NOTE',
+      icon: 'info',
+    },
+    {
+      value: 'DATE',
+      labelKey: 'forms.builder.types.DATE',
+      hintKey: 'forms.builder.hints.DATE',
+      icon: 'calendar_today',
+    },
+    {
+      value: 'TIME',
+      labelKey: 'forms.builder.types.TIME',
+      hintKey: 'forms.builder.hints.TIME',
+      icon: 'schedule',
+    },
+    {
+      value: 'DATETIME',
+      labelKey: 'forms.builder.types.DATETIME',
+      hintKey: 'forms.builder.hints.DATETIME',
+      icon: 'event_repeat',
+    },
+    {
+      value: 'GPS',
+      labelKey: 'forms.builder.types.GPS',
+      hintKey: 'forms.builder.hints.GPS',
+      icon: 'location_on',
+    },
+    {
+      value: 'MULTIMEDIA',
+      labelKey: 'forms.builder.types.MULTIMEDIA',
+      hintKey: 'forms.builder.hints.MULTIMEDIA',
+      icon: 'perm_media',
+    },
+    {
+      value: 'SIGNATURE',
+      labelKey: 'forms.builder.types.SIGNATURE',
+      hintKey: 'forms.builder.hints.SIGNATURE',
+      icon: 'draw',
+    },
+    {
+      value: 'RANKING',
+      labelKey: 'forms.builder.types.RANKING',
+      hintKey: 'forms.builder.hints.RANKING',
+      icon: 'format_list_numbered',
+    },
+    {
+      value: 'RATING',
+      labelKey: 'forms.builder.types.RATING',
+      hintKey: 'forms.builder.hints.RATING',
+      icon: 'star',
+    },
+    {
+      value: 'BARCODE',
+      labelKey: 'forms.builder.types.BARCODE',
+      hintKey: 'forms.builder.hints.BARCODE',
+      icon: 'qr_code_scanner',
+    },
+    {
+      value: 'CALCULATE',
+      labelKey: 'forms.builder.types.CALCULATE',
+      hintKey: 'forms.builder.hints.CALCULATE',
+      icon: 'calculate',
     },
   ];
 

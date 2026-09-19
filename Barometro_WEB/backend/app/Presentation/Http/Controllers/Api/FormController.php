@@ -10,6 +10,7 @@ use App\Models\FormQuestion;
 use App\Models\FormResponse;
 use App\Models\FormUserShare;
 use App\Models\User;
+use App\Presentation\Http\Requests\Mobile\SubmitMobileResponseRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -139,6 +140,43 @@ class FormController extends Controller
         });
 
         return response()->json($result);
+    }
+
+    #[OA\Post(path: '/mobile/submit', summary: 'Enviar respuesta desde app móvil', security: [['sanctum' => []]], tags: ['Mobile'])]
+    public function submitMobileResponse(SubmitMobileResponseRequest $request): JsonResponse
+    {
+        $form = $request->getForm();
+        $currentUser = $request->user();
+
+        if ($currentUser) {
+            $share = FormUserShare::where('form_id', $form->id)
+                ->where('user_id', $currentUser->id)
+                ->first();
+
+            if ($share && $share->target_responses !== null) {
+                $responsesCount = FormResponse::where('form_id', $form->id)
+                    ->where('user_id', $currentUser->id)
+                    ->count();
+
+                if ($responsesCount >= $share->target_responses) {
+                    return response()->json([
+                        'message' => 'Has alcanzado el limite de respuestas para este formulario. Espera a que el administrador lo reactive.',
+                    ], 422);
+                }
+            }
+        }
+
+        $data = $request->input('data', []);
+
+        $response = FormResponse::create([
+            'form_id' => $form->id,
+            'user_id' => $currentUser?->id,
+            'data' => $data,
+        ]);
+
+        $this->enqueueResponseSync->enqueue($response);
+
+        return response()->json(['message' => 'Respuesta guardada', 'id' => $response->id], 201);
     }
 
     #[OA\Post(path: '/forms', summary: 'Crear formulario en borrador', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -335,7 +373,7 @@ class FormController extends Controller
         }
 
         $request->validate([
-            'type' => 'required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER',
+            'type' => 'required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER,NOTE,DATE,TIME,DATETIME,GPS,MULTIMEDIA,SIGNATURE,RANKING,RATING,BARCODE,CALCULATE',
             'label' => 'required|string',
             'order' => 'integer',
             'required' => 'boolean',
@@ -375,7 +413,7 @@ class FormController extends Controller
         }
 
         $request->validate([
-            'type' => 'sometimes|required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER',
+            'type' => 'sometimes|required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER,NOTE,DATE,TIME,DATETIME,GPS,MULTIMEDIA,SIGNATURE,RANKING,RATING,BARCODE,CALCULATE',
             'label' => 'sometimes|required|string',
             'order' => 'sometimes|integer',
             'required' => 'sometimes|boolean',
@@ -526,7 +564,7 @@ class FormController extends Controller
     }
 
     #[OA\Post(path: '/forms/submit/{link_uuid}', summary: 'Enviar respuesta publica', tags: ['Forms'])]
-    public function submitResponse(Request $request, string $link_uuid): JsonResponse
+    public function submitResponse(SubmitMobileResponseRequest $request, string $link_uuid): JsonResponse
     {
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')

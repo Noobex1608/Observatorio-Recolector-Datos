@@ -1,4 +1,4 @@
-﻿import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { FormQuestion, FormService, FormShare } from '@core/services/form.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -8,6 +8,7 @@ export interface FormResponseRow {
   id: string;
   submitted_at: string;
   answers: Record<string, string>;
+  rawAnswers: Record<string, any>;
 }
 
 export interface QuestionChart {
@@ -71,6 +72,10 @@ export class FormResponsesViewModel {
     return [{ key: '_submitted', label: this.translate.instant('forms.responses.submitted') }, ...cols];
   });
 
+  getQuestionById(id: string): FormQuestion | undefined {
+    return this.questions().find((q) => q.id === id);
+  }
+
   async load(formId: string): Promise<void> {
     this.formId.set(formId);
     this.isLoading.set(true);
@@ -93,6 +98,7 @@ export class FormResponsesViewModel {
         id: r.id,
         submitted_at: r.created_at,
         answers: this.flattenAnswers(r.data ?? {}, this.questions()),
+        rawAnswers: r.data ?? {},
       }));
 
       this.responses.set(rows);

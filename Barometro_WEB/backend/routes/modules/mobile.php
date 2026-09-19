@@ -5,3 +5,4 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/forms', [FormController::class, 'mobileIndex']);
 Route::get('/forms/metadata', [FormController::class, 'mobileMetadata']);
+Route::post('/submit', [FormController::class, 'submitMobileResponse']);
