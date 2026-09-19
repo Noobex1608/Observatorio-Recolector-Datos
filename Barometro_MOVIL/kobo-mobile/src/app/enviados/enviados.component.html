@@ -1,0 +1,33 @@
+<div class="lista-container">
+  <div class="top-bar">
+    <button class="btn-back" (click)="volver()">⬅ {{ 'back' | translate }}</button>
+    <h2>{{ 'sent' | translate }}</h2>
+    @if (enviados.length > 0) {
+      <button class="btn-borrar-todo" (click)="borrarTodos()">🗑️ Borrar notificaciones</button>
+    }
+  </div>
+
+  @if (cargando) {
+    <p style="text-align:center;padding:2rem;color:var(--text-secondary);">{{ 'loading' | translate }}</p>
+  } @else if (enviados.length === 0) {
+    <p style="text-align:center;padding:2rem;color:var(--text-secondary);">
+      {{ 'no_forms' | translate }}
+    </p>
+  } @else {
+    <div class="formularios-guardados" style="padding:16px;">
+      @for (form of enviados; track form.id) {
+        <div class="form-guardado-card" style="margin-bottom:12px;">
+          <div class="form-guardado-body">
+            <div class="form-guardado-top">
+              <div>
+                <h3>{{ form.formTitle }}</h3>
+                <p class="subtexto">Enviado: {{ form.createdAt }} | Duración: {{ form.duration }}</p>
+              </div>
+              <span class="badge">✅ {{ 'sent' | translate }}</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

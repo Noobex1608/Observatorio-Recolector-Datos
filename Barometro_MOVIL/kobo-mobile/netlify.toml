@@ -1,0 +1,8 @@
+# Netlify configuration to run npm build in Barometro_MOVIL/kobo-mobile
+[build]
+  base = "Barometro_MOVIL/kobo-mobile"
+  command = "npm install && npm run build"
+  publish = "dist/kobo-mobile/browser"
+
+[[plugins]]
+  package = "@netlify/angular-runtime"

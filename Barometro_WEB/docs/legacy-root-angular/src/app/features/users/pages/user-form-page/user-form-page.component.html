@@ -1,0 +1,39 @@
+<section class="user-form-page">
+  <a routerLink="/users">← Volver a usuarios</a>
+
+  <h2>{{ userId ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
+
+  @if (loading()) {
+    <p>Cargando usuario...</p>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Nombre completo
+        <input type="text" formControlName="name" />
+      </label>
+
+      <label>
+        Correo electrónico
+        <input type="email" formControlName="email" />
+      </label>
+
+      <label>
+        Rol
+        <select formControlName="role">
+          @for (role of roleOptions; track role) {
+            <option [value]="role">{{ roleLabel(role) }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="inline">
+        <input type="checkbox" formControlName="isActive" />
+        Usuario activo
+      </label>
+
+      <button type="submit" [disabled]="saving() || form.invalid">
+        {{ saving() ? 'Guardando...' : 'Guardar usuario' }}
+      </button>
+    </form>
+  }
+</section>

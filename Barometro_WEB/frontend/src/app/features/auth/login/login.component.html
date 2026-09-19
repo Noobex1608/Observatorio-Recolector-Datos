@@ -1,0 +1,75 @@
+﻿<div class="auth-container">
+  <mat-card class="auth-card">
+    <mat-card-header class="justify-center mb-6">
+      <div class="text-center w-full">
+        <img src="ULEAM.png" alt="ULEAM" class="auth-logo" />
+        <mat-card-title class="auth-title">{{ 'auth.login.title' | translate }}</mat-card-title>
+        <mat-card-subtitle>{{ 'auth.login.subtitle' | translate }}</mat-card-subtitle>
+      </div>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (error()) {
+        <div class="alert alert-error">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ error() }}</span>
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <mat-form-field class="w-full" appearance="outline">
+          <mat-label>{{ 'auth.login.email' | translate }}</mat-label>
+          <input matInput type="email" formControlName="email" [placeholder]="'auth.login.emailPlaceholder' | translate" />
+          <mat-icon matSuffix>email</mat-icon>
+          @if (form.get('email')?.hasError('required') && form.get('email')?.touched) {
+            <mat-error>{{ 'common.validation.required' | translate }}</mat-error>
+          }
+          @if (form.get('email')?.hasError('email')) {
+            <mat-error>{{ 'common.validation.email' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field class="w-full" appearance="outline">
+          <mat-label>{{ 'auth.login.password' | translate }}</mat-label>
+          <input
+            matInput
+            [type]="hidePassword() ? 'password' : 'text'"
+            formControlName="password"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            (click)="hidePassword.set(!hidePassword())"
+          >
+            <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (form.get('password')?.hasError('required') && form.get('password')?.touched) {
+            <mat-error>{{ 'common.validation.required' | translate }}</mat-error>
+          }
+        </mat-form-field>
+
+        <button
+          mat-raised-button
+          color="primary"
+          type="submit"
+          class="w-full mt-4"
+          [disabled]="form.invalid || loading()"
+        >
+          @if (loading()) {
+            <mat-spinner diameter="20" class="inline-block mr-2"></mat-spinner>
+            {{ 'auth.login.submitting' | translate }}
+          } @else {
+            {{ 'auth.login.submit' | translate }}
+          }
+        </button>
+      </form>
+    </mat-card-content>
+
+    <mat-card-actions class="justify-center">
+      <p class="auth-footer-text">
+        {{ 'auth.login.inviteOnly' | translate }}
+      </p>
+    </mat-card-actions>
+  </mat-card>
+</div>

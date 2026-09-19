@@ -1,0 +1,99 @@
+{
+  // Editor
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  // Files
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/vendor": true,
+    "**/.angular": true
+  },
+  "files.associations": {
+    "*.blade.php": "blade"
+  },
+
+  // TypeScript
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Angular
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "angular.enable-strict-mode-prompt": false,
+
+  // PHP
+  "[php]": {
+    "editor.defaultFormatter": "bmewburn.vscode-intelephense-client",
+    "editor.tabSize": 4
+  },
+  "intelephense.environment.phpVersion": "8.2.0",
+  "intelephense.environment.includePaths": ["backend/vendor", "backend"],
+  "intelephense.diagnostics.undefinedTypes": false,
+  "intelephense.diagnostics.undefinedFunctions": false,
+  "intelephense.diagnostics.undefinedMethods": false,
+
+  // Blade
+  "[blade]": {
+    "editor.defaultFormatter": "shufo.vscode-blade-formatter"
+  },
+
+  // CSS / Tailwind
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "html": "html"
+  },
+  "tailwindCSS.emmetCompletions": true,
+
+  // Terminal
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+
+  // Search
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/vendor": true,
+    "**/dist": true,
+    "**/.angular": true,
+    "**/storage/framework": true
+  },
+
+  // Git
+  "git.ignoreLimitWarning": true,
+
+  // Prettier
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.tabWidth": 2,
+
+  // Emmet
+  "emmet.includeLanguages": {
+    "blade": "html",
+    "typescript": "html"
+  },
+  "chat.tools.terminal.autoApprove": {
+    "/^cd \"c:\\\\Users\\\\Bryan\\\\OneDrive - ULEAM\\\\Tareas\\\\Vinculacion\\\\2da vinculacion\\\\Observatorio\\\\backend\"; php artisan route:list --path=api 2>&1 \\| Select-Object -First 50$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

@@ -1,0 +1,26 @@
+<section class="users-page">
+  <header>
+    <h2>Usuarios</h2>
+    <a routerLink="new">Nuevo usuario</a>
+  </header>
+
+  @if (loading()) {
+    <p>Cargando usuarios...</p>
+  } @else {
+    <ul>
+      @for (user of users(); track user.id) {
+        <li>
+          <span>{{ user.name }} - {{ roleLabel(user.role) }}</span>
+          <div class="actions">
+            <a [routerLink]="[user.id, 'edit']">Editar</a>
+            <button type="button" class="danger" (click)="deleteUser(user)">Eliminar</button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+</section>

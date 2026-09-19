@@ -1,0 +1,74 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="logo-area">
+      <span class="logo-icon">📋</span>
+      <h1>ULEAM <small>PWA</small></h1>
+    </div>
+    <p class="subtitle">Recopila encuestas offline</p>
+
+    <form (ngSubmit)="iniciarSesion()" #loginForm="ngForm" class="login-form">
+
+      <div class="campo">
+        <label for="urlServidor">URL del Servidor</label>
+        <input
+          type="text"
+          id="urlServidor"
+          name="urlServidor"
+          [(ngModel)]="urlServidor"
+          placeholder="https://your-server.com"
+          required
+          class="form-input"
+          [disabled]="cargando">
+      </div>
+
+      <div class="campo">
+        <label for="usuario">Usuario</label>
+        <input
+          type="text"
+          id="usuario"
+          name="usuario"
+          [(ngModel)]="usuario"
+          placeholder="demo"
+          required
+          class="form-input"
+          [disabled]="cargando">
+      </div>
+
+      <div class="campo">
+        <label for="clave">Contraseña</label>
+        <input
+          type="password"
+          id="clave"
+          name="clave"
+          [(ngModel)]="clave"
+          placeholder="••••••••"
+          required
+          class="form-input"
+          [disabled]="cargando">
+      </div>
+
+      @if (errorLogin) {
+        <p class="error-msg">⚠ {{ errorLogin }}</p>
+      }
+
+      <button type="submit" class="btn-acceder" [disabled]="cargando">
+        @if (cargando) {
+          Verificando...
+        } @else {
+          Acceder
+        }
+      </button>
+    </form>
+
+    <div class="requisitos-box">
+      <p class="requisitos-titulo">Necesitas:</p>
+      <ul>
+        <li>URL de tu servidor</li>
+        <li>Usuario y contraseña válidos</li>
+        <li>Conexión a internet para el primer login</li>
+      </ul>
+    </div>
+
+
+  </div>
+</div>

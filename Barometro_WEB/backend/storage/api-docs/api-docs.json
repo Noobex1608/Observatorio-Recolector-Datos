@@ -1,0 +1,934 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Observatorio ULEAM Forms API",
+        "description": "API para crear formularios dinamicos, publicar enlaces de recoleccion, gestionar usuarios y consultar respuestas.",
+        "contact": {
+            "name": "ULEAM",
+            "email": "soporte@uleam.edu.ec"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/api",
+            "description": "Servidor actual"
+        }
+    ],
+    "paths": {
+        "/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Iniciar sesion y obtener token Bearer",
+                "operationId": "596636862544bdecdd85d5d224cd3e41",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login exitoso. Copia el campo token y usalo en Authorize."
+                    },
+                    "422": {
+                        "description": "Credenciales invalidas"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Cerrar sesion",
+                "operationId": "16025b7174a84cec523b594e911fbe3b",
+                "responses": {
+                    "200": {
+                        "description": "Logout exitoso"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/user": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Obtener usuario actual",
+                "operationId": "9277b8f13acc85c5c8264cc3a337cdf3",
+                "responses": {
+                    "200": {
+                        "description": "Datos del usuario"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Listar formularios propios y compartidos",
+                "operationId": "b2b4e70ef5691a71e91be7029ff65c18",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Crear formulario en borrador",
+                "operationId": "2df42cf29aa1262b5e4d22cc788e6d63",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Ver detalle de formulario",
+                "operationId": "b06d2b1cee029eb360a3a18502579609",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Actualizar formulario no implementado",
+                "operationId": "3806d714ca0c78e62968c497110d055b",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Eliminar formulario propio o cualquier formulario como super admin",
+                "operationId": "4721d09d7edf48c2d5205209962efff4",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/deploy": {
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Implementar formulario y generar enlace publico",
+                "operationId": "86545b6a068a1be89a98f4b57d362654",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/archive": {
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Archivar formulario",
+                "operationId": "3835cdc8c5ae70498724afaff5b93b1f",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/questions": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Listar preguntas",
+                "operationId": "7243a2f8132ec60fd79974701737679e",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Agregar pregunta",
+                "operationId": "f58331aea6289a1fefe5721dbe9d1af8",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/questions/{question_id}": {
+            "put": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Actualizar pregunta",
+                "operationId": "1d9beb9200767eaba2fa8d27fd5f2c92",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Eliminar pregunta",
+                "operationId": "a63b9d09e1fa5257f4e436280046480b",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/shares": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Listar usuarios invitados",
+                "operationId": "773ad87cdba4faa137256b4072771152",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Invitar usuario como editor o lector",
+                "operationId": "00b17d2635b4b32658f9def0af9b320a",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/shares/{share_id}": {
+            "delete": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Retirar invitacion",
+                "operationId": "504895c922422e5cd2d52576adbaee2c",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/fetch/{link_uuid}": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Obtener formulario publico implementado",
+                "operationId": "be24a38b454812edfd98b2d3b5245da1"
+            }
+        },
+        "/forms/submit/{link_uuid}": {
+            "post": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Enviar respuesta publica",
+                "operationId": "13f268e0f4e61d98d4632af9419a165a"
+            }
+        },
+        "/forms/{id}/responses": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Listar respuestas",
+                "operationId": "9e0deaa29fc296ffa79deb7fa723031b",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/stats": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Obtener estadisticas basicas de respuestas",
+                "operationId": "b2764250cb8b7aed241ebbde63848f10",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/forms/{id}/export": {
+            "get": {
+                "tags": [
+                    "Forms"
+                ],
+                "summary": "Exportar respuestas CSV/XLSX",
+                "operationId": "72a9b1019fe43b467270224afe85cbad",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/profile": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Obtener perfil del usuario autenticado",
+                "operationId": "39ded20cef27000f3769d19b36ca5462",
+                "responses": {
+                    "200": {
+                        "description": "Datos del perfil"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Actualizar perfil del usuario",
+                "operationId": "435972de6a7ed7abbd9c574d976a12b3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Juan Pérez"
+                                    },
+                                    "telefono": {
+                                        "type": "string",
+                                        "example": "+593 999 999 999"
+                                    },
+                                    "cargo": {
+                                        "type": "string",
+                                        "example": "Desarrollador"
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "example": "Descripción del usuario"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Perfil actualizado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "422": {
+                        "description": "Datos inválidos"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/profile/avatar": {
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Subir avatar del usuario",
+                "operationId": "45f6f4d638f53fbed3156b7f52751857",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "avatar"
+                                ],
+                                "properties": {
+                                    "avatar": {
+                                        "description": "Imagen de avatar (jpg, png, webp, max 2MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Avatar actualizado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    },
+                    "422": {
+                        "description": "Archivo inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Eliminar avatar del usuario",
+                "operationId": "f1fb5180e0a1fbf14047fb5fd807b8e3",
+                "responses": {
+                    "200": {
+                        "description": "Avatar eliminado"
+                    },
+                    "401": {
+                        "description": "No autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/seed/admin": {
+            "post": {
+                "tags": [
+                    "Seed"
+                ],
+                "summary": "Crear usuario super admin inicial",
+                "operationId": "349ea281b132164d42fc57a1f2b966e5",
+                "parameters": [
+                    {
+                        "name": "X-Seed-Token",
+                        "in": "header",
+                        "description": "Token de seguridad para ejecutar seeders",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Usuario super admin creado"
+                    },
+                    "403": {
+                        "description": "Token invalido"
+                    }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Listar usuarios gestionables por el rol actual",
+                "operationId": "dcec04e641881eb947a7b72a397898e0",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 15
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de usuarios"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Crear un nuevo usuario (requiere Bearer token de ADMIN o SUPER_ADMIN)",
+                "operationId": "436503589d594e0e9eca896e3aed7f6f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Juan Pérez"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "juan@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "password123"
+                                    },
+                                    "rol": {
+                                        "type": "string",
+                                        "enum": [
+                                            "SUPER_ADMIN",
+                                            "ADMIN",
+                                            "USER"
+                                        ],
+                                        "example": "USER"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "telefono": {
+                                        "type": "string",
+                                        "example": "+593999999999"
+                                    },
+                                    "cargo": {
+                                        "type": "string",
+                                        "example": "Analista"
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "example": "Breve descripción"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Usuario creado"
+                    },
+                    "401": {
+                        "description": "No autenticado. Ejecuta /login y autoriza Swagger con el token Bearer."
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "409": {
+                        "description": "Email ya registrado"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/users/{id}/role": {
+            "patch": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Cambiar rol de un usuario",
+                "operationId": "117b5657edb839d81e09ba872eda80ed",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "rol"
+                                ],
+                                "properties": {
+                                    "rol": {
+                                        "type": "string",
+                                        "enum": [
+                                            "SUPER_ADMIN",
+                                            "ADMIN",
+                                            "USER"
+                                        ],
+                                        "example": "USER"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rol actualizado"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Obtener detalle de un usuario (solo admin)",
+                "operationId": "260c87aae99d2fca61843d1d65e41236",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detalle del usuario"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Actualizar un usuario",
+                "operationId": "89d63379392533da4373e74ec67e2bff",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Juan Pérez"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "juan@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "newpassword123"
+                                    },
+                                    "rol": {
+                                        "type": "string",
+                                        "enum": [
+                                            "SUPER_ADMIN",
+                                            "ADMIN",
+                                            "USER"
+                                        ],
+                                        "example": "USER"
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "telefono": {
+                                        "type": "string",
+                                        "example": "+593999999999"
+                                    },
+                                    "cargo": {
+                                        "type": "string",
+                                        "example": "Analista"
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "example": "Breve descripción"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Usuario actualizado"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    },
+                    "409": {
+                        "description": "Email ya en uso"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Eliminar un usuario (solo admin)",
+                "operationId": "f1bd270cc125e96839af6c5d7ea64266",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Usuario eliminado"
+                    },
+                    "400": {
+                        "description": "No puedes eliminarte a ti mismo"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/users/{id}/status": {
+            "patch": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Activar/Desactivar un usuario (solo admin)",
+                "operationId": "0785d4d5237b6542cae5b48f8efd5b98",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "is_active": {
+                                        "description": "Si no se envía, se invierte el estado actual",
+                                        "type": "boolean",
+                                        "example": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Estado actualizado"
+                    },
+                    "400": {
+                        "description": "No puedes desactivarte a ti mismo"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Usuario no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Usa el token devuelto por POST /login. En Swagger pulsa Authorize y pega solo el token, sin escribir Bearer.",
+                "bearerFormat": "Sanctum token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Endpoints de autenticacion"
+        },
+        {
+            "name": "Forms",
+            "description": "Formularios dinamicos, publicacion, respuestas y comparticion"
+        },
+        {
+            "name": "Profile",
+            "description": "Endpoints de perfil de usuario"
+        },
+        {
+            "name": "Seed",
+            "description": "Endpoints para inicializar credenciales del sistema"
+        },
+        {
+            "name": "Users",
+            "description": "Gestion de usuarios. ADMIN gestiona usuarios normales; SUPER_ADMIN gestiona usuarios y administradores."
+        }
+    ]
+}

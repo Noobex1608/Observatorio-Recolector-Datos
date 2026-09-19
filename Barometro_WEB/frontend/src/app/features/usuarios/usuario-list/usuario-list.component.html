@@ -1,0 +1,183 @@
+<div class="users-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1 class="page-title">{{ 'users.title' | translate }}</h1>
+        <p class="page-subtitle">{{ 'users.subtitle' | translate }}</p>
+      </div>
+      <div class="header-actions">
+        <a mat-flat-button color="primary" routerLink="/admin/usuarios/nuevo">
+          <mat-icon>person_add</mat-icon>
+          {{ 'users.actions.create' | translate }}
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <mat-card class="users-card">
+    @if (loading()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>{{ 'common.messages.loading' | translate }}</p>
+      </div>
+    } @else {
+      <!-- Table -->
+      <div class="table-container">
+        <table mat-table [dataSource]="users()" class="users-table">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.name' | translate }}</th>
+            <td mat-cell *matCellDef="let user">
+              <div class="user-info">
+                <div class="user-avatar">
+                  @if (user.perfil?.avatar) {
+                    <img [src]="user.perfil.avatar" alt="Avatar" crossorigin="anonymous" />
+                  } @else {
+                    <span>{{ user.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
+                  }
+                </div>
+                <div class="user-details">
+                  <span class="user-name">{{ user.name }}</span>
+                  @if (user.perfil?.cargo) {
+                    <span class="user-cargo">{{ user.perfil.cargo }}</span>
+                  }
+                </div>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Email Column -->
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.email' | translate }}</th>
+            <td mat-cell *matCellDef="let user">{{ user.email }}</td>
+          </ng-container>
+
+          <!-- Role Column -->
+          <ng-container matColumnDef="rol">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.role' | translate }}</th>
+            <td mat-cell *matCellDef="let user">
+              <span class="role-badge" [class]="getRoleBadgeClass(user.rol)">
+                {{ getRoleLabel(user.rol) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="is_active">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.status' | translate }}</th>
+            <td mat-cell *matCellDef="let user">
+              <span class="status-badge" [class]="getStatusBadgeClass(user.is_active)">
+                {{
+                  user.is_active
+                    ? ('users.status.active' | translate)
+                    : ('users.status.inactive' | translate)
+                }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Created At Column -->
+          <ng-container matColumnDef="created_at">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.createdAt' | translate }}</th>
+            <td mat-cell *matCellDef="let user">{{ formatDate(user.created_at) }}</td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.labels.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let user">
+              <button
+                mat-icon-button
+                [matMenuTriggerFor]="menu"
+                [matTooltip]="'common.labels.actions' | translate"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #menu="matMenu">
+                <a mat-menu-item [routerLink]="['/admin/usuarios', user.id]">
+                  <mat-icon>edit</mat-icon>
+                  <span>{{ 'common.buttons.edit' | translate }}</span>
+                </a>
+                <button mat-menu-item (click)="toggleStatus(user)">
+                  <mat-icon>{{ user.is_active ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{
+                    user.is_active
+                      ? ('users.actions.deactivate' | translate)
+                      : ('users.actions.activate' | translate)
+                  }}</span>
+                </button>
+                <button mat-menu-item [matMenuTriggerFor]="roleMenu">
+                  <mat-icon>admin_panel_settings</mat-icon>
+                  <span>{{ 'users.actions.changeRole' | translate }}</span>
+                </button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item class="delete-action" (click)="deleteUser(user)">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>{{ 'common.buttons.delete' | translate }}</span>
+                </button>
+              </mat-menu>
+              <mat-menu #roleMenu="matMenu">
+                <button
+                  mat-menu-item
+                  (click)="changeRole(user, 'SUPER_ADMIN')"
+                  [disabled]="user.rol === 'SUPER_ADMIN'"
+                >
+                  <mat-icon>workspace_premium</mat-icon>
+                  <span>{{ getRoleLabel('SUPER_ADMIN') }}</span>
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="changeRole(user, 'ADMIN')"
+                  [disabled]="user.rol === 'ADMIN'"
+                >
+                  <mat-icon>security</mat-icon>
+                  <span>{{ getRoleLabel('ADMIN') }}</span>
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="changeRole(user, 'PROJECT')"
+                  [disabled]="user.rol === 'PROJECT'"
+                >
+                  <mat-icon>assignment_ind</mat-icon>
+                  <span>{{ getRoleLabel('PROJECT') }}</span>
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="changeRole(user, 'RECOLECTOR')"
+                  [disabled]="user.rol === 'RECOLECTOR'"
+                >
+                  <mat-icon>person</mat-icon>
+                  <span>{{ getRoleLabel('RECOLECTOR') }}</span>
+                </button>
+              </mat-menu>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+
+        @if (users().length === 0) {
+          <div class="empty-state">
+            <mat-icon>people_outline</mat-icon>
+            <p>{{ 'users.messages.noUsers' | translate }}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Paginator -->
+      @if (totalItems() > 0) {
+        <mat-paginator
+          [length]="totalItems()"
+          [pageSize]="pageSize()"
+          [pageIndex]="currentPage() - 1"
+          [pageSizeOptions]="[10, 15, 25, 50]"
+          (page)="onPageChange($event)"
+          showFirstLastButtons
+        ></mat-paginator>
+      }
+    }
+  </mat-card>
+</div>

@@ -1,0 +1,243 @@
+﻿<div class="responses-container">
+  <div class="page-header">
+    <a routerLink="/admin/dashboard" class="back-link">
+      <mat-icon>arrow_back</mat-icon>
+      {{ 'forms.responses.back' | translate }}
+    </a>
+    <div class="header-row">
+      <div>
+        <h1 class="page-title">{{ vm.formTitle() || ('forms.responses.title' | translate) }}</h1>
+        <p class="page-subtitle">{{ 'forms.responses.subtitle' | translate: { count: vm.responses().length } }}</p>
+      </div>
+      <div class="export-actions">
+        <button
+          class="btn-export"
+          (click)="vm.exportData('csv')"
+          [disabled]="vm.isExporting() || vm.responses().length === 0"
+          type="button"
+        >
+          <mat-icon>download</mat-icon>
+          {{ 'forms.responses.exportCsv' | translate }}
+        </button>
+        <button
+          class="btn-export btn-excel"
+          (click)="vm.exportData('xlsx')"
+          [disabled]="vm.isExporting() || vm.responses().length === 0"
+          type="button"
+        >
+          <mat-icon>table_view</mat-icon>
+          {{ 'forms.responses.exportExcel' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  @if (vm.errorMessage()) {
+    <div class="alert alert-error">{{ vm.errorMessage() }}</div>
+  }
+
+  @if (vm.isLoading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ 'forms.responses.loading' | translate }}</p>
+    </div>
+  } @else {
+    <section class="responses-kpis">
+      <article class="kpi-card kpi-primary">
+        <span class="kpi-icon"><mat-icon>fact_check</mat-icon></span>
+        <div>
+          <span>Total respuestas</span>
+          <strong>{{ vm.totalResponses() }}</strong>
+        </div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon"><mat-icon>quiz</mat-icon></span>
+        <div>
+          <span>Preguntas</span>
+          <strong>{{ vm.questions().length }}</strong>
+        </div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon"><mat-icon>insert_chart</mat-icon></span>
+        <div>
+          <span>Graficables</span>
+          <strong>{{ vm.chartableQuestions().length }}</strong>
+        </div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon"><mat-icon>groups</mat-icon></span>
+        <div>
+          <span>Recolectores</span>
+          <strong>{{ vm.shareProgress().length }}</strong>
+        </div>
+      </article>
+    </section>
+
+    @if (vm.shareProgress().length > 0) {
+      <section class="shares-counter">
+        <div class="section-heading">
+          <div>
+            <span>Seguimiento</span>
+            <h2>Respuestas por asignación</h2>
+          </div>
+          <p>Avance de los usuarios asignados a la recolección.</p>
+        </div>
+        <div class="shares-grid">
+          @for (share of vm.shareProgress(); track share.id) {
+            <div class="share-counter-card">
+              <div class="share-counter-header">
+                <span class="share-name">{{ share.user_name || share.user_email || 'Usuario' }}</span>
+                <span class="share-role">{{ share.role }}</span>
+              </div>
+              @if (share.target_responses) {
+                <div class="share-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" [class.full]="(share.responses_count ?? 0) >= share.target_responses!" [style.width.%]="share.progress"></div>
+                  </div>
+                  <span class="progress-text">{{ share.responses_count ?? 0 }} / {{ share.target_responses }} respuestas</span>
+                </div>
+              } @else {
+                <span class="share-count">{{ share.responses_count ?? 0 }} respuestas</span>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (vm.chartableQuestions().length > 0) {
+      <section class="charts-section">
+        <div class="section-heading">
+          <div>
+            <span>Visualización</span>
+            <h2>{{ 'forms.responses.chartsTitle' | translate }}</h2>
+          </div>
+          <p>Distribuciones listas para analizar patrones de respuesta.</p>
+        </div>
+        <div class="charts-grid">
+          @for (chart of vm.chartableQuestions(); track chart.questionId) {
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <div>
+                  <span>{{ 'forms.responses.distribution' | translate }}</span>
+                  <h3>{{ chart.label }}</h3>
+                </div>
+                <strong class="chart-type">{{ 'forms.responses.chartTypes.' + chart.type | translate }}</strong>
+              </div>
+              @if (chart.type === 'MULTIPLE_CHOICE') {
+                <app-bar-chart
+                  [categories]="chart.categories"
+                  [values]="chart.values"
+                  height="280px"
+                />
+              } @else {
+                <app-pie-chart
+                  [categories]="chart.categories"
+                  [values]="chart.values"
+                  [isDonut]="true"
+                  height="280px"
+                />
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <section class="table-section">
+      <div class="section-heading">
+        <div>
+          <span>Datos</span>
+          <h2>{{ 'forms.responses.tableTitle' | translate }}</h2>
+        </div>
+        <p>Registro detallado de cada envío recibido.</p>
+      </div>
+
+      @if (vm.responses().length === 0) {
+        <div class="empty-state">
+          <mat-icon>inbox</mat-icon>
+          <p>{{ 'forms.responses.empty' | translate }}</p>
+          <p class="hint">{{ 'forms.responses.emptyHint' | translate }}</p>
+        </div>
+      } @else {
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="vm.responses()" class="responses-table">
+            @for (col of vm.tableColumns(); track col.key) {
+              <ng-container [matColumnDef]="col.key">
+                <th mat-header-cell *matHeaderCellDef>{{ col.label }}</th>
+                <td mat-cell *matCellDef="let row">
+                  @if (col.key === '_submitted') {
+                    {{ row.submitted_at | date: 'dd/MM/yyyy HH:mm' }}
+                  } @else {
+                    {{ row.answers[col.key] || '-' }}
+                  }
+                </td>
+              </ng-container>
+            }
+
+            <ng-container matColumnDef="_actions">
+              <th mat-header-cell *matHeaderCellDef>{{ 'common.labels.actions' | translate }}</th>
+              <td mat-cell *matCellDef="let row">
+                <button
+                  class="btn-preview-response"
+                  type="button"
+                  (click)="openResponsePreview(row)"
+                  [attr.aria-label]="'forms.responses.previewAction' | translate"
+                  [attr.title]="'forms.responses.previewAction' | translate"
+                >
+                  <mat-icon>visibility</mat-icon>
+                  <span>{{ 'forms.responses.previewAction' | translate }}</span>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>
+
+@if (selectedResponse) {
+  <div class="response-preview-backdrop" (click)="closeResponsePreview()">
+    <section class="response-preview-modal" (click)="$event.stopPropagation()">
+      <header class="response-preview-header">
+        <div>
+          <span>{{ 'forms.responses.previewEyebrow' | translate }}</span>
+          <h2>{{ 'forms.responses.previewTitle' | translate }}</h2>
+          <p>
+            {{ 'forms.responses.previewSubmittedAt' | translate }}
+            {{ selectedResponse.submitted_at | date: 'dd/MM/yyyy HH:mm' }}
+          </p>
+        </div>
+        <button
+          class="response-preview-close"
+          type="button"
+          (click)="closeResponsePreview()"
+          [attr.aria-label]="'common.buttons.close' | translate"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </header>
+
+      <div class="answered-preview">
+        @for (field of previewFields(); track field.key) {
+          <article class="answered-question">
+            <span class="answered-label">{{ field.label }}</span>
+            <p class="answered-value" [class.empty-answer]="field.value === '-'">
+              {{ field.value === '-' ? ('forms.responses.noAnswer' | translate) : field.value }}
+            </p>
+          </article>
+        }
+      </div>
+
+      <footer class="response-preview-footer">
+        <button class="btn-preview-close" type="button" (click)="closeResponsePreview()">
+          {{ 'common.buttons.close' | translate }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}

@@ -1,0 +1,195 @@
+<div class="profile-container">
+  <!-- Header -->
+  <div class="profile-header">
+    <a routerLink="/" class="back-link">
+      <mat-icon>arrow_back</mat-icon>
+      {{ 'common.buttons.back' | translate }}
+    </a>
+    <h1 class="profile-title">{{ 'profile.title' | translate }}</h1>
+    <p class="profile-subtitle">{{ 'profile.subtitle' | translate }}</p>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ 'common.messages.loading' | translate }}</p>
+    </div>
+  } @else if (user()) {
+    <div class="profile-content">
+      <!-- Avatar Section -->
+      <mat-card class="profile-card avatar-card">
+        <mat-card-content>
+          <div class="avatar-section">
+            <div class="avatar-wrapper">
+              @if (uploadingAvatar()) {
+                <div class="avatar-loading">
+                  <mat-spinner diameter="40"></mat-spinner>
+                </div>
+              } @else if (avatarUrl()) {
+                <img
+                  [src]="avatarUrl()"
+                  alt="Avatar"
+                  class="avatar-image"
+                  crossorigin="anonymous"
+                />
+              } @else {
+                <div class="avatar-placeholder">
+                  <span>{{ user()?.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
+                </div>
+              }
+              <button
+                class="avatar-edit-btn"
+                (click)="triggerFileInput()"
+                [disabled]="uploadingAvatar()"
+              >
+                <mat-icon>camera_alt</mat-icon>
+              </button>
+            </div>
+            <input
+              #fileInput
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              (change)="onFileSelected($event)"
+              hidden
+            />
+            <div class="avatar-info">
+              <h2 class="user-name">{{ user()?.name }}</h2>
+              <p class="user-email">{{ user()?.email }}</p>
+              <span class="role-badge" [class]="getRoleBadgeClass()">
+                {{ getRoleLabel() | translate }}
+              </span>
+            </div>
+          </div>
+
+          <div class="avatar-actions">
+            <button mat-stroked-button (click)="triggerFileInput()" [disabled]="uploadingAvatar()">
+              <mat-icon>upload</mat-icon>
+              {{ 'profile.avatar.upload' | translate }}
+            </button>
+            @if (avatarUrl()) {
+              <button
+                mat-stroked-button
+                color="warn"
+                (click)="deleteAvatar()"
+                [disabled]="uploadingAvatar()"
+              >
+                <mat-icon>delete</mat-icon>
+                {{ 'profile.avatar.delete' | translate }}
+              </button>
+            }
+          </div>
+
+          <p class="avatar-hint">{{ 'profile.avatar.hint' | translate }}</p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Profile Form -->
+      <mat-card class="profile-card form-card">
+        <mat-card-header>
+          <mat-card-title>{{ 'profile.personalInfo' | translate }}</mat-card-title>
+          <mat-card-subtitle>{{ 'profile.personalInfoSubtitle' | translate }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+            <div class="form-grid">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'profile.fields.name' | translate }}</mat-label>
+                <input matInput formControlName="name" />
+                <mat-icon matPrefix>person</mat-icon>
+                @if (profileForm.get('name')?.hasError('required')) {
+                  <mat-error>{{ 'profile.validation.nameRequired' | translate }}</mat-error>
+                }
+                @if (profileForm.get('name')?.hasError('maxlength')) {
+                  <mat-error>{{ 'profile.validation.nameMaxLength' | translate }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'profile.fields.email' | translate }}</mat-label>
+                <input matInput [value]="user()?.email" disabled />
+                <mat-icon matPrefix>email</mat-icon>
+                <mat-hint>{{ 'profile.hints.emailReadOnly' | translate }}</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'profile.fields.telefono' | translate }}</mat-label>
+                <input matInput formControlName="telefono" />
+                <mat-icon matPrefix>phone</mat-icon>
+                @if (profileForm.get('telefono')?.hasError('maxlength')) {
+                  <mat-error>{{ 'profile.validation.telefonoMaxLength' | translate }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'profile.fields.cargo' | translate }}</mat-label>
+                <input matInput formControlName="cargo" />
+                <mat-icon matPrefix>work</mat-icon>
+                @if (profileForm.get('cargo')?.hasError('maxlength')) {
+                  <mat-error>{{ 'profile.validation.cargoMaxLength' | translate }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'profile.fields.bio' | translate }}</mat-label>
+                <textarea
+                  matInput
+                  formControlName="bio"
+                  rows="4"
+                  [placeholder]="'profile.placeholders.bio' | translate"
+                ></textarea>
+                <mat-icon matPrefix>description</mat-icon>
+                <mat-hint align="end"
+                  >{{ profileForm.get('bio')?.value?.length || 0 }}/500</mat-hint
+                >
+                @if (profileForm.get('bio')?.hasError('maxlength')) {
+                  <mat-error>{{ 'profile.validation.bioMaxLength' | translate }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="form-actions">
+              <button
+                mat-raised-button
+                color="primary"
+                type="submit"
+                [disabled]="profileForm.invalid || saving()"
+              >
+                @if (saving()) {
+                  <mat-spinner diameter="20"></mat-spinner>
+                } @else {
+                  <ng-container>
+                    <mat-icon>save</mat-icon>
+                    {{ 'common.buttons.save' | translate }}
+                  </ng-container>
+                }
+              </button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Account Info -->
+      <mat-card class="profile-card info-card">
+        <mat-card-header>
+          <mat-card-title>{{ 'profile.accountInfo' | translate }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">{{ 'profile.fields.role' | translate }}</span>
+              <span class="info-value">
+                <span class="role-badge" [class]="getRoleBadgeClass()">
+                  {{ getRoleLabel() | translate }}
+                </span>
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ 'profile.fields.createdAt' | translate }}</span>
+              <span class="info-value">{{ user()?.created_at | date: 'medium' }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+</div>

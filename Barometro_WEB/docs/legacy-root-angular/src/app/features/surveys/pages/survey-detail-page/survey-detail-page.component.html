@@ -1,0 +1,119 @@
+<section class="survey-detail">
+  <a routerLink="/surveys">← Volver a formularios</a>
+
+  @if (loading()) {
+    <p>Cargando formulario...</p>
+  } @else if (survey(); as surveyData) {
+    <h2>{{ surveyData.title }}</h2>
+    <p>{{ surveyData.description }}</p>
+    <p>Estado: <strong>{{ statusLabel(surveyData.status) }}</strong></p>
+
+    @if (surveyData.linkUuid) {
+      <p>UUID: <code>{{ surveyData.linkUuid }}</code></p>
+    }
+
+    <h3>Preguntas ({{ surveyData.questions.length }})</h3>
+    <ol>
+      @for (question of surveyData.questions; track question.id) {
+        <li>
+          <div>
+            <strong>{{ question.label }}</strong>
+            <span> · {{ questionTypeLabel(question.type) }}</span>
+            <span> · {{ question.required ? 'Obligatoria' : 'Opcional' }}</span>
+          </div>
+        </li>
+      }
+    </ol>
+
+    <section class="shares-section">
+      <h3>Asignaciones</h3>
+
+      <form class="share-form" [formGroup]="shareForm" (ngSubmit)="addShare()">
+        <input
+          type="email"
+          formControlName="email"
+          placeholder="Correo del usuario"
+        />
+        <select formControlName="role">
+          <option value="RECOLECTOR">Recolector</option>
+          <option value="EDITOR">Editor</option>
+        </select>
+        <input
+          type="number"
+          formControlName="targetResponses"
+          placeholder="Respuestas objetivo (opcional)"
+          min="1"
+        />
+        <button type="submit" [disabled]="addingShare()">
+          {{ addingShare() ? 'Agregando...' : 'Asignar' }}
+        </button>
+      </form>
+
+      @if (loadingShares()) {
+        <p>Cargando asignaciones...</p>
+      } @else if (shares().length === 0) {
+        <p class="empty">No hay usuarios asignados a este formulario.</p>
+      } @else {
+        <table class="shares-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Progreso</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (share of shares(); track share.id) {
+              <tr [class.completed-row]="share.targetResponses && share.targetResponses > 0 && share.responsesCount >= share.targetResponses">
+                <td>{{ share.userName }}</td>
+                <td>{{ share.userEmail }}</td>
+                <td>{{ share.role === 'EDITOR' ? 'Editor' : 'Recolector' }}</td>
+                <td>
+                  @if (editingShareId() === share.id) {
+                    <div class="inline-edit">
+                      <input
+                        type="number"
+                        [value]="editTargetValue()"
+                        (input)="editTargetValue.set($any($event.target).value)"
+                        min="1"
+                        placeholder="Sin límite"
+                        class="target-input"
+                      />
+                      <button type="button" class="save-btn" (click)="saveEditTarget(share.id)" [disabled]="savingTarget()">
+                        {{ savingTarget() ? '...' : 'Guardar' }}
+                      </button>
+                      <button type="button" class="cancel-btn" (click)="cancelEditTarget()">Cancelar</button>
+                    </div>
+                  } @else {
+                    @if (share.targetResponses && share.targetResponses > 0) {
+                      <div class="progress-bar">
+                        <div class="progress-fill" [class.full]="share.responsesCount >= share.targetResponses" [style.width.%]="progressPercent(share)"></div>
+                      </div>
+                      <span class="progress-text">{{ share.responsesCount }} / {{ share.targetResponses }}</span>
+                      @if (share.responsesCount >= share.targetResponses) {
+                        <span class="completed-badge">Completado</span>
+                        <button type="button" class="reactivate-btn" (click)="startEditTarget(share)">Reactivar</button>
+                      } @else {
+                        <button type="button" class="edit-target-btn" (click)="startEditTarget(share)">Editar</button>
+                      }
+                    } @else {
+                      <span>{{ share.responsesCount }} respuestas</span>
+                      <button type="button" class="edit-target-btn" (click)="startEditTarget(share)">Definir límite</button>
+                    }
+                  }
+                </td>
+                <td>
+                  <button type="button" class="danger" (click)="removeShare(share.id)">Retirar</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  } @else {
+    <p>No se encontró el formulario solicitado.</p>
+  }
+</section>

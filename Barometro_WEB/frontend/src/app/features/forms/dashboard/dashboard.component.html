@@ -1,0 +1,363 @@
+﻿<div class="dashboard-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">{{ 'forms.dashboard.title' | translate }}</h1>
+      <p class="page-subtitle">{{ 'forms.dashboard.subtitle' | translate }}</p>
+    </div>
+    @if (vm.canCreateForms()) {
+      <a routerLink="/admin/forms/builder" class="btn-primary">
+        <mat-icon>add</mat-icon>
+        {{ 'common.buttons.newForm' | translate }}
+      </a>
+    }
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs">
+      @for (tab of tabs; track tab.key) {
+        <button
+          class="tab-btn"
+          [class.active]="vm.activeTab() === tab.key"
+          (click)="vm.setTab(tab.key)"
+          type="button"
+        >
+          <mat-icon>{{ tab.icon }}</mat-icon>
+          {{ tab.labelKey | translate }}
+          <span class="tab-count">{{ vm.tabCounts()[tab.key] }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="search-box">
+      <mat-icon>search</mat-icon>
+      <input
+        type="text"
+        [placeholder]="'forms.dashboard.searchPlaceholder' | translate"
+        [ngModel]="vm.searchQuery()"
+        (ngModelChange)="vm.searchQuery.set($event)"
+      />
+    </div>
+  </div>
+
+  @if (vm.errorMessage()) {
+    <div class="alert alert-error">{{ vm.errorMessage() }}</div>
+  }
+
+  @if (vm.isLoading()) {
+    <div class="loading-state">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ 'forms.dashboard.loading' | translate }}</p>
+    </div>
+  } @else if (vm.filteredForms().length === 0) {
+    <div class="empty-state">
+      <mat-icon>description</mat-icon>
+      <h3>{{ 'forms.dashboard.emptyTitle' | translate }}</h3>
+      <p>{{ 'forms.dashboard.emptySubtitle' | translate }}</p>
+      @if (vm.activeTab() === 'DRAFT' && vm.canCreateForms()) {
+        <a routerLink="/admin/forms/builder" class="btn-primary">{{ 'common.buttons.createForm' | translate }}</a>
+      }
+    </div>
+  } @else {
+    <div class="forms-grid">
+      @for (form of vm.filteredForms(); track form.id) {
+        <div class="form-card">
+          <div class="form-card-header">
+            <span class="state-badge" [class]="'state-' + form.state.toLowerCase()">
+              {{ vm.getStateLabel(form.state) }}
+            </span>
+            <span class="responses-count">
+              <mat-icon>inbox</mat-icon>
+              {{ 'forms.dashboard.responsesCount' | translate: { count: form.responses_count ?? 0 } }}
+            </span>
+          </div>
+
+          <h3 class="form-title">{{ form.title }}</h3>
+          @if (form.description) {
+            <p class="form-description">{{ form.description }}</p>
+          }
+
+          <div class="form-context">
+            <span class="context-item">
+              <mat-icon>folder</mat-icon>
+              <span class="context-copy">
+                <span class="context-label">{{ 'common.labels.project' | translate }}</span>
+                <strong class="context-value">{{ form.project?.name ?? ('forms.dashboard.noProject' | translate) }}</strong>
+              </span>
+            </span>
+            <span class="context-item">
+              <mat-icon>person</mat-icon>
+              <span class="context-copy">
+                <span class="context-label">{{ 'forms.dashboard.createdBy' | translate }}</span>
+                <strong class="context-value">{{ form.owner?.name ?? ('forms.dashboard.noOwner' | translate) }}</strong>
+              </span>
+            </span>
+          </div>
+
+          <div class="form-meta">
+            <span>{{ 'forms.dashboard.updatedAt' | translate: { date: (form.updated_at | date: 'dd/MM/yyyy') } }}</span>
+          </div>
+
+          <div class="form-actions">
+            @if ((form.state === 'DRAFT' || form.state === 'ARCHIVED') && vm.canManageForm(form)) {
+              <button
+                class="btn-action btn-deploy"
+                (click)="vm.deployForm(form.id)"
+                [disabled]="vm.actionLoading() === form.id"
+                type="button"
+              >
+                <mat-icon>rocket_launch</mat-icon>
+                {{ (form.state === 'ARCHIVED' ? 'common.buttons.redeploy' : 'common.buttons.deploy') | translate }}
+              </button>
+            }
+
+            @if (form.state === 'DEPLOYED') {
+              <button class="btn-action" (click)="vm.showPublicLink(form)" type="button">
+                <mat-icon>link</mat-icon>
+                {{ 'forms.dashboard.actions.viewLink' | translate }}
+              </button>
+              @if (vm.canViewResults()) {
+                <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action">
+                  <mat-icon>bar_chart</mat-icon>
+                  {{ 'common.buttons.results' | translate }}
+                </a>
+              }
+              @if (vm.canManageForm(form)) {
+                <button
+                  class="btn-action"
+                  (click)="vm.archiveForm(form.id)"
+                  [disabled]="vm.actionLoading() === form.id"
+                  type="button"
+                >
+                  <mat-icon>archive</mat-icon>
+                  {{ 'common.buttons.archive' | translate }}
+                </button>
+              }
+            }
+
+            @if (form.state === 'ARCHIVED' && vm.canViewResults()) {
+              <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action">
+                <mat-icon>bar_chart</mat-icon>
+                {{ 'common.buttons.results' | translate }}
+              </a>
+            }
+
+            @if (vm.canManageForm(form) || vm.canEditForm(form)) {
+              <button
+                class="btn-action btn-more"
+                type="button"
+                [matMenuTriggerFor]="formActionsMenu"
+                [attr.aria-label]="'forms.dashboard.actions.more' | translate"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+
+              <mat-menu #formActionsMenu="matMenu" xPosition="before" class="form-actions-menu">
+                @if ((form.state === 'DRAFT' || form.state === 'ARCHIVED') && vm.canEditForm(form)) {
+                  <a mat-menu-item [routerLink]="['/admin/forms', form.id, 'edit']">
+                    <mat-icon>edit</mat-icon>
+                    <span>{{ 'forms.dashboard.actions.edit' | translate }}</span>
+                  </a>
+                }
+
+                @if (vm.canManageForm(form)) {
+                  <button mat-menu-item type="button" (click)="vm.openShareModal(form.id)">
+                    <mat-icon>group_add</mat-icon>
+                    <span>{{ 'common.buttons.share' | translate }}</span>
+                  </button>
+
+                  <button mat-menu-item type="button" (click)="vm.cloneForm(form)" [disabled]="vm.actionLoading() === form.id">
+                    <mat-icon>content_copy</mat-icon>
+                    <span>{{ 'common.buttons.clone' | translate }}</span>
+                  </button>
+                }
+
+                @if ((form.state === 'DRAFT' || form.state === 'ARCHIVED') && vm.canManageForm(form)) {
+                  <button mat-menu-item type="button" class="menu-danger" (click)="vm.deleteForm(form)" [disabled]="vm.actionLoading() === form.id">
+                    <mat-icon>delete</mat-icon>
+                    <span>{{ 'common.buttons.delete' | translate }}</span>
+                  </button>
+                }
+              </mat-menu>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (vm.shareModalOpen()) {
+  <div class="modal-backdrop" (click)="vm.closeShareModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ 'forms.dashboard.shareTitle' | translate }}</h3>
+        <button class="modal-close" (click)="vm.closeShareModal()" type="button">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        @if (vm.shareError()) {
+          <div class="alert alert-error">{{ vm.shareError() }}</div>
+        }
+
+        <form class="share-form" (ngSubmit)="vm.submitShare()">
+          <label class="field">
+            <span>{{ 'forms.dashboard.share.emailLabel' | translate }}</span>
+            <input
+              type="email"
+              [placeholder]="'forms.dashboard.shareEmailPlaceholder' | translate"
+              [ngModel]="vm.shareEmail()"
+              (ngModelChange)="vm.shareEmail.set($event); vm.lookupUser()"
+              name="email"
+              required
+            />
+          </label>
+
+          @if (vm.lookingUpUser()) {
+            <p class="lookup-hint">{{ 'forms.dashboard.share.searchingUser' | translate }}</p>
+          } @else if (vm.matchedUser()) {
+            <div class="user-preview">
+              <div class="user-preview-avatar">{{ vm.matchedUser()!.name.charAt(0).toUpperCase() || 'U' }}</div>
+              <div class="user-preview-info">
+                <strong>{{ vm.matchedUser()!.name }}</strong>
+                <span>{{ vm.matchedUser()!.email }}</span>
+                <span class="user-preview-role">{{ vm.matchedUser()!.rol }}</span>
+              </div>
+            </div>
+          } @else if (vm.shareEmail().trim().length >= 3) {
+            <p class="lookup-hint">{{ 'forms.dashboard.share.userNotFound' | translate }}</p>
+          }
+
+          <div class="share-row">
+            <label class="field">
+              <span>{{ 'forms.dashboard.share.roleLabel' | translate }}</span>
+              <select [ngModel]="vm.shareRole()" (ngModelChange)="vm.setShareRole($event)" name="role">
+                <option value="RECOLECTOR">{{ 'forms.dashboard.roles.RECOLECTOR' | translate }}</option>
+                <option value="PROJECT">{{ 'forms.dashboard.roles.PROJECT' | translate }}</option>
+              </select>
+            </label>
+
+            @if (vm.shareRole() === 'RECOLECTOR') {
+              <label class="field">
+                <span>{{ 'forms.dashboard.share.targetLabel' | translate }}</span>
+                <input
+                  type="number"
+                  [ngModel]="vm.shareTarget()"
+                  (ngModelChange)="vm.setShareTargetFromInput($event)"
+                  name="target"
+                  [placeholder]="'forms.dashboard.share.targetPlaceholder' | translate"
+                  min="1"
+                />
+              </label>
+            }
+          </div>
+
+          <button class="btn-primary share-submit" type="submit" [disabled]="vm.addingShare() || !vm.shareEmail().trim()">
+            {{ (vm.addingShare() ? 'forms.dashboard.share.adding' : 'forms.dashboard.share.assign') | translate }}
+          </button>
+        </form>
+
+        <hr class="modal-divider" />
+
+        <h4>{{ 'forms.dashboard.sharedUsers' | translate }}</h4>
+
+        @if (vm.loadingShares()) {
+          <p class="lookup-hint">{{ 'common.messages.loading' | translate }}</p>
+        } @else if (vm.shares().length === 0) {
+          <p class="empty-state-text">{{ 'forms.dashboard.share.noAssignedUsers' | translate }}</p>
+        } @else {
+          <table class="shares-table">
+            <thead>
+              <tr>
+                <th>{{ 'forms.dashboard.share.nameColumn' | translate }}</th>
+                <th>{{ 'forms.dashboard.share.emailColumn' | translate }}</th>
+                <th>{{ 'forms.dashboard.share.roleColumn' | translate }}</th>
+                <th>{{ 'forms.dashboard.share.progressColumn' | translate }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (share of vm.shares(); track share.id) {
+                <tr [class.completed-row]="share.target_responses && share.target_responses > 0 && (share.responses_count ?? 0) >= share.target_responses">
+                  <td>
+                    <div class="user-cell">
+                      <span class="user-cell-avatar">{{ (share.user_name || '?').charAt(0).toUpperCase() }}</span>
+                      <span>{{ share.user_name || ('forms.dashboard.userFallback' | translate) }}</span>
+                    </div>
+                  </td>
+                  <td>{{ share.user_email || '—' }}</td>
+                  <td>
+                    <span class="role-pill role-{{ share.role.toLowerCase() }}">
+                      {{ 'forms.dashboard.roles.' + share.role | translate }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (share.role === 'PROJECT') {
+                      <span class="progress-text">{{ 'forms.dashboard.share.editorPermission' | translate }}</span>
+                    } @else if (vm.editingShareId() === share.id) {
+                      <div class="inline-edit">
+                        <input
+                          type="number"
+                          [ngModel]="vm.editTargetValue()"
+                          (ngModelChange)="vm.setEditTargetFromInput($event)"
+                          min="1"
+                          [placeholder]="'forms.dashboard.share.noLimit' | translate"
+                          class="target-input"
+                        />
+                        <button type="button" class="btn-primary btn-sm" (click)="vm.saveEditTarget(share.id)" [disabled]="vm.savingTarget()">
+                          {{ (vm.savingTarget() ? 'forms.dashboard.share.saving' : 'common.buttons.save') | translate }}
+                        </button>
+                        <button type="button" class="btn-secondary btn-sm" (click)="vm.cancelEditTarget()">{{ 'common.buttons.cancel' | translate }}</button>
+                      </div>
+                    } @else {
+                      @if (share.target_responses && share.target_responses > 0) {
+                        <div class="progress-bar">
+                          <div class="progress-fill" [class.full]="(share.responses_count ?? 0) >= share.target_responses" [style.width.%]="vm.progressPercent(share)"></div>
+                        </div>
+                        <span class="progress-text">{{ share.responses_count ?? 0 }} / {{ share.target_responses }}</span>
+                        @if ((share.responses_count ?? 0) >= share.target_responses) {
+                          <span class="completed-badge">{{ 'forms.dashboard.share.completed' | translate }}</span>
+                          <button type="button" class="btn-edit-target" (click)="vm.startEditTarget(share)">{{ 'forms.dashboard.share.reactivate' | translate }}</button>
+                        } @else {
+                          <button type="button" class="btn-edit-target" (click)="vm.startEditTarget(share)">{{ 'common.buttons.edit' | translate }}</button>
+                        }
+                      } @else {
+                        <span class="progress-text">{{ 'forms.dashboard.responsesCount' | translate: { count: share.responses_count ?? 0 } }}</span>
+                        <button type="button" class="btn-edit-target" (click)="vm.startEditTarget(share)">{{ 'forms.dashboard.share.defineLimit' | translate }}</button>
+                      }
+                    }
+                  </td>
+                  <td>
+                    <button type="button" class="btn-danger-sm" (click)="vm.removeShare(share.id)">{{ 'forms.dashboard.removeAccess' | translate }}</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (vm.linkModalOpen()) {
+  <div class="modal-overlay" (click)="vm.closeLinkModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ 'forms.dashboard.publicLinkTitle' | translate }}</h2>
+        <button class="modal-close" (click)="vm.closeLinkModal()" type="button">x</button>
+      </div>
+
+      <p class="modal-subtitle">
+        {{ 'forms.dashboard.publicLinkSubtitle' | translate }}
+      </p>
+
+      <div class="link-box">
+        <input type="text" readonly [value]="vm.linkUrl()" />
+        <button class="btn-primary" (click)="copyLink()" type="button">
+          <mat-icon>content_copy</mat-icon>
+          {{ 'common.buttons.copy' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

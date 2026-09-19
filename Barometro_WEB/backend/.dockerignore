@@ -1,0 +1,53 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
+
+# Dependencies (se instalan en el build)
+/vendor
+
+# Node
+/node_modules
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+/tests
+phpunit.xml
+.phpunit.result.cache
+
+# Storage (se crea en el contenedor)
+/storage/logs/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+!/storage/logs/.gitignore
+!/storage/framework/.gitignore
+
+# Build artifacts
+/public/hot
+/public/storage
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+
+# Documentation
+*.md
+!README.md
+/docs
+
+# Docker
+docker-compose*.yml
+Dockerfile*

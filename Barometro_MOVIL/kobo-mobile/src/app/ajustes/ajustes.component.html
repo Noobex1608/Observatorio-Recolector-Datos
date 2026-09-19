@@ -1,0 +1,57 @@
+<div class="ajustes-page">
+  <div class="header-ajustes">
+    <button class="btn-regreso" (click)="regresarAtras()" title="Atrás">← Atrás</button>
+    <h2>{{ 'settings' | translate }}</h2>
+  </div>
+
+  <div class="contenido-ajustes">
+    <!-- Idioma -->
+    <div class="ajuste-item" (click)="theme.toggleLang()">
+      <div class="icono">🌐</div>
+      <div class="ajuste-item-body">
+        <p class="titulo">{{ 'language' | translate }}</p>
+        <p class="subtitulo">{{ theme.lang() === 'es' ? 'Español' : 'English' }}</p>
+      </div>
+      <span class="ajuste-switch-info">{{ theme.lang() === 'es' ? 'ES' : 'EN' }}</span>
+    </div>
+
+    <!-- Modo oscuro -->
+    <div class="ajuste-item" (click)="theme.toggleTheme()">
+      <div class="icono">{{ theme.darkMode() ? '🌙' : '☀️' }}</div>
+      <div class="ajuste-item-body">
+        <p class="titulo">{{ theme.darkMode() ? 'dark_mode' : 'light_mode' | translate }}</p>
+        <p class="subtitulo">{{ theme.darkMode() ? 'Activo' : 'Inactivo' }}</p>
+      </div>
+      <div class="toggle-switch" [class.active]="theme.darkMode()">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <!-- Servidor -->
+    <div class="ajuste-item" (click)="cambiarServidor()">
+      <div class="icono">☁️</div>
+      <div class="ajuste-item-body">
+        <p class="titulo">{{ 'server_url' | translate }}</p>
+        <p class="subtitulo">{{ 'change_server' | translate }}</p>
+      </div>
+    </div>
+
+    <!-- Limpiar datos -->
+    <div class="ajuste-item" (click)="limpiarDatos()">
+      <div class="icono">🗑️</div>
+      <div class="ajuste-item-body">
+        <p class="titulo">{{ 'delete_form' | translate }}</p>
+        <p class="subtitulo">{{ 'delete_local_only' | translate }}</p>
+      </div>
+    </div>
+
+    <!-- Acerca de -->
+    <div class="ajuste-item" (click)="verAcercaDe()">
+      <div class="icono">ℹ️</div>
+      <div class="ajuste-item-body">
+        <p class="titulo">{{ 'about' | translate }}</p>
+        <p class="subtitulo">{{ 'version' | translate }}</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,51 @@
+<section class="responses-page">
+  <header>
+    <h2>Respuestas Recibidas</h2>
+    <p>Total: {{ filteredResponses().length }}</p>
+  </header>
+
+  <form [formGroup]="filterForm" class="filters" (ngSubmit)="applyFilters()">
+    <label>
+      Formulario
+      <select formControlName="surveyId">
+        <option value="">Todos</option>
+        @for (survey of surveys(); track survey.id) {
+          <option [value]="survey.id">{{ survey.title }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Buscar
+      <input type="text" formControlName="search" placeholder="Texto en respuestas o ID" />
+    </label>
+
+    <button type="submit">Filtrar</button>
+    <button type="button" (click)="clearFilters()">Limpiar</button>
+  </form>
+
+  @if (filteredResponses().length === 0) {
+    <p>No hay respuestas para los filtros actuales.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>ID Respuesta</th>
+          <th>Formulario</th>
+          <th>Fecha</th>
+          <th>Resumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (response of filteredResponses(); track response.id) {
+          <tr>
+            <td>{{ response.id }}</td>
+            <td>{{ surveyTitle(response.surveyId) }}</td>
+            <td>{{ response.submittedAt | date: 'short' }}</td>
+            <td>{{ answersPreview(response) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

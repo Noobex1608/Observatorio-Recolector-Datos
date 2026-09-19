@@ -1,0 +1,75 @@
+# ========================================
+# Dockerfile Simple para Railway/Render
+# ========================================
+FROM php:8.2-cli-alpine
+
+# Instalar dependencias
+RUN apk add --no-cache \
+    postgresql-dev \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    libwebp-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    curl \
+    && docker-php-ext-configure gd \
+        --with-freetype \
+        --with-jpeg \
+        --with-webp \
+    && docker-php-ext-install -j$(nproc) \
+        pdo \
+        pdo_pgsql \
+        pgsql \
+        gd \
+        zip \
+        bcmath \
+        opcache
+
+# Configurar PHP
+RUN echo "upload_max_filesize=50M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size=50M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time=300" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Instalar Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Directorio de trabajo
+WORKDIR /app
+
+# Copiar composer files primero (para cachear dependencias)
+COPY composer.json composer.lock ./
+
+# Instalar dependencias
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+# Copiar código
+COPY . .
+
+# Generar autoload optimizado
+RUN composer dump-autoload --optimize --no-dev
+
+# Crear directorios y permisos
+RUN mkdir -p storage/framework/cache/data \
+    && mkdir -p storage/framework/sessions \
+    && mkdir -p storage/framework/views \
+    && mkdir -p storage/logs \
+    && mkdir -p storage/app/public/avatars \
+    && mkdir -p storage/api-docs \
+    && mkdir -p bootstrap/cache \
+    && chmod -R 777 storage bootstrap/cache
+
+# Exponer puerto
+EXPOSE 8000
+
+# Script de inicio
+CMD ["sh", "-c", "\
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache && \
+    php artisan migrate --force && \
+    php artisan swagger:generate || true && \
+    php artisan storage:link || true && \
+    php artisan serve --host=0.0.0.0 --port=8000"]

@@ -1,0 +1,60 @@
+<section class="reports-page">
+  <header>
+    <h2>Reportes</h2>
+    <div class="header-actions">
+      <button type="button" (click)="exportReport()" [disabled]="dataset().length === 0">
+        Exportar reporte XLSX
+      </button>
+      <button type="button" (click)="exportRawResponses()">Exportar respuestas XLSX</button>
+    </div>
+  </header>
+
+  <form [formGroup]="filterForm" class="filters" (ngSubmit)="applyFilters()">
+    <label>
+      Formulario
+      <select formControlName="surveyId">
+        <option value="">Todos</option>
+        @for (survey of surveys(); track trackSurvey($index, survey)) {
+          <option [value]="survey.id">{{ survey.title }}</option>
+        }
+      </select>
+    </label>
+
+    <button type="submit">Aplicar filtros</button>
+  </form>
+
+  @if (loading()) {
+    <p>Cargando reporte...</p>
+  } @else {
+    <p>Total de filas de reporte: {{ totalRows() }}</p>
+
+    @for (entry of dataset(); track entry.surveyId) {
+      <article class="card">
+        <h3>Formulario: {{ entry.surveyId }}</h3>
+        <p>Total respuestas: {{ entry.totalResponses }}</p>
+        <a [routerLink]="[entry.surveyId]">Ver detalle</a>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Pregunta</th>
+              <th>Respuestas</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (question of entry.byQuestion; track trackQuestion($index, question)) {
+              <tr>
+                <td>{{ question.questionLabel }}</td>
+                <td>{{ question.answersCount }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </article>
+    }
+
+    @if (dataset().length === 0) {
+      <p>No hay datos para los filtros seleccionados.</p>
+    }
+  }
+</section>

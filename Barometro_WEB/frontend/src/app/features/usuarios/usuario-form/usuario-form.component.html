@@ -1,0 +1,176 @@
+<div class="form-container">
+  <!-- Header -->
+  <div class="page-header">
+    <a routerLink="/admin/usuarios" class="back-link">
+      <mat-icon>arrow_back</mat-icon>
+      {{ 'common.buttons.back' | translate }}
+    </a>
+    <h1 class="page-title">{{ getTitle() | translate }}</h1>
+    <p class="page-subtitle">{{ getSubtitle() | translate }}</p>
+  </div>
+
+  @if (loadingUser()) {
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ 'common.messages.loading' | translate }}</p>
+    </div>
+  } @else {
+    <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
+      <div class="form-grid">
+        <!-- Basic Info Card -->
+        <mat-card class="form-card">
+          <mat-card-header>
+            <mat-card-title>{{ 'users.form.basicInfo' | translate }}</mat-card-title>
+            <mat-card-subtitle>{{ 'users.form.basicInfoDesc' | translate }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-fields">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'users.form.name' | translate }}</mat-label>
+                <input matInput formControlName="name" />
+                <mat-icon matPrefix>person</mat-icon>
+                @if (userForm.get('name')?.hasError('required')) {
+                  <mat-error>{{ 'users.validation.nameRequired' | translate }}</mat-error>
+                }
+                @if (userForm.get('name')?.hasError('maxlength')) {
+                  <mat-error>{{ 'users.validation.nameMaxLength' | translate }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'users.form.email' | translate }}</mat-label>
+                <input matInput formControlName="email" type="email" />
+                <mat-icon matPrefix>email</mat-icon>
+                @if (userForm.get('email')?.hasError('required')) {
+                  <mat-error>{{ 'users.validation.emailRequired' | translate }}</mat-error>
+                }
+                @if (userForm.get('email')?.hasError('email')) {
+                  <mat-error>{{ 'users.validation.emailInvalid' | translate }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'users.form.password' | translate }}</mat-label>
+                <input
+                  matInput
+                  formControlName="password"
+                  [type]="hidePassword() ? 'password' : 'text'"
+                />
+                <mat-icon matPrefix>lock</mat-icon>
+                <button
+                  type="button"
+                  mat-icon-button
+                  matSuffix
+                  (click)="togglePasswordVisibility()"
+                >
+                  <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                @if (userForm.get('password')?.hasError('required')) {
+                  <mat-error>{{ 'users.validation.passwordRequired' | translate }}</mat-error>
+                }
+                @if (userForm.get('password')?.hasError('minlength')) {
+                  <mat-error>{{ 'users.validation.passwordMinLength' | translate }}</mat-error>
+                }
+                @if (isEditMode()) {
+                  <mat-hint>{{ 'users.form.passwordHint' | translate }}</mat-hint>
+                }
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Role & Status Card -->
+        <mat-card class="form-card">
+          <mat-card-header>
+            <mat-card-title>{{ 'users.form.roleStatus' | translate }}</mat-card-title>
+            <mat-card-subtitle>{{ 'users.form.roleStatusDesc' | translate }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-fields">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>{{ 'users.form.role' | translate }}</mat-label>
+                <mat-select formControlName="rol">
+                  <mat-option value="SUPER_ADMIN">
+                    <mat-icon>workspace_premium</mat-icon>
+                    Super administrador - {{ 'users.roles.superAdminDesc' | translate }}
+                  </mat-option>
+                  <mat-option value="RECOLECTOR">
+                    <mat-icon>person</mat-icon>
+                    Recolector - {{ 'users.roles.recolectorDesc' | translate }}
+                  </mat-option>
+                  <mat-option value="PROJECT">
+                    <mat-icon>assignment_ind</mat-icon>
+                    Líder - {{ 'users.roles.projectDesc' | translate }}
+                  </mat-option>
+                  <mat-option value="ADMIN">
+                    <mat-icon>security</mat-icon>
+                    Administrador - {{ 'users.roles.adminDesc' | translate }}
+                  </mat-option>
+                </mat-select>
+                <mat-icon matPrefix>admin_panel_settings</mat-icon>
+              </mat-form-field>
+
+              <div class="checkbox-field">
+                <mat-checkbox formControlName="is_active" color="primary">
+                  {{ 'users.form.isActive' | translate }}
+                </mat-checkbox>
+                <p class="checkbox-hint">{{ 'users.form.isActiveHint' | translate }}</p>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Profile Info Card -->
+        <mat-card class="form-card full-width-card">
+          <mat-card-header>
+            <mat-card-title>{{ 'users.form.profileInfo' | translate }}</mat-card-title>
+            <mat-card-subtitle>{{ 'users.form.profileInfoDesc' | translate }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-fields two-columns">
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'users.form.phone' | translate }}</mat-label>
+                <input matInput formControlName="telefono" />
+                <mat-icon matPrefix>phone</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'users.form.position' | translate }}</mat-label>
+                <input matInput formControlName="cargo" />
+                <mat-icon matPrefix>work</mat-icon>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width-field">
+                <mat-label>{{ 'users.form.bio' | translate }}</mat-label>
+                <textarea matInput formControlName="bio" rows="3"></textarea>
+                <mat-icon matPrefix>description</mat-icon>
+                <mat-hint align="end">{{ userForm.get('bio')?.value?.length || 0 }}/500</mat-hint>
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a mat-stroked-button routerLink="/admin/usuarios">
+          {{ 'common.buttons.cancel' | translate }}
+        </a>
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+          @if (loading()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <ng-container>
+              <mat-icon>save</mat-icon>
+              {{
+                isEditMode()
+                  ? ('common.buttons.save' | translate)
+                  : ('common.buttons.create' | translate)
+              }}
+            </ng-container>
+          }
+        </button>
+      </div>
+    </form>
+  }
+</div>

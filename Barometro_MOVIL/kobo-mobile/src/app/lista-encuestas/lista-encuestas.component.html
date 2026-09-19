@@ -1,0 +1,49 @@
+<div class="lista-container">
+  <div class="top-bar">
+    <a routerLink="/" class="btn-back"><span class="arrow">⬅</span><span class="back-label"> {{ 'back' | translate }}</span></a>
+    <h2>{{ 'fill_form' | translate }}</h2>
+  </div>
+
+  @if (cargando) {
+    <p style="text-align:center;padding:2rem 1rem;color:var(--text-secondary);">{{ 'loading' | translate }}</p>
+  } @else if (errorCarga) {
+    <p style="text-align:center;padding:2rem 1rem;color:var(--danger);">{{ errorCarga }}</p>
+  } @else if (formularios.length === 0) {
+    <p style="text-align:center;padding:2rem 1rem;color:var(--text-secondary);">{{ 'no_forms' | translate }}</p>
+  } @else {
+    <p class="instrucciones">Seleccione la encuesta que desea aplicar en el campo:</p>
+
+    <div class="encuestas-list">
+      @for (form of formularios; track trackById($index, form)) {
+        <div class="encuesta-card" [class.completed]="form.completado">
+          <div class="encuesta-info">
+            <span class="encuesta-icon">{{ form.completado ? '✅' : '📊' }}</span>
+            <div class="encuesta-detalles">
+              <h3>{{ form.title }}</h3>
+              <p>Preguntas: {{ form.questions.length }} | {{ form.description }}</p>
+              @if (form.target_responses && form.target_responses > 0) {
+                <div class="target-progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" [class.full]="form.completado" [style.width.%]="form.enviadosCount / form.target_responses * 100"></div>
+                  </div>
+                  <span class="progress-text">{{ form.enviadosCount }} / {{ form.target_responses }} respuestas</span>
+                </div>
+              }
+              @if (form.completado) {
+                <p class="completed-text">Límite alcanzado. Espera reactivación del administrador.</p>
+              }
+            </div>
+          </div>
+
+          <div class="encuesta-actions">
+            @if (form.completado) {
+              <button class="btn-llenar disabled" disabled>{{ 'fill_form' | translate }}</button>
+            } @else {
+              <button class="btn-llenar" (click)="irALlenar(form.id)">{{ 'fill_form' | translate }}</button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

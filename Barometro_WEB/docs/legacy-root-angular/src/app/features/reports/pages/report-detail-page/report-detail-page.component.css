@@ -1,0 +1,20 @@
+.report-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem;
+  border-bottom: 1px solid #e2e8f0;
+}

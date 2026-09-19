@@ -1,0 +1,509 @@
+{
+  "common": {
+    "buttons": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "create": "Create",
+      "back": "Back",
+      "confirm": "Confirm",
+      "close": "Close",
+      "export": "Export",
+      "copy": "Copy",
+      "share": "Share",
+      "clone": "Clone",
+      "invite": "Invite",
+      "archive": "Archive",
+      "deploy": "Deploy",
+      "redeploy": "Deploy again",
+      "results": "Results",
+      "createForm": "Create form",
+      "newForm": "New form"
+    },
+    "labels": {
+      "actions": "Actions",
+      "search": "Search",
+      "project": "Project",
+      "form": "Form",
+      "members": "Members",
+      "forms": "Forms"
+    },
+    "messages": {
+      "loading": "Loading...",
+      "noData": "No data available",
+      "saving": "Saving...",
+      "loadingForm": "Loading form...",
+      "loadingResponses": "Loading responses..."
+    },
+    "validation": {
+      "required": "This field is required",
+      "email": "Enter a valid email"
+    }
+  },
+  "language": {
+    "select": "Select language"
+  },
+  "routes": {
+    "login": "Sign in - ULEAM Forms",
+    "dashboard": "My forms - ULEAM Forms",
+    "accountSettings": "Account settings - ULEAM Forms",
+    "newForm": "New form - ULEAM Forms",
+    "editForm": "Edit form - ULEAM Forms",
+    "formResponses": "Form responses - ULEAM Forms",
+    "projects": "Projects - ULEAM Forms",
+    "users": "Users - ULEAM Forms",
+    "newUser": "New user - ULEAM Forms",
+    "editUser": "Edit user - ULEAM Forms",
+    "collect": "Complete form - ULEAM Forms",
+    "profile": "My profile - ULEAM Forms"
+  },
+  "auth": {
+    "login": {
+      "title": "ULEAM Forms",
+      "subtitle": "Sign in to the data collection platform",
+      "email": "Email",
+      "emailPlaceholder": "email@uleam.edu.ec",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "inviteOnly": "Access is invitation-only. Request your credentials from an administrator.",
+      "errors": {
+        "invalidCredentials": "Invalid credentials",
+        "loginFailed": "Login failed"
+      }
+    },
+    "logout": "Sign out"
+  },
+  "layout": {
+    "header": {
+      "brand": "ULEAM Forms",
+      "brandSubtitle": "Data collection",
+      "menu": "Menu",
+      "themeLight": "Light mode",
+      "themeDark": "Dark mode",
+      "profile": "My profile",
+      "settings": "Settings",
+      "administrator": "Administrator"
+    },
+    "sidebar": {
+      "sectionForms": "Forms",
+      "myForms": "My forms",
+      "newForm": "New form",
+      "projects": "Projects",
+      "users": "Users"
+    }
+  },
+  "profile": {
+    "title": "My profile",
+    "subtitle": "Manage your personal information and account",
+    "personalInfo": "Personal information",
+    "personalInfoSubtitle": "Update your profile data",
+    "accountInfo": "Account information",
+    "fields": {
+      "name": "Full name",
+      "email": "Email",
+      "telefono": "Phone",
+      "cargo": "Position",
+      "bio": "Bio",
+      "role": "Role",
+      "createdAt": "Member since"
+    },
+    "placeholders": {
+      "bio": "Briefly tell us about yourself..."
+    },
+    "hints": {
+      "emailReadOnly": "Email cannot be changed"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameMaxLength": "Name cannot exceed 255 characters",
+      "telefonoMaxLength": "Phone cannot exceed 20 characters",
+      "cargoMaxLength": "Position cannot exceed 100 characters",
+      "bioMaxLength": "Bio cannot exceed 500 characters"
+    },
+    "avatar": {
+      "upload": "Upload image",
+      "delete": "Delete",
+      "hint": "Allowed formats: JPG, PNG, WebP. Max size: 2MB"
+    },
+    "roles": {
+      "superAdmin": "Super administrator",
+      "admin": "Administrator",
+      "project": "Project Manager",
+      "recolector": "Field Collector"
+    },
+    "messages": {
+      "updateSuccess": "Profile updated successfully",
+      "updateError": "Failed to update profile",
+      "avatarUpdated": "Profile picture updated",
+      "avatarDeleted": "Profile picture deleted",
+      "avatarError": "Failed to update picture",
+      "invalidFileType": "Invalid file format. Use JPG, PNG, or WebP",
+      "fileTooLarge": "File is too large. Max 2MB"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "Manage accounts and global permissions",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "createdAt": "Created"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "actions": {
+      "create": "Create user",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "changeRole": "Change role"
+    },
+    "roles": {
+      "superAdminDesc": "full control over users, settings and data",
+      "adminDesc": "manages projects, leaders and forms",
+      "projectDesc": "manages forms and access inside assigned projects",
+      "recolectorDesc": "collects data and edits only with explicit permission"
+    },
+    "form": {
+      "createTitle": "Create user",
+      "editTitle": "Edit user",
+      "createSubtitle": "Register a new account",
+      "editSubtitle": "Update account data",
+      "basicInfo": "Basic data",
+      "basicInfoDesc": "Main credentials",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "Leave empty to keep the current one",
+      "roleStatus": "Role and status",
+      "roleStatusDesc": "Global platform permissions",
+      "role": "Role",
+      "isActive": "Active user",
+      "isActiveHint": "Inactive users cannot sign in",
+      "profileInfo": "Profile",
+      "profileInfoDesc": "Optional user data",
+      "phone": "Phone",
+      "position": "Position",
+      "bio": "Bio"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameMaxLength": "Name cannot exceed 255 characters",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Enter a valid email",
+      "passwordRequired": "Password is required",
+      "passwordMinLength": "Password must have at least 8 characters"
+    },
+    "confirmToggle": {
+      "title": "Change status",
+      "message": "Do you want to {{action}} {{name}}?"
+    },
+    "confirmRole": {
+      "title": "Change role",
+      "message": "Do you want to assign {{role}} to {{name}}?"
+    },
+    "confirmDelete": {
+      "title": "Delete user",
+      "message": "Do you want to delete {{name}}?"
+    },
+    "messages": {
+      "loadError": "Failed to load users",
+      "statusUpdated": "Status updated",
+      "statusError": "Failed to change status",
+      "roleUpdated": "Role updated",
+      "roleError": "Failed to change role",
+      "deleted": "User deleted",
+      "deleteError": "Failed to delete user",
+      "created": "User created",
+      "createError": "Failed to create user",
+      "updated": "User updated",
+      "updateError": "Failed to update user",
+      "noUsers": "No registered users"
+    }
+  },
+  "forms": {
+    "dashboard": {
+      "title": "My forms",
+      "subtitle": "Manage your forms by status and project",
+      "searchPlaceholder": "Search by title or description...",
+      "emptyTitle": "No forms in this category",
+      "emptySubtitle": "Switch tabs to view other statuses.",
+      "loading": "Loading forms...",
+      "responsesCount": "{{count}} responses",
+      "createdBy": "Created by",
+      "noProject": "No project",
+      "noOwner": "No creator",
+      "deletePermanentWarning": "You are about to permanently delete \"{{title}}\". The form, its questions, data, and responses will be deleted. This action cannot be undone.",
+      "updatedAt": "Updated: {{date}}",
+      "publicLinkTitle": "Collection link",
+      "publicLinkSubtitle": "Use this link in the mobile app or browser to collect responses.",
+      "shareTitle": "Share form",
+      "shareSubtitle": "Assign permissions to a registered collector user",
+      "shareEmailPlaceholder": "User email",
+      "sharedUsers": "Users with access",
+      "removeAccess": "Remove access",
+      "userFallback": "User",
+      "share": {
+        "emailLabel": "User email",
+        "roleLabel": "Role",
+        "targetLabel": "Target responses",
+        "targetPlaceholder": "Ex: 10",
+        "searchingUser": "Searching user...",
+        "userNotFound": "No user found with that email.",
+        "assign": "Assign user",
+        "adding": "Adding...",
+        "noAssignedUsers": "There are no users assigned to this form.",
+        "nameColumn": "Name",
+        "emailColumn": "Email",
+        "roleColumn": "Role",
+        "progressColumn": "Progress",
+        "editorPermission": "Edit permission",
+        "noLimit": "No limit",
+        "saving": "...",
+        "completed": "Completed",
+        "reactivate": "Reactivate",
+        "defineLimit": "Set limit"
+      },
+      "tabs": {
+        "DRAFT": "Draft",
+        "DEPLOYED": "Deployed",
+        "ARCHIVED": "Archived"
+      },
+      "actions": {
+        "edit": "Edit",
+        "more": "More options",
+        "viewLink": "View link"
+      },
+      "roles": {
+        "PROJECT": "Project Manager",
+        "RECOLECTOR": "Collector"
+      },
+      "errors": {
+        "load": "Failed to load forms",
+        "deploy": "Failed to deploy form",
+        "archive": "Failed to archive form",
+        "delete": "Failed to delete form",
+        "clone": "Failed to clone form",
+        "shareEmail": "Enter a valid email",
+        "share": "Failed to share form",
+        "updateShare": "Failed to update target",
+        "removeShare": "Failed to remove access"
+      }
+    },
+    "builder": {
+      "eyebrow": "Form builder",
+      "newTitle": "New form",
+      "editTitle": "Edit form",
+      "subtitle": "Design the questionnaire, add questions, and save the draft before deploying it.",
+      "back": "My forms",
+      "saveDraft": "Save draft",
+      "deployedWarning": "This form is already deployed. The backend does not allow question changes.",
+      "noProjects": "There are no projects available to create forms.",
+      "selectProject": "Select a project",
+      "titleLabel": "Form title *",
+      "titlePlaceholder": "E.g. Community satisfaction survey",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Add context for respondents",
+      "flowModeLabel": "Step-by-step mode",
+      "flowModeDescription": "Show one question at a time and allow conditional jumps between paths.",
+      "addQuestions": "Add questions",
+      "addQuestion": "Add question",
+      "addSection": "Add section",
+      "sectionPlaceholder": "Section name",
+      "sectionLabel": "Section",
+      "sectionNone": "No section",
+      "untitledSection": "Untitled section",
+      "sectionEmpty": "Add questions to this section to get started.",
+      "sectionQuestionCount": "{{count}} question(s)",
+      "deleteSection": "Delete section",
+      "unassignedSection": "Unassigned",
+      "editMenu": "Editing",
+      "questionCount": "{{count}} question(s) in the draft",
+      "emptyQuestions": "Add a question to start building the form.",
+      "order": "Order {{order}}",
+      "moveUp": "Move question up",
+      "moveDown": "Move question down",
+      "dragToReorder": "Drag to reorder",
+      "addSubquestion": "Add subquestion",
+      "deleteQuestion": "Delete question",
+      "typeLabel": "Question type",
+      "questionLabel": "Question *",
+      "questionPlaceholder": "Write the question",
+      "optionsLabel": "Options *",
+      "addOption": "Add option",
+      "optionPlaceholder": "Answer option",
+      "deleteOption": "Delete option",
+      "branchingTitle": "Conditional branches",
+      "branchingHelp": "Define what should happen for each answer.",
+      "branchingStepHint": "Enable step-by-step mode to apply these rules during collection.",
+      "branch": {
+        "end": "Continue with the next question",
+        "selectTarget": "Select a target question",
+        "actions": {
+          "CONTINUE": "Continue to the next question",
+          "GO_TO": "Go to a specific question",
+          "END_FORM": "Finish form"
+        }
+      },
+      "likert": {
+        "titleLabel": "Scale title",
+        "titlePlaceholder": "E.g. Satisfaction level",
+        "matrixLabel": "Likert matrix *",
+        "rowsLabel": "Questions",
+        "addRow": "Add row",
+        "addColumn": "Add column",
+        "rowPlaceholder": "Question or statement",
+        "columnPlaceholder": "Answer",
+        "deleteRow": "Delete row",
+        "deleteColumn": "Delete column",
+        "emptyRow": "Empty row"
+      },
+      "required": "Required question",
+      "previewTitle": "Preview",
+      "previewSubtitle": "This is how respondents will see it.",
+      "previewOpen": "Preview",
+      "previewModeLabel": "Choose how it will look during collection",
+      "previewDeviceMobile": "Mobile",
+      "previewDeviceWeb": "Web",
+      "previewMore": "View {{ count }} more question(s)",
+      "previewLikertSummary": "Likert scale matrix",
+      "previewFormTitle": "Form title",
+      "previewDescription": "Optional form description",
+      "previewEmpty": "Questions will appear here.",
+      "untitledQuestion": "Untitled question",
+      "shortAnswer": "Short answer",
+      "emptyOption": "Empty option",
+      "types": {
+        "SINGLE_CHOICE": "Single choice",
+        "MULTIPLE_CHOICE": "Multiple choice",
+        "LIKERT": "Likert scale",
+        "TEXT": "Text",
+        "NUMBER": "Number"
+      },
+      "hints": {
+        "SINGLE_CHOICE": "One answer",
+        "MULTIPLE_CHOICE": "Several answers",
+        "LIKERT": "Agreement level",
+        "TEXT": "Open answer",
+        "NUMBER": "Numeric value"
+      },
+      "messages": {
+        "invalid": "Select a project and complete the title, questions, and options before saving",
+        "saved": "Draft saved successfully"
+      },
+      "errors": {
+        "load": "Failed to load form",
+        "save": "Failed to save form"
+      }
+    },
+    "responses": {
+      "back": "Back to forms",
+      "title": "Responses",
+      "subtitle": "{{count}} response(s) received",
+      "exportCsv": "Export CSV",
+      "exportExcel": "Export Excel",
+      "loading": "Loading responses...",
+      "chartsTitle": "Graphic summary",
+      "distribution": "Distribution",
+      "chartTypes": {
+        "SINGLE_CHOICE": "Single choice",
+        "MULTIPLE_CHOICE": "Multiple choice",
+        "LIKERT": "Likert scale",
+        "TEXT": "Text",
+        "NUMBER": "Number"
+      },
+      "chart": {
+        "noData": "No data to chart",
+        "totalSelections": "Total selections",
+        "mainAnswer": "Main answer",
+        "responses": "responses",
+        "topFrequency": "Top frequency"
+      },
+      "tableTitle": "Collected data",
+      "empty": "There are no responses for this form yet.",
+      "emptyHint": "Share the collection link to start receiving data.",
+      "submitted": "Submission date",
+      "previewAction": "View response",
+      "previewEyebrow": "Answered preview",
+      "previewTitle": "Recorded response",
+      "previewSubmittedAt": "Submitted on",
+      "noAnswer": "No answer",
+      "filePrefix": "form",
+      "fileSuffix": "responses",
+      "errors": {
+        "load": "Failed to load responses",
+        "export": "Failed to export data"
+      }
+    },
+    "collect": {
+      "loading": "Loading form...",
+      "stepMode": "Complete the current question to continue.",
+      "sectionGeneral": "General section",
+      "subquestion": "Subquestion",
+      "back": "Back",
+      "next": "Next",
+      "finish": "Finish",
+      "submittedTitle": "Response sent",
+      "submittedText": "Thank you for completing the form.",
+      "sendAnother": "Send another response",
+      "textPlaceholder": "Write your answer...",
+      "submitting": "Sending...",
+      "submit": "Submit responses",
+      "errors": {
+        "invalidLink": "Invalid link",
+        "load": "Could not load the form. Check the link.",
+        "submit": "Failed to submit the response. Try again.",
+        "required": "This question is required.",
+        "requiredLikert": "Answer every row in this scale."
+      }
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "View projects, forms, and assigned members.",
+    "name": "Name",
+    "description": "Description",
+    "leader": "Project leader",
+    "create": "Create",
+    "save": "Save",
+    "noVisible": "No visible projects",
+    "noDescription": "No description",
+    "formsCount": "{{count}} form(s)",
+    "selectPrompt": "Select a project to view its forms and members.",
+    "newForm": "New form",
+    "deleteProjectButton": "Delete project",
+    "formStates": {
+      "DRAFT": "Draft",
+      "DEPLOYED": "Deployed",
+      "ARCHIVED": "Archived"
+    },
+    "visibleFormsEmpty": "There are no visible forms for this project.",
+    "membersCount": "{{count}} members",
+    "noMembers": "No members assigned yet.",
+    "editProject": "Edit project",
+    "projectScope": "Project",
+    "formScope": "Form",
+    "roles": {
+      "PROJECT": "Project Manager",
+      "RECOLECTOR": "Collector"
+    },
+    "scopes": {
+      "project": "Project",
+      "form": "Form"
+    },
+    "messages": {
+      "created": "Project created",
+      "updated": "Project updated"
+    },
+    "errors": {
+      "load": "Failed to load projects",
+      "loadProject": "Failed to load project",
+      "save": "Failed to save project"
+    }
+  }
+}

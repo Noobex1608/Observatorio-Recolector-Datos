@@ -1,0 +1,36 @@
+<div class="perfil-container">
+  <div class="form-header">
+    <button class="btn-cancelar" (click)="regresar()">← {{ 'back' | translate }}</button>
+    <h2>{{ 'settings' | translate }} — Perfil</h2>
+  </div>
+
+  @if (cargando) {
+    <p style="text-align:center;padding:2rem;color:var(--text-secondary);">{{ 'loading' | translate }}</p>
+  } @else {
+    <div class="perfil-form">
+      <div class="campo">
+        <label>Nombre *</label>
+        <input type="text" [(ngModel)]="nombre" class="form-input" placeholder="Tu nombre" />
+      </div>
+      <div class="campo">
+        <label>Email</label>
+        <input type="email" [value]="email" class="form-input disabled" disabled />
+      </div>
+      <div class="campo">
+        <label>Teléfono</label>
+        <input type="tel" [(ngModel)]="telefono" class="form-input" placeholder="0999999999" />
+      </div>
+      <div class="campo">
+        <label>Cargo</label>
+        <input type="text" [(ngModel)]="cargo" class="form-input" placeholder="Ej. Ingeniero" />
+      </div>
+      <div class="campo">
+        <label>Bio</label>
+        <textarea [(ngModel)]="bio" class="form-input textarea" rows="3" placeholder="Acerca de ti..."></textarea>
+      </div>
+      <button class="btn-guardar" [disabled]="guardando || !nombre.trim()" (click)="guardar()">
+        {{ guardando ? 'Guardando...' : ('save_draft' | translate) }}
+      </button>
+    </div>
+  }
+</div>

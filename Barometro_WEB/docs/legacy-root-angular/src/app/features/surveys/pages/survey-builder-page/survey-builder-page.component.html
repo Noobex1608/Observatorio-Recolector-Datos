@@ -1,0 +1,214 @@
+<section class="builder">
+  <header class="builder-header">
+    <h2>{{ pageTitle() }}</h2>
+    <div class="header-actions">
+      @if (canManageShares()) {
+        <button type="button" class="share-btn" (click)="openShareModal()">
+          Compartir
+        </button>
+      }
+      <button type="button" (click)="save()" [disabled]="isFormInvalid()">
+        {{ saving() ? 'Guardando...' : 'Guardar formulario' }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p>Cargando formulario...</p>
+  } @else {
+    <form [formGroup]="form" class="survey-form">
+      <label>
+        Título
+        <input type="text" formControlName="title" (input)="dirty.set(true)" />
+      </label>
+
+      <label>
+        Descripción
+        <textarea rows="3" formControlName="description" (input)="dirty.set(true)"></textarea>
+      </label>
+
+      <label>
+        Estado
+        <select formControlName="status" (change)="dirty.set(true)">
+          @for (status of statusOptions; track status) {
+            <option [value]="status">{{ statusLabel(status) }}</option>
+          }
+        </select>
+      </label>
+    </form>
+
+    <section class="question-toolbar">
+      <h3>Preguntas ({{ questions().length }})</h3>
+      <div class="actions">
+        <select [value]="selectedType()" (change)="selectType($event)">
+          @for (type of questionTypes; track type) {
+            <option [value]="type">{{ questionTypeLabel(type) }}</option>
+          }
+        </select>
+        <button type="button" (click)="addQuestion()">Agregar pregunta</button>
+      </div>
+    </section>
+
+    <div class="question-list">
+      @for (question of questions(); track trackByQuestionId($index, question)) {
+        <article class="question-card">
+          <header>
+            <strong>#{{ question.order }} {{ questionTypeLabel(question.type) }}</strong>
+            <div class="card-actions">
+              <button type="button" (click)="moveQuestion(question.id, 'up')">↑</button>
+              <button type="button" (click)="moveQuestion(question.id, 'down')">↓</button>
+              <button type="button" (click)="removeQuestion(question.id)">Eliminar</button>
+            </div>
+          </header>
+
+          <label>
+            Enunciado
+            <input
+              type="text"
+              [value]="question.label"
+              (input)="updateQuestionLabel(question.id, $any($event.target).value)"
+            />
+          </label>
+
+          <label class="inline">
+            <input
+              type="checkbox"
+              [checked]="question.required"
+              (change)="toggleRequired(question.id, $any($event.target).checked)"
+            />
+            Obligatoria
+          </label>
+
+          @if (question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE') {
+            <div class="options">
+              <p>Opciones</p>
+              @for (option of question.options; track option.id) {
+                <input
+                  type="text"
+                  [value]="option.label"
+                  (input)="updateOptionLabel(question.id, option.id, $any($event.target).value)"
+                />
+              }
+              <button type="button" (click)="addOption(question.id)">+ Opción</button>
+            </div>
+          }
+        </article>
+      }
+
+      @if (questions().length === 0) {
+        <p class="empty">Aún no hay preguntas. Agrega la primera para comenzar.</p>
+      }
+    </div>
+  }
+</section>
+
+@if (shareModalOpen()) {
+  <div class="modal-backdrop" (click)="onBackdropClick($event)">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Compartir formulario</h3>
+        <button type="button" class="modal-close" (click)="closeShareModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <form class="share-form" [formGroup]="shareForm" (ngSubmit)="addShare()">
+          <label>
+            Usuario
+            <select formControlName="userId">
+              <option [ngValue]="null" disabled>Seleccionar usuario</option>
+              @for (user of users(); track user.id) {
+                <option [ngValue]="user.id">{{ user.name }} ({{ user.email }})</option>
+              }
+            </select>
+          </label>
+          <label>
+            Rol
+            <select formControlName="role">
+              <option value="RECOLECTOR">Recolector</option>
+              <option value="EDITOR">Editor</option>
+            </select>
+          </label>
+          <label>
+            Respuestas objetivo
+            <input
+              type="number"
+              formControlName="targetResponses"
+              placeholder="Ej: 10"
+              min="1"
+            />
+          </label>
+          <button type="submit" [disabled]="addingShare()" class="assign-btn">
+            {{ addingShare() ? 'Agregando...' : 'Asignar' }}
+          </button>
+        </form>
+
+        <hr />
+
+        <h4>Usuarios asignados</h4>
+        @if (loadingShares()) {
+          <p>Cargando...</p>
+        } @else if (shares().length === 0) {
+          <p class="empty">No hay usuarios asignados.</p>
+        } @else {
+          <table class="shares-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Progreso</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (share of shares(); track share.id) {
+                <tr [class.completed-row]="share.targetResponses && share.targetResponses > 0 && share.responsesCount >= share.targetResponses">
+                  <td>{{ share.userName }}</td>
+                  <td>{{ share.userEmail }}</td>
+                  <td>{{ share.role === 'EDITOR' ? 'Editor' : 'Recolector' }}</td>
+                  <td>
+                    @if (editingShareId() === share.id) {
+                      <div class="inline-edit">
+                        <input
+                          type="number"
+                          [value]="editTargetValue()"
+                          (input)="editTargetValue.set($any($event.target).value)"
+                          min="1"
+                          placeholder="Sin límite"
+                          class="target-input"
+                        />
+                        <button type="button" class="save-target-btn" (click)="saveEditTarget(share.id)" [disabled]="savingTarget()">
+                          {{ savingTarget() ? '...' : 'Guardar' }}
+                        </button>
+                        <button type="button" class="cancel-target-btn" (click)="cancelEditTarget()">Cancelar</button>
+                      </div>
+                    } @else {
+                      @if (share.targetResponses && share.targetResponses > 0) {
+                        <div class="progress-bar">
+                          <div class="progress-fill" [class.full]="share.responsesCount >= share.targetResponses" [style.width.%]="progressPercent(share)"></div>
+                        </div>
+                        <span class="progress-text">{{ share.responsesCount }} / {{ share.targetResponses }}</span>
+                        @if (share.responsesCount >= share.targetResponses) {
+                          <span class="completed-badge">Completado</span>
+                          <button type="button" class="reactivate-btn" (click)="startEditTarget(share)">Reactivar</button>
+                        } @else {
+                          <button type="button" class="edit-target-btn" (click)="startEditTarget(share)">Editar</button>
+                        }
+                      } @else {
+                        <span>{{ share.responsesCount }} respuestas</span>
+                        <button type="button" class="edit-target-btn" (click)="startEditTarget(share)">Definir límite</button>
+                      }
+                    }
+                  </td>
+                  <td>
+                    <button type="button" class="danger" (click)="removeShare(share.id)">Retirar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+}

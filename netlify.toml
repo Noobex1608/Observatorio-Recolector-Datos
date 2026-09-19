@@ -1,0 +1,9 @@
+# Netlify configuration to run Bun build in Barometro_WEB/frontend
+[build]
+  base = "Barometro_WEB/frontend"
+  command = "bun install && bun run build"
+  publish = "dist/frontend/browser"
+
+# Ensure Netlify uses the Angular runtime plugin (installed via Netlify UI)
+[[plugins]]
+  package = "@netlify/angular-runtime"

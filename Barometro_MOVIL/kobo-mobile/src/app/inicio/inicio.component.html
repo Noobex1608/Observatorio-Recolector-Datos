@@ -1,0 +1,214 @@
+<div class="header-superior">
+  <div class="server-url-display">
+    <p class="server-label">{{ urlServidor }}</p>
+  </div>
+  
+  <div class="header-actions">
+    <button class="header-action-btn" (click)="theme.toggleLang()" [title]="theme.lang() === 'es' ? 'Switch to English' : 'Cambiar a español'">
+      {{ theme.lang() === 'es' ? 'ES' : 'EN' }}
+    </button>
+    <button class="header-action-btn" (click)="theme.toggleTheme()" [title]="theme.darkMode() ? 'Modo claro' : 'Modo oscuro'">
+      {{ theme.darkMode() ? '☀️' : '🌙' }}
+    </button>
+  </div>
+
+  <div class="avatar-container">
+    <button class="avatar-btn" (click)="toggleMenuPerfil()" title="Menú de perfil">
+      {{ inicialUsuario }}
+    </button>
+    
+    @if (mostrarMenuPerfil) {
+      <div class="menu-perfil">
+        <div class="menu-header">
+          <h3>{{ nombreUsuario }}</h3>
+          <button class="close-menu" (click)="cerrarMenuPerfil()">✕</button>
+        </div>
+        <div class="menu-opciones">
+          <button class="menu-item" (click)="cerrarMenuPerfil(); irPerfil()">
+            <span class="icon">👤</span> Perfil
+          </button>
+          <button class="menu-item" (click)="cerrarMenuPerfil(); irAjustes()">
+            <span class="icon">⚙️</span> {{ 'settings' | translate }}
+          </button>
+          <button class="menu-item" (click)="cerrarMenuPerfil(); verAcercaDe()">
+            <span class="icon">ℹ️</span> {{ 'about' | translate }}
+          </button>
+          <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border);">
+          <button class="menu-item logout" (click)="cerrarMenuPerfil(); cerrarSesion()">
+            <span class="icon">🚪</span> {{ 'logout' | translate }}
+          </button>
+        </div>
+      </div>
+      <div class="menu-overlay" (click)="cerrarMenuPerfil()"></div>
+    }
+  </div>
+</div>
+
+<div class="connection-wrapper">
+@if (isOnline) {
+  <div class="connection-status online">
+    <span class="status-dot"></span> {{ 'online' | translate }}
+  </div>
+} @else {
+  <div class="connection-status offline">
+    <span class="status-dot"></span> {{ 'offline' | translate }}
+  </div>
+}
+</div>
+
+<div class="kobo-menu">
+
+  <a routerLink="/lista" class="btn-nuevo-formulario">
+    <span class="icono-mas">+</span> {{ 'fill_form' | translate }}
+  </a>
+
+  <div class="opciones-lista">
+
+    <button type="button" class="opcion-item" (click)="abrirSeccion('Borradores')">
+      <span class="opcion-icono">✏️</span>
+      <span class="opcion-texto">{{ 'drafts' | translate }}</span>
+      @if (cantidadBorradores > 0) {
+        <span class="badge-count">{{ cantidadBorradores }}</span>
+      }
+    </button>
+
+    <button type="button" class="opcion-item" (click)="abrirSeccion('Listo para enviar')">
+      <span class="opcion-icono">📨</span>
+      <span class="opcion-texto">{{ 'ready_to_send' | translate }}</span>
+      @if (cantidadListos > 0) {
+        <span class="badge-count">{{ cantidadListos }}</span>
+      }
+    </button>
+
+    <button type="button" class="opcion-item" (click)="abrirSeccion('Enviado')">
+      <span class="opcion-icono">✅</span>
+      <span class="opcion-texto">{{ 'sent' | translate }}</span>
+    </button>
+
+    <button type="button" class="opcion-item" (click)="iniciarDescarga()" [disabled]="descargandoSeleccion">
+      <span class="opcion-icono">⬇️</span>
+      <span class="opcion-texto">{{ 'download_form' | translate }}</span>
+      @if (cantidadDescargados > 0) {
+        <span class="badge-count">{{ cantidadDescargados }}</span>
+      }
+    </button>
+
+    <button type="button" class="opcion-item peligro" (click)="abrirSeccion('Borrar formulario')" [disabled]="borrandoSeleccion">
+      <span class="opcion-icono">🗑️</span>
+      <span class="opcion-texto">{{ 'delete_form' | translate }}</span>
+      @if (cantidadDescargados > 0) {
+        <span class="badge-count danger">{{ cantidadDescargados }}</span>
+      }
+    </button>
+
+  </div>
+
+  <p class="version-app">{{ 'app_title' | translate }} {{ 'version' | translate }}</p>
+</div>
+
+@if (mostrarSelectorDescarga) {
+  <div class="modal-overlay" style="display:flex;align-items:center;justify-content:center;">
+    <div class="selector-panel">
+      <div class="selector-header">
+        <h3 style="margin:0;">⬇️ {{ 'download_form' | translate }}</h3>
+        <button class="close-modal" (click)="cancelarDescarga()">✕</button>
+      </div>
+      <p class="selector-sub">Selecciona los formularios que deseas descargar del servidor:</p>
+
+      <div class="selector-toolbar">
+        <button class="selector-btn selector-btn-outline" (click)="seleccionarTodosLosFormularios()">
+          {{ seleccionDescarga.size === formulariosDisponibles.length ? ('deselect_all' | translate) : ('select_all' | translate) }}
+        </button>
+        <span class="selector-count">{{ seleccionDescarga.size }} / {{ formulariosDisponibles.length }}</span>
+      </div>
+
+      <div class="selector-lista">
+        @for (f of formulariosDisponibles; track f.id) {
+          <label class="selector-item" [class.checked]="seleccionDescarga.has(f.id)">
+            <div class="selector-check">
+              <div class="custom-cbx" [class.active]="seleccionDescarga.has(f.id)"></div>
+              <input type="checkbox" [checked]="seleccionDescarga.has(f.id)" (change)="toggleSeleccionDescarga(f.id)" style="display:none;">
+            </div>
+            <span class="selector-label">{{ f.title }}</span>
+          </label>
+        }
+      </div>
+
+      <div class="selector-actions">
+        <button class="selector-btn selector-btn-primary" (click)="confirmarDescarga()" [disabled]="seleccionDescarga.size === 0">
+          ⬇️ {{ 'download' | translate }} {{ seleccionDescarga.size > 0 ? '(' + seleccionDescarga.size + ')' : '' }}
+        </button>
+        <button class="selector-btn selector-btn-cancel" (click)="cancelarDescarga()">{{ 'cancel' | translate }}</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (mostrarSelectorBorrar) {
+  <div class="modal-overlay" style="display:flex;align-items:center;justify-content:center;">
+    <div class="selector-panel">
+      <div class="selector-header">
+        <h3 style="margin:0;">🗑️ {{ 'delete_form' | translate }}</h3>
+        <button class="close-modal" (click)="cancelarBorrar()">✕</button>
+      </div>
+      <p class="selector-sub">{{ 'delete_local_only' | translate }}:</p>
+
+      <div class="selector-toolbar">
+        <button class="selector-btn selector-btn-outline" (click)="seleccionarTodosBorrar()">
+          {{ seleccionBorrar.size === formulariosLocales.length ? ('deselect_all' | translate) : ('select_all' | translate) }}
+        </button>
+        <span class="selector-count">{{ seleccionBorrar.size }} / {{ formulariosLocales.length }}</span>
+      </div>
+
+      <div class="selector-lista">
+        @for (f of formulariosLocales; track f.id) {
+          <label class="selector-item" [class.checked]="seleccionBorrar.has(f.id)">
+            <div class="selector-check">
+              <div class="custom-cbx" [class.active]="seleccionBorrar.has(f.id)"></div>
+              <input type="checkbox" [checked]="seleccionBorrar.has(f.id)" (change)="toggleSeleccionBorrar(f.id)" style="display:none;">
+            </div>
+            <span class="selector-label">{{ f.title }}</span>
+            <span class="selector-meta">Descargado {{ f.downloadedAt | date:'short' }}</span>
+          </label>
+        }
+      </div>
+
+      <div class="selector-actions">
+        <button class="selector-btn selector-btn-danger" (click)="confirmarBorrar()" [disabled]="seleccionBorrar.size === 0">
+          🗑️ {{ 'delete' | translate }} {{ seleccionBorrar.size > 0 ? '(' + seleccionBorrar.size + ')' : '' }}
+        </button>
+        <button class="selector-btn selector-btn-cancel" (click)="cancelarBorrar()">{{ 'cancel' | translate }}</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (descargandoSeleccion) {
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <div class="spinner"></div>
+      <h3>{{ 'loading' | translate }}</h3>
+      <p>Guardando plantillas en el dispositivo...</p>
+    </div>
+  </div>
+}
+
+@if (borrandoSeleccion) {
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <div class="spinner"></div>
+      <h3>{{ 'delete' | translate }}...</h3>
+      <p>Eliminando plantillas del dispositivo.</p>
+    </div>
+  </div>
+}
+
+@if (enviando) {
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <div class="spinner" style="border-top-color: var(--primary);"></div>
+      <h3 style="color: var(--primary);">Subiendo datos...</h3>
+      <p>Enviando al servidor central.</p>
+    </div>
+  </div>
+}

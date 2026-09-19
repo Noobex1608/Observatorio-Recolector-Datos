@@ -1,0 +1,307 @@
+<div class="formulario-container">
+  <div class="form-header">
+    <a routerLink="/lista" class="btn-cancelar">✕ {{ 'cancel' | translate }}</a>
+    <h2>{{ formulario ? formulario.title : ('loading' | translate) }}</h2>
+  </div>
+
+  @if (cargando) {
+    <p style="text-align:center;padding:2rem;">Cargando formulario...</p>
+  } @else if (targetAlcanzado) {
+    <div style="text-align:center;padding:3rem 1.5rem;">
+      <p style="font-size:2rem;margin-bottom:1rem;">✅</p>
+      <h3 style="margin-bottom:0.5rem;">Límite de respuestas alcanzado</h3>
+      <p style="color:var(--text-secondary);margin-bottom:1.5rem;">Has completado todas las respuestas asignadas para este formulario. Espera a que el administrador lo reactive.</p>
+      <a routerLink="/lista" class="btn-cancelar" style="display:inline-block;padding:10px 20px;">Volver a la lista</a>
+    </div>
+  } @else if (errorCarga) {
+    <p style="text-align:center;padding:2rem;color:#c62828;">{{ errorCarga }}</p>
+  } @else if (formulario) {
+    <div class="meta-info">
+      <p><strong>Cuestionario:</strong> {{ formulario.title }}</p>
+      <p><small>ID: #{{ formulario.id | slice:0:8 }} • Inició: {{ tiempoInicioFormato }}</small></p>
+    </div>
+
+    <form (ngSubmit)="guardarFormulario()" class="form-body">
+      @if (formulario.step_by_step) {
+        @if (flujoFinalizado) {
+          <div class="finalizado-panel">
+            <p class="finalizado-icon">🎉</p>
+            <h3>Encuesta completa</h3>
+            <p>Has llegado al final de la encuesta. Revisa tus respuestas antes de enviar o guarda el borrador.</p>
+            <div class="finalizado-actions">
+              <button type="button" class="btn-secondary" (click)="retrocederPregunta()" [disabled]="preguntaActualIndex === 0">Atrás</button>
+              <button type="button" class="btn-guardar" (click)="guardarBorrador()">💾 Guardar borrador</button>
+              <button type="submit" class="btn-guardar">✅ Enviar formulario</button>
+            </div>
+          </div>
+        } @else {
+          <div class="stepper-header">
+            <div>
+              <p class="meta-label">{{ pasoActualTexto }}</p>
+              <p class="meta-sub">Responde una pregunta a la vez para avanzar.</p>
+            </div>
+            <div class="progress-pill">{{ preguntaActualIndex + 1 }} / {{ formulario.questions.length }}</div>
+          </div>
+
+          @if (preguntaActual) {
+            <div class="pregunta-box step-card">
+              <label class="pregunta-label">
+                {{ preguntaActual!.order + 1 }}. {{ preguntaActual!.label }}
+                @if (preguntaActual!.required) { <span class="required-star">*</span> }
+              </label>
+
+              @if (preguntaActual!.type === 'TEXT') {
+                <input
+                  type="text"
+                  [name]="preguntaActual!.id"
+                  [(ngModel)]="respuestas[preguntaActual!.id]"
+                  placeholder="Escriba aquí..."
+                  class="form-input"
+                />
+              }
+
+              @if (preguntaActual!.type === 'NUMBER') {
+                <input
+                  type="number"
+                  [name]="preguntaActual!.id"
+                  [(ngModel)]="respuestas[preguntaActual!.id]"
+                  placeholder="Ej. 25"
+                  min="0"
+                  class="form-input"
+                />
+              }
+
+              @if (preguntaActual!.type === 'SINGLE_CHOICE') {
+                <div class="option-group">
+                  @for (opcion of preguntaActual!.options; track opcion) {
+                    <label class="radio-option">
+                      <input
+                        type="radio"
+                        [name]="preguntaActual!.id"
+                        [value]="opcion"
+                        [(ngModel)]="respuestas[preguntaActual!.id]"
+                        (change)="onSingleChoiceChange(preguntaActual!.id, opcion)"
+                      />
+                      <span class="radio-text">{{ opcion }}</span>
+                    </label>
+                  }
+                </div>
+              }
+
+              @if (preguntaActual!.type === 'MULTIPLE_CHOICE') {
+                <div class="option-group">
+                  @for (opcion of preguntaActual!.options; track opcion) {
+                    <label class="radio-option">
+                      <input
+                        type="checkbox"
+                        [name]="preguntaActual!.id + '-' + opcion"
+                        [value]="opcion"
+                        (change)="onCheckboxChange(preguntaActual!.id, opcion, $event)"
+                      />
+                      <span class="radio-text">{{ opcion }}</span>
+                    </label>
+                  }
+                </div>
+              }
+
+              @if (preguntaActual!.type === 'LIKERT') {
+                <div class="likert-table" style="overflow-x:auto;margin-top:8px;">
+                  <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                    <thead>
+                      <tr>
+                        <th style="text-align:left;padding:6px 8px;"></th>
+                        @for (col of preguntaActual!.likert_columns; track col) {
+                          <th style="text-align:center;padding:6px 8px;font-weight:500;">{{ col }}</th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of preguntaActual!.likert_rows; track trackByRow($index, row)) {
+                        <tr>
+                          <td style="padding:6px 8px;">{{ row }}</td>
+                          @for (col of preguntaActual!.likert_columns; track col) {
+                            <td style="text-align:center;padding:4px;">
+                              <input
+                                type="radio"
+                                [name]="preguntaActual!.id + '-' + row"
+                                [value]="col"
+                                [(ngModel)]="respuestas[preguntaActual!.id][row]"
+                              />
+                            </td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
+              @if (preguntaActual!.type === 'SIGNATURE') {
+                <app-question-signature
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onSignatureChange(preguntaActual!.id, $event)"
+                ></app-question-signature>
+              }
+
+              @if (preguntaActual!.type === 'GPS') {
+                <app-question-gps
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onGpsChange(preguntaActual!.id, $event)"
+                ></app-question-gps>
+              }
+            </div>
+          }
+
+          <div class="step-footer">
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="retrocederPregunta()"
+              [disabled]="preguntaActualIndex === 0"
+            >
+              ← Atrás
+            </button>
+            <div class="step-actions">
+              <button type="button" class="btn-secondary" (click)="guardarBorrador()">💾 Guardar borrador</button>
+              <button
+                type="button"
+                class="btn-guardar"
+                [disabled]="!puedeAvanzar"
+                (click)="avanzarPregunta()"
+              >
+                {{ siguienteTexto }}
+              </button>
+            </div>
+          </div>
+        }
+      } @else {
+        @for (q of formulario.questions; track trackByQuestionId($index, q)) {
+          <div class="pregunta-box">
+            <label class="pregunta-label">
+              {{ q.order + 1 }}. {{ q.label }}
+              @if (q.required) { <span style="color:#c62828;">*</span> }
+            </label>
+
+            @if (q.type === 'TEXT') {
+              <input
+                type="text"
+                [name]="q.id"
+                [(ngModel)]="respuestas[q.id]"
+                placeholder="Escriba aquí..."
+                class="form-input"
+              />
+            }
+
+            @if (q.type === 'NUMBER') {
+              <input
+                type="number"
+                [name]="q.id"
+                [(ngModel)]="respuestas[q.id]"
+                placeholder="Ej. 25"
+                min="0"
+                class="form-input"
+              />
+            }
+
+            @if (q.type === 'SINGLE_CHOICE') {
+              @for (opcion of q.options; track opcion) {
+                <label class="radio-option">
+                  <input
+                    type="radio"
+                    [name]="q.id"
+                    [value]="opcion"
+                    [(ngModel)]="respuestas[q.id]"
+                  />
+                  <span class="radio-text">{{ opcion }}</span>
+                </label>
+              }
+            }
+
+            @if (q.type === 'MULTIPLE_CHOICE') {
+              @for (opcion of q.options; track opcion) {
+                <label class="radio-option">
+                  <input
+                    type="checkbox"
+                    [name]="q.id + '-' + opcion"
+                    [value]="opcion"
+                    (change)="onCheckboxChange(q.id, opcion, $event)"
+                  />
+                  <span class="radio-text">{{ opcion }}</span>
+                </label>
+              }
+            }
+
+            @if (q.type === 'LIKERT') {
+              <div class="likert-table" style="overflow-x:auto;margin-top:8px;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;padding:6px 8px;"></th>
+                      @for (col of q.likert_columns; track col) {
+                        <th style="text-align:center;padding:6px 8px;font-weight:500;">{{ col }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of q.likert_rows; track trackByRow($index, row)) {
+                      <tr>
+                        <td style="padding:6px 8px;">{{ row }}</td>
+                        @for (col of q.likert_columns; track col) {
+                          <td style="text-align:center;padding:4px;">
+                            <input
+                              type="radio"
+                              [name]="q.id + '-' + row"
+                              [value]="col"
+                              [(ngModel)]="respuestas[q.id][row]"
+                            />
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            @if (q.type === 'SIGNATURE') {
+              <app-question-signature
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onSignatureChange(q.id, $event)"
+              ></app-question-signature>
+            }
+
+            @if (q.type === 'GPS') {
+              <app-question-gps
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onGpsChange(q.id, $event)"
+              ></app-question-gps>
+            }
+          </div>
+        }
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button
+            type="button"
+            class="btn-guardar"
+            style="background-color:#757575;"
+            (click)="guardarBorrador()"
+          >
+            💾 {{ 'save_draft' | translate }}
+          </button>
+          <button
+            type="submit"
+            [disabled]="!formValido()"
+            class="btn-guardar"
+            style="background-color:var(--primary);"
+          >
+            ✅ {{ 'save_send' | translate }}
+          </button>
+        </div>
+      }
+    </form>
+  }
+</div>

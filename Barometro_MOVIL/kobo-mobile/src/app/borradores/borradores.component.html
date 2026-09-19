@@ -1,0 +1,33 @@
+<div class="lista-container">
+  <div class="top-bar">
+    <button class="btn-back" (click)="volver()">⬅ {{ 'back' | translate }}</button>
+    <h2>{{ 'drafts' | translate }}</h2>
+  </div>
+
+  @if (cargando) {
+    <p style="text-align:center;padding:2rem;color:var(--text-secondary);">{{ 'loading' | translate }}</p>
+  } @else if (borradores.length === 0) {
+    <p style="text-align:center;padding:2rem;color:var(--text-secondary);">
+      {{ 'no_forms' | translate }}
+    </p>
+  } @else {
+    <div class="formularios-guardados" style="padding:16px;">
+      @for (form of borradores; track form.id) {
+        <div class="form-guardado-card" style="margin-bottom:12px;">
+          <div class="form-guardado-body">
+            <div class="form-guardado-top">
+              <div>
+                <h3>{{ form.formTitle }}</h3>
+                <p class="subtexto">Creado: {{ form.createdAt }} | Duración: {{ form.duration }}</p>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;padding:8px 16px 16px;">
+            <button class="btn-llenar" (click)="continuar(form)" style="flex:1;">▶ {{ 'continue' | translate }}</button>
+            <button class="btn-llenar" (click)="eliminar(form.id)" style="flex:0;background:var(--danger);">🗑</button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

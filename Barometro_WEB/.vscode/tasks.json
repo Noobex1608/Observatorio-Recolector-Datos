@@ -1,0 +1,220 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ==========================================
+    // 🐳 DOCKER
+    // ==========================================
+    {
+      "label": "Docker: Iniciar PostgreSQL",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/docker.ps1 up" },
+      "linux": { "command": "./scripts/docker.sh up" },
+      "osx": { "command": "./scripts/docker.sh up" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new", "focus": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Detener PostgreSQL",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/docker.ps1 down" },
+      "linux": { "command": "./scripts/docker.sh down" },
+      "osx": { "command": "./scripts/docker.sh down" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Ver logs PostgreSQL",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/docker.ps1 logs" },
+      "linux": { "command": "./scripts/docker.sh logs" },
+      "osx": { "command": "./scripts/docker.sh logs" },
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Reiniciar PostgreSQL",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/docker.ps1 restart" },
+      "linux": { "command": "./scripts/docker.sh restart" },
+      "osx": { "command": "./scripts/docker.sh restart" },
+      "group": "build",
+      "problemMatcher": []
+    },
+
+    // ==========================================
+    // 🔧 BACKEND (Laravel)
+    // ==========================================
+    {
+      "label": "Backend: Iniciar servidor",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 start" },
+      "linux": { "command": "./scripts/backend.sh start" },
+      "osx": { "command": "./scripts/backend.sh start" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new" },
+      "isBackground": true,
+      "runOptions": { "instanceLimit": 1 },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Detener servidor",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 stop" },
+      "linux": { "command": "./scripts/backend.sh stop" },
+      "osx": { "command": "./scripts/backend.sh stop" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Instalar dependencias",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 install" },
+      "linux": { "command": "./scripts/backend.sh install" },
+      "osx": { "command": "./scripts/backend.sh install" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Ejecutar migraciones",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 migrate" },
+      "linux": { "command": "./scripts/backend.sh migrate" },
+      "osx": { "command": "./scripts/backend.sh migrate" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Resetear migraciones",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 migrate-fresh" },
+      "linux": { "command": "./scripts/backend.sh migrate-fresh" },
+      "osx": { "command": "./scripts/backend.sh migrate-fresh" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Limpiar caché",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 cache-clear" },
+      "linux": { "command": "./scripts/backend.sh cache-clear" },
+      "osx": { "command": "./scripts/backend.sh cache-clear" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Generar Swagger",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 swagger" },
+      "linux": { "command": "./scripts/backend.sh swagger" },
+      "osx": { "command": "./scripts/backend.sh swagger" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Ver rutas API",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 routes" },
+      "linux": { "command": "./scripts/backend.sh routes" },
+      "osx": { "command": "./scripts/backend.sh routes" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Tinker (REPL)",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/backend.ps1 tinker" },
+      "linux": { "command": "./scripts/backend.sh tinker" },
+      "osx": { "command": "./scripts/backend.sh tinker" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new", "focus": true },
+      "problemMatcher": []
+    },
+
+    // ==========================================
+    // 🌐 FRONTEND (Angular) - Detecta bun/npm automáticamente
+    // ==========================================
+    {
+      "label": "Frontend: Iniciar servidor dev",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/frontend.ps1 start" },
+      "linux": { "command": "./scripts/frontend.sh start" },
+      "osx": { "command": "./scripts/frontend.sh start" },
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "new" },
+      "isBackground": true,
+      "runOptions": { "instanceLimit": 1 },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Instalar dependencias",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/frontend.ps1 install" },
+      "linux": { "command": "./scripts/frontend.sh install" },
+      "osx": { "command": "./scripts/frontend.sh install" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Build producción",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/frontend.ps1 build" },
+      "linux": { "command": "./scripts/frontend.sh build" },
+      "osx": { "command": "./scripts/frontend.sh build" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Ejecutar tests",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/frontend.ps1 test" },
+      "linux": { "command": "./scripts/frontend.sh test" },
+      "osx": { "command": "./scripts/frontend.sh test" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Lint",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File ./scripts/frontend.ps1 lint" },
+      "linux": { "command": "./scripts/frontend.sh lint" },
+      "osx": { "command": "./scripts/frontend.sh lint" },
+      "group": "build",
+      "problemMatcher": []
+    },
+
+    // ==========================================
+    // 🚀 COMPOUND TASKS
+    // ==========================================
+    {
+      "label": "🚀 Iniciar TODO (Docker + Backend + Frontend)",
+      "dependsOn": [
+        "Docker: Iniciar PostgreSQL",
+        "Backend: Iniciar servidor",
+        "Frontend: Iniciar servidor dev"
+      ],
+      "dependsOrder": "parallel",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "⏹️ Detener TODO",
+      "dependsOn": ["Backend: Detener servidor", "Docker: Detener PostgreSQL"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "🔧 Setup inicial (Instalar + Migrar)",
+      "dependsOn": [
+        "Docker: Iniciar PostgreSQL",
+        "Backend: Instalar dependencias",
+        "Frontend: Instalar dependencias",
+        "Backend: Ejecutar migraciones"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

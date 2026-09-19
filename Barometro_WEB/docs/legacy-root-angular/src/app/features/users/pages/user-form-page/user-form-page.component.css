@@ -1,0 +1,37 @@
+.user-form-page {
+  display: grid;
+  gap: 1rem;
+}
+
+form {
+  max-width: 560px;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+input,
+select,
+button {
+  padding: 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+button {
+  cursor: pointer;
+}

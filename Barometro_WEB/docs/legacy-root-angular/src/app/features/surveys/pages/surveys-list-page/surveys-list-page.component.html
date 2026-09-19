@@ -1,0 +1,36 @@
+<section class="list-page">
+  <header>
+    <h2>Formularios</h2>
+    <a routerLink="new">Crear formulario</a>
+  </header>
+
+  @if (loading()) {
+    <p>Cargando formularios...</p>
+  } @else {
+    <ul>
+      @for (survey of surveys(); track survey.id) {
+        <li>
+          <div>
+            <strong>{{ survey.title }}</strong>
+            <span>{{ statusLabel(survey.status) }}</span>
+          </div>
+
+          <div class="actions">
+            <a [routerLink]="[survey.id]">Detalle</a>
+            <a [routerLink]="[survey.id, 'edit']">Editar</a>
+            <a [routerLink]="[survey.id, 'preview']">Vista previa</a>
+            <a [routerLink]="['/responses', 'fill', survey.id]">Responder</a>
+            <button type="button" (click)="duplicate(survey.id)">Duplicar</button>
+            <button type="button" (click)="changeStatus(survey.id, 'DEPLOYED')">Publicar</button>
+            <button type="button" (click)="changeStatus(survey.id, 'ARCHIVED')">Archivar</button>
+            <button type="button" class="danger" (click)="delete(survey.id, survey.title)">Eliminar</button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+</section>

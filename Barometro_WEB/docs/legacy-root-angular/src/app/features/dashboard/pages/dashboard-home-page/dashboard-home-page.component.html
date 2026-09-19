@@ -1,0 +1,56 @@
+<section class="dashboard">
+  <header>
+    <h2>Tablero Institucional</h2>
+    <p>Resumen de indicadores generales y comportamiento de respuestas.</p>
+  </header>
+
+  @if (loading()) {
+    <p>Cargando tablero...</p>
+  } @else {
+    @if (kpis(); as kpi) {
+      <div class="kpi-grid">
+        <article class="kpi-card">
+          <h3>Total formularios</h3>
+          <p>{{ kpi.totalSurveys }}</p>
+        </article>
+
+        <article class="kpi-card">
+          <h3>Total respuestas</h3>
+          <p>{{ kpi.totalResponses }}</p>
+        </article>
+
+        <article class="kpi-card">
+          <h3>Formularios activos</h3>
+          <p>{{ kpi.activeSurveys }}</p>
+        </article>
+
+        <article class="kpi-card">
+          <h3>Tasa de completitud</h3>
+          <p [style.color]="completionColor(kpi.completionRate)">{{ kpi.completionRate }}%</p>
+        </article>
+      </div>
+    }
+
+    <article class="chart-card">
+      <h3>Respuestas por formulario</h3>
+
+      @if (reportDataset().length === 0) {
+        <p>No hay datos para graficar.</p>
+      } @else {
+        <ul class="bar-list">
+          @for (item of reportDataset(); track item.surveyId) {
+            <li>
+              <div class="bar-header">
+                <span>{{ item.surveyId }}</span>
+                <strong>{{ item.totalResponses }}</strong>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill" [style.width.%]="barWidth(item.totalResponses)"></div>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  }
+</section>

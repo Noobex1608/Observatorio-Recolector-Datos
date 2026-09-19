@@ -1,0 +1,36 @@
+{
+  "recommendations": [
+    // Angular
+    "angular.ng-template",
+    "johnpapa.angular2",
+    
+    // TypeScript
+    "ms-vscode.vscode-typescript-next",
+    
+    // PHP / Laravel
+    "bmewburn.vscode-intelephense-client",
+    "shufo.vscode-blade-formatter",
+    "onecentlin.laravel-blade",
+    "onecentlin.laravel5-snippets",
+    
+    // Tailwind CSS
+    "bradlc.vscode-tailwindcss",
+    
+    // Docker
+    "ms-azuretools.vscode-docker",
+    
+    // Git
+    "eamodio.gitlens",
+    
+    // Herramientas generales
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig",
+    
+    // REST Client
+    "humao.rest-client",
+    
+    // Database
+    "cweijan.vscode-postgresql-client2"
+  ]
+}

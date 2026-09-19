@@ -1,0 +1,57 @@
+.users-page {
+  display: grid;
+  gap: 1rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+li {
+  border: 1px solid #dbe2ea;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 0.7rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+button,
+a {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background: #fff;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+button {
+  cursor: pointer;
+}
+
+.danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.error {
+  margin: 0;
+  color: #b91c1c;
+}

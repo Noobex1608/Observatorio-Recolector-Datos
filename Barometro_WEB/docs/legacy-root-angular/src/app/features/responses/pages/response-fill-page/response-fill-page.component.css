@@ -1,0 +1,68 @@
+.response {
+  display: grid;
+  gap: 1rem;
+}
+
+.response-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+fieldset {
+  border: 1px solid #dbe2ea;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+  background: #fff;
+}
+
+legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+
+label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+textarea,
+input[type='number'],
+button {
+  padding: 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.likert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 0.55rem;
+}
+
+.likert-option {
+  border: 1px solid #dbe2ea;
+  border-radius: 0.6rem;
+  padding: 0.5rem;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.likert-value {
+  font-weight: 600;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+.warning {
+  color: #92400e;
+}
+
+.success {
+  color: #166534;
+}

@@ -1,0 +1,93 @@
+<section class="response">
+  <h2>Responder formulario</h2>
+
+  @if (loading()) {
+    <p>Cargando formulario...</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (survey(); as surveyData) {
+    <header>
+      <h3>{{ surveyData.title }}</h3>
+      <p>{{ surveyData.description }}</p>
+    </header>
+
+    @if (!isPublished(surveyData.status)) {
+      <p class="warning">Este formulario no está implementado. Estado actual: {{ statusLabel(surveyData.status) }}</p>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="submit()" class="response-form">
+        @for (question of surveyData.questions; track question.id) {
+          <fieldset>
+            <legend>
+              {{ question.order }}. {{ question.label }}
+              @if (question.required) {
+                <span>*</span>
+              }
+            </legend>
+
+            @switch (question.type) {
+              @case ('SINGLE_CHOICE') {
+                @for (option of question.options; track option.id) {
+                  <label>
+                    <input type="radio" [formControlName]="question.id" [value]="option.value" />
+                    {{ option.label }}
+                  </label>
+                }
+              }
+
+              @case ('MULTIPLE_CHOICE') {
+                @for (option of question.options; track option.id) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="isMultipleChecked(question.id, option.value)"
+                      (change)="toggleMultiple(question.id, option.value, $any($event.target).checked)"
+                    />
+                    {{ option.label }}
+                  </label>
+                }
+              }
+
+              @case ('LIKERT') {
+                <div class="likert-grid">
+                  @for (point of likertRange(question); track point) {
+                    <label class="likert-option">
+                      <input
+                        type="radio"
+                        [checked]="isLikertSelected(question.id, point)"
+                        (change)="setLikertValue(question.id, point)"
+                      />
+                      <span class="likert-value">{{ point }}</span>
+                      @if (likertEndpointLabel(question, point)) {
+                        <small>{{ likertEndpointLabel(question, point) }}</small>
+                      }
+                    </label>
+                  }
+                </div>
+              }
+
+              @case ('TEXT') {
+                <textarea rows="3" [formControlName]="question.id"></textarea>
+              }
+
+              @case ('NUMBER') {
+                <input type="number" [formControlName]="question.id" />
+              }
+            }
+
+            @if (getError(question.id)) {
+              <small class="error">{{ getError(question.id) }}</small>
+            }
+          </fieldset>
+        }
+
+        <button type="submit" [disabled]="!canSubmit()">
+          {{ submitting() ? 'Enviando...' : 'Enviar respuestas' }}
+        </button>
+      </form>
+
+      @if (submitted()) {
+        <p class="success">Respuesta enviada correctamente.</p>
+      }
+    }
+  }
+</section>

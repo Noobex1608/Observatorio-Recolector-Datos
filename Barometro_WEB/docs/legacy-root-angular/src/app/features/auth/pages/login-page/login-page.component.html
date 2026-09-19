@@ -1,0 +1,22 @@
+<section class="card">
+  <h2>Ingreso al Barómetro</h2>
+  <p>Usa el usuario mock para iniciar: admin@universidad.edu</p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <label>
+      Correo electrónico
+      <input type="email" formControlName="email" />
+    </label>
+
+    <label>
+      Contraseña
+      <input type="password" formControlName="password" />
+    </label>
+
+    <button type="submit">Iniciar sesión</button>
+  </form>
+
+  @if (errorMessage) {
+    <p class="error">{{ errorMessage }}</p>
+  }
+</section>

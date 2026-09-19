@@ -1,0 +1,29 @@
+<section class="report-detail">
+  <a routerLink="/reports">← Volver a reportes</a>
+
+  @if (loading()) {
+    <p>Cargando detalle del reporte...</p>
+  } @else if (report(); as reportData) {
+    <h2>Detalle del reporte: {{ reportData.surveyId }}</h2>
+    <p>Total de respuestas: {{ reportData.totalResponses }}</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Pregunta</th>
+          <th>Respuestas registradas</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of reportData.byQuestion; track item.questionId) {
+          <tr>
+            <td>{{ item.questionLabel }}</td>
+            <td>{{ item.answersCount }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <p>No se encontró información para este formulario.</p>
+  }
+</section>

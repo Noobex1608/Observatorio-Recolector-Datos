@@ -1,0 +1,8 @@
+.DS_Store
+*.log
+.vscode/settings.json
+.angular/
+/.agents
+/.agents/skills
+.agents/skills/antigravity-workflows
+.agents/

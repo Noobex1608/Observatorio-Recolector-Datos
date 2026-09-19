@@ -1,0 +1,58 @@
+<div class="lista-container">
+  <div class="top-bar">
+    <button class="btn-back" (click)="volver()">⬅ {{ 'back' | translate }}</button>
+    <h2>{{ 'ready_to_send' | translate }}</h2>
+  </div>
+
+  <section class="guardados-section">
+    <div class="guardados-header" *ngIf="formularios.length > 0">
+      <h2>{{ 'ready_to_send' | translate }}</h2>
+      <div class="header-actions">
+        <button class="btn-seleccionar" (click)="seleccionarTodo()">
+          {{ seleccionados.size === formularios.length ? ('deselect_all' | translate) : ('select_all' | translate) }}
+        </button>
+        <button class="btn-eliminar-sel" *ngIf="seleccionados.size > 0" (click)="eliminarSeleccionados()" [disabled]="sending">
+          🗑 Elimar ({{ seleccionados.size }})
+        </button>
+      </div>
+    </div>
+
+    <p *ngIf="formularios.length === 0" class="empty-state">
+      {{ 'no_forms' | translate }}
+    </p>
+
+    <div *ngIf="formularios.length > 0" class="formularios-guardados">
+      <div *ngIf="sending" class="send-progress">
+        <p>Enviando {{ sentCount }} / {{ totalToSend }}...</p>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="progressPercent"></div>
+        </div>
+      </div>
+
+      <div *ngFor="let form of formularios" class="form-guardado-card" [class.selected]="isSeleccionado(form)">
+        <label class="guardar-checkbox">
+          <input type="checkbox" [checked]="isSeleccionado(form)" (change)="toggleSeleccion(form)">
+          <span class="custom-checkbox"></span>
+        </label>
+
+        <div class="form-guardado-body">
+          <div class="form-guardado-top">
+            <div>
+              <h3>{{ form.formTitle }}</h3>
+              <p class="subtexto">Finalizado: {{ form.createdAt }}</p>
+            </div>
+            <div class="form-guardado-actions">
+              <span class="badge">{{ form.duration }}</span>
+              <button class="btn-eliminar" (click)="eliminarUno(form)" [disabled]="sending" title="Eliminar">✕</button>
+            </div>
+          </div>
+          <p class="subtexto">ID {{ form.id }}</p>
+        </div>
+      </div>
+
+      <button class="btn-enviar" (click)="enviarSeleccionados()" [disabled]="sending">
+        {{ sending ? ('loading' | translate) : ( 'send' | translate ) + ' (' + seleccionados.size + ')' }}
+      </button>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,48 @@
+:host {
+  display: block;
+}
+
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  padding: 1rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 28rem;
+  padding: 2rem;
+}
+
+.auth-logo {
+  height: 5rem;
+  margin: 0 auto 1rem;
+  display: block;
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.auth-footer-text {
+  color: var(--text-secondary);
+}
+
+.auth-link {
+  color: var(--primary-600);
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+mat-card-header {
+  margin-bottom: 1.5rem;
+}
