@@ -22,13 +22,16 @@ export class StorageService {
 
   async limpiarFormularios(): Promise<void> {
     await this.db.responses.clear();
+    await this.db.mediaBlobs.clear();
   }
 
   async eliminarFormularios(ids: number[]): Promise<void> {
     await this.db.responses.bulkDelete(ids);
+    await this.db.mediaBlobs.where('responseId').anyOf(ids).delete();
   }
 
   async eliminarFormulario(id: number): Promise<void> {
     await this.db.responses.delete(id);
+    await this.db.mediaBlobs.where('responseId').equals(id).delete();
   }
 }

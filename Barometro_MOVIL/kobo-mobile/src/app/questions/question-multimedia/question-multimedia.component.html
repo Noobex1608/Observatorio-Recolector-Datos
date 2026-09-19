@@ -1,0 +1,112 @@
+<div class="multimedia-container" [class.disabled]="disabled()">
+  <div class="multimedia-header">
+    <label class="multimedia-label">
+      {{ question().label }}
+      @if (question().required) {
+        <span class="required-badge">*</span>
+      }
+    </label>
+    @if (question().hint) {
+      <p class="multimedia-hint">{{ question().hint }}</p>
+    }
+  </div>
+
+  <div class="multimedia-card">
+    @if (!currentMedia()) {
+      <div class="multimedia-tabs">
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="activeTab() === 'photo'"
+          (click)="activeTab.set('photo')"
+        >
+          📷 Fotografía
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="activeTab() === 'audio'"
+          (click)="activeTab.set('audio')"
+        >
+          🎙️ Grabación de Audio
+        </button>
+      </div>
+
+      @if (activeTab() === 'photo') {
+        <div class="photo-uploader">
+          <label class="btn-capture">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <circle cx="12" cy="13" r="3"/>
+            </svg>
+            Tomar Foto / Subir Imagen
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              (change)="onFileSelected($event)"
+              class="hidden-file-input"
+            />
+          </label>
+        </div>
+      }
+
+      @if (activeTab() === 'audio') {
+        <div class="audio-recorder">
+          @if (!isRecording()) {
+            <button type="button" class="btn-record" (click)="startAudioRecording()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              Iniciar Grabación de Voz
+            </button>
+          } @else {
+            <div class="recording-active">
+              <div class="recording-indicator">
+                <span class="pulsing-dot"></span>
+                <span>Grabando... {{ formattedRecordingTime() }}</span>
+              </div>
+              <button type="button" class="btn-stop" (click)="stopAudioRecording()">
+                ⏹ Detener y Guardar Audio
+              </button>
+            </div>
+          }
+        </div>
+      }
+    } @else {
+      <div class="media-preview-container">
+        @if (currentMedia()?.mediaType === 'IMAGE') {
+          <div class="image-preview-wrapper">
+            <img [src]="previewUrl()" alt="Vista previa de la foto" class="media-image" />
+          </div>
+        }
+
+        @if (currentMedia()?.mediaType === 'AUDIO') {
+          <div class="audio-preview-wrapper">
+            <audio [src]="previewUrl()" controls class="media-audio"></audio>
+          </div>
+        }
+
+        <div class="preview-actions">
+          <span class="file-name">{{ currentMedia()?.fileName }}</span>
+          <button type="button" class="btn-remove" (click)="removeMedia()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Eliminar
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (errorMessage()) {
+      <div class="error-banner">
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+  </div>
+</div>

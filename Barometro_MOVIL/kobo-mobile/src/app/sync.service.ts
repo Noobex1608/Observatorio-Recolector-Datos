@@ -3,11 +3,14 @@ import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
 import { DbService } from './db.service';
 
+import { MediaStorageService } from './services/media-storage.service';
+
 @Injectable({ providedIn: 'root' })
 export class SyncService {
   private auth = inject(AuthService);
   private api = inject(ApiService);
   private db = inject(DbService);
+  private mediaStorage = inject(MediaStorageService);
 
   async obtenerFormulariosDisponibles(): Promise<{ id: string; title: string }[]> {
     const servidor = this.auth.obtenerUrlServidor();
@@ -79,7 +82,21 @@ export class SyncService {
 
     for (const resp of pendientes) {
       try {
-        await this.api.submitResponse(servidor, resp.link_uuid, resp.answers);
+        const payloadAnswers = JSON.parse(JSON.stringify(resp.answers));
+
+        // Preprocesar Blobs multimedia y firmas
+        for (const [key, val] of Object.entries(payloadAnswers)) {
+          if (val && typeof val === 'object' && (val as any).blobId) {
+            const blobId = (val as any).blobId;
+            const record = await this.mediaStorage.getMediaBlobById(blobId);
+            if (record && record.blob) {
+              const base64Data = await this.mediaStorage.blobToDataUrl(record.blob);
+              (payloadAnswers[key] as any).dataUrl = base64Data;
+            }
+          }
+        }
+
+        await this.api.submitResponse(servidor, resp.link_uuid, payloadAnswers);
         await this.db.responses.update(resp.id!, { estado: 'enviado' });
 
         const form = await this.db.forms.get(resp.formId);

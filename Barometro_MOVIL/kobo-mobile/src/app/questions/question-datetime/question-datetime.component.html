@@ -1,0 +1,26 @@
+<div class="datetime-container" [class.disabled]="disabled()">
+  <div class="datetime-header">
+    <label class="datetime-label">
+      {{ question().label }}
+      @if (question().required) {
+        <span class="required-badge">*</span>
+      }
+    </label>
+    @if (question().hint) {
+      <p class="datetime-hint">{{ question().hint }}</p>
+    }
+  </div>
+
+  <div class="datetime-input-wrapper">
+    <input
+      [type]="inputType()"
+      [ngModel]="rawValue()"
+      (ngModelChange)="onValueInput($event)"
+      [disabled]="disabled()"
+      class="datetime-input"
+    />
+    <button type="button" class="btn-now" (click)="setNow()" [disabled]="disabled()">
+      ⏱️ Ahora
+    </button>
+  </div>
+</div>

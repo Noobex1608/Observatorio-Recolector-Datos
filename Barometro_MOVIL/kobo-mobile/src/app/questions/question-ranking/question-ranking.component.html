@@ -1,0 +1,43 @@
+<div class="ranking-container" [class.disabled]="disabled()">
+  <div class="ranking-header">
+    <label class="ranking-label">
+      {{ question().label }}
+      @if (question().required) {
+        <span class="required-badge">*</span>
+      }
+    </label>
+    @if (question().hint) {
+      <p class="ranking-hint">{{ question().hint }}</p>
+    }
+  </div>
+
+  <div class="ranking-list">
+    @for (item of items(); track item; let i = $index) {
+      <div class="ranking-item">
+        <span class="ranking-badge">{{ i + 1 }}º</span>
+        <span class="ranking-item-text">{{ item }}</span>
+
+        <div class="ranking-actions">
+          <button
+            type="button"
+            class="btn-rank"
+            (click)="moveUp(i)"
+            [disabled]="disabled() || i === 0"
+            title="Subir prioridad"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            class="btn-rank"
+            (click)="moveDown(i)"
+            [disabled]="disabled() || i === items().length - 1"
+            title="Bajar prioridad"
+          >
+            ▼
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>

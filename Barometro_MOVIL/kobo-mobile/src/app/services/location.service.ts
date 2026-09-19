@@ -47,9 +47,10 @@ export class LocationService {
   }
 
   getCurrentPosition(options: GpsOptions = {}): Promise<GpsLocationPayload> {
+    const timeoutMs = options.timeout ?? 12000;
     const defaultOptions: PositionOptions = {
       enableHighAccuracy: options.enableHighAccuracy ?? true,
-      timeout: options.timeout ?? 15000,
+      timeout: timeoutMs,
       maximumAge: options.maximumAge ?? 0
     };
 
@@ -60,8 +61,17 @@ export class LocationService {
         return;
       }
 
+      let timerId: any = setTimeout(() => {
+        timerId = null;
+        reject(new Error('Se agotó el tiempo de espera (12s) para obtener fijación de satélites GPS. Puede utilizar el ingreso manual.'));
+      }, timeoutMs + 1000);
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (timerId) {
+            clearTimeout(timerId);
+            timerId = null;
+          }
           this.permissionStatus.set('granted');
           const coords = position.coords;
           const payload: GpsLocationPayload = {
@@ -75,6 +85,10 @@ export class LocationService {
           resolve(payload);
         },
         (error: GeolocationPositionError) => {
+          if (timerId) {
+            clearTimeout(timerId);
+            timerId = null;
+          }
           let errorMessage = 'Error desconocido al obtener la ubicación GPS.';
           switch (error.code) {
             case error.PERMISSION_DENIED:

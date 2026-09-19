@@ -9,6 +9,12 @@ import { ToastService } from '../toast.service';
 import { TranslatePipe } from '../translate.pipe';
 import { QuestionSignatureComponent } from '../questions/question-signature/question-signature.component';
 import { QuestionGpsComponent } from '../questions/question-gps/question-gps.component';
+import { QuestionMultimediaComponent } from '../questions/question-multimedia/question-multimedia.component';
+import { QuestionDateTimeComponent } from '../questions/question-datetime/question-datetime.component';
+import { QuestionNoteComponent } from '../questions/question-note/question-note.component';
+import { QuestionRankingComponent } from '../questions/question-ranking/question-ranking.component';
+import { QuestionRatingComponent } from '../questions/question-rating/question-rating.component';
+import { QuestionBarcodeComponent } from '../questions/question-barcode/question-barcode.component';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -18,7 +24,13 @@ import { QuestionGpsComponent } from '../questions/question-gps/question-gps.com
     CommonModule,
     TranslatePipe,
     QuestionSignatureComponent,
-    QuestionGpsComponent
+    QuestionGpsComponent,
+    QuestionMultimediaComponent,
+    QuestionDateTimeComponent,
+    QuestionNoteComponent,
+    QuestionRankingComponent,
+    QuestionRatingComponent,
+    QuestionBarcodeComponent
   ],
   templateUrl: './llenar-encuesta.component.html',
   styleUrls: ['./llenar-encuesta.component.css']
@@ -141,6 +153,10 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       return true;
     }
 
+    if (pregunta.type === 'NOTE' || pregunta.type === 'CALCULATE') {
+      return true;
+    }
+
     if (pregunta.type === 'MULTIPLE_CHOICE') {
       return Array.isArray(respuesta) && respuesta.length > 0;
     }
@@ -155,6 +171,22 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
 
     if (pregunta.type === 'GPS') {
       return !!respuesta && typeof respuesta.latitude === 'number' && typeof respuesta.longitude === 'number';
+    }
+
+    if (pregunta.type === 'MULTIMEDIA') {
+      return !!respuesta && (!!respuesta.blobId || !!respuesta.objectUrl);
+    }
+
+    if (pregunta.type === 'RANKING') {
+      return Array.isArray(respuesta) && respuesta.length > 0;
+    }
+
+    if (pregunta.type === 'RATING') {
+      return typeof respuesta === 'number' && respuesta > 0;
+    }
+
+    if (pregunta.type === 'BARCODE') {
+      return typeof respuesta === 'string' && respuesta.trim() !== '';
     }
 
     return respuesta !== undefined && respuesta !== null && String(respuesta).trim() !== '';
@@ -395,18 +427,80 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
 
   onSignatureChange(qId: string, payload: any) {
     this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
   }
 
   onGpsChange(qId: string, payload: any) {
     this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  onMultimediaChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  onDateTimeChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  onRankingChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  onRatingChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  onBarcodeChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
+  evaluarCalculosBackground(): void {
+    if (!this.formulario) return;
+    for (const q of this.formulario.questions) {
+      if (q.type === 'CALCULATE' && q.calculation_expression) {
+        try {
+          let expr = q.calculation_expression;
+          expr = expr.replace(/\$\{([^}]+)\}/g, (_, qId) => {
+            const val = this.respuestas[qId];
+            if (val === undefined || val === null || val === '') return '0';
+            if (typeof val === 'number') return isNaN(val) ? '0' : String(val);
+            if (typeof val === 'boolean') return val ? '1' : '0';
+            if (typeof val === 'string') {
+              const parsed = Number(val.trim());
+              return isNaN(parsed) ? '0' : String(parsed);
+            }
+            return '0';
+          });
+
+          if (/^[0-9+\-*/().\s]+$/.test(expr)) {
+            const calculatedValue = Function(`"use strict"; return (${expr})`)();
+            if (typeof calculatedValue === 'number' && !isNaN(calculatedValue) && isFinite(calculatedValue)) {
+              this.respuestas[q.id] = Number(calculatedValue.toFixed(4));
+            } else {
+              this.respuestas[q.id] = 0;
+            }
+          }
+        } catch {
+          this.respuestas[q.id] = 0;
+        }
+      }
+    }
   }
 
   formValido(): boolean {
     if (!this.formulario) return false;
+    this.evaluarCalculosBackground();
     for (const q of this.formulario.questions) {
+      if (q.type === 'NOTE' || q.type === 'CALCULATE') continue;
       if (!q.required) continue;
       const val = this.respuestas[q.id];
-      if (q.type === 'MULTIPLE_CHOICE') {
+      if (q.type === 'MULTIPLE_CHOICE' || q.type === 'RANKING') {
         if (!Array.isArray(val) || val.length === 0) return false;
       } else if (q.type === 'LIKERT') {
         if (q.likert_rows) {
@@ -418,6 +512,12 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
         if (!val || (!val.dataUrl && !val.blobId && typeof val !== 'string')) return false;
       } else if (q.type === 'GPS') {
         if (!val || typeof val.latitude !== 'number' || typeof val.longitude !== 'number') return false;
+      } else if (q.type === 'MULTIMEDIA') {
+        if (!val || (!val.blobId && !val.objectUrl)) return false;
+      } else if (q.type === 'RATING') {
+        if (typeof val !== 'number' || val <= 0) return false;
+      } else if (q.type === 'BARCODE') {
+        if (!val || (typeof val === 'string' && val.trim() === '')) return false;
       } else {
         if (!val || (typeof val === 'string' && val.trim() === '')) return false;
       }

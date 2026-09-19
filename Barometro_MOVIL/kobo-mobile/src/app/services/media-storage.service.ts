@@ -9,6 +9,16 @@ export interface SignaturePayload {
   createdAt: string;
 }
 
+export interface MultimediaPayload {
+  type: 'multimedia';
+  mediaType: 'IMAGE' | 'AUDIO' | 'VIDEO';
+  blobId: string;
+  mimeType: string;
+  fileName?: string;
+  objectUrl?: string;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MediaStorageService {
   private db = inject(DbService);
@@ -67,6 +77,28 @@ export class MediaStorageService {
       dataUrl,
       blobId,
       mimeType: 'image/png',
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  async saveMultimediaFile(
+    questionId: string,
+    file: File | Blob,
+    mediaType: 'IMAGE' | 'AUDIO' | 'VIDEO',
+    responseId?: number,
+    fileName?: string
+  ): Promise<MultimediaPayload> {
+    const mimeType = file.type || (mediaType === 'IMAGE' ? 'image/jpeg' : mediaType === 'AUDIO' ? 'audio/webm' : 'video/mp4');
+    const name = fileName || (file instanceof File ? file.name : `${mediaType.toLowerCase()}_${questionId}`);
+    const blobId = await this.saveMediaBlob(questionId, file, mimeType, responseId, name);
+
+    return {
+      type: 'multimedia',
+      mediaType,
+      blobId,
+      mimeType,
+      fileName: name,
+      objectUrl: this.createObjectUrl(file),
       createdAt: new Date().toISOString()
     };
   }

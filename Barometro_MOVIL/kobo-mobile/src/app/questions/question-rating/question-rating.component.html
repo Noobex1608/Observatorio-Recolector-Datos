@@ -1,0 +1,44 @@
+<div class="rating-container" [class.disabled]="disabled()">
+  <div class="rating-header">
+    <label class="rating-label">
+      {{ question().label }}
+      @if (question().required) {
+        <span class="required-badge">*</span>
+      }
+    </label>
+    @if (question().hint) {
+      <p class="rating-hint">{{ question().hint }}</p>
+    }
+  </div>
+
+  <div class="rating-card">
+    <div class="stars-row">
+      @for (star of starsArray(); track star) {
+        <button
+          type="button"
+          class="star-btn"
+          [class.active]="(hoverRating() ?? selectedRating() ?? 0) >= star"
+          (click)="setRating(star)"
+          (mouseenter)="setHover(star)"
+          (mouseleave)="setHover(null)"
+          [disabled]="disabled()"
+          [title]="'Puntuación ' + star"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </button>
+      }
+    </div>
+
+    <div class="rating-info">
+      <span class="rating-text-badge">{{ ratingText() }}</span>
+
+      @if (selectedRating() !== null) {
+        <button type="button" class="btn-clear" (click)="clearRating()" [disabled]="disabled()">
+          Limpiar
+        </button>
+      }
+    </div>
+  </div>
+</div>

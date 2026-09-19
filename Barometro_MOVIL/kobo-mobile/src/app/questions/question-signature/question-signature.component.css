@@ -49,6 +49,7 @@
   height: 100%;
   display: block;
   cursor: crosshair;
+  touch-action: none;
 }
 
 .canvas-placeholder {

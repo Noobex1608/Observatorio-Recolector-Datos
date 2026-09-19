@@ -151,6 +151,52 @@
                   (valueChange)="onGpsChange(preguntaActual!.id, $event)"
                 ></app-question-gps>
               }
+
+              @if (preguntaActual!.type === 'MULTIMEDIA') {
+                <app-question-multimedia
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onMultimediaChange(preguntaActual!.id, $event)"
+                ></app-question-multimedia>
+              }
+
+              @if (preguntaActual!.type === 'DATE' || preguntaActual!.type === 'TIME' || preguntaActual!.type === 'DATETIME') {
+                <app-question-datetime
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onDateTimeChange(preguntaActual!.id, $event)"
+                ></app-question-datetime>
+              }
+
+              @if (preguntaActual!.type === 'NOTE') {
+                <app-question-note
+                  [question]="preguntaActual!"
+                ></app-question-note>
+              }
+
+              @if (preguntaActual!.type === 'RANKING') {
+                <app-question-ranking
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onRankingChange(preguntaActual!.id, $event)"
+                ></app-question-ranking>
+              }
+
+              @if (preguntaActual!.type === 'RATING') {
+                <app-question-rating
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onRatingChange(preguntaActual!.id, $event)"
+                ></app-question-rating>
+              }
+
+              @if (preguntaActual!.type === 'BARCODE') {
+                <app-question-barcode
+                  [question]="preguntaActual!"
+                  [value]="respuestas[preguntaActual!.id]"
+                  (valueChange)="onBarcodeChange(preguntaActual!.id, $event)"
+                ></app-question-barcode>
+              }
             </div>
           }
 
@@ -279,6 +325,52 @@
                 [value]="respuestas[q.id]"
                 (valueChange)="onGpsChange(q.id, $event)"
               ></app-question-gps>
+            }
+
+            @if (q.type === 'MULTIMEDIA') {
+              <app-question-multimedia
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onMultimediaChange(q.id, $event)"
+              ></app-question-multimedia>
+            }
+
+            @if (q.type === 'DATE' || q.type === 'TIME' || q.type === 'DATETIME') {
+              <app-question-datetime
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onDateTimeChange(q.id, $event)"
+              ></app-question-datetime>
+            }
+
+            @if (q.type === 'NOTE') {
+              <app-question-note
+                [question]="q"
+              ></app-question-note>
+            }
+
+            @if (q.type === 'RANKING') {
+              <app-question-ranking
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onRankingChange(q.id, $event)"
+              ></app-question-ranking>
+            }
+
+            @if (q.type === 'RATING') {
+              <app-question-rating
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onRatingChange(q.id, $event)"
+              ></app-question-rating>
+            }
+
+            @if (q.type === 'BARCODE') {
+              <app-question-barcode
+                [question]="q"
+                [value]="respuestas[q.id]"
+                (valueChange)="onBarcodeChange(q.id, $event)"
+              ></app-question-barcode>
             }
           </div>
         }
