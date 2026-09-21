@@ -1090,6 +1090,10 @@ private function buildExportMatrix(Form $form): array
 
     private function hasRequiredAnswer(FormQuestion $question, mixed $answer): bool
     {
+        if ($answer === null || $answer === '') {
+            return false;
+        }
+
         if ($question->type === 'MULTIPLE_CHOICE') {
             return is_array($answer) && count(array_filter($answer, fn($value) => $value !== null && $value !== '')) > 0;
         }
@@ -1112,7 +1116,15 @@ private function buildExportMatrix(Form $form): array
             return true;
         }
 
-        return $answer !== null && trim((string) $answer) !== '';
+        if (is_array($answer)) {
+            return !empty(array_filter($answer, fn($v) => $v !== null && $v !== ''));
+        }
+
+        if (is_scalar($answer)) {
+            return trim((string) $answer) !== '';
+        }
+
+        return true;
     }
 
     private function formatMobileQuestion(FormQuestion $question): array

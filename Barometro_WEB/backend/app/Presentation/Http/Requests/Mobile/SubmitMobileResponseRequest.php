@@ -16,11 +16,28 @@ class SubmitMobileResponseRequest extends FormRequest
         return true;
     }
 
+    public function validationData(): array
+    {
+        $data = parent::validationData();
+
+        $linkUuid = $this->route('link_uuid') ?? $this->input('link_uuid');
+        if ($linkUuid) {
+            $data['link_uuid'] = $linkUuid;
+        }
+
+        $formId = $this->route('id') ?? $this->input('form_id');
+        if ($formId) {
+            $data['form_id'] = $formId;
+        }
+
+        return $data;
+    }
+
     public function rules(): array
     {
         return [
-            'form_id' => 'required_without:link_uuid|nullable|uuid|exists:forms,id',
-            'link_uuid' => 'required_without:form_id|nullable|string|exists:forms,link_uuid',
+            'form_id' => 'sometimes|nullable|uuid|exists:forms,id',
+            'link_uuid' => 'sometimes|nullable|string|exists:forms,link_uuid',
             'data' => 'required|array',
         ];
     }

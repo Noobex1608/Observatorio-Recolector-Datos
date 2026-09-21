@@ -11,5 +11,10 @@ import { FormQuestion } from '../../db.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuestionNoteComponent {
-  question = input.required<FormQuestion>();
+  question = input.required<FormQuestion & { properties?: any }>();
+
+  get noteHint(): string | undefined {
+    const q = this.question();
+    return q.hint || q.properties?.help_text;
+  }
 }

@@ -45,10 +45,12 @@
 
           @if (preguntaActual) {
             <div class="pregunta-box step-card">
-              <label class="pregunta-label">
-                {{ preguntaActual!.order + 1 }}. {{ preguntaActual!.label }}
-                @if (preguntaActual!.required) { <span class="required-star">*</span> }
-              </label>
+              @if (preguntaActual!.type !== 'NOTE') {
+                <label class="pregunta-label">
+                  {{ preguntaActual!.order + 1 }}. {{ preguntaActual!.label }}
+                  @if (preguntaActual!.required) { <span class="required-star">*</span> }
+                </label>
+              }
 
               @if (preguntaActual!.type === 'TEXT') {
                 <input
@@ -225,10 +227,12 @@
       } @else {
         @for (q of formulario.questions; track trackByQuestionId($index, q)) {
           <div class="pregunta-box">
-            <label class="pregunta-label">
-              {{ q.order + 1 }}. {{ q.label }}
-              @if (q.required) { <span style="color:#c62828;">*</span> }
-            </label>
+            @if (q.type !== 'NOTE') {
+              <label class="pregunta-label">
+                {{ q.order + 1 }}. {{ q.label }}
+                @if (q.required) { <span style="color:#c62828;">*</span> }
+              </label>
+            }
 
             @if (q.type === 'TEXT') {
               <input

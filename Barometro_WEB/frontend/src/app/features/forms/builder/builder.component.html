@@ -305,14 +305,14 @@
 
                   <label class="field">
                     <span>
-                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : 'forms.builder.questionLabel') | translate }}
+                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : (question.type === 'NOTE' ? 'Texto de la nota / Encabezado' : 'forms.builder.questionLabel')) | translate }}
                     </span>
                     <input
                       type="text"
                       [ngModel]="question.label"
                       (ngModelChange)="vm.updateQuestionLabel(question.tempId, $event)"
                       [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : 'forms.builder.questionPlaceholder') | translate"
+                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : (question.type === 'NOTE' ? 'Escribe el texto principal o aviso de la nota...' : 'forms.builder.questionPlaceholder')) | translate"
                     />
                   </label>
 
@@ -808,14 +808,14 @@
 
                   <label class="field">
                     <span>
-                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : 'forms.builder.questionLabel') | translate }}
+                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : (question.type === 'NOTE' ? 'Texto de la nota / Encabezado' : 'forms.builder.questionLabel')) | translate }}
                     </span>
                     <input
                       type="text"
                       [ngModel]="question.label"
                       (ngModelChange)="vm.updateQuestionLabel(question.tempId, $event)"
                       [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : 'forms.builder.questionPlaceholder') | translate"
+                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : (question.type === 'NOTE' ? 'Escribe el texto principal o aviso de la nota...' : 'forms.builder.questionPlaceholder')) | translate"
                     />
                   </label>
 
@@ -988,15 +988,17 @@
                     </div>
                   }
 
-                  <label class="toggle-row">
-                    <input
-                      type="checkbox"
-                      [checked]="question.required"
-                      (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    />
-                    <span>{{ 'forms.builder.required' | translate }}</span>
-                  </label>
+                  @if (question.type !== 'NOTE') {
+                    <label class="toggle-row">
+                      <input
+                        type="checkbox"
+                        [checked]="question.required"
+                        (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
+                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                      />
+                      <span>{{ 'forms.builder.required' | translate }}</span>
+                    </label>
+                  }
                 </article>
               }
             </section>

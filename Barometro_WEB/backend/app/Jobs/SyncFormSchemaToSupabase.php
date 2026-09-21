@@ -7,6 +7,8 @@ use App\Application\Forms\Services\FormSchemaPayloadFactory;
 use App\Models\Form;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SyncFormSchemaToSupabase implements ShouldQueue
 {
@@ -22,19 +24,22 @@ class SyncFormSchemaToSupabase implements ShouldQueue
 
     public function handle(SupabaseFormSchemaWriter $writer, FormSchemaPayloadFactory $payloadFactory): void
     {
-        if ($this->action === 'delete') {
-            $writer->deleteSurvey($this->formId);
+        try {
+            if ($this->action === 'delete') {
+                $writer->deleteSurvey($this->formId);
+                return;
+            }
 
-            return;
+            $form = Form::with(['questions' => fn($q) => $q->orderBy('order')])->find($this->formId);
+            if (!$form) {
+                return;
+            }
+
+            $writer->upsertSurvey($payloadFactory->surveyFromForm($form));
+            $writer->replaceSurveyQuestions($form->id, $payloadFactory->questionsFromForm($form));
+        } catch (Throwable $e) {
+            Log::warning("Sincronización opcional con Supabase no completada para el formulario {$this->formId}: " . $e->getMessage());
         }
-
-        $form = Form::with(['questions' => fn($q) => $q->orderBy('order')])->find($this->formId);
-        if (!$form) {
-            return;
-        }
-
-        $writer->upsertSurvey($payloadFactory->surveyFromForm($form));
-        $writer->replaceSurveyQuestions($form->id, $payloadFactory->questionsFromForm($form));
     }
 }
 

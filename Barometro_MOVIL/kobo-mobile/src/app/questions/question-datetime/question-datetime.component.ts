@@ -41,7 +41,19 @@ export class QuestionDateTimeComponent {
   constructor() {
     effect(() => {
       const val = this.value();
-      this.rawValue.set(val || '');
+      if (!val) {
+        this.rawValue.set('');
+        return;
+      }
+      const qType = this.question().type;
+      if (qType === 'DATETIME') {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          this.rawValue.set(this.formatForDatetimeLocal(d));
+          return;
+        }
+      }
+      this.rawValue.set(val);
     });
   }
 
@@ -78,8 +90,18 @@ export class QuestionDateTimeComponent {
       const mins = String(now.getMinutes()).padStart(2, '0');
       this.onValueInput(`${hours}:${mins}`);
     } else if (qType === 'DATETIME') {
-      const iso = now.toISOString();
-      this.onValueInput(iso);
+      const formatted = this.formatForDatetimeLocal(now);
+      this.rawValue.set(formatted);
+      this.valueChange.emit(now.toISOString());
     }
+  }
+
+  private formatForDatetimeLocal(d: Date): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 }

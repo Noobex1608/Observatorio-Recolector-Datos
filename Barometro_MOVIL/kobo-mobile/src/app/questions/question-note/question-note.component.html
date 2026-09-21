@@ -8,8 +8,8 @@
   </div>
   <div class="note-content">
     <h4 class="note-title">{{ question().label }}</h4>
-    @if (question().hint) {
-      <p class="note-body">{{ question().hint }}</p>
+    @if (noteHint) {
+      <p class="note-body">{{ noteHint }}</p>
     }
   </div>
 </div>

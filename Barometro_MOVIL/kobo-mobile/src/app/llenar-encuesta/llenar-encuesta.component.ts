@@ -111,9 +111,6 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       this.errorCarga = 'Error al cargar el formulario.';
     }
 
-    this.cargando = false;
-    this.cdr.detectChanges();
-
     const ahora = new Date();
     const horas = String(ahora.getHours()).padStart(2, '0');
     const minutos = String(ahora.getMinutes()).padStart(2, '0');
@@ -121,6 +118,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     const mes = String(ahora.getMonth() + 1).padStart(2, '0');
     const anio = ahora.getFullYear();
     this.tiempoInicioFormato = `${horas}:${minutos} - ${dia}/${mes}/${anio}`;
+
+    this.cargando = false;
+    this.cdr.detectChanges();
 
     this.timerInterval = setInterval(() => {
       this.duracionSegundos += 1;

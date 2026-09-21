@@ -9,26 +9,26 @@
     <form (ngSubmit)="iniciarSesion()" #loginForm="ngForm" class="login-form">
 
       <div class="campo">
-        <label for="urlServidor">URL del Servidor</label>
+        <label for="urlServidor">URL del Servidor API</label>
         <input
           type="text"
           id="urlServidor"
           name="urlServidor"
           [(ngModel)]="urlServidor"
-          placeholder="https://your-server.com"
+          placeholder="http://localhost:8000"
           required
           class="form-input"
           [disabled]="cargando">
       </div>
 
       <div class="campo">
-        <label for="usuario">Usuario</label>
+        <label for="usuario">Correo electrónico / Usuario</label>
         <input
-          type="text"
+          type="email"
           id="usuario"
           name="usuario"
           [(ngModel)]="usuario"
-          placeholder="demo"
+          placeholder="recolector@uleam.edu.ec"
           required
           class="form-input"
           [disabled]="cargando">

@@ -217,12 +217,12 @@ class FormResponseValidator
 
     private function isValidSignature(mixed $val): bool
     {
-        if (!is_string($val) || trim($val) === '') {
-            return false;
+        if (is_string($val) && trim($val) !== '') {
+            return str_starts_with($val, 'data:image/') || mb_strlen($val) > 10;
         }
 
-        if (str_starts_with($val, 'data:image/') || mb_strlen($val) > 10) {
-            return true;
+        if (is_array($val)) {
+            return isset($val['dataUrl']) || isset($val['blobId']) || isset($val['url']) || isset($val['data']);
         }
 
         return false;
