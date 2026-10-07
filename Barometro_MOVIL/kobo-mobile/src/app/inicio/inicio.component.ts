@@ -188,9 +188,15 @@ export class InicioComponent implements OnInit, OnDestroy {
       }
 
       this.mostrarSelectorDescarga = true;
-    } catch {
+    } catch (err: any) {
       this.descargandoSeleccion = false;
-      this.toast.show('Error al conectar con el servidor.', 'error');
+      if (err?.status === 401) {
+        this.toast.show('Sesión expirada o no autorizada. Redirigiendo al login...', 'error');
+        this.auth.logout();
+        this.router.navigate(['/login']);
+      } else {
+        this.toast.show('Error al conectar con el servidor.', 'error');
+      }
     }
 
     this.cdr.detectChanges();
@@ -233,9 +239,15 @@ export class InicioComponent implements OnInit, OnDestroy {
       if (descargados > 0) msgs.push(`${descargados} formulario(s) descargados.`);
       if (errores > 0) msgs.push(`${errores} con errores.`);
       this.toast.show(msgs.length > 0 ? msgs.join(' ') : 'No se descargó ningún formulario.');
-    } catch {
+    } catch (err: any) {
       this.descargandoSeleccion = false;
-      this.toast.show('Error al descargar formularios.', 'error');
+      if (err?.status === 401) {
+        this.toast.show('Sesión expirada. Por favor vuelve a iniciar sesión.', 'error');
+        this.auth.logout();
+        this.router.navigate(['/login']);
+      } else {
+        this.toast.show('Error al descargar formularios.', 'error');
+      }
     }
 
     this.cdr.detectChanges();
@@ -267,9 +279,15 @@ export class InicioComponent implements OnInit, OnDestroy {
       if (enviados > 0) msgs.push(`${enviados} formulario(s) subidos.`);
       if (fallos > 0) msgs.push(`${fallos} fallaron.`);
       this.toast.show(msgs.join(' '));
-    } catch {
+    } catch (err: any) {
       this.enviando = false;
-      this.toast.show('Error al enviar formularios.', 'error');
+      if (err?.status === 401) {
+        this.toast.show('Sesión expirada. Por favor vuelve a iniciar sesión.', 'error');
+        this.auth.logout();
+        this.router.navigate(['/login']);
+      } else {
+        this.toast.show('Error al enviar formularios.', 'error');
+      }
     }
 
     this.cdr.detectChanges();

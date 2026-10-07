@@ -1,6 +1,6 @@
 {
-  "name": "ULEAM",
-  "short_name": "ULEAM",
+  "name": "ULEAM DataField",
+  "short_name": "ULEAM DataField",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",

@@ -15,6 +15,12 @@ Artisan::command('forms:schema-sync-all {--limit=500}', function () {
     ]);
 })->purpose('Encola sincronizacion de estructura de formularios hacia Supabase');
 
+Artisan::command('forms:update-lifecycle', function () {
+    $this->call(\App\Console\Commands\UpdateFormLifecycle::class);
+})->purpose('Actualiza automáticamente el estado de los formularios según sus fechas de inicio y fin');
+
+\Illuminate\Support\Facades\Schedule::command('forms:update-lifecycle')->everyMinute();
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');

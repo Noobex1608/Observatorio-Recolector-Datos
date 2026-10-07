@@ -13,6 +13,10 @@ export interface Form {
   state: 'DRAFT' | 'DEPLOYED' | 'ARCHIVED';
   link_uuid?: string;
   step_by_step?: boolean;
+  require_consent?: boolean;
+  consent_text?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   responses_count?: number;
   created_at: string;
   updated_at: string;
@@ -46,7 +50,17 @@ export interface FormQuestionProperties {
   default_now?: boolean;
   capture_accuracy?: boolean;
   allow_manual_fallback?: boolean;
-  allowed_media?: 'image' | 'audio' | 'both';
+  target_lat?: number | null;
+  target_lng?: number | null;
+  radius_meters?: number | null;
+  zone_name?: string | null;
+  geofencing?: {
+    name: string;
+    lat: number | null;
+    lng: number | null;
+    radius: number;
+  } | null;
+  allowed_media?: 'image' | 'audio' | 'video' | 'both' | 'all';
   max_file_size_mb?: number;
   pen_color?: string;
   background_color?: string;
@@ -112,7 +126,16 @@ export class FormService {
     return this.http.get<Form>(`${this.apiUrl}/${id}`);
   }
 
-  createForm(data: { title: string; description?: string; project_id?: string | null; step_by_step?: boolean }): Observable<Form> {
+  createForm(data: {
+    title: string;
+    description?: string;
+    project_id?: string | null;
+    step_by_step?: boolean;
+    require_consent?: boolean;
+    consent_text?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+  }): Observable<Form> {
     return this.http.post<Form>(this.apiUrl, data);
   }
 
@@ -180,6 +203,10 @@ export class FormService {
       params,
       responseType: 'blob',
     });
+  }
+
+  logExport(id: string, format: string): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(`${this.apiUrl}/${id}/log-export`, { format });
   }
 
   fetchPublicForm(linkUuid: string): Observable<Form> {

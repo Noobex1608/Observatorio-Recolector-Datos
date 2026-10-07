@@ -37,7 +37,7 @@ import { ThemeService } from '@core/services/theme.service';
 
           <a routerLink="/admin/dashboard" class="brand">
             <div class="brand-logo">
-              <img src="ULEAM.png" alt="ULEAM" class="brand-img" />
+              <img src="ULEAM.png" alt="ULEAM" class="brand-img" width="36" height="36" />
             </div>
             <div class="brand-text">
               <span class="brand-name">{{ 'layout.header.brand' | translate }}</span>

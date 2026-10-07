@@ -114,6 +114,54 @@
               <small>{{ 'forms.builder.flowModeDescription' | translate }}</small>
             </span>
           </label>
+
+          <label class="toggle-row consent-toggle">
+            <input
+              type="checkbox"
+              [checked]="vm.requireConsent()"
+              (change)="vm.updateRequireConsent($any($event.target).checked)"
+              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+            />
+            <span>
+              <strong>Consentimiento Informado Previo</strong>
+              <small>Solicitar consentimiento verbal y aceptación previa a la persona antes de habilitar las preguntas en la app móvil.</small>
+            </span>
+          </label>
+
+          @if (vm.requireConsent()) {
+            <label class="field">
+              <span>Texto del Consentimiento Informado (a leer por el encuestador)</span>
+              <textarea
+                rows="3"
+                [ngModel]="vm.consentText()"
+                (ngModelChange)="vm.updateConsentText($event)"
+                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                placeholder="Texto del consentimiento informado a presentar al inicio de la encuesta..."
+              ></textarea>
+            </label>
+          }
+
+          <div class="date-fields-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+            <label class="field">
+              <span>Fecha de Inicio (Implementación automática)</span>
+              <input
+                type="date"
+                [ngModel]="vm.startDate()"
+                (ngModelChange)="vm.updateStartDate($event)"
+                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+              />
+            </label>
+
+            <label class="field">
+              <span>Fecha de Fin (Archivado automático)</span>
+              <input
+                type="date"
+                [ngModel]="vm.endDate()"
+                (ngModelChange)="vm.updateEndDate($event)"
+                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+              />
+            </label>
+          </div>
         </section>
 
         <section class="question-palette" [attr.aria-label]="'forms.builder.editMenu' | translate">
@@ -562,13 +610,15 @@
                           <label class="field">
                             <span>Archivos permitidos</span>
                             <select
-                              [ngModel]="question.properties.allowed_media || 'both'"
+                              [ngModel]="question.properties.allowed_media || 'all'"
                               (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_media', $event)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                             >
-                              <option value="both">Imágenes y Audio</option>
+                              <option value="all">Todos (Fotos, Audio y Video)</option>
+                              <option value="both">Fotos y Audio</option>
                               <option value="image">Solo Fotos</option>
                               <option value="audio">Solo Audio</option>
+                              <option value="video">Solo Video</option>
                             </select>
                           </label>
                           <label class="field">

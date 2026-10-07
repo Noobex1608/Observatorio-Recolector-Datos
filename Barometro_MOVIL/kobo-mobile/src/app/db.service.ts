@@ -7,6 +7,18 @@ export interface BranchRule {
   next_question_id?: string | null;
 }
 
+export interface ProjectZoneInfo {
+  id: string;
+  name: string;
+  description?: string;
+  geofence_type: 'radius' | 'manzana_polygon' | 'custom_polygon';
+  target_lat: number | null;
+  target_lng: number | null;
+  radius_meters: number;
+  hierarchy_json?: any;
+  geometry_json?: any;
+}
+
 export interface FormDefinition {
   id: string;
   title: string;
@@ -17,6 +29,13 @@ export interface FormDefinition {
   target_responses?: number;
   responses_count?: number;
   step_by_step?: boolean;
+  require_consent?: boolean;
+  consent_text?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  project_id?: string;
+  project_name?: string;
+  project_zones?: ProjectZoneInfo[];
 }
 
 export type QuestionType =
@@ -37,6 +56,26 @@ export type QuestionType =
   | 'BARCODE'
   | 'CALCULATE';
 
+export interface FormQuestionProperties {
+  help_text?: string;
+  capture_accuracy?: boolean;
+  allow_manual_fallback?: boolean;
+  target_lat?: number | null;
+  target_lng?: number | null;
+  radius_meters?: number | null;
+  zone_name?: string | null;
+  geofencing?: {
+    name?: string;
+    lat?: number | null;
+    lng?: number | null;
+    radius?: number;
+    [key: string]: any;
+  } | null;
+  allowed_media?: 'image' | 'audio' | 'video' | 'both' | 'all';
+  max_file_size_mb?: number;
+  [key: string]: any;
+}
+
 export interface FormQuestion {
   id: string;
   type: QuestionType;
@@ -47,6 +86,7 @@ export interface FormQuestion {
   likert_rows?: string[];
   likert_columns?: string[];
   branch_rules?: BranchRule[];
+  properties?: FormQuestionProperties;
   hint?: string;
   calculation_expression?: string;
   media_type?: 'IMAGE' | 'AUDIO' | 'VIDEO';
@@ -92,9 +132,9 @@ export class DbService extends Dexie {
 
   constructor() {
     super('KoboMobileDB');
-    this.version(3).stores({
+    this.version(4).stores({
       forms: 'id, title, link_uuid',
-      responses: '++id, formId, estado, createdAt',
+      responses: '++id, formId, estado, createdAt, [formId+estado]',
       formList: 'id, title',
       mediaBlobs: '++id, blobId, responseId, questionId'
     });

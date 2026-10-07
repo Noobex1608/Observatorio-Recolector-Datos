@@ -27,8 +27,8 @@ class UploadAvatarUseCase
             }
         }
 
-        // Generar nombre único para el archivo
-        $filename = 'avatar_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+        // Generar nombre único para el archivo basado en la extensión MIME verificada
+        $filename = 'avatar_' . $user->id . '_' . time() . '.' . $file->extension();
         
         // Guardar el archivo
         $file->storeAs('public/avatars', $filename);

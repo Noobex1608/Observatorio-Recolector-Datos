@@ -1,0 +1,86 @@
+<div class="likert-container" [class.disabled]="disabled()">
+  @if (question().hint) {
+    <p class="likert-hint">{{ question().hint }}</p>
+  }
+
+  @if (progressText()) {
+    <div class="likert-progress">
+      <span>{{ progressText() }}</span>
+    </div>
+  }
+
+  <!-- VISTA MÓVIL (< 640px): Tarjetas individuales ergonómicas -->
+  <div class="likert-mobile-cards">
+    @for (row of rows(); track trackByString($index, row); let rIdx = $index) {
+      <div class="likert-card" [class.row-complete]="answers()[row]">
+        <div class="card-header">
+          <span class="row-number">{{ rIdx + 1 }}</span>
+          <h4 class="row-text">{{ row }}</h4>
+          @if (answers()[row]) {
+            <span class="check-icon">✓</span>
+          }
+        </div>
+
+        <div class="options-group">
+          @for (col of columns(); track trackByString($index, col)) {
+            <button
+              type="button"
+              class="option-btn"
+              [class.active]="isSelected(row, col)"
+              (click)="selectOption(row, col)"
+              [attr.aria-pressed]="isSelected(row, col)"
+            >
+              <span class="radio-indicator"></span>
+              <span class="option-label">{{ col }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- VISTA TABLET / ESCRITORIO (>= 640px): Tabla matricial pulida -->
+  <div class="likert-desktop-table">
+    <div class="table-responsive">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th class="col-statement">Afirmación</th>
+            @for (col of columns(); track trackByString($index, col)) {
+              <th class="col-header">{{ col }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track trackByString($index, row); let rIdx = $index) {
+            <tr [class.row-selected]="answers()[row]">
+              <td class="statement-cell">
+                <span class="row-index">{{ rIdx + 1 }}.</span>
+                <span>{{ row }}</span>
+              </td>
+              @for (col of columns(); track trackByString($index, col)) {
+                <td
+                  class="option-cell"
+                  [class.cell-active]="isSelected(row, col)"
+                  (click)="selectOption(row, col)"
+                >
+                  <label class="cell-label" (click)="$event.preventDefault()">
+                    <input
+                      type="radio"
+                      [name]="question().id + '-' + rIdx"
+                      [value]="col"
+                      [checked]="isSelected(row, col)"
+                      [disabled]="disabled()"
+                    />
+                    <span class="radio-custom"></span>
+                    <span class="screen-reader-only">{{ col }}</span>
+                  </label>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

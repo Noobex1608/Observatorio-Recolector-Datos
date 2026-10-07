@@ -1,0 +1,299 @@
+.likert-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.likert-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+  margin: 0 0 0.25rem 0;
+}
+
+.likert-progress {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 0.25rem;
+}
+
+/* -------------------------------------------------------------
+   VISTA MÓVIL (< 640px): Tarjetas ergonómicas
+   ------------------------------------------------------------- */
+.likert-mobile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.likert-card {
+  background-color: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+  transition: all 0.2s ease;
+}
+
+.likert-card.row-complete {
+  border-color: rgba(21, 101, 192, 0.3);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.row-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--primary, #1565c0);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.row-text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #1e293b);
+  line-height: 1.35;
+  flex: 1;
+}
+
+.check-icon {
+  color: var(--success, #2e7d32);
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+/* Opciones táctiles dentro de la tarjeta */
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.option-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px; /* WCAG touch target minimum */
+  padding: 0.6rem 0.85rem;
+  background-color: var(--bg-elevated, #f8fafc);
+  border: 1.5px solid var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  color: var(--text, #334155);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.option-btn:hover {
+  background-color: var(--bg-item-hover, #f1f5f9);
+  border-color: var(--border, #cbd5e1);
+}
+
+.radio-indicator {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border, #94a3b8);
+  background-color: var(--bg-card, #ffffff);
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  position: relative;
+}
+
+.option-btn.active {
+  background-color: var(--bg-item-checked, #e3f2fd);
+  border-color: var(--primary, #1565c0);
+  color: var(--primary, #1565c0);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(21, 101, 192, 0.12);
+}
+
+.option-btn.active .radio-indicator {
+  border-color: var(--primary, #1565c0);
+  background-color: var(--primary, #1565c0);
+}
+
+.option-btn.active .radio-indicator::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.option-label {
+  flex: 1;
+}
+
+/* -------------------------------------------------------------
+   VISTA ESCRITORIO / TABLET (>= 640px)
+   ------------------------------------------------------------- */
+.likert-desktop-table {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .likert-mobile-cards {
+    display: none;
+  }
+
+  .likert-desktop-table {
+    display: block;
+  }
+
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border, #e2e8f0);
+    box-shadow: var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
+    background-color: var(--bg-card, #ffffff);
+  }
+
+  .matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid var(--border-light, #f1f5f9);
+  }
+
+  .col-statement {
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-secondary, #64748b);
+    background-color: var(--bg-elevated, #f8fafc);
+    min-width: 200px;
+  }
+
+  .col-header {
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-secondary, #64748b);
+    background-color: var(--bg-elevated, #f8fafc);
+    font-size: 0.8rem;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .matrix-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+
+  .matrix-table tbody tr:hover {
+    background-color: var(--bg-item-hover, #f8fafc);
+  }
+
+  .statement-cell {
+    font-weight: 500;
+    color: var(--text, #1e293b);
+  }
+
+  .row-index {
+    color: var(--primary, #1565c0);
+    font-weight: 700;
+    margin-right: 0.35rem;
+  }
+
+  .option-cell {
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .option-cell:hover {
+    background-color: var(--bg-item-hover, #edf2f7);
+  }
+
+  .cell-active {
+    background-color: var(--bg-item-checked, #e3f2fd) !important;
+  }
+
+  .cell-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 38px;
+    cursor: pointer;
+  }
+
+  .cell-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .radio-custom {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border, #cbd5e1);
+    background-color: var(--bg-card, #ffffff);
+    display: inline-block;
+    position: relative;
+    transition: all 0.18s ease;
+  }
+
+  .cell-label input[type="radio"]:checked + .radio-custom {
+    border-color: var(--primary, #1565c0);
+    background-color: var(--primary, #1565c0);
+  }
+
+  .cell-label input[type="radio"]:checked + .radio-custom::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #ffffff;
+  }
+
+  .screen-reader-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}

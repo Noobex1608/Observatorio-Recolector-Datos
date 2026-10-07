@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, output } from '@angular/core';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatIconModule } from '@angular/material/icon';
@@ -75,7 +75,20 @@ import { TranslateModule } from '@ngx-translate/core';
             </div>
             <span class="nav-text">{{ 'layout.sidebar.users' | translate }}</span>
           </a>
+
+          <a
+            class="nav-item"
+            routerLink="/admin/auditoria"
+            routerLinkActive="active"
+            (click)="navigate.emit()"
+          >
+            <div class="nav-icon-wrapper">
+              <mat-icon class="nav-icon">shield</mat-icon>
+            </div>
+            <span class="nav-text">{{ 'layout.sidebar.auditLogs' | translate }}</span>
+          </a>
         }
+
       </div>
 
       <div class="sidebar-footer"></div>

@@ -45,22 +45,23 @@
     "select": "Seleccionar idioma"
   },
   "routes": {
-    "login": "Iniciar sesion - Formularios ULEAM",
-    "dashboard": "Mis formularios - Formularios ULEAM",
-    "accountSettings": "Configuracion de cuenta - Formularios ULEAM",
-    "newForm": "Nuevo formulario - Formularios ULEAM",
-    "editForm": "Editar formulario - Formularios ULEAM",
-    "formResponses": "Respuestas de formulario - Formularios ULEAM",
-    "projects": "Proyectos - Formularios ULEAM",
-    "users": "Usuarios - Formularios ULEAM",
-    "newUser": "Nuevo usuario - Formularios ULEAM",
-    "editUser": "Editar usuario - Formularios ULEAM",
-    "collect": "Completar formulario - Formularios ULEAM",
-    "profile": "Mi perfil - Formularios ULEAM"
+    "login": "Iniciar sesion - ULEAM DataField",
+    "dashboard": "Mis formularios - ULEAM DataField",
+    "accountSettings": "Configuracion de cuenta - ULEAM DataField",
+    "newForm": "Nuevo formulario - ULEAM DataField",
+    "editForm": "Editar formulario - ULEAM DataField",
+    "formResponses": "Respuestas de formulario - ULEAM DataField",
+    "projects": "Proyectos - ULEAM DataField",
+    "users": "Usuarios - ULEAM DataField",
+    "newUser": "Nuevo usuario - ULEAM DataField",
+    "editUser": "Editar usuario - ULEAM DataField",
+    "auditLogs": "Auditoría & Control de Datos - ULEAM DataField",
+    "collect": "Completar formulario - ULEAM DataField",
+    "profile": "Mi perfil - ULEAM DataField"
   },
   "auth": {
     "login": {
-      "title": "Formularios ULEAM",
+      "title": "ULEAM DataField",
       "subtitle": "Ingresa a la plataforma de recoleccion de datos",
       "email": "Correo electronico",
       "emailPlaceholder": "correo@uleam.edu.ec",
@@ -77,7 +78,7 @@
   },
   "layout": {
     "header": {
-      "brand": "Formularios ULEAM",
+      "brand": "ULEAM DataField",
       "brandSubtitle": "Recoleccion de datos",
       "menu": "Menu",
       "themeLight": "Modo claro",
@@ -91,9 +92,11 @@
       "myForms": "Mis formularios",
       "newForm": "Nuevo formulario",
       "projects": "Proyectos",
-      "users": "Usuarios"
+      "users": "Usuarios",
+      "auditLogs": "Auditoría y Logs"
     }
   },
+
   "profile": {
     "title": "Mi perfil",
     "subtitle": "Gestiona tu informacion personal y cuenta",
@@ -407,7 +410,7 @@
         "TIME": "Selección de hora (H:i)",
         "DATETIME": "Marca de tiempo completa",
         "GPS": "Coordenadas latitud y longitud",
-        "MULTIMEDIA": "Captura de foto o audio",
+        "MULTIMEDIA": "Captura de foto, audio o video",
         "SIGNATURE": "Firma manuscrita en canvas",
         "RANKING": "Priorización de opciones",
         "RATING": "Escala de estrellas o puntuación",
@@ -429,6 +432,7 @@
       "subtitle": "{{count}} respuesta(s) recibidas",
       "exportCsv": "Exportar CSV",
       "exportExcel": "Exportar Excel",
+      "exportPdf": "Exportar Resumen PDF",
       "loading": "Cargando respuestas...",
       "chartsTitle": "Resumen grafico",
       "distribution": "Distribucion",
@@ -526,6 +530,47 @@
       "load": "Error al cargar proyectos",
       "loadProject": "Error al cargar el proyecto",
       "save": "Error al guardar proyecto"
+    },
+    "technicalSheet": {
+      "title": "Ficha Técnica General del Levantamiento",
+      "subtitle": "Define los objetivos, metodología, vigencia y delimitación geográfica del estudio",
+      "description": "Descripción y Metodología del Levantamiento",
+      "descriptionPlaceholder": "Describe los objetivos del estudio, la población objetivo, muestra estimada y metodología de recolección...",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin",
+      "targetSampleSize": "Muestra Objetivo (Cuota Total)",
+      "status": "Estado de la Ficha",
+      "validateButton": "Validar Ficha Técnica",
+      "validatedInfo": "Ficha validada por {{name}} el {{date}}",
+      "draftNotice": "Ficha en borrador. Debe validarse antes de iniciar el levantamiento.",
+      "saveDraft": "Guardar Ficha Técnica",
+      "statuses": {
+        "DRAFT": "Borrador",
+        "VALIDATED": "Validada / Aprobada",
+        "IN_PROGRESS": "En Ejecución",
+        "COMPLETED": "Finalizada"
+      }
+    },
+    "zones": {
+      "title": "Delimitación Multizona y Encuestadores",
+      "subtitle": "Delimita la cobertura en el mapa y distribuye los encuestadores por zonas",
+      "addZone": "Agregar Zona",
+      "editZone": "Editar Zona",
+      "deleteZone": "Eliminar Zona",
+      "zoneName": "Nombre de la Zona",
+      "zoneNamePlaceholder": "Ej. Zona 1 - Manta Centro",
+      "zoneDescription": "Descripción / Cobertura",
+      "zoneType": "Tipo de Delimitación",
+      "typeRadius": "Radio Geográfico (Punto GPS)",
+      "typePolygon": "Polígono / Manzana INEC",
+      "radiusMeters": "Radio en metros",
+      "targetResponses": "Meta de Encuestas",
+      "assignedEnumerators": "Encuestadores Asignados",
+      "selectEnumerators": "Seleccionar Encuestadores",
+      "totalPool": "Pool Total de Encuestadores: {{count}}",
+      "unassignedCount": "Sin Asignar: {{count}}",
+      "assignedSummary": "Encuestadores Asignados: {{assigned}} / {{total}}",
+      "noZones": "Aún no se han delimitado zonas para este proyecto."
     }
   }
 }

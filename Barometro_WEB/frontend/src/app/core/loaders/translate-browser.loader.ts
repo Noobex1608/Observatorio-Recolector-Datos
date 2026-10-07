@@ -14,7 +14,7 @@ const SSR_TRANSLATIONS: Record<string, Translation> = {
     },
     auth: {
       login: {
-        title: 'Formularios ULEAM',
+        title: 'ULEAM DataField',
         subtitle: 'Ingresa a la plataforma de recoleccion de datos',
         email: 'Correo electronico',
         password: 'Contrasena',
@@ -24,7 +24,7 @@ const SSR_TRANSLATIONS: Record<string, Translation> = {
       },
     },
     layout: {
-      header: { brand: 'Formularios ULEAM', brandSubtitle: 'Recoleccion de datos' },
+      header: { brand: 'ULEAM DataField', brandSubtitle: 'Recoleccion de datos' },
       sidebar: { sectionForms: 'Formularios', myForms: 'Mis formularios', newForm: 'Nuevo formulario', projects: 'Proyectos', users: 'Usuarios' },
     },
   },
@@ -36,7 +36,7 @@ const SSR_TRANSLATIONS: Record<string, Translation> = {
     },
     auth: {
       login: {
-        title: 'ULEAM Forms',
+        title: 'ULEAM DataField',
         subtitle: 'Sign in to the data collection platform',
         email: 'Email',
         password: 'Password',
@@ -46,7 +46,7 @@ const SSR_TRANSLATIONS: Record<string, Translation> = {
       },
     },
     layout: {
-      header: { brand: 'ULEAM Forms', brandSubtitle: 'Data collection' },
+      header: { brand: 'ULEAM DataField', brandSubtitle: 'Data collection' },
       sidebar: { sectionForms: 'Forms', myForms: 'My forms', newForm: 'New form', projects: 'Projects', users: 'Users' },
     },
   },

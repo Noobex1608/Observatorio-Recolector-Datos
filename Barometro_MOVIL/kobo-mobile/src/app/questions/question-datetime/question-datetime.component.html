@@ -1,26 +1,35 @@
 <div class="datetime-container" [class.disabled]="disabled()">
-  <div class="datetime-header">
-    <label class="datetime-label">
-      {{ question().label }}
-      @if (question().required) {
-        <span class="required-badge">*</span>
-      }
-    </label>
-    @if (question().hint) {
-      <p class="datetime-hint">{{ question().hint }}</p>
-    }
-  </div>
+  @if (question().hint) {
+    <p class="datetime-hint">{{ question().hint }}</p>
+  }
 
   <div class="datetime-input-wrapper">
-    <input
-      [type]="inputType()"
-      [ngModel]="rawValue()"
-      (ngModelChange)="onValueInput($event)"
-      [disabled]="disabled()"
-      class="datetime-input"
-    />
-    <button type="button" class="btn-now" (click)="setNow()" [disabled]="disabled()">
-      ⏱️ Ahora
+    <div class="input-field-box">
+      <input
+        [type]="inputType()"
+        [ngModel]="rawValue()"
+        (ngModelChange)="onValueInput($event)"
+        [disabled]="disabled()"
+        class="datetime-input"
+        [attr.aria-label]="question().label"
+      />
+    </div>
+
+    <button type="button" class="btn-quick-now" (click)="setNow()" [disabled]="disabled()">
+      @if (qType() === 'DATE') {
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      } @else {
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      }
+      <span>{{ quickLabel() }}</span>
     </button>
   </div>
 </div>

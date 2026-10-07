@@ -20,22 +20,25 @@ import { FormQuestion } from '../../db.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuestionDateTimeComponent {
-  // Signal Inputs
   question = input.required<FormQuestion>();
   value = input<string | null>(null);
   disabled = input<boolean>(false);
 
-  // Signal Output
   valueChange = output<string | null>();
 
-  // State Signals
   readonly rawValue = signal<string>('');
 
+  readonly qType = computed(() => this.question().type);
+
   readonly inputType = computed(() => {
-    const qType = this.question().type;
-    if (qType === 'TIME') return 'time';
-    if (qType === 'DATETIME') return 'datetime-local';
+    const type = this.qType();
+    if (type === 'TIME') return 'time';
+    if (type === 'DATETIME') return 'datetime-local';
     return 'date';
+  });
+
+  readonly quickLabel = computed(() => {
+    return this.qType() === 'DATE' ? 'Hoy' : 'Ahora';
   });
 
   constructor() {
@@ -45,8 +48,8 @@ export class QuestionDateTimeComponent {
         this.rawValue.set('');
         return;
       }
-      const qType = this.question().type;
-      if (qType === 'DATETIME') {
+      const type = this.qType();
+      if (type === 'DATETIME') {
         const d = new Date(val);
         if (!isNaN(d.getTime())) {
           this.rawValue.set(this.formatForDatetimeLocal(d));
@@ -64,10 +67,10 @@ export class QuestionDateTimeComponent {
       return;
     }
 
-    const qType = this.question().type;
+    const type = this.qType();
     let normalized = val;
 
-    if (qType === 'DATETIME' && val) {
+    if (type === 'DATETIME' && val) {
       const d = new Date(val);
       if (!isNaN(d.getTime())) {
         normalized = d.toISOString();
@@ -80,16 +83,16 @@ export class QuestionDateTimeComponent {
   setNow(): void {
     if (this.disabled()) return;
     const now = new Date();
-    const qType = this.question().type;
+    const type = this.qType();
 
-    if (qType === 'DATE') {
+    if (type === 'DATE') {
       const formatted = now.toISOString().split('T')[0];
       this.onValueInput(formatted);
-    } else if (qType === 'TIME') {
+    } else if (type === 'TIME') {
       const hours = String(now.getHours()).padStart(2, '0');
       const mins = String(now.getMinutes()).padStart(2, '0');
       this.onValueInput(`${hours}:${mins}`);
-    } else if (qType === 'DATETIME') {
+    } else if (type === 'DATETIME') {
       const formatted = this.formatForDatetimeLocal(now);
       this.rawValue.set(formatted);
       this.valueChange.emit(now.toISOString());

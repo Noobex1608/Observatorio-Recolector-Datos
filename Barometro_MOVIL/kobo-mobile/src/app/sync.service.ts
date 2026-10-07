@@ -49,11 +49,22 @@ export class SyncService {
             likert_rows: q.likert_rows,
             likert_columns: q.likert_columns,
             branch_rules: q.branch_rules,
+            properties: q.properties,
+            hint: q.hint,
+            calculation_expression: q.calculation_expression,
+            media_type: q.media_type,
           })),
           downloadedAt: Date.now(),
           target_responses: detalle.target_responses,
           responses_count: detalle.responses_count,
           step_by_step: detalle.step_by_step ?? false,
+          require_consent: detalle.require_consent ?? form.require_consent ?? true,
+          consent_text: detalle.consent_text ?? form.consent_text ?? null,
+          start_date: detalle.start_date || form.start_date || null,
+          end_date: detalle.end_date || form.end_date || null,
+          project_id: detalle.project_id || form.project_id,
+          project_name: detalle.project_name || form.project_name,
+          project_zones: detalle.project_zones || form.project_zones || [],
         });
         descargados++;
       } catch {

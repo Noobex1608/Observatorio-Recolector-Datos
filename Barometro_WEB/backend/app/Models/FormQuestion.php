@@ -16,6 +16,7 @@ class FormQuestion extends Model
         'label',
         'options',
         'branch_rules',
+        'properties',
         'required',
         'order',
         'section_name',
@@ -25,6 +26,7 @@ class FormQuestion extends Model
     protected $casts = [
         'options' => 'array',
         'branch_rules' => 'array',
+        'properties' => 'array',
         'required' => 'boolean'
     ];
 

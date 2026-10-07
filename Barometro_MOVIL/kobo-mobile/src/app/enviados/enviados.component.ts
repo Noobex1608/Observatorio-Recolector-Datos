@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { DbService, SavedResponse } from '../db.service';
 import { ThemeService } from '../theme.service';
@@ -8,7 +8,7 @@ import { TranslatePipe } from '../translate.pipe';
 
 @Component({
   selector: 'app-enviados',
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   templateUrl: './enviados.component.html',
   styleUrls: ['./enviados.component.css']
 })
@@ -22,27 +22,74 @@ export class EnviadosComponent implements OnInit {
   enviados: SavedResponse[] = [];
   cargando = true;
 
+  mostrarConfirmacionBorrar = false;
+  borrando = false;
+
+  respuestaDetalle: SavedResponse | null = null;
+
   async ngOnInit() {
     await this.cargarEnviados();
   }
 
   async cargarEnviados() {
-    this.enviados = await this.db.responses
-      .where('estado')
-      .equals('enviado')
-      .toArray();
-    this.cargando = false;
+    try {
+      this.enviados = await this.db.responses
+        .where('estado')
+        .equals('enviado')
+        .reverse()
+        .toArray();
+    } catch {
+      this.enviados = [];
+    } finally {
+      this.cargando = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  iniciarBorrarTodos() {
+    if (this.enviados.length === 0) return;
+    this.mostrarConfirmacionBorrar = true;
     this.cdr.detectChanges();
   }
 
-  async borrarTodos() {
-    if (this.enviados.length === 0) return;
-    if (!confirm('¿Eliminar todas las notificaciones de envíos?')) return;
+  cancelarBorrar() {
+    this.mostrarConfirmacionBorrar = false;
+  }
 
-    const ids = this.enviados.map(e => e.id).filter((id): id is number => id !== undefined);
-    await this.db.responses.bulkDelete(ids);
-    await this.cargarEnviados();
-    this.toast.show('Notificaciones de envíos eliminadas.');
+  async confirmarBorrarTodos() {
+    this.mostrarConfirmacionBorrar = false;
+    this.borrando = true;
+    this.cdr.detectChanges();
+
+    try {
+      const ids = this.enviados.map(e => e.id).filter((id): id is number => id !== undefined);
+      await this.db.responses.bulkDelete(ids);
+      await this.cargarEnviados();
+      this.toast.show('Historial de envíos limpiado correctamente.');
+    } catch {
+      this.toast.show('Error al limpiar el historial.', 'error');
+    }
+
+    this.borrando = false;
+    this.cdr.detectChanges();
+  }
+
+  verRespuestas(resp: SavedResponse) {
+    this.respuestaDetalle = resp;
+    this.cdr.detectChanges();
+  }
+
+  cerrarDetalle() {
+    this.respuestaDetalle = null;
+    this.cdr.detectChanges();
+  }
+
+  obtenerClavesRespuestas(answers: Record<string, any>): { key: string; val: string }[] {
+    if (!answers || typeof answers !== 'object') return [];
+    return Object.entries(answers).map(([key, val]) => ({
+      key,
+      val: typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'Sin respuesta')
+    }));
   }
 
   volver() {

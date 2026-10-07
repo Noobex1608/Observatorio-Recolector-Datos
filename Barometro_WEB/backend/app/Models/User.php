@@ -29,35 +29,6 @@ class User extends Authenticatable
     protected static function boot(): void
     {
         parent::boot();
-
-        static::creating(function (User $user) {
-            $currentUser = auth()->user();
-
-            if (!$currentUser) {
-                return;
-            }
-
-            if (!$currentUser->canManageRole($user->rol)) {
-                $user->rol = self::ROLE_USER;
-            }
-        });
-
-        static::updating(function (User $user) {
-            if (!$user->isDirty('rol')) {
-                return;
-            }
-
-            $currentUser = auth()->user();
-
-            if (!$currentUser) {
-                $user->rol = $user->getOriginal('rol');
-                return;
-            }
-
-            if (!$currentUser->canManageRole($user->rol)) {
-                $user->rol = $user->getOriginal('rol');
-            }
-        });
     }
 
     protected $fillable = [
@@ -91,6 +62,13 @@ class User extends Authenticatable
     public function ledProjects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'project_user_leaders')->withTimestamps();
+    }
+
+    public function assignedZones(): BelongsToMany
+    {
+        return $this->belongsToMany(ProjectZone::class, 'project_zone_user_assignments', 'user_id', 'zone_id')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function isAdmin(): bool

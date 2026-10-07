@@ -43,6 +43,6 @@ export class AjustesComponent {
   }
 
   verAcercaDe() {
-    this.toast.show('ULEAM ' + this.theme.t('version'), 'info', 4000);
+    this.toast.show('ULEAM DataField ' + this.theme.t('version'), 'info', 4000);
   }
 }

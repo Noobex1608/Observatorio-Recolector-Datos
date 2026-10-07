@@ -92,24 +92,26 @@ case "$COMMAND" in
     docker_db_args
     dev_mount_args
     echo "Starting Laravel API at http://127.0.0.1:8000 using DB_HOST=$DB_HOST_VALUE, DB_PORT=$DB_PORT_VALUE ($DB_RUNTIME_LABEL)..."
-    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker run -d \
-      --name "$CONTAINER_NAME" \
-      --rm \
-      -p 8000:8000 \
-      "${DOCKER_DB_ARGS[@]}" \
-      "${DOCKER_DEV_MOUNT_ARGS[@]}" \
-      --env-file "$ENV_FILE" \
-      -e DB_HOST="$DB_HOST_VALUE" \
-      -e DB_PORT="$DB_PORT_VALUE" \
-      --entrypoint php \
-      "$IMAGE_NAME" artisan serve --host=0.0.0.0 --port=8000 >/dev/null
+    if docker ps -a --format '{{.Names}}' | grep -E "^${CONTAINER_NAME}$" >/dev/null 2>&1; then
+      docker start "$CONTAINER_NAME" >/dev/null
+    else
+      docker run -d \
+        --name "$CONTAINER_NAME" \
+        -p 8000:8000 \
+        "${DOCKER_DB_ARGS[@]}" \
+        "${DOCKER_DEV_MOUNT_ARGS[@]}" \
+        --env-file "$ENV_FILE" \
+        -e DB_HOST="$DB_HOST_VALUE" \
+        -e DB_PORT="$DB_PORT_VALUE" \
+        --entrypoint php \
+        "$IMAGE_NAME" artisan serve --host=0.0.0.0 --port=8000 >/dev/null
+    fi
     echo "Backend started. Use './scripts/backend.sh logs' to inspect output."
     ;;
   stop)
-    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker rm -f "$WORKER_CONTAINER_NAME" >/dev/null 2>&1 || true
-    docker rm -f "$SCHEDULER_CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker stop "$WORKER_CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker stop "$SCHEDULER_CONTAINER_NAME" >/dev/null 2>&1 || true
     echo "Backend stopped."
     ;;
   logs) docker logs -f "$CONTAINER_NAME" ;;

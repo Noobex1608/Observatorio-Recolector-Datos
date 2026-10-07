@@ -90,6 +90,9 @@ class UserController extends Controller
     )]
     public function updateRole(UpdateUserRoleRequest $request, int $id): JsonResponse
     {
+        $targetBefore = \App\Models\User::find($id);
+        $oldRole = $targetBefore?->rol ?? 'RECOLECTOR';
+
         $dto = UpdateUserRoleDTO::fromArray(
             array_merge($request->validated(), ['user_id' => $id]),
             $request->user()->id
@@ -97,11 +100,14 @@ class UserController extends Controller
 
         $user = $this->updateUserRoleUseCase->execute($dto);
 
+        \App\Services\AuditLogService::logUserRoleChange($request->user(), $user, $oldRole, $user->rol);
+
         return response()->json([
             'message' => 'Rol actualizado exitosamente',
             'user' => new UserResource($user),
         ]);
     }
+
 
     #[OA\Get(
         path: '/users/{id}',
@@ -161,11 +167,14 @@ class UserController extends Controller
 
         $user = $this->createUserUseCase->execute($dto);
 
+        \App\Services\AuditLogService::logUserCreation($request->user(), $user);
+
         return response()->json([
             'message' => 'Usuario creado exitosamente',
             'data' => new UserResource($user),
         ], 201);
     }
+
 
     #[OA\Put(
         path: '/users/{id}',
@@ -263,6 +272,8 @@ class UserController extends Controller
         
         $user = $this->toggleUserStatusUseCase->execute($id, $request->user()->id, $isActive);
 
+        \App\Services\AuditLogService::logUserStatusChange($request->user(), $user, $user->is_active);
+
         $status = $user->is_active ? 'activado' : 'desactivado';
 
         return response()->json([
@@ -270,4 +281,5 @@ class UserController extends Controller
             'data' => new UserResource($user),
         ]);
     }
+
 }

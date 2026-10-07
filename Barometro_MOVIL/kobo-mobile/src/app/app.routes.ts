@@ -13,6 +13,7 @@ import { authGuard } from './auth.guard';
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: '', component: InicioComponent, canActivate: [authGuard] },
+  { path: 'inicio', redirectTo: '', pathMatch: 'full' },
   { path: 'lista', component: ListaEncuestasComponent, canActivate: [authGuard] },
   { path: 'listo-para-enviar', component: ListoParaEnviarComponent, canActivate: [authGuard] },
   { path: 'llenar/:id', component: LlenarEncuestaComponent, canActivate: [authGuard] },

@@ -54,14 +54,14 @@ Route::get('/avatars/{filename}', function (string $filename) {
         ->header('Cache-Control', 'public, max-age=31536000')
         ->header('Access-Control-Allow-Origin', '*')
         ->header('Cross-Origin-Resource-Policy', 'cross-origin');
-})->where('filename', '.*');
+})->where('filename', '[a-zA-Z0-9_\-\.]+');
 
 require __DIR__ . '/modules/auth.php';
 require __DIR__ . '/modules/profile.php';
-require __DIR__ . '/modules/seed.php';
 
 Route::prefix('forms')->group(__DIR__ . '/modules/forms.php');
 
 Route::middleware('auth:sanctum')->prefix('mobile')->group(__DIR__ . '/modules/mobile.php');
 Route::prefix('projects')->group(__DIR__ . '/modules/projects.php');
 Route::prefix('users')->group(__DIR__ . '/modules/users.php');
+Route::prefix('audit-logs')->group(__DIR__ . '/modules/audit.php');

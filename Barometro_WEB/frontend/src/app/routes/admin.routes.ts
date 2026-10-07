@@ -72,4 +72,15 @@ export const ADMIN_ROUTES: Routes = [
     canActivate: [roleGuard('SUPER_ADMIN')],
     title: 'routes.editUser',
   },
+  // Auditoria (solo SuperAdmin)
+  {
+    path: 'auditoria',
+    loadComponent: () =>
+      import('../features/audit-logs/audit-log.component').then(
+        (m) => m.AuditLogComponent,
+      ),
+    canActivate: [roleGuard('SUPER_ADMIN')],
+    title: 'routes.auditLogs',
+  },
 ];
+

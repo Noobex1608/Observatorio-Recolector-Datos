@@ -130,7 +130,29 @@
     font-size: 0.875rem;
     color: var(--text-primary);
   }
+
+  .search-clear-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+
+    &:hover {
+      color: var(--text-primary);
+    }
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
+
 
 .alert-error {
   padding: 0.75rem 1rem;
@@ -905,3 +927,107 @@
     min-width: 100%;
   }
 }
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.category-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+
+  mat-icon {
+    color: #f59e0b;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  select {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+}
+
+.archived-categories-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.project-category-block {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.project-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border-color);
+
+  .category-title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+
+    .folder-icon {
+      color: #f59e0b;
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+
+      span {
+        color: var(--primary-600);
+      }
+    }
+  }
+
+  .category-count-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    padding: 0.3rem 0.65rem;
+    border-radius: 9999px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+

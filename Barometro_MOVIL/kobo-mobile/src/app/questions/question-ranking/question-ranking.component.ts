@@ -18,15 +18,12 @@ import { FormQuestion } from '../../db.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuestionRankingComponent {
-  // Signal Inputs
   question = input.required<FormQuestion>();
   value = input<string[] | null>(null);
   disabled = input<boolean>(false);
 
-  // Signal Output
   valueChange = output<string[]>();
 
-  // State Signals
   readonly items = signal<string[]>([]);
 
   constructor() {
@@ -64,5 +61,9 @@ export class QuestionRankingComponent {
 
     this.items.set(current);
     this.valueChange.emit(current);
+  }
+
+  trackByString(_index: number, item: string): string {
+    return item;
   }
 }

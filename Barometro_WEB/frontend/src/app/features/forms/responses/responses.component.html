@@ -11,6 +11,16 @@
       </div>
       <div class="export-actions">
         <button
+          class="btn-export btn-pdf"
+          (click)="vm.exportPdfSummary()"
+          [disabled]="vm.isExporting() || vm.responses().length === 0"
+          type="button"
+          title="Exportar informe resumen en PDF con estadísticas"
+        >
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>{{ 'forms.responses.exportPdf' | translate }}</span>
+        </button>
+        <button
           class="btn-export"
           (click)="vm.exportData('csv')"
           [disabled]="vm.isExporting() || vm.responses().length === 0"
@@ -175,6 +185,7 @@
                         [question]="q"
                         [value]="row.rawAnswers?.[col.key]"
                         [formattedValue]="row.answers[col.key] || ''"
+                        [compact]="true"
                       />
                     } @else {
                       {{ row.answers[col.key] || '-' }}

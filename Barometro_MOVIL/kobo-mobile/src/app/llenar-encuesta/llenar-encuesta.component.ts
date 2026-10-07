@@ -2,8 +2,9 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angula
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { DbService, FormDefinition, FormQuestion } from '../db.service';
+import { DbService, FormDefinition, FormQuestion, ProjectZoneInfo } from '../db.service';
 import { StorageService } from '../storage.service';
+import { LocationService } from '../services/location.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { TranslatePipe } from '../translate.pipe';
@@ -15,6 +16,7 @@ import { QuestionNoteComponent } from '../questions/question-note/question-note.
 import { QuestionRankingComponent } from '../questions/question-ranking/question-ranking.component';
 import { QuestionRatingComponent } from '../questions/question-rating/question-rating.component';
 import { QuestionBarcodeComponent } from '../questions/question-barcode/question-barcode.component';
+import { QuestionLikertComponent } from '../questions/question-likert/question-likert.component';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -30,7 +32,8 @@ import { QuestionBarcodeComponent } from '../questions/question-barcode/question
     QuestionNoteComponent,
     QuestionRankingComponent,
     QuestionRatingComponent,
-    QuestionBarcodeComponent
+    QuestionBarcodeComponent,
+    QuestionLikertComponent
   ],
   templateUrl: './llenar-encuesta.component.html',
   styleUrls: ['./llenar-encuesta.component.css']
@@ -61,6 +64,30 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   likertRespondidos: Record<string, boolean> = {};
   guardando = false;
 
+  // Validación de Delimitación Zonal del Proyecto
+  private locationService = inject(LocationService);
+  mostrarValidacionZonal = false;
+  estadoValidacion: 'inactivo' | 'verificando' | 'valido' | 'fuera_zona' | 'error' = 'inactivo';
+  errorValidacionTexto = '';
+  zonaValidada: ProjectZoneInfo | null = null;
+  distanciaAZonaMetros: number | null = null;
+  distanciaFormateada = '';
+  coordenadasActuales: { lat: number; lng: number; precision: number } | null = null;
+  justificacionFueraZona = '';
+  mostrarModalJustificacion = false;
+
+  // Consentimiento Informado Previo
+  mostrarConsentimiento = false;
+
+  get requiereConsentimiento(): boolean {
+    return this.formulario?.require_consent !== false;
+  }
+
+  get textoConsentimiento(): string {
+    return this.formulario?.consent_text?.trim() ||
+      'Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?';
+  }
+
   async ngOnInit() {
     try {
       const formId = this.route.snapshot.paramMap.get('id');
@@ -78,6 +105,20 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       }
       form.step_by_step = true;
       this.formulario = form;
+
+      const today = new Date().toISOString().split('T')[0];
+      if (form.start_date && today < form.start_date) {
+        this.errorCarga = `Esta encuesta aún no está disponible. Su fecha de inicio es ${form.start_date}.`;
+        this.cargando = false;
+        this.cdr.detectChanges();
+        return;
+      }
+      if (form.end_date && today > form.end_date) {
+        this.errorCarga = `Esta encuesta ha finalizado y se encuentra archivada desde el ${form.end_date}. No se permiten más respuestas.`;
+        this.cargando = false;
+        this.cdr.detectChanges();
+        return;
+      }
 
       if (form.target_responses != null && form.target_responses > 0) {
         const serverCount = form.responses_count ?? 0;
@@ -101,11 +142,24 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
         if (draft && draft.answers) {
           this.respuestas = draft.answers;
           this.draftId = draft.id ?? null;
+          if (draft.answers['_project_geofence']) {
+            const geo = draft.answers['_project_geofence'];
+            this.zonaValidada = this.zonasProyecto.find(z => z.id === geo.zone_id) || null;
+            this.estadoValidacion = geo.valido ? 'valido' : 'fuera_zona';
+            this.mostrarValidacionZonal = false;
+          }
         } else {
           this.inicializarRespuestas();
         }
       } else {
         this.inicializarRespuestas();
+      }
+
+      if (this.tieneDelimitacionZonal && !this.respuestas['_project_geofence']) {
+        this.mostrarValidacionZonal = true;
+        this.verificarUbicacionZonal();
+      } else if (this.requiereConsentimiento && !this.respuestas['_consentimiento_aceptado']) {
+        this.mostrarConsentimiento = true;
       }
     } catch {
       this.errorCarga = 'Error al cargar el formulario.';
@@ -140,6 +194,14 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       return '';
     }
     return `Pregunta ${this.preguntaActualIndex + 1} de ${this.formulario.questions.length}`;
+  }
+
+  get porcentajeProgreso(): number {
+    if (!this.formulario?.questions?.length) return 0;
+    if (this.flujoFinalizado) return 100;
+    const total = this.formulario.questions.length;
+    const actual = Math.min(this.preguntaActualIndex + 1, total);
+    return Math.round((actual / total) * 100);
   }
 
   get puedeAvanzar(): boolean {
@@ -460,6 +522,11 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     this.evaluarCalculosBackground();
   }
 
+  onLikertChange(qId: string, payload: any) {
+    this.respuestas[qId] = payload;
+    this.evaluarCalculosBackground();
+  }
+
   evaluarCalculosBackground(): void {
     if (!this.formulario) return;
     for (const q of this.formulario.questions) {
@@ -569,5 +636,236 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     const mins = Math.floor(segundos / 60);
     const secs = segundos % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  get tieneDelimitacionZonal(): boolean {
+    return !!(this.formulario?.project_zones && this.formulario.project_zones.length > 0);
+  }
+
+  get zonasProyecto(): ProjectZoneInfo[] {
+    return this.formulario?.project_zones || [];
+  }
+
+  get nombreZonaActiva(): string {
+    if (this.zonaValidada) {
+      return this.zonaValidada.name;
+    }
+    if (this.zonasProyecto.length > 0) {
+      return this.zonasProyecto[0].name;
+    }
+    return 'Zona del Proyecto';
+  }
+
+  get googleMapsUrlZona(): string {
+    const targetLat = this.zonaValidada?.target_lat ?? this.zonasProyecto[0]?.target_lat;
+    const targetLng = this.zonaValidada?.target_lng ?? this.zonasProyecto[0]?.target_lng;
+    const user = this.coordenadasActuales;
+    if (user && targetLat !== null && targetLat !== undefined && targetLng !== null && targetLng !== undefined) {
+      return `https://www.google.com/maps/dir/${user.lat},${user.lng}/${targetLat},${targetLng}`;
+    }
+    if (targetLat !== null && targetLat !== undefined && targetLng !== null && targetLng !== undefined) {
+      return `https://www.google.com/maps?q=${targetLat},${targetLng}`;
+    }
+    return '';
+  }
+
+  async verificarUbicacionZonal(): Promise<void> {
+    if (!this.tieneDelimitacionZonal) {
+      this.mostrarValidacionZonal = false;
+      this.estadoValidacion = 'inactivo';
+      return;
+    }
+
+    this.estadoValidacion = 'verificando';
+    this.errorValidacionTexto = '';
+    this.cdr.detectChanges();
+
+    try {
+      const position = await this.locationService.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 12000
+      });
+
+      const userLat = position.latitude;
+      const userLng = position.longitude;
+      const accuracy = position.accuracy;
+      this.coordenadasActuales = { lat: userLat, lng: userLng, precision: accuracy };
+
+      let matchedZone: ProjectZoneInfo | null = null;
+      let minDistance = Infinity;
+      let closestZone: ProjectZoneInfo | null = null;
+
+      for (const zone of this.zonasProyecto) {
+        let inside = false;
+        let dist = Infinity;
+
+        // Evaluación por polígono cartográfico INEC
+        if (zone.geofence_type === 'manzana_polygon' || zone.geofence_type === 'custom_polygon') {
+          if (zone.geometry_json) {
+            inside = this.puntoEnGeometria(userLat, userLng, zone.geometry_json);
+          }
+        }
+
+        // Evaluación por distancia circular
+        if (zone.target_lat !== null && zone.target_lat !== undefined &&
+            zone.target_lng !== null && zone.target_lng !== undefined) {
+          dist = this.calcularDistanciaMetros(userLat, userLng, zone.target_lat, zone.target_lng);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestZone = zone;
+          }
+
+          const allowedRadius = zone.radius_meters || 500;
+          if (!inside && dist <= allowedRadius) {
+            inside = true;
+          }
+        }
+
+        if (inside) {
+          matchedZone = zone;
+          minDistance = dist !== Infinity ? dist : 0;
+          break;
+        }
+      }
+
+      if (matchedZone) {
+        this.estadoValidacion = 'valido';
+        this.zonaValidada = matchedZone;
+        this.distanciaAZonaMetros = minDistance;
+        this.distanciaFormateada = this.formatearDistancia(minDistance);
+
+        this.respuestas['_project_geofence'] = {
+          valido: true,
+          fuera_de_zona: false,
+          zone_id: matchedZone.id,
+          zone_name: matchedZone.name,
+          tipo: matchedZone.geofence_type,
+          latitud: userLat,
+          longitud: userLng,
+          precision: accuracy,
+          distancia_metros: minDistance,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        this.estadoValidacion = 'fuera_zona';
+        this.zonaValidada = closestZone || this.zonasProyecto[0];
+        this.distanciaAZonaMetros = minDistance !== Infinity ? minDistance : null;
+        this.distanciaFormateada = this.distanciaAZonaMetros !== null ? this.formatearDistancia(this.distanciaAZonaMetros) : 'Desconocida';
+      }
+    } catch (err: any) {
+      this.estadoValidacion = 'error';
+      this.errorValidacionTexto = err?.message || 'No se pudo obtener la ubicación GPS del dispositivo.';
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  calcularDistanciaMetros(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+  }
+
+  formatearDistancia(metros: number): string {
+    if (metros < 1000) {
+      return `${metros} metros`;
+    }
+    return `${(metros / 1000).toFixed(2)} km`;
+  }
+
+  puntoEnGeometria(lat: number, lng: number, geometry: any): boolean {
+    if (!geometry || !geometry.coordinates) return false;
+
+    try {
+      const type = geometry.type;
+      const coords = geometry.coordinates;
+
+      if (type === 'Polygon') {
+        return this.puntoEnPoligono([lng, lat], coords[0]);
+      } else if (type === 'MultiPolygon') {
+        for (const poly of coords) {
+          if (this.puntoEnPoligono([lng, lat], poly[0])) {
+            return true;
+          }
+        }
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }
+
+  puntoEnPoligono(point: [number, number], vs: [number, number][]): boolean {
+    if (!Array.isArray(vs) || vs.length < 3) return false;
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      const xi = vs[i][0], yi = vs[i][1];
+      const xj = vs[j][0], yj = vs[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  comenzarEncuestaValidada(): void {
+    this.mostrarValidacionZonal = false;
+    if (this.requiereConsentimiento && !this.respuestas['_consentimiento_aceptado']) {
+      this.mostrarConsentimiento = true;
+    }
+    this.cdr.detectChanges();
+  }
+
+  continuarFueraDeZona(): void {
+    const user = this.coordenadasActuales;
+    const zone = this.zonaValidada;
+    this.respuestas['_project_geofence'] = {
+      valido: false,
+      fuera_de_zona: true,
+      zone_id: zone?.id,
+      zone_name: zone?.name,
+      tipo: zone?.geofence_type,
+      latitud: user?.lat ?? null,
+      longitud: user?.lng ?? null,
+      precision: user?.precision ?? null,
+      distancia_metros: this.distanciaAZonaMetros,
+      justificacion: this.justificacionFueraZona.trim() || 'Levantamiento fuera de zona confirmado por encuestador',
+      timestamp: new Date().toISOString()
+    };
+
+    this.mostrarValidacionZonal = false;
+    if (this.requiereConsentimiento && !this.respuestas['_consentimiento_aceptado']) {
+      this.mostrarConsentimiento = true;
+    }
+    this.toast.show('Encuesta iniciada fuera de la delimitación oficial.');
+    this.cdr.detectChanges();
+  }
+
+  aceptarConsentimiento(): void {
+    this.respuestas['_consentimiento_aceptado'] = true;
+    this.respuestas['_consentimiento_fecha'] = new Date().toISOString();
+    this.mostrarConsentimiento = false;
+    this.toast.show('Consentimiento informado aceptado.');
+    this.guardarBorrador();
+    this.cdr.detectChanges();
+  }
+
+  async rechazarConsentimiento(): Promise<void> {
+    if (this.draftId) {
+      try {
+        await this.db.responses.delete(this.draftId);
+      } catch {}
+    }
+    this.toast.show('La persona no aceptó participar. Encuesta cerrada.');
+    this.router.navigate(['/lista']);
   }
 }

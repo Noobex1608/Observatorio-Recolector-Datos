@@ -1,4 +1,4 @@
-﻿<div class="dashboard-container">
+<div class="dashboard-container">
   <div class="page-header">
     <div>
       <h1 class="page-title">{{ 'forms.dashboard.title' | translate }}</h1>
@@ -28,14 +28,36 @@
       }
     </div>
 
-    <div class="search-box">
-      <mat-icon>search</mat-icon>
-      <input
-        type="text"
-        [placeholder]="'forms.dashboard.searchPlaceholder' | translate"
-        [ngModel]="vm.searchQuery()"
-        (ngModelChange)="vm.searchQuery.set($event)"
-      />
+    <div class="toolbar-right">
+      <div class="category-select">
+        <mat-icon>category</mat-icon>
+        <select
+          [ngModel]="vm.selectedProjectCategory()"
+          (ngModelChange)="vm.selectedProjectCategory.set($event)"
+        >
+          <option value="ALL">Todas las Categorías / Proyectos</option>
+          @for (cat of vm.projectCategories(); track cat.id) {
+            <option [value]="cat.id">📁 {{ cat.name }}</option>
+          }
+          <option value="UNASSIGNED">Sin Proyecto Categorizado</option>
+        </select>
+      </div>
+
+      <div class="search-box">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          [placeholder]="'forms.dashboard.searchPlaceholder' | translate"
+          [value]="vm.searchQuery()"
+          (input)="vm.onSearchInput($event)"
+        />
+        @if (vm.searchQuery()) {
+          <button class="search-clear-btn" type="button" (click)="vm.searchQuery.set('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+
     </div>
   </div>
 
@@ -50,14 +72,133 @@
     </div>
   } @else if (vm.filteredForms().length === 0) {
     <div class="empty-state">
-      <mat-icon>description</mat-icon>
+      <mat-icon>inventory_2</mat-icon>
       <h3>{{ 'forms.dashboard.emptyTitle' | translate }}</h3>
       <p>{{ 'forms.dashboard.emptySubtitle' | translate }}</p>
       @if (vm.activeTab() === 'DRAFT' && vm.canCreateForms()) {
         <a routerLink="/admin/forms/builder" class="btn-primary">{{ 'common.buttons.createForm' | translate }}</a>
       }
     </div>
+  } @else if (vm.activeTab() === 'ARCHIVED') {
+    <!-- Categorizado por Proyectos para Formularios Archivados -->
+    <div class="archived-categories-wrapper">
+      @for (group of vm.archivedFormsByProject(); track group.projectId || 'none') {
+        <div class="project-category-block">
+          <div class="project-category-header">
+            <div class="category-title">
+              <mat-icon class="folder-icon">folder_special</mat-icon>
+              <h2>Categoría Proyecto: <span>{{ group.projectName }}</span></h2>
+            </div>
+            <span class="category-count-badge">
+              <mat-icon>inventory_2</mat-icon>
+              {{ group.forms.length }} formulario(s) archivado(s)
+            </span>
+          </div>
+
+          <div class="forms-grid">
+            @for (form of group.forms; track form.id) {
+              <div class="form-card">
+                <div class="form-card-header">
+                  <span class="state-badge state-archived">
+                    {{ vm.getStateLabel(form.state) }}
+                  </span>
+                  <span class="responses-count">
+                    <mat-icon>inbox</mat-icon>
+                    {{ 'forms.dashboard.responsesCount' | translate: { count: form.responses_count ?? 0 } }}
+                  </span>
+                </div>
+
+                <h3 class="form-title">{{ form.title }}</h3>
+                @if (form.description) {
+                  <p class="form-description">{{ form.description }}</p>
+                }
+
+                <div class="form-context">
+                  <span class="context-item">
+                    <mat-icon>folder</mat-icon>
+                    <span class="context-copy">
+                      <span class="context-label">{{ 'common.labels.project' | translate }}</span>
+                      <strong class="context-value">{{ form.project?.name ?? ('forms.dashboard.noProject' | translate) }}</strong>
+                    </span>
+                  </span>
+                  <span class="context-item">
+                    <mat-icon>person</mat-icon>
+                    <span class="context-copy">
+                      <span class="context-label">{{ 'forms.dashboard.createdBy' | translate }}</span>
+                      <strong class="context-value">{{ form.owner?.name ?? ('forms.dashboard.noOwner' | translate) }}</strong>
+                    </span>
+                  </span>
+                </div>
+
+                <div class="form-meta">
+                  <span>{{ 'forms.dashboard.updatedAt' | translate: { date: (form.updated_at | date: 'dd/MM/yyyy') } }}</span>
+                </div>
+
+                <div class="form-actions">
+                  @if (vm.canManageForm(form)) {
+                    <button
+                      class="btn-action btn-deploy"
+                      (click)="vm.deployForm(form.id)"
+                      [disabled]="vm.actionLoading() === form.id"
+                      type="button"
+                    >
+                      <mat-icon>rocket_launch</mat-icon>
+                      {{ 'common.buttons.redeploy' | translate }}
+                    </button>
+                  }
+
+                  @if (vm.canViewResults()) {
+                    <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action">
+                      <mat-icon>bar_chart</mat-icon>
+                      {{ 'common.buttons.results' | translate }}
+                    </a>
+                  }
+
+                  @if (vm.canManageForm(form) || vm.canEditForm(form)) {
+                    <button
+                      class="btn-action btn-more"
+                      type="button"
+                      [matMenuTriggerFor]="archivedActionsMenu"
+                      [attr.aria-label]="'forms.dashboard.actions.more' | translate"
+                    >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+
+                    <mat-menu #archivedActionsMenu="matMenu" xPosition="before" class="form-actions-menu">
+                      @if (vm.canEditForm(form)) {
+                        <a mat-menu-item [routerLink]="['/admin/forms', form.id, 'edit']">
+                          <mat-icon>edit</mat-icon>
+                          <span>{{ 'forms.dashboard.actions.edit' | translate }}</span>
+                        </a>
+                      }
+
+                      @if (vm.canManageForm(form)) {
+                        <button mat-menu-item type="button" (click)="vm.openShareModal(form.id)">
+                          <mat-icon>group_add</mat-icon>
+                          <span>{{ 'common.buttons.share' | translate }}</span>
+                        </button>
+
+                        <button mat-menu-item type="button" (click)="vm.cloneForm(form)" [disabled]="vm.actionLoading() === form.id">
+                          <mat-icon>content_copy</mat-icon>
+                          <span>{{ 'common.buttons.clone' | translate }}</span>
+                        </button>
+
+                        <button mat-menu-item type="button" class="menu-danger" (click)="vm.deleteForm(form)" [disabled]="vm.actionLoading() === form.id">
+                          <mat-icon>delete</mat-icon>
+                          <span>{{ 'common.buttons.delete' | translate }}</span>
+                        </button>
+                      }
+                    </mat-menu>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
   } @else {
+    <!-- Grilla estándar para Borradores e Implementados -->
     <div class="forms-grid">
       @for (form of vm.filteredForms(); track form.id) {
         <div class="form-card">
@@ -134,13 +275,6 @@
               }
             }
 
-            @if (form.state === 'ARCHIVED' && vm.canViewResults()) {
-              <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action">
-                <mat-icon>bar_chart</mat-icon>
-                {{ 'common.buttons.results' | translate }}
-              </a>
-            }
-
             @if (vm.canManageForm(form) || vm.canEditForm(form)) {
               <button
                 class="btn-action btn-more"
@@ -184,6 +318,7 @@
       }
     </div>
   }
+
 </div>
 
 @if (vm.shareModalOpen()) {

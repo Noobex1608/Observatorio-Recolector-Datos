@@ -27,12 +27,22 @@ class LoginUseCase
             ]);
         }
 
-        // Limitar a máximo 10 tokens por usuario (eliminar los más viejos)
-        $user->tokens()
-            ->orderBy('id', 'asc')
+        if (!$user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Esta cuenta se encuentra desactivada. Contacte al administrador.'],
+            ]);
+        }
+
+        // Limitar a máximo 10 tokens por usuario (eliminar los más viejos de forma compatible con PostgreSQL)
+        $tokenIdsToDelete = $user->tokens()
+            ->orderBy('created_at', 'desc')
             ->skip(9)
             ->take(100)
-            ->delete();
+            ->pluck('id');
+
+        if ($tokenIdsToDelete->isNotEmpty()) {
+            $user->tokens()->whereIn('id', $tokenIdsToDelete)->delete();
+        }
 
         // Cargar relaciones necesarias
         $user->load('perfil');

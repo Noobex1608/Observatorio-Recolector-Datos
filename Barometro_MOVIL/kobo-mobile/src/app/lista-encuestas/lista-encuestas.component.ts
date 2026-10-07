@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DbService, FormDefinition } from '../db.service';
 import { ThemeService } from '../theme.service';
 import { TranslatePipe } from '../translate.pipe';
@@ -8,11 +9,13 @@ import { TranslatePipe } from '../translate.pipe';
 interface FormWithProgress extends FormDefinition {
   enviadosCount: number;
   completado: boolean;
+  expirado: boolean;
+  noIniciado: boolean;
 }
 
 @Component({
   selector: 'app-lista-encuestas',
-  imports: [RouterLink, CommonModule, TranslatePipe],
+  imports: [RouterLink, CommonModule, FormsModule, TranslatePipe],
   templateUrl: './lista-encuestas.component.html',
   styleUrls: ['./lista-encuestas.component.css']
 })
@@ -25,6 +28,7 @@ export class ListaEncuestasComponent implements OnInit {
   formularios: FormWithProgress[] = [];
   cargando = true;
   errorCarga = '';
+  filtroTexto = '';
 
   async ngOnInit() {
     await this.cargarFormularios();
@@ -56,30 +60,43 @@ export class ListaEncuestasComponent implements OnInit {
         pendientesByForm[r.formId] = (pendientesByForm[r.formId] ?? 0) + 1;
       }
 
+      const today = new Date().toISOString().split('T')[0];
+
       this.formularios = forms.map(f => {
         const serverCount = f.responses_count ?? 0;
         const localPending = pendientesByForm[f.id] ?? 0;
         const totalCount = serverCount + localPending;
         const hasTarget = f.target_responses != null && f.target_responses > 0;
         const completado = hasTarget && totalCount >= f.target_responses!;
+        const expirado = Boolean(f.end_date && today > f.end_date);
+        const noIniciado = Boolean(f.start_date && today < f.start_date);
 
         return {
           ...f,
           enviadosCount: totalCount,
           completado,
+          expirado,
+          noIniciado,
         };
       });
     } catch {
       this.formularios = [];
     }
     this.cargando = false;
-    if (this.formularios.length === 0) {
-      this.errorCarga = 'No hay formularios descargados. Presiona "Descargar formulario" en el inicio para sincronizar.';
-    }
     this.cdr.detectChanges();
   }
 
-  irALlenar(formId: string) {
+  get formulariosFiltrados(): FormWithProgress[] {
+    if (!this.filtroTexto.trim()) return this.formularios;
+    const q = this.filtroTexto.toLowerCase().trim();
+    return this.formularios.filter(f => 
+      f.title.toLowerCase().includes(q) || 
+      (f.description && f.description.toLowerCase().includes(q))
+    );
+  }
+
+  irALlenar(formId: string, disabled: boolean) {
+    if (disabled) return;
     this.router.navigate(['/llenar', formId]);
   }
 

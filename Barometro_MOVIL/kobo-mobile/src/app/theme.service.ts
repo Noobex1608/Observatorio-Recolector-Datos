@@ -7,7 +7,7 @@ const LANG_KEY = 'kobo_lang';
 
 const TR: Record<Lang, Record<string, string>> = {
   es: {
-    app_title: 'ULEAM PWA',
+    app_title: 'ULEAM DataField',
     app_subtitle: 'Herramienta de Recolección de Datos',
     app_footer: 'Proyecto Integrador - Desarrollo Móvil',
     online: 'Conectado al servidor central',
@@ -44,7 +44,7 @@ const TR: Record<Lang, Record<string, string>> = {
     send: 'Enviar',
   },
   en: {
-    app_title: 'ULEAM PWA',
+    app_title: 'ULEAM DataField',
     app_subtitle: 'Data Collection Tool',
     app_footer: 'Integrator Project - Mobile Development',
     online: 'Connected to server',

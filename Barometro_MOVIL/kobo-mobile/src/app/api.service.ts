@@ -16,6 +16,18 @@ export interface BranchRule {
   next_question_id?: string | null;
 }
 
+export interface BackendProjectZone {
+  id: string;
+  name: string;
+  description?: string;
+  geofence_type: 'radius' | 'manzana_polygon' | 'custom_polygon';
+  target_lat: number | null;
+  target_lng: number | null;
+  radius_meters: number;
+  hierarchy_json?: any;
+  geometry_json?: any;
+}
+
 export interface BackendForm {
   id: string;
   title: string;
@@ -26,6 +38,13 @@ export interface BackendForm {
   target_responses?: number;
   responses_count?: number;
   step_by_step?: boolean;
+  require_consent?: boolean;
+  consent_text?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  project_id?: string;
+  project_name?: string;
+  project_zones?: BackendProjectZone[];
 }
 
 export interface BackendQuestion {
@@ -38,6 +57,7 @@ export interface BackendQuestion {
   likert_rows?: string[];
   likert_columns?: string[];
   branch_rules?: BranchRule[];
+  properties?: Record<string, any>;
   hint?: string;
   calculation_expression?: string;
   media_type?: 'IMAGE' | 'AUDIO' | 'VIDEO';

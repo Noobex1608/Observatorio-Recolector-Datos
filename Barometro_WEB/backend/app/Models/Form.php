@@ -17,11 +17,18 @@ class Form extends Model
         'project_id',
         'state',
         'link_uuid',
-        'step_by_step'
+        'step_by_step',
+        'require_consent',
+        'consent_text',
+        'start_date',
+        'end_date'
     ];
 
     protected $casts = [
         'step_by_step' => 'boolean',
+        'require_consent' => 'boolean',
+        'start_date' => 'date:Y-m-d',
+        'end_date' => 'date:Y-m-d',
     ];
 
     public function owner()

@@ -34,11 +34,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Responses/Data Management
     Route::get('/{id}/responses', [FormController::class, 'getResponses']);
     Route::get('/{id}/export', [FormController::class, 'exportResponses']); // Export CSV/Excel
+    Route::post('/{id}/log-export', [FormController::class, 'logExport']); // Log export in audit trail
     Route::get('/{id}/stats', [FormController::class, 'getStats']); // Graphical data
-
-    // Submit response (requires auth — tracks user_id for target counting)
-    Route::post('/submit/{link_uuid}', [FormController::class, 'submitResponse']);
 });
 
-// Public: fetch form by link (no auth needed)
+// Public: fetch form by link and submit response (no mandatory auth needed)
 Route::get('/fetch/{link_uuid}', [FormController::class, 'fetchForm']);
+Route::post('/submit/{link_uuid}', [FormController::class, 'submitResponse']);
+

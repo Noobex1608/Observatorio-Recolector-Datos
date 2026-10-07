@@ -66,6 +66,10 @@ export class FormBuilderViewModel {
   description = signal('');
   state = signal<Form['state']>('DRAFT');
   stepByStep = signal(false);
+  requireConsent = signal(true);
+  consentText = signal('Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?');
+  startDate = signal<string | null>(null);
+  endDate = signal<string | null>(null);
   questions = signal<FormQuestionDraft[]>([]);
   sections = signal<FormSectionDraft[]>([]);
   deletedQuestionIds = signal<string[]>([]);
@@ -118,6 +122,10 @@ export class FormBuilderViewModel {
       this.description.set(form.description ?? '');
       this.state.set(form.state);
       this.stepByStep.set(Boolean(form.step_by_step));
+      this.requireConsent.set(form.require_consent !== false);
+      this.consentText.set(form.consent_text ?? 'Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?');
+      this.startDate.set(form.start_date ?? null);
+      this.endDate.set(form.end_date ?? null);
       this.deletedQuestionIds.set([]);
       const draftQuestions = (form.questions ?? [])
         .slice()
@@ -351,6 +359,26 @@ export class FormBuilderViewModel {
 
   updateStepByStep(value: boolean): void {
     this.stepByStep.set(value);
+    this.clearMessages();
+  }
+
+  updateRequireConsent(value: boolean): void {
+    this.requireConsent.set(value);
+    this.clearMessages();
+  }
+
+  updateConsentText(value: string): void {
+    this.consentText.set(value);
+    this.clearMessages();
+  }
+
+  updateStartDate(value: string | null): void {
+    this.startDate.set(value || null);
+    this.clearMessages();
+  }
+
+  updateEndDate(value: string | null): void {
+    this.endDate.set(value || null);
     this.clearMessages();
   }
 
@@ -596,6 +624,10 @@ export class FormBuilderViewModel {
               title: this.title().trim(),
               description: this.description().trim(),
               step_by_step: resolvedStepByStep,
+              require_consent: this.requireConsent(),
+              consent_text: this.consentText().trim() || null,
+              start_date: this.startDate() || null,
+              end_date: this.endDate() || null,
             }),
           )
         : await firstValueFrom(
@@ -604,12 +636,20 @@ export class FormBuilderViewModel {
               description: this.description().trim(),
               project_id: this.projectId(),
               step_by_step: resolvedStepByStep,
+              require_consent: this.requireConsent(),
+              consent_text: this.consentText().trim() || null,
+              start_date: this.startDate() || null,
+              end_date: this.endDate() || null,
             }),
           );
 
       this.formId.set(savedForm.id);
       this.state.set(savedForm.state);
       this.stepByStep.set(Boolean(savedForm.step_by_step));
+      this.requireConsent.set(savedForm.require_consent !== false);
+      this.consentText.set(savedForm.consent_text ?? this.consentText());
+      this.startDate.set(savedForm.start_date ?? this.startDate());
+      this.endDate.set(savedForm.end_date ?? this.endDate());
 
       const savedQuestionIds = new Map<string, string>();
 
@@ -679,6 +719,10 @@ export class FormBuilderViewModel {
     this.description.set('');
     this.state.set('DRAFT');
     this.stepByStep.set(false);
+    this.requireConsent.set(true);
+    this.consentText.set('Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?');
+    this.startDate.set(null);
+    this.endDate.set(null);
     this.questions.set([]);
     this.sections.set([]);
     this.deletedQuestionIds.set([]);
@@ -733,9 +777,16 @@ export class FormBuilderViewModel {
       case 'DATETIME':
         return { min_date: '', max_date: '', default_now: false };
       case 'GPS':
-        return { capture_accuracy: true, allow_manual_fallback: true };
+        return {
+          capture_accuracy: true,
+          allow_manual_fallback: true,
+          target_lat: null,
+          target_lng: null,
+          radius_meters: 500,
+          zone_name: '',
+        };
       case 'MULTIMEDIA':
-        return { allowed_media: 'both', max_file_size_mb: 10 };
+        return { allowed_media: 'all', max_file_size_mb: 20 };
       case 'SIGNATURE':
         return { pen_color: '#000000', background_color: '#ffffff' };
       case 'RATING':

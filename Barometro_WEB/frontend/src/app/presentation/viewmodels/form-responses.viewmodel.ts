@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { FormQuestion, FormService, FormShare } from '@core/services/form.service';
+import { Form, FormQuestion, FormService, FormShare } from '@core/services/form.service';
+import { PdfExportService } from '@core/services/pdf-export.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -22,8 +23,10 @@ export interface QuestionChart {
 @Injectable()
 export class FormResponsesViewModel {
   private formService = inject(FormService);
+  private pdfExportService = inject(PdfExportService);
   private translate = inject(TranslateService);
 
+  form = signal<Form | null>(null);
   formId = signal<string | null>(null);
   formTitle = signal('');
   questions = signal<FormQuestion[]>([]);
@@ -89,6 +92,7 @@ export class FormResponsesViewModel {
         firstValueFrom(this.formService.getShares(formId)),
       ]);
 
+      this.form.set(form);
       this.formTitle.set(form.title);
       this.questions.set(responseData.questions ?? form.questions ?? []);
       this.stats.set(statsData);
@@ -106,6 +110,30 @@ export class FormResponsesViewModel {
       this.errorMessage.set(error?.error?.message || this.translate.instant('forms.responses.errors.load'));
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  async exportPdfSummary(): Promise<void> {
+    const formId = this.formId();
+    this.isExporting.set(true);
+    try {
+      await this.pdfExportService.exportResponsesSummaryPdf({
+        form: this.form(),
+        formTitle: this.formTitle(),
+        questions: this.questions(),
+        responses: this.responses(),
+        stats: this.stats(),
+        shares: this.shares(),
+      });
+
+      if (formId) {
+        this.formService.logExport(formId, 'pdf').subscribe({ error: () => {} });
+      }
+    } catch (error: any) {
+      console.error('Error al generar PDF de resumen:', error);
+      this.errorMessage.set(error?.message || 'Error al generar el reporte en PDF');
+    } finally {
+      this.isExporting.set(false);
     }
   }
 

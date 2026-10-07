@@ -45,22 +45,23 @@
     "select": "Select language"
   },
   "routes": {
-    "login": "Sign in - ULEAM Forms",
-    "dashboard": "My forms - ULEAM Forms",
-    "accountSettings": "Account settings - ULEAM Forms",
-    "newForm": "New form - ULEAM Forms",
-    "editForm": "Edit form - ULEAM Forms",
-    "formResponses": "Form responses - ULEAM Forms",
-    "projects": "Projects - ULEAM Forms",
-    "users": "Users - ULEAM Forms",
-    "newUser": "New user - ULEAM Forms",
-    "editUser": "Edit user - ULEAM Forms",
-    "collect": "Complete form - ULEAM Forms",
-    "profile": "My profile - ULEAM Forms"
+    "login": "Sign in - ULEAM DataField",
+    "dashboard": "My forms - ULEAM DataField",
+    "accountSettings": "Account settings - ULEAM DataField",
+    "newForm": "New form - ULEAM DataField",
+    "editForm": "Edit form - ULEAM DataField",
+    "formResponses": "Form responses - ULEAM DataField",
+    "projects": "Projects - ULEAM DataField",
+    "users": "Users - ULEAM DataField",
+    "newUser": "New user - ULEAM DataField",
+    "editUser": "Edit user - ULEAM DataField",
+    "auditLogs": "Audit & Data Control - ULEAM DataField",
+    "collect": "Complete form - ULEAM DataField",
+    "profile": "My profile - ULEAM DataField"
   },
   "auth": {
     "login": {
-      "title": "ULEAM Forms",
+      "title": "ULEAM DataField",
       "subtitle": "Sign in to the data collection platform",
       "email": "Email",
       "emailPlaceholder": "email@uleam.edu.ec",
@@ -77,7 +78,7 @@
   },
   "layout": {
     "header": {
-      "brand": "ULEAM Forms",
+      "brand": "ULEAM DataField",
       "brandSubtitle": "Data collection",
       "menu": "Menu",
       "themeLight": "Light mode",
@@ -91,9 +92,11 @@
       "myForms": "My forms",
       "newForm": "New form",
       "projects": "Projects",
-      "users": "Users"
+      "users": "Users",
+      "auditLogs": "Audit Logs"
     }
   },
+
   "profile": {
     "title": "My profile",
     "subtitle": "Manage your personal information and account",
@@ -407,6 +410,7 @@
       "subtitle": "{{count}} response(s) received",
       "exportCsv": "Export CSV",
       "exportExcel": "Export Excel",
+      "exportPdf": "Export Summary PDF",
       "loading": "Loading responses...",
       "chartsTitle": "Graphic summary",
       "distribution": "Distribution",

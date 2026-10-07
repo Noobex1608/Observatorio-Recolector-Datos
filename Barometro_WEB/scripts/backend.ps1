@@ -85,16 +85,20 @@ try {
             Ensure-BackendImage
             $db = Get-DbRuntime
             Write-Host 'Starting backend at http://127.0.0.1:8000 with PHP 8.4 (Docker)...' -ForegroundColor Green
-            docker rm -f $ContainerName 2>$null | Out-Null
-            $dockerArgs = @('run', '-d', '--name', $ContainerName, '--rm', '-p', '8000:8000') + $db.Args + (Get-DevMountArgs) + @('--env-file', $EnvFile, '-e', "DB_HOST=$($db.Host)", '-e', "DB_PORT=$($db.Port)", '--entrypoint', 'php', $ImageName, 'artisan', 'serve', '--host=0.0.0.0', '--port=8000')
-            & docker @dockerArgs | Out-Null
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $existing = docker ps -a --filter "name=^/${ContainerName}$" --format "{{.Names}}"
+            if ($existing) {
+                docker start $ContainerName | Out-Null
+            } else {
+                $dockerArgs = @('run', '-d', '--name', $ContainerName, '-p', '8000:8000') + $db.Args + (Get-DevMountArgs) + @('--env-file', $EnvFile, '-e', "DB_HOST=$($db.Host)", '-e', "DB_PORT=$($db.Port)", '--entrypoint', 'php', $ImageName, 'artisan', 'serve', '--host=0.0.0.0', '--port=8000')
+                & docker @dockerArgs | Out-Null
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
             Write-Host "Backend started using DB_HOST=$($db.Host), DB_PORT=$($db.Port) ($($db.Label))." -ForegroundColor Green
         }
         'stop' {
-            docker rm -f $ContainerName 2>$null | Out-Null
-            docker rm -f $WorkerContainerName 2>$null | Out-Null
-            docker rm -f $SchedulerContainerName 2>$null | Out-Null
+            docker stop $ContainerName 2>$null | Out-Null
+            docker stop $WorkerContainerName 2>$null | Out-Null
+            docker stop $SchedulerContainerName 2>$null | Out-Null
             Write-Host 'Backend stopped.' -ForegroundColor Green
         }
         'logs' { docker logs -f $ContainerName }

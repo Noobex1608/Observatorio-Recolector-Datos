@@ -1,5 +1,5 @@
-﻿import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { ApplicationConfig, ErrorHandler, Injectable, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { TitleStrategy, provideRouter } from '@angular/router';
@@ -11,9 +11,27 @@ import { provideTranslateBrowserLoader } from './core/loaders/translate-browser.
 import { LanguageService } from './core/services/language.service';
 import { TranslatedTitleStrategy } from './core/services/translated-title.strategy';
 
+@Injectable()
+export class GlobalErrorHandler implements ErrorHandler {
+  handleError(error: any): void {
+    const msg = String(error?.message || error?.toString() || '');
+    const causeMsg = String(error?.cause?.message || error?.cause || '');
+    if (
+      msg.includes('ResizeObserver') ||
+      causeMsg.includes('ResizeObserver') ||
+      msg.includes('undelivered notifications') ||
+      causeMsg.includes('undelivered notifications')
+    ) {
+      return;
+    }
+    console.error(error);
+  }
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
     provideAppInitializer(() => {
       inject(LanguageService).initialize();
     }),

@@ -4,6 +4,9 @@ namespace App\Presentation\Http\Controllers\Api;
 
 use App\Application\Forms\Services\EnqueueFormSchemaSync;
 use App\Application\Responses\Services\EnqueueResponseSync;
+use App\Domain\Forms\Services\FormFlowEngine;
+use App\Domain\Forms\Services\FormLifecycleService;
+use App\Domain\Forms\Services\FormResponseValidator;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\FormQuestion;
@@ -11,6 +14,10 @@ use App\Models\FormResponse;
 use App\Models\FormUserShare;
 use App\Models\User;
 use App\Presentation\Http\Requests\Mobile\SubmitMobileResponseRequest;
+use App\Presentation\Http\Resources\FormResource;
+use App\Presentation\Http\Resources\QuestionResource;
+use App\Presentation\Http\Resources\FormResponseResource;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,13 +38,16 @@ class FormController extends Controller
     public function __construct(
         private readonly EnqueueResponseSync $enqueueResponseSync,
         private readonly EnqueueFormSchemaSync $enqueueFormSchemaSync,
-    )
-    {
+        private readonly FormFlowEngine $formFlowEngine,
+        private readonly FormResponseValidator $formResponseValidator,
+        private readonly FormLifecycleService $formLifecycleService,
+    ) {
     }
 
     #[OA\Get(path: '/forms', summary: 'Listar formularios propios y compartidos', security: [['sanctum' => []]], tags: ['Forms'])]
     public function index(Request $request): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
         $user = $request->user();
 
         if ($user->isSuperAdmin() || $user->isAdmin()) {
@@ -83,6 +93,7 @@ class FormController extends Controller
     #[OA\Get(path: '/mobile/forms', summary: 'Listar formularios para app móvil (formato plano con preguntas)', security: [['sanctum' => []]], tags: ['Mobile'])]
     public function mobileIndex(Request $request): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
         $user = $request->user();
 
         $forms = Form::where('state', 'DEPLOYED')
@@ -93,7 +104,10 @@ class FormController extends Controller
                 $query->where('user_id', $user->id)
                     ->orWhereHas('shares', fn($q) => $q->where('user_id', $user->id));
             })
-            ->with(['questions' => fn($q) => $q->orderBy('order')])
+            ->with([
+                'questions' => fn($q) => $q->orderBy('order'),
+                'project.zones.assignedUsers:id,name,email',
+            ])
             ->latest()
             ->get();
 
@@ -107,6 +121,7 @@ class FormController extends Controller
     #[OA\Get(path: '/mobile/forms/metadata', summary: 'Obtener metadatos actualizados de formularios (sin preguntas)', security: [['sanctum' => []]], tags: ['Mobile'])]
     public function mobileMetadata(Request $request): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
         $user = $request->user();
 
         $forms = Form::where('state', 'DEPLOYED')
@@ -187,6 +202,10 @@ class FormController extends Controller
             'description' => 'nullable|string',
             'project_id' => 'required|uuid|exists:projects,id',
             'step_by_step' => 'sometimes|boolean',
+            'require_consent' => 'sometimes|boolean',
+            'consent_text' => 'nullable|string',
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
         ]);
 
         $projectId = $request->input('project_id');
@@ -200,14 +219,35 @@ class FormController extends Controller
             return response()->json(['message' => 'No tienes permisos para crear formularios en este proyecto'], 403);
         }
 
+        $today = Carbon::today()->format('Y-m-d');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $state = 'DRAFT';
+        $linkUuid = null;
+
+        if ($endDate && $endDate < $today) {
+            $state = 'ARCHIVED';
+        } elseif ($startDate && $startDate <= $today) {
+            $state = 'DEPLOYED';
+            $linkUuid = (string) Str::uuid();
+        }
+
         $form = Form::create([
             'title' => $request->title,
             'description' => $request->description,
             'user_id' => $user->id,
             'project_id' => $projectId,
-            'state' => 'DRAFT',
+            'state' => $state,
+            'link_uuid' => $linkUuid,
             'step_by_step' => $request->boolean('step_by_step'),
+            'require_consent' => $request->has('require_consent') ? $request->boolean('require_consent') : true,
+            'consent_text' => $request->input('consent_text'),
+            'start_date' => $startDate,
+            'end_date' => $endDate,
         ]);
+
+        \App\Services\AuditLogService::logFormAction($user, $form, 'CREATE');
 
         $this->enqueueFormSchemaSync->enqueue($form);
 
@@ -217,22 +257,17 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}', summary: 'Ver detalle de formulario', security: [['sanctum' => []]], tags: ['Forms'])]
     public function show(Request $request, string $id): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
         $user = $request->user();
         $form = $this->findViewableForm($id, $user);
-        $form->load(['owner:id,name,email,rol', 'project:id,name', 'questions' => fn($q) => $q->orderBy('order'), 'shares.user:id,name,email,rol']);
+        $form->load([
+            'owner:id,name,email,rol',
+            'project.zones.assignedUsers:id,name,email',
+            'questions' => fn($q) => $q->orderBy('order'),
+            'shares.user:id,name,email,rol'
+        ]);
 
-        $data = $form->toArray();
-        $data['questions'] = $form->questions->map(fn($q) => $this->formatMobileQuestion($q))->toArray();
-
-        if ($user) {
-            $share = FormUserShare::where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->first();
-            $data['target_responses'] = $share?->target_responses ?? null;
-            $data['responses_count'] = $share
-                ? FormResponse::where('form_id', $form->id)->where('user_id', $user->id)->count()
-                : null;
-        }
+        $data = $this->formatMobileForm($form, $user);
 
         return response()->json($data);
     }
@@ -250,9 +285,19 @@ class FormController extends Controller
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'step_by_step' => 'sometimes|boolean',
+            'require_consent' => 'sometimes|boolean',
+            'consent_text' => 'nullable|string',
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
         ]);
 
-        $form->update($request->only(['title', 'description', 'step_by_step']));
+        $form->update($request->only([
+            'title', 'description', 'step_by_step', 'require_consent', 'consent_text', 'start_date', 'end_date'
+        ]));
+
+        $form = $this->formLifecycleService->resolveStateForForm($form);
+
+        \App\Services\AuditLogService::logFormAction($request->user(), $form, 'UPDATE');
 
         $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
 
@@ -274,6 +319,7 @@ class FormController extends Controller
         }
 
         $formId = $form->id;
+        \App\Services\AuditLogService::logFormAction($user, $form, 'DELETE');
         $form->delete();
 
         $this->enqueueFormSchemaSync->enqueueById($formId, 'delete');
@@ -296,6 +342,10 @@ class FormController extends Controller
                 'state' => 'DRAFT',
                 'link_uuid' => null,
                 'step_by_step' => $source->step_by_step,
+                'require_consent' => $source->require_consent,
+                'consent_text' => $source->consent_text,
+                'start_date' => $source->start_date?->format('Y-m-d'),
+                'end_date' => $source->end_date?->format('Y-m-d'),
             ]);
 
             foreach ($source->questions as $question) {
@@ -315,6 +365,7 @@ class FormController extends Controller
         $copy->load(['owner:id,name,email,rol', 'project:id,name']);
         $copy->loadCount('responses');
 
+        \App\Services\AuditLogService::logFormAction($request->user(), $copy, 'CLONE', "Clonado de '{$source->title}'");
         $this->enqueueFormSchemaSync->enqueue($copy->fresh(['questions' => fn($q) => $q->orderBy('order')]));
 
         return response()->json($copy, 201);
@@ -334,6 +385,7 @@ class FormController extends Controller
             'link_uuid' => $form->link_uuid ?? Str::uuid(),
         ]);
 
+        \App\Services\AuditLogService::logFormAction($request->user(), $form, 'DEPLOY');
         $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
 
         return response()->json($form);
@@ -350,10 +402,12 @@ class FormController extends Controller
 
         $form->update(['state' => 'ARCHIVED']);
 
+        \App\Services\AuditLogService::logFormAction($request->user(), $form, 'ARCHIVE');
         $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
 
         return response()->json($form);
     }
+
 
     #[OA\Get(path: '/forms/{id}/questions', summary: 'Listar preguntas', security: [['sanctum' => []]], tags: ['Forms'])]
     public function getQuestions(Request $request, string $id): JsonResponse
@@ -379,6 +433,7 @@ class FormController extends Controller
             'required' => 'boolean',
             'options' => 'nullable|array',
             'branch_rules' => 'nullable|array',
+            'properties' => 'nullable|array',
             'section_name' => 'nullable|string|max:255',
             'parent_question_id' => 'nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -393,6 +448,7 @@ class FormController extends Controller
             'required',
             'options',
             'branch_rules',
+            'properties',
             'section_name',
             'parent_question_id',
         ]));
@@ -419,6 +475,7 @@ class FormController extends Controller
             'required' => 'sometimes|boolean',
             'options' => 'sometimes|nullable|array',
             'branch_rules' => 'sometimes|nullable|array',
+            'properties' => 'sometimes|nullable|array',
             'section_name' => 'sometimes|nullable|string|max:255',
             'parent_question_id' => 'sometimes|nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -433,6 +490,7 @@ class FormController extends Controller
             'required',
             'options',
             'branch_rules',
+            'properties',
             'section_name',
             'parent_question_id',
         ]));
@@ -517,6 +575,14 @@ class FormController extends Controller
             ]
         );
 
+        \App\Services\AuditLogService::logPermissionShare(
+            $request->user(),
+            $user,
+            $form,
+            $request->role,
+            $request->role === 'RECOLECTOR' ? $request->target_responses : null
+        );
+
         return response()->json($share->load('user:id,name,email,rol'), 201);
     }
 
@@ -524,11 +590,17 @@ class FormController extends Controller
     public function destroyShare(Request $request, string $id, string $share_id): JsonResponse
     {
         $form = $this->findShareManageableForm($id, $request->user());
-        $share = FormUserShare::where('form_id', $form->id)->findOrFail($share_id);
+        $share = FormUserShare::where('form_id', $form->id)->with('user')->findOrFail($share_id);
+        $targetUser = $share->user;
         $share->delete();
+
+        if ($targetUser) {
+            \App\Services\AuditLogService::logPermissionRevoke($request->user(), $targetUser, $form);
+        }
 
         return response()->json(null, 204);
     }
+
 
     #[OA\Patch(path: '/forms/{id}/shares/{share_id}', summary: 'Actualizar target_responses de una asignacion', security: [['sanctum' => []]], tags: ['Forms'])]
     public function updateShare(Request $request, string $id, string $share_id): JsonResponse
@@ -552,6 +624,8 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/fetch/{link_uuid}', summary: 'Obtener formulario publico implementado', tags: ['Forms'])]
     public function fetchForm(string $link_uuid): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
+
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
             ->with(['questions' => fn($q) => $q->orderBy('order')])
@@ -566,6 +640,8 @@ class FormController extends Controller
     #[OA\Post(path: '/forms/submit/{link_uuid}', summary: 'Enviar respuesta publica', tags: ['Forms'])]
     public function submitResponse(SubmitMobileResponseRequest $request, string $link_uuid): JsonResponse
     {
+        $this->formLifecycleService->syncStates();
+
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
             ->with(['questions' => fn($q) => $q->orderBy('order')])
@@ -592,14 +668,11 @@ class FormController extends Controller
         }
 
         $data = $request->data ?? [];
-        $missing = $this->missingRequiredQuestions($form, is_array($data) ? $data : []);
+        $dataArray = is_array($data) ? $data : [];
 
-        if (!empty($missing)) {
-            return response()->json([
-                'message' => 'Completa las preguntas obligatorias antes de enviar',
-                'missing' => $missing,
-            ], 422);
-        }
+        // Evaluar flujo activo y validar respuestas con los servicios de dominio
+        $activeQuestions = $this->formFlowEngine->calculateActiveQuestions($form->questions, $dataArray);
+        $this->formResponseValidator->validate($activeQuestions, $dataArray);
 
         $response = FormResponse::create([
             'form_id' => $form->id,
@@ -609,7 +682,11 @@ class FormController extends Controller
 
         $this->enqueueResponseSync->enqueue($response);
 
-        return response()->json(['message' => 'Respuesta guardada', 'id' => $response->id], 201);
+        return response()->json([
+            'message' => 'Respuesta guardada',
+            'id' => $response->id,
+            'response' => new FormResponseResource($response),
+        ], 201);
     }
 
     #[OA\Get(path: '/forms/{id}/responses', summary: 'Listar respuestas', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -661,6 +738,13 @@ class FormController extends Controller
         $exportData = $this->buildExportMatrix($form);
         $filename = Str::slug($form->title) . '_respuestas_' . now()->format('Y-m-d');
 
+        \App\Services\AuditLogService::logDownload(
+            $request->user(),
+            $form,
+            $form->responses->count(),
+            $format
+        );
+
         if ($format === 'xlsx' || $format === 'excel') {
             $export = new class($exportData['rows'], $exportData['headers'], $form->title) implements FromArray, ShouldAutoSize, WithHeadings, WithStyles, WithTitle {
                 public function __construct(private array $rows, private array $headers, private string $formTitle) {}
@@ -695,6 +779,22 @@ class FormController extends Controller
             }
             fclose($handle);
         }, "{$filename}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    #[OA\Post(path: '/forms/{id}/log-export', summary: 'Registrar auditoría de exportación', security: [['sanctum' => []]], tags: ['Forms'])]
+    public function logExport(Request $request, string $id): JsonResponse
+    {
+        $form = $this->findViewableForm($id, $request->user());
+        $format = strtolower($request->input('format', 'pdf'));
+
+        \App\Services\AuditLogService::logDownload(
+            $request->user(),
+            $form,
+            $form->responses()->count(),
+            $format
+        );
+
+        return response()->json(['success' => true]);
     }
 
     private function findViewableForm(string $id, User $user): Form
@@ -1145,7 +1245,43 @@ private function buildExportMatrix(Form $form): array
     private function formatMobileForm(Form $form, ?User $user = null): array
     {
         $data = $form->toArray();
+        $data['require_consent'] = (bool) ($form->require_consent ?? true);
+        $data['consent_text'] = $form->consent_text;
+        $data['start_date'] = $form->start_date?->format('Y-m-d');
+        $data['end_date'] = $form->end_date?->format('Y-m-d');
         $data['questions'] = $form->questions->map(fn($q) => $this->formatMobileQuestion($q))->toArray();
+
+        if ($form->project) {
+            $data['project_name'] = $form->project->name;
+            $data['project_description'] = $form->project->description;
+
+            $zones = $form->project->zones ?? collect();
+            $userZones = ($user && $zones->isNotEmpty())
+                ? $zones->filter(function ($z) use ($user) {
+                    return $z->relationLoaded('assignedUsers')
+                        ? $z->assignedUsers->contains('id', $user->id)
+                        : $z->assignedUsers()->where('users.id', $user->id)->exists();
+                })
+                : collect();
+
+            $applicableZones = $userZones->isNotEmpty() ? $userZones : $zones;
+
+            $data['project_zones'] = $applicableZones->values()->map(function ($zone) {
+                return [
+                    'id' => $zone->id,
+                    'name' => $zone->name,
+                    'description' => $zone->description,
+                    'geofence_type' => $zone->geofence_type ?? 'radius',
+                    'target_lat' => $zone->target_lat !== null ? (float) $zone->target_lat : null,
+                    'target_lng' => $zone->target_lng !== null ? (float) $zone->target_lng : null,
+                    'radius_meters' => (int) ($zone->radius_meters ?? 500),
+                    'hierarchy_json' => $zone->hierarchy_json,
+                    'geometry_json' => $zone->geometry_json,
+                ];
+            })->toArray();
+        } else {
+            $data['project_zones'] = [];
+        }
 
         if ($user) {
             $share = FormUserShare::where('form_id', $form->id)

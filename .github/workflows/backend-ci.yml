@@ -1,0 +1,76 @@
+name: Backend CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  backend-test:
+    name: PHP 8.4 Quality & Security Audit
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: observatorio_testing
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secret123password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_pgsql, bcmath, json, ctype, fileinfo, gd
+          coverage: none
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('Barometro_WEB/backend/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Dependencies
+        run: |
+          cd Barometro_WEB/backend
+          composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Security Audit (Composer Audit)
+        run: |
+          cd Barometro_WEB/backend
+          composer audit || echo "Composer audit step completed with warnings."
+
+      - name: Code Style Verification (Laravel Pint)
+        run: |
+          cd Barometro_WEB/backend
+          vendor/bin/pint --test
+
+      - name: Execute Test Suite (PHPUnit)
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:TestKeyForPHPUnitUnitTesting1234567890123=
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: observatorio_testing
+          DB_USERNAME: postgres
+          DB_PASSWORD: secret123password
+        run: |
+          cd Barometro_WEB/backend
+          php artisan migrate:fresh --force
+          vendor/bin/phpunit

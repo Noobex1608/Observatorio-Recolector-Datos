@@ -111,12 +111,6 @@ export class BuilderComponent implements OnInit, OnDestroy {
       icon: 'event_repeat',
     },
     {
-      value: 'GPS',
-      labelKey: 'forms.builder.types.GPS',
-      hintKey: 'forms.builder.hints.GPS',
-      icon: 'location_on',
-    },
-    {
       value: 'MULTIMEDIA',
       labelKey: 'forms.builder.types.MULTIMEDIA',
       hintKey: 'forms.builder.hints.MULTIMEDIA',
@@ -191,6 +185,22 @@ export class BuilderComponent implements OnInit, OnDestroy {
     this.previewMode.set(mode);
     this.previewModalOpen.set(true);
     this.setPreviewShell(true);
+  }
+
+  setCurrentLocationAsZoneCenter(tempId: string): void {
+    if (!('geolocation' in navigator)) {
+      alert('La geolocalización no está disponible en este navegador.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.vm.updateQuestionProperty(tempId, 'target_lat', Number(pos.coords.latitude.toFixed(6)));
+        this.vm.updateQuestionProperty(tempId, 'target_lng', Number(pos.coords.longitude.toFixed(6)));
+      },
+      (err) => {
+        alert('No se pudo obtener la ubicación actual: ' + err.message);
+      }
+    );
   }
 
   onDragStart(event: DragEvent, tempId: string): void {

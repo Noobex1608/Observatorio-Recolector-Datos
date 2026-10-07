@@ -13,7 +13,7 @@ import { CommonModule } from '@angular/common';
 import { FormQuestion } from '../../db.service';
 import { MediaStorageService, MultimediaPayload } from '../../services/media-storage.service';
 
-export type MultimediaTab = 'photo' | 'audio';
+export type MultimediaTab = 'photo' | 'audio' | 'video';
 
 @Component({
   selector: 'app-question-multimedia',
@@ -38,6 +38,7 @@ export class QuestionMultimediaComponent implements OnDestroy {
   readonly activeTab = signal<MultimediaTab>('photo');
   readonly currentMedia = signal<MultimediaPayload | null>(null);
   readonly previewUrl = signal<string | null>(null);
+  readonly mediaSize = signal<number | null>(null);
 
   // Audio recorder state signals
   readonly isRecording = signal<boolean>(false);
@@ -48,11 +49,49 @@ export class QuestionMultimediaComponent implements OnDestroy {
   private audioChunks: Blob[] = [];
   private recordingInterval: any = null;
 
+  // Allowed media mode: 'photo' | 'audio' | 'video' | 'both' | 'all'
+  readonly allowedMedia = computed<'photo' | 'audio' | 'video' | 'both' | 'all'>(() => {
+    const q = this.question();
+    const props = (q as any)?.properties;
+    const allowedProp = props?.allowed_media?.toLowerCase();
+
+    if (allowedProp === 'image' || allowedProp === 'photo') return 'photo';
+    if (allowedProp === 'audio') return 'audio';
+    if (allowedProp === 'video') return 'video';
+    if (allowedProp === 'both') return 'both';
+    if (allowedProp === 'all') return 'all';
+
+    if (q.media_type === 'IMAGE') return 'photo';
+    if (q.media_type === 'AUDIO') return 'audio';
+    if (q.media_type === 'VIDEO') return 'video';
+
+    return 'all';
+  });
+
+  readonly availableTabs = computed<MultimediaTab[]>(() => {
+    const allowed = this.allowedMedia();
+    if (allowed === 'photo') return ['photo'];
+    if (allowed === 'audio') return ['audio'];
+    if (allowed === 'video') return ['video'];
+    if (allowed === 'both') return ['photo', 'audio'];
+    return ['photo', 'audio', 'video'];
+  });
+
+  readonly showTabs = computed(() => this.availableTabs().length > 1);
+
   readonly formattedRecordingTime = computed(() => {
     const totalSecs = this.recordingTimeSeconds();
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  });
+
+  readonly formattedFileSize = computed(() => {
+    const bytes = this.mediaSize();
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   });
 
   constructor() {
@@ -61,26 +100,28 @@ export class QuestionMultimediaComponent implements OnDestroy {
       if (val) {
         this.currentMedia.set(val);
         if (val.objectUrl) {
-          this.previewUrl.set(val.objectUrl);
+          this.setPreviewUrl(val.objectUrl);
         } else if (val.blobId) {
           const record = await this.mediaStorage.getMediaBlobById(val.blobId);
           if (record) {
+            if (record.blob?.size) {
+              this.mediaSize.set(record.blob.size);
+            }
             const url = this.mediaStorage.createObjectUrl(record.blob);
-            this.previewUrl.set(url);
+            this.setPreviewUrl(url);
           }
         }
       } else {
         this.currentMedia.set(null);
-        this.previewUrl.set(null);
+        this.setPreviewUrl(null);
+        this.mediaSize.set(null);
       }
     });
 
     effect(() => {
-      const q = this.question();
-      if (q.media_type === 'AUDIO') {
-        this.activeTab.set('audio');
-      } else {
-        this.activeTab.set('photo');
+      const tabs = this.availableTabs();
+      if (!tabs.includes(this.activeTab())) {
+        this.activeTab.set(tabs[0]);
       }
     });
   }
@@ -93,6 +134,14 @@ export class QuestionMultimediaComponent implements OnDestroy {
     }
   }
 
+  private setPreviewUrl(newUrl: string | null): void {
+    const oldUrl = this.previewUrl();
+    if (oldUrl && oldUrl !== newUrl) {
+      this.mediaStorage.revokeObjectUrl(oldUrl);
+    }
+    this.previewUrl.set(newUrl);
+  }
+
   async onFileSelected(event: Event): Promise<void> {
     const inputEl = event.target as HTMLInputElement;
     if (!inputEl.files || inputEl.files.length === 0) return;
@@ -101,12 +150,16 @@ export class QuestionMultimediaComponent implements OnDestroy {
     const mediaType = file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('audio/') ? 'AUDIO' : 'VIDEO';
 
     try {
+      this.mediaSize.set(file.size);
       const payload = await this.mediaStorage.saveMultimediaFile(this.question().id, file, mediaType);
       this.currentMedia.set(payload);
-      this.previewUrl.set(payload.objectUrl || null);
+      this.setPreviewUrl(payload.objectUrl || null);
       this.valueChange.emit(payload);
+      this.errorMessage.set(null);
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Error al guardar el archivo multimedia.');
+    } finally {
+      inputEl.value = '';
     }
   }
 
@@ -151,6 +204,7 @@ export class QuestionMultimediaComponent implements OnDestroy {
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
         stream.getTracks().forEach((track) => track.stop());
 
+        this.mediaSize.set(audioBlob.size);
         const ext = mimeType.includes('mp4') || mimeType.includes('aac') ? 'mp4' : 'webm';
         const payload = await this.mediaStorage.saveMultimediaFile(
           this.question().id,
@@ -161,7 +215,7 @@ export class QuestionMultimediaComponent implements OnDestroy {
         );
 
         this.currentMedia.set(payload);
-        this.previewUrl.set(payload.objectUrl || null);
+        this.setPreviewUrl(payload.objectUrl || null);
         this.valueChange.emit(payload);
       };
 
@@ -192,6 +246,21 @@ export class QuestionMultimediaComponent implements OnDestroy {
     }
   }
 
+  async replaceMedia(): Promise<void> {
+    if (this.disabled()) return;
+    const media = this.currentMedia();
+    if (media?.mediaType === 'AUDIO') {
+      await this.removeMedia();
+      this.startAudioRecording();
+    } else {
+      const inputId = media?.mediaType === 'VIDEO' ? `file-input-video-${this.question().id}` : `file-input-${this.question().id}`;
+      const fileInput = (document.getElementById(inputId) || document.getElementById(`file-input-${this.question().id}`)) as HTMLInputElement;
+      if (fileInput) {
+        fileInput.click();
+      }
+    }
+  }
+
   async removeMedia(): Promise<void> {
     if (this.disabled()) return;
     const media = this.currentMedia();
@@ -199,13 +268,10 @@ export class QuestionMultimediaComponent implements OnDestroy {
       await this.mediaStorage.deleteMediaBlob(media.blobId);
     }
 
-    const url = this.previewUrl();
-    if (url) {
-      this.mediaStorage.revokeObjectUrl(url);
-    }
-
+    this.setPreviewUrl(null);
+    this.mediaSize.set(null);
     this.currentMedia.set(null);
-    this.previewUrl.set(null);
     this.valueChange.emit(null);
   }
 }
+

@@ -6,9 +6,9 @@ import { AppConfig } from './app-config.interface';
  */
 export const APP_CONFIG: AppConfig = {
   app: {
-    name: 'Formularios ULEAM',
-    shortName: 'ULEAM Forms',
-    description: 'Plataforma de formularios dinamicos y recoleccion de datos',
+    name: 'ULEAM DataField',
+    shortName: 'ULEAM DataField',
+    description: 'Plataforma de formularios dinámicos y recolección de datos en campo',
   },
   university: {
     name: 'Universidad Laica Eloy Alfaro de Manabi',

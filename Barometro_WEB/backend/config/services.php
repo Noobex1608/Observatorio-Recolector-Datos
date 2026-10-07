@@ -46,4 +46,12 @@ return [
         'retry_base_seconds' => (int) env('SUPABASE_RETRY_BASE_SECONDS', 30),
     ],
 
+    'seed' => [
+        'token' => env('SEED_TOKEN'),
+        'admin_name' => env('ADMIN_NAME', 'Super Administrador'),
+        'admin_email' => env('ADMIN_EMAIL'),
+        'admin_password' => env('ADMIN_PASSWORD'),
+    ],
+
 ];
+

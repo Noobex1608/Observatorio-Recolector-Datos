@@ -2,20 +2,28 @@
 
 namespace App\Presentation\Http\Controllers\Api;
 
+use App\Domain\Forms\Services\FormLifecycleService;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\User;
+use App\Presentation\Http\Requests\CreateProjectRequest;
+use App\Presentation\Http\Requests\UpdateProjectRequest;
+use App\Presentation\Http\Resources\ProjectResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: 'Projects', description: 'Gestion de proyectos y asignacion de lideres')]
 class ProjectController extends Controller
 {
+    public function __construct(
+        protected FormLifecycleService $lifecycleService
+    ) {}
+
     #[OA\Get(path: '/projects', summary: 'Listar proyectos visibles', security: [['sanctum' => []]], tags: ['Projects'])]
     public function index(Request $request): JsonResponse
     {
+        $this->lifecycleService->syncStates();
         $user = $request->user();
 
         $query = Project::with(['leaders:id,name,email,rol', 'creator:id,name,email,rol'])
@@ -30,7 +38,7 @@ class ProjectController extends Controller
             $query->whereHas('forms.shares', fn($shares) => $shares->where('user_id', $user->id));
         }
 
-        return response()->json($query->get());
+        return response()->json(ProjectResource::collection($query->get()));
     }
 
     #[OA\Get(path: '/projects/leaders', summary: 'Listar lideres asignables', security: [['sanctum' => []]], tags: ['Projects'])]
@@ -50,22 +58,14 @@ class ProjectController extends Controller
     }
 
     #[OA\Post(path: '/projects', summary: 'Crear proyecto', security: [['sanctum' => []]], tags: ['Projects'])]
-    public function store(Request $request): JsonResponse
+    public function store(CreateProjectRequest $request): JsonResponse
     {
         $user = $request->user();
         if (!$user->canManageProjects()) {
             return response()->json(['message' => 'No tienes permisos para crear proyectos'], 403);
         }
 
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'leader_ids' => 'sometimes|array',
-            'leader_ids.*' => [
-                'integer',
-                Rule::exists('users', 'id')->where('rol', User::ROLE_PROJECT),
-            ],
-        ]);
+        $data = $request->validated();
 
         $project = Project::create([
             'name' => $data['name'],
@@ -77,13 +77,16 @@ class ProjectController extends Controller
             $project->leaders()->sync($data['leader_ids']);
         }
 
-        return response()->json($this->projectPayload($project->load(['leaders:id,name,email,rol', 'forms.shares.user:id,name,email,rol'])), 201);
+        $project->load(['leaders:id,name,email,rol', 'forms.shares.user:id,name,email,rol']);
+
+        return response()->json(new ProjectResource($project), 201);
     }
 
     #[OA\Get(path: '/projects/{id}', summary: 'Ver proyecto', security: [['sanctum' => []]], tags: ['Projects'])]
     public function show(Request $request, string $id): JsonResponse
     {
-        $project = Project::with(['leaders:id,name,email,rol', 'forms.owner:id,name,email,rol', 'forms.shares.user:id,name,email,rol'])->findOrFail($id);
+        $this->lifecycleService->syncStates();
+        $project = Project::with(['leaders:id,name,email,rol', 'forms.owner:id,name,email,rol', 'forms.shares.user:id,name,email,rol', 'technicalSheet.validator:id,name,email', 'zones.assignedUsers:id,name,email,rol'])->findOrFail($id);
         $user = $request->user();
 
         if (!$this->canViewProject($project, $user)) {
@@ -97,11 +100,11 @@ class ProjectController extends Controller
             );
         }
 
-        return response()->json($this->projectPayload($project));
+        return response()->json(new ProjectResource($project));
     }
 
     #[OA\Put(path: '/projects/{id}', summary: 'Actualizar proyecto', security: [['sanctum' => []]], tags: ['Projects'])]
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdateProjectRequest $request, string $id): JsonResponse
     {
         $user = $request->user();
         if (!$user->canManageProjects()) {
@@ -109,15 +112,7 @@ class ProjectController extends Controller
         }
 
         $project = Project::findOrFail($id);
-        $data = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'leader_ids' => 'sometimes|array',
-            'leader_ids.*' => [
-                'integer',
-                Rule::exists('users', 'id')->where('rol', User::ROLE_PROJECT),
-            ],
-        ]);
+        $data = $request->validated();
 
         $project->fill($request->only(['name', 'description']));
         $project->save();
@@ -126,7 +121,9 @@ class ProjectController extends Controller
             $project->leaders()->sync($data['leader_ids']);
         }
 
-        return response()->json($this->projectPayload($project->load(['leaders:id,name,email,rol', 'forms.shares.user:id,name,email,rol'])));
+        $project->load(['leaders:id,name,email,rol', 'forms.shares.user:id,name,email,rol']);
+
+        return response()->json(new ProjectResource($project));
     }
 
     #[OA\Delete(path: '/projects/{id}', summary: 'Eliminar proyecto', security: [['sanctum' => []]], tags: ['Projects'])]
@@ -158,50 +155,5 @@ class ProjectController extends Controller
     {
         return $user->canManageProjects() || $user->leadsProject($project->id);
     }
-
-    private function projectPayload(Project $project): array
-    {
-        $payload = $project->toArray();
-        $payload['members'] = $this->buildMembers($project);
-
-        return $payload;
-    }
-
-    private function buildMembers(Project $project): array
-    {
-        $members = [];
-
-        foreach ($project->leaders as $leader) {
-            $members["leader-{$leader->id}"] = [
-                'user_id' => $leader->id,
-                'name' => $leader->name,
-                'email' => $leader->email,
-                'role' => 'PROJECT',
-                'scope' => 'Proyecto',
-                'form_id' => null,
-                'form_title' => null,
-            ];
-        }
-
-        foreach ($project->forms as $form) {
-            foreach ($form->shares as $share) {
-                $shareUser = $share->user;
-                if (!$shareUser) {
-                    continue;
-                }
-
-                $members["form-{$form->id}-{$shareUser->id}"] = [
-                    'user_id' => $shareUser->id,
-                    'name' => $shareUser->name,
-                    'email' => $shareUser->email,
-                    'role' => $share->role,
-                    'scope' => 'Formulario',
-                    'form_id' => $form->id,
-                    'form_title' => $form->title,
-                ];
-            }
-        }
-
-        return array_values($members);
-    }
 }
+

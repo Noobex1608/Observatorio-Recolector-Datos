@@ -1,71 +1,81 @@
 .datetime-container {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.6rem;
   width: 100%;
-  margin-bottom: 1.25rem;
-}
-
-.datetime-label {
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--text-color, #1e293b);
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.required-badge {
-  color: #ef4444;
 }
 
 .datetime-hint {
   font-size: 0.85rem;
-  color: #64748b;
-  margin-top: 0.2rem;
+  color: var(--text-secondary, #64748b);
+  margin: 0 0 0.25rem 0;
 }
 
 .datetime-input-wrapper {
   display: flex;
-  gap: 0.5rem;
   align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.input-field-box {
+  flex: 1;
+  min-width: 0;
 }
 
 .datetime-input {
-  flex: 1;
-  padding: 0.7rem 1rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.85rem;
   font-size: 0.95rem;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 8px;
-  background-color: #ffffff;
-  color: #0f172a;
+  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background-color: var(--bg-input, #ffffff);
+  color: var(--text, #0f172a);
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  color-scheme: light dark;
 }
 
 .datetime-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: var(--primary, #1565c0);
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15);
 }
 
-.btn-now {
+.btn-quick-now {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.7rem 1rem;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.65rem 1rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
+  color: var(--primary, #1565c0);
+  background-color: var(--bg-item-checked, #e3f2fd);
+  border: 1px solid var(--border-light, #cbd5e1);
+  border-radius: 10px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.btn-now:hover:not(:disabled) {
-  background-color: #dbeafe;
+.btn-quick-now:hover:not(:disabled) {
+  background-color: rgba(21, 101, 192, 0.15);
+  border-color: var(--primary, #1565c0);
+}
+
+.btn-quick-now:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-quick-now:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .disabled {

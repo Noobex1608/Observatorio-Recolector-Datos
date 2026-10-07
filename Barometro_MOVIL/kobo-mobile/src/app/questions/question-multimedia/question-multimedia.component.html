@@ -1,47 +1,84 @@
 <div class="multimedia-container" [class.disabled]="disabled()">
-  <div class="multimedia-header">
-    <label class="multimedia-label">
-      {{ question().label }}
-      @if (question().required) {
-        <span class="required-badge">*</span>
-      }
-    </label>
-    @if (question().hint) {
-      <p class="multimedia-hint">{{ question().hint }}</p>
-    }
-  </div>
-
   <div class="multimedia-card">
     @if (!currentMedia()) {
-      <div class="multimedia-tabs">
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="activeTab() === 'photo'"
-          (click)="activeTab.set('photo')"
-        >
-          📷 Fotografía
-        </button>
-        <button
-          type="button"
-          class="tab-btn"
-          [class.active]="activeTab() === 'audio'"
-          (click)="activeTab.set('audio')"
-        >
-          🎙️ Grabación de Audio
-        </button>
-      </div>
+      <!-- Segmented Control Tabs (Rendered ONLY if showTabs()) -->
+      @if (showTabs()) {
+        <div class="segmented-control" role="tablist">
+          @if (availableTabs().includes('photo')) {
+            <button
+              type="button"
+              role="tab"
+              class="segmented-btn"
+              [class.active]="activeTab() === 'photo'"
+              [attr.aria-selected]="activeTab() === 'photo'"
+              (click)="activeTab.set('photo')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                <circle cx="12" cy="13" r="3"/>
+              </svg>
+              <span>Fotografía</span>
+            </button>
+          }
+          @if (availableTabs().includes('audio')) {
+            <button
+              type="button"
+              role="tab"
+              class="segmented-btn"
+              [class.active]="activeTab() === 'audio'"
+              [attr.aria-selected]="activeTab() === 'audio'"
+              (click)="activeTab.set('audio')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              <span>Voz</span>
+            </button>
+          }
+          @if (availableTabs().includes('video')) {
+            <button
+              type="button"
+              role="tab"
+              class="segmented-btn"
+              [class.active]="activeTab() === 'video'"
+              [attr.aria-selected]="activeTab() === 'video'"
+              (click)="activeTab.set('video')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <span>Video</span>
+            </button>
+          }
+        </div>
+      }
 
+      <!-- Photo Dropzone -->
       @if (activeTab() === 'photo') {
-        <div class="photo-uploader">
-          <label class="btn-capture">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="dropzone-box">
+          <div class="dropzone-icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="dropzone-icon">
               <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
               <circle cx="12" cy="13" r="3"/>
             </svg>
-            Tomar Foto / Subir Imagen
+          </div>
+          <div class="dropzone-text-group">
+            <p class="dropzone-title">Toca para abrir la cámara o seleccionar foto</p>
+            <p class="dropzone-subtitle">Archivos soportados: JPG, PNG, WEBP (hasta 10 MB)</p>
+          </div>
+          <label class="btn-primary-action">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Tomar Foto / Subir Imagen</span>
             <input
               type="file"
+              [id]="'file-input-' + question().id"
               accept="image/*"
               capture="environment"
               (change)="onFileSelected($event)"
@@ -51,60 +88,183 @@
         </div>
       }
 
+      <!-- Audio Dropzone -->
       @if (activeTab() === 'audio') {
-        <div class="audio-recorder">
+        <div class="dropzone-box audio-zone">
           @if (!isRecording()) {
-            <button type="button" class="btn-record" (click)="startAudioRecording()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="dropzone-icon-wrapper mic-wrapper">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="dropzone-icon mic-icon">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                 <line x1="12" y1="19" x2="12" y2="22"/>
               </svg>
-              Iniciar Grabación de Voz
+            </div>
+            <div class="dropzone-text-group">
+              <p class="dropzone-title">Toca para iniciar la grabación de audio</p>
+              <p class="dropzone-subtitle">Habla directamente hacia el micrófono de tu dispositivo</p>
+            </div>
+            <button type="button" class="btn-record-action" (click)="startAudioRecording()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3" fill="currentColor"/>
+              </svg>
+              <span>Iniciar Grabación de Voz</span>
             </button>
           } @else {
-            <div class="recording-active">
-              <div class="recording-indicator">
+            <div class="recording-card">
+              <div class="recording-badge-row">
                 <span class="pulsing-dot"></span>
-                <span>Grabando... {{ formattedRecordingTime() }}</span>
+                <span class="recording-status">Grabando audio...</span>
+                <span class="recording-timer">{{ formattedRecordingTime() }}</span>
               </div>
-              <button type="button" class="btn-stop" (click)="stopAudioRecording()">
-                ⏹ Detener y Guardar Audio
+              <p class="recording-hint">Habla cerca del micrófono. Presiona el botón para finalizar.</p>
+              <button type="button" class="btn-stop-action" (click)="stopAudioRecording()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+                </svg>
+                <span>Detener y Guardar Audio</span>
               </button>
             </div>
           }
         </div>
       }
+
+      <!-- Video Dropzone -->
+      @if (activeTab() === 'video') {
+        <div class="dropzone-box video-zone">
+          <div class="dropzone-icon-wrapper video-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="dropzone-icon video-icon">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </div>
+          <div class="dropzone-text-group">
+            <p class="dropzone-title">Toca para abrir la cámara o seleccionar video</p>
+            <p class="dropzone-subtitle">Archivos soportados: MP4, WEBM, MOV (hasta 20 MB)</p>
+          </div>
+          <label class="btn-primary-action btn-video-action">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            <span>Grabar / Subir Video</span>
+            <input
+              type="file"
+              [id]="'file-input-video-' + question().id"
+              accept="video/*"
+              capture="environment"
+              (change)="onFileSelected($event)"
+              class="hidden-file-input"
+            />
+          </label>
+        </div>
+      }
     } @else {
-      <div class="media-preview-container">
+      <!-- Media Preview Card -->
+      <div class="media-preview-card">
         @if (currentMedia()?.mediaType === 'IMAGE') {
-          <div class="image-preview-wrapper">
-            <img [src]="previewUrl()" alt="Vista previa de la foto" class="media-image" />
+          <div class="preview-image-container">
+            <img [src]="previewUrl()" alt="Vista previa de foto" class="preview-image" />
+            <div class="preview-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+              </svg>
+              <span>Fotografía</span>
+            </div>
           </div>
         }
 
         @if (currentMedia()?.mediaType === 'AUDIO') {
-          <div class="audio-preview-wrapper">
-            <audio [src]="previewUrl()" controls class="media-audio"></audio>
+          <div class="preview-audio-container">
+            <div class="audio-header">
+              <div class="audio-icon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13"/>
+                  <circle cx="6" cy="18" r="3"/>
+                  <circle cx="18" cy="16" r="3"/>
+                </svg>
+              </div>
+              <div class="audio-title-group">
+                <span class="audio-label">Grabación de Audio</span>
+                <span class="audio-filename">{{ currentMedia()?.fileName || 'Audio grabado' }}</span>
+              </div>
+            </div>
+            <audio [src]="previewUrl()" controls class="media-audio-player"></audio>
           </div>
         }
 
-        <div class="preview-actions">
-          <span class="file-name">{{ currentMedia()?.fileName }}</span>
-          <button type="button" class="btn-remove" (click)="removeMedia()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+        @if (currentMedia()?.mediaType === 'VIDEO') {
+          <div class="preview-video-container">
+            <video [src]="previewUrl()" controls class="preview-video"></video>
+            <div class="preview-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <span>Video</span>
+            </div>
+          </div>
+        }
+
+        <div class="media-metadata-bar">
+          <div class="file-info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+              <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
             </svg>
-            Eliminar
-          </button>
+            <span class="file-name-text">{{ currentMedia()?.fileName || 'Archivo multimedia' }}</span>
+            @if (formattedFileSize()) {
+              <span class="file-size-badge">{{ formattedFileSize() }}</span>
+            }
+          </div>
+
+          <div class="media-actions-group">
+            <button type="button" class="btn-action-secondary" (click)="replaceMedia()">
+              @if (currentMedia()?.mediaType === 'IMAGE') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 16h5v5"/>
+                </svg>
+                <span>Repetir captura</span>
+              } @else if (currentMedia()?.mediaType === 'VIDEO') {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+                <span>Cambiar video</span>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                <span>Volver a grabar</span>
+              }
+            </button>
+            <button type="button" class="btn-action-danger" (click)="removeMedia()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+              <span>Eliminar</span>
+            </button>
+          </div>
         </div>
       </div>
     }
 
     @if (errorMessage()) {
       <div class="error-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
         <span>{{ errorMessage() }}</span>
       </div>
     }

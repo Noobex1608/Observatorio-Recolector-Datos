@@ -1,40 +1,62 @@
 <div class="ranking-container" [class.disabled]="disabled()">
-  <div class="ranking-header">
-    <label class="ranking-label">
-      {{ question().label }}
-      @if (question().required) {
-        <span class="required-badge">*</span>
-      }
-    </label>
-    @if (question().hint) {
-      <p class="ranking-hint">{{ question().hint }}</p>
-    }
+  <div class="ranking-instruction-box">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <span>Ordene las opciones según prioridad (1º = mayor prioridad)</span>
   </div>
 
+  @if (question().hint) {
+    <p class="ranking-hint">{{ question().hint }}</p>
+  }
+
   <div class="ranking-list">
-    @for (item of items(); track item; let i = $index) {
-      <div class="ranking-item">
-        <span class="ranking-badge">{{ i + 1 }}º</span>
-        <span class="ranking-item-text">{{ item }}</span>
+    @for (item of items(); track trackByString($index, item); let i = $index) {
+      <div class="ranking-card" [class.is-first]="i === 0" [class.is-last]="i === items().length - 1">
+        <div class="card-left">
+          <span class="grip-icon" title="Arrastrar / Reordenar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="12" r="1"/>
+              <circle cx="9" cy="5" r="1"/>
+              <circle cx="9" cy="19" r="1"/>
+              <circle cx="15" cy="12" r="1"/>
+              <circle cx="15" cy="5" r="1"/>
+              <circle cx="15" cy="19" r="1"/>
+            </svg>
+          </span>
+          <span class="ranking-badge">{{ i + 1 }}º</span>
+          <span class="ranking-item-text">{{ item }}</span>
+        </div>
 
         <div class="ranking-actions">
+          <!-- Botón Subir -->
           <button
             type="button"
-            class="btn-rank"
+            class="btn-rank btn-rank-up"
             (click)="moveUp(i)"
             [disabled]="disabled() || i === 0"
             title="Subir prioridad"
+            aria-label="Subir prioridad"
           >
-            ▲
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
           </button>
+
+          <!-- Botón Bajar -->
           <button
             type="button"
-            class="btn-rank"
+            class="btn-rank btn-rank-down"
             (click)="moveDown(i)"
             [disabled]="disabled() || i === items().length - 1"
             title="Bajar prioridad"
+            aria-label="Bajar prioridad"
           >
-            ▼
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </button>
         </div>
       </div>

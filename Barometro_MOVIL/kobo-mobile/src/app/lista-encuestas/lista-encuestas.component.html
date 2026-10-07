@@ -1,45 +1,180 @@
-<div class="lista-container">
-  <div class="top-bar">
-    <a routerLink="/" class="btn-back"><span class="arrow">⬅</span><span class="back-label"> {{ 'back' | translate }}</span></a>
-    <h2>{{ 'fill_form' | translate }}</h2>
-  </div>
+<div class="lista-page-container">
+  <!-- Top Bar / Header Límpido -->
+  <header class="list-app-bar">
+    <a routerLink="/" class="btn-back-pill" title="Volver al inicio">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+      <span>Volver</span>
+    </a>
 
+    <div class="header-title-group">
+      <h2 class="header-main-title">Formularios disponibles</h2>
+      @if (formularios.length > 0) {
+        <span class="total-forms-badge">{{ formularios.length }}</span>
+      }
+    </div>
+  </header>
+
+  <p class="subtitle-hint">Seleccione una encuesta para iniciar en campo:</p>
+
+  <!-- Filtro de Búsqueda Rápida (Se muestra si hay más de 2 formularios) -->
+  @if (formularios.length > 2) {
+    <div class="search-bar-wrap">
+      <div class="search-input-container">
+        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Buscar encuesta por título..."
+          [(ngModel)]="filtroTexto"
+        />
+        @if (filtroTexto) {
+          <button type="button" class="btn-clear-search" (click)="filtroTexto = ''">✕</button>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Estados de Carga -->
   @if (cargando) {
-    <p style="text-align:center;padding:2rem 1rem;color:var(--text-secondary);">{{ 'loading' | translate }}</p>
-  } @else if (errorCarga) {
-    <p style="text-align:center;padding:2rem 1rem;color:var(--danger);">{{ errorCarga }}</p>
+    <div class="state-container">
+      <div class="spinner"></div>
+      <p>Cargando cuestionarios...</p>
+    </div>
   } @else if (formularios.length === 0) {
-    <p style="text-align:center;padding:2rem 1rem;color:var(--text-secondary);">{{ 'no_forms' | translate }}</p>
+    <!-- Estado Vacío (Empty State Amigable) -->
+    <div class="empty-state-card">
+      <div class="empty-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <h3>No tienes formularios descargados</h3>
+      <p class="empty-desc">Sincroniza con el servidor central desde la pantalla principal para descargar las encuestas asignadas a tu usuario.</p>
+      <a routerLink="/" class="btn-empty-action">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Descargar del servidor</span>
+      </a>
+    </div>
+  } @else if (formulariosFiltrados.length === 0) {
+    <div class="state-container">
+      <p class="no-results-text">No se encontraron cuestionarios que coincidan con "{{ filtroTexto }}".</p>
+    </div>
   } @else {
-    <p class="instrucciones">Seleccione la encuesta que desea aplicar en el campo:</p>
+    <!-- Lista de Tarjetas de Formulario Interactivas -->
+    <div class="forms-cards-list">
+      @for (form of formulariosFiltrados; track trackById($index, form)) {
+        <div
+          class="encuesta-card-interactive"
+          [class.completed]="form.completado || form.expirado"
+          [class.disabled]="form.noIniciado"
+          (click)="irALlenar(form.id, form.completado || form.expirado || form.noIniciado)"
+        >
+          <!-- Icono SVG en contenedor redondeado -->
+          <div class="card-icon-box" [class.success]="form.completado">
+            @if (form.completado) {
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            }
+          </div>
 
-    <div class="encuestas-list">
-      @for (form of formularios; track trackById($index, form)) {
-        <div class="encuesta-card" [class.completed]="form.completado">
-          <div class="encuesta-info">
-            <span class="encuesta-icon">{{ form.completado ? '✅' : '📊' }}</span>
-            <div class="encuesta-detalles">
-              <h3>{{ form.title }}</h3>
-              <p>Preguntas: {{ form.questions.length }} | {{ form.description }}</p>
-              @if (form.target_responses && form.target_responses > 0) {
-                <div class="target-progress">
-                  <div class="progress-bar">
-                    <div class="progress-fill" [class.full]="form.completado" [style.width.%]="form.enviadosCount / form.target_responses * 100"></div>
-                  </div>
-                  <span class="progress-text">{{ form.enviadosCount }} / {{ form.target_responses }} respuestas</span>
-                </div>
+          <!-- Centro: Título, descripción y badges pill -->
+          <div class="card-content-main">
+            <h3 class="form-title">{{ form.title }}</h3>
+
+            @if (form.description) {
+              <p class="form-desc">{{ form.description }}</p>
+            }
+
+            <div class="badges-row">
+              <!-- Badge Preguntas -->
+              <span class="pill-badge neutral">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+                {{ form.questions.length }} preguntas
+              </span>
+
+              <!-- Badge Rango de Fechas -->
+              @if (form.start_date || form.end_date) {
+                <span class="pill-badge neutral">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  {{ form.start_date ? form.start_date : 'Inmediato' }} al {{ form.end_date ? form.end_date : 'Sin fin' }}
+                </span>
               }
+
+              <!-- Badge Metadato Respuestas Target -->
+              @if (form.target_responses && form.target_responses > 0) {
+                <span class="pill-badge" [class.success]="form.completado" [class.primary]="!form.completado">
+                  {{ form.enviadosCount }} / {{ form.target_responses }} respuestas
+                </span>
+              }
+
+              <!-- Badge Completado -->
               @if (form.completado) {
-                <p class="completed-text">Límite alcanzado. Espera reactivación del administrador.</p>
+                <span class="pill-badge warning">Límite alcanzado</span>
+              }
+
+              <!-- Badge Expirado / Archivado -->
+              @if (form.expirado) {
+                <span class="pill-badge warning">Archivada (Vencida)</span>
+              }
+
+              <!-- Badge No Iniciado -->
+              @if (form.noIniciado) {
+                <span class="pill-badge neutral">Inicia {{ form.start_date }}</span>
               }
             </div>
           </div>
 
-          <div class="encuesta-actions">
+          <!-- Derecha: Botón limpio tipo píldora "Iniciar ->" -->
+          <div class="card-action-side">
             @if (form.completado) {
-              <button class="btn-llenar disabled" disabled>{{ 'fill_form' | translate }}</button>
+              <span class="btn-action-pill disabled">Completado</span>
+            } @else if (form.expirado) {
+              <span class="btn-action-pill disabled">Archivada</span>
+            } @else if (form.noIniciado) {
+              <span class="btn-action-pill disabled">No iniciada</span>
             } @else {
-              <button class="btn-llenar" (click)="irALlenar(form.id)">{{ 'fill_form' | translate }}</button>
+              <button type="button" class="btn-action-pill primary" aria-label="Iniciar encuesta">
+                <span>Iniciar</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </button>
             }
           </div>
         </div>

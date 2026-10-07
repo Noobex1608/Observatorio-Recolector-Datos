@@ -3,10 +3,22 @@ import { Injectable, signal } from '@angular/core';
 export interface GpsLocationPayload {
   latitude: number;
   longitude: number;
+  lat?: number;
+  lng?: number;
   altitude: number | null;
   accuracy: number;
   timestamp: string;
   formatted?: string;
+  notes?: string;
+  is_within_zone?: boolean;
+  distance_to_zone_center_meters?: number;
+  zone_name?: string;
+  geofence?: {
+    zone_name: string;
+    is_inside: boolean;
+    distance_meters: number;
+    allowed_radius_meters: number;
+  } | null;
 }
 
 export interface GpsOptions {

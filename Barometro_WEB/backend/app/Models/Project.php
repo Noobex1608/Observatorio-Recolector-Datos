@@ -30,4 +30,14 @@ class Project extends Model
     {
         return $this->hasMany(Form::class);
     }
+
+    public function technicalSheet()
+    {
+        return $this->hasOne(ProjectTechnicalSheet::class);
+    }
+
+    public function zones()
+    {
+        return $this->hasMany(ProjectZone::class);
+    }
 }

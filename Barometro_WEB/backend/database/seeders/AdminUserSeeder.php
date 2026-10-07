@@ -10,9 +10,9 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $adminEmail = env('ADMIN_EMAIL');
-        $adminPassword = env('ADMIN_PASSWORD');
-        $adminName = env('ADMIN_NAME', 'Super Administrador');
+        $adminEmail = config('services.seed.admin_email');
+        $adminPassword = config('services.seed.admin_password');
+        $adminName = config('services.seed.admin_name', 'Super Administrador');
 
         if (empty($adminEmail) || empty($adminPassword)) {
             if (app()->environment('local')) {

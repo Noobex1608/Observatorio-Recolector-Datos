@@ -22,8 +22,8 @@ mkdir -p /var/www/html/bootstrap/cache
 echo "Estableciendo permisos..."
 chown -R www:www /var/www/html/storage
 chown -R www:www /var/www/html/bootstrap/cache
-chmod -R 777 /var/www/html/storage
-chmod -R 777 /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage
+chmod -R 775 /var/www/html/bootstrap/cache
 
 # Esperar a que la base de datos esté disponible
 if [ -n "$DB_HOST" ]; then
@@ -64,8 +64,8 @@ php artisan view:cache
 echo "Re-estableciendo permisos después de cache..."
 chown -R www:www /var/www/html/storage
 chown -R www:www /var/www/html/bootstrap/cache
-chmod -R 777 /var/www/html/storage
-chmod -R 777 /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage
+chmod -R 775 /var/www/html/bootstrap/cache
 
 # Ejecutar migraciones
 echo "Ejecutando migraciones..."
@@ -96,8 +96,8 @@ fi
 echo "Estableciendo permisos finales..."
 chown -R www:www /var/www/html/storage
 chown -R www:www /var/www/html/bootstrap/cache
-chmod -R 777 /var/www/html/storage
-chmod -R 777 /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage
+chmod -R 775 /var/www/html/bootstrap/cache
 
 echo "=========================================="
 echo "  Iniciando servicios..."

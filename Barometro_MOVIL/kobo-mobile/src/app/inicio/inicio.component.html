@@ -1,116 +1,262 @@
-<div class="header-superior">
-  <div class="server-url-display">
-    <p class="server-label">{{ urlServidor }}</p>
-  </div>
-  
-  <div class="header-actions">
-    <button class="header-action-btn" (click)="theme.toggleLang()" [title]="theme.lang() === 'es' ? 'Switch to English' : 'Cambiar a español'">
-      {{ theme.lang() === 'es' ? 'ES' : 'EN' }}
-    </button>
-    <button class="header-action-btn" (click)="theme.toggleTheme()" [title]="theme.darkMode() ? 'Modo claro' : 'Modo oscuro'">
-      {{ theme.darkMode() ? '☀️' : '🌙' }}
-    </button>
+<!-- Header Principal / AppBar Top Bar -->
+<header class="top-app-bar">
+  <div class="brand-container">
+    <div class="brand-logo-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1 class="brand-title">ULEAM DataField <span class="brand-pwa-badge">PWA</span></h1>
+      <p class="brand-subtitle">{{ 'app_subtitle' | translate }}</p>
+    </div>
   </div>
 
-  <div class="avatar-container">
-    <button class="avatar-btn" (click)="toggleMenuPerfil()" title="Menú de perfil">
-      {{ inicialUsuario }}
+  <div class="top-actions">
+    <!-- Selector de Idioma -->
+    <button class="top-action-btn lang-btn" (click)="theme.toggleLang()" [title]="theme.lang() === 'es' ? 'Switch to English' : 'Cambiar a español'">
+      <span class="lang-label">{{ theme.lang() === 'es' ? 'ES' : 'EN' }}</span>
     </button>
-    
-    @if (mostrarMenuPerfil) {
-      <div class="menu-perfil">
-        <div class="menu-header">
-          <h3>{{ nombreUsuario }}</h3>
-          <button class="close-menu" (click)="cerrarMenuPerfil()">✕</button>
+
+    <!-- Toggle de Modo Oscuro con Iconos SVG -->
+    <button class="top-action-btn theme-btn" (click)="theme.toggleTheme()" [title]="theme.darkMode() ? 'Modo claro' : 'Modo oscuro'">
+      @if (theme.darkMode()) {
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+      } @else {
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        </svg>
+      }
+    </button>
+
+    <!-- Botón de Avatar de Usuario -->
+    <div class="avatar-container">
+      <button class="avatar-btn" (click)="toggleMenuPerfil()" title="Menú de perfil">
+        {{ inicialUsuario }}
+      </button>
+
+      @if (mostrarMenuPerfil) {
+        <div class="menu-perfil">
+          <div class="menu-header">
+            <div class="user-info">
+              <span class="avatar-circle-sm">{{ inicialUsuario }}</span>
+              <div class="user-details">
+                <span class="user-name">{{ nombreUsuario }}</span>
+                <span class="user-role">Encuestador / Campo</span>
+              </div>
+            </div>
+            <button class="close-menu" (click)="cerrarMenuPerfil()" aria-label="Cerrar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="menu-opciones">
+            <button class="menu-item" (click)="cerrarMenuPerfil(); irPerfil()">
+              <span class="menu-icon-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </span>
+              <span>Perfil</span>
+            </button>
+            <button class="menu-item" (click)="cerrarMenuPerfil(); irAjustes()">
+              <span class="menu-icon-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </span>
+              <span>{{ 'settings' | translate }}</span>
+            </button>
+            <button class="menu-item" (click)="cerrarMenuPerfil(); verAcercaDe()">
+              <span class="menu-icon-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </span>
+              <span>{{ 'about' | translate }}</span>
+            </button>
+            <div class="menu-divider"></div>
+            <button class="menu-item logout" (click)="cerrarMenuPerfil(); cerrarSesion()">
+              <span class="menu-icon-wrap danger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </span>
+              <span>{{ 'logout' | translate }}</span>
+            </button>
+          </div>
         </div>
-        <div class="menu-opciones">
-          <button class="menu-item" (click)="cerrarMenuPerfil(); irPerfil()">
-            <span class="icon">👤</span> Perfil
-          </button>
-          <button class="menu-item" (click)="cerrarMenuPerfil(); irAjustes()">
-            <span class="icon">⚙️</span> {{ 'settings' | translate }}
-          </button>
-          <button class="menu-item" (click)="cerrarMenuPerfil(); verAcercaDe()">
-            <span class="icon">ℹ️</span> {{ 'about' | translate }}
-          </button>
-          <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border);">
-          <button class="menu-item logout" (click)="cerrarMenuPerfil(); cerrarSesion()">
-            <span class="icon">🚪</span> {{ 'logout' | translate }}
-          </button>
-        </div>
-      </div>
-      <div class="menu-overlay" (click)="cerrarMenuPerfil()"></div>
-    }
+        <div class="menu-overlay" (click)="cerrarMenuPerfil()"></div>
+      }
+    </div>
+  </div>
+</header>
+
+<!-- Indicador de Conexión Estilizado (Píldora Chip) -->
+<div class="connection-bar-container">
+  <div class="status-chip" [class.online]="isOnline" [class.offline]="!isOnline">
+    <span class="pulse-dot"></span>
+    <span class="status-chip-text">
+      {{ isOnline ? ('online' | translate) : ('offline' | translate) }}
+    </span>
   </div>
 </div>
 
-<div class="connection-wrapper">
-@if (isOnline) {
-  <div class="connection-status online">
-    <span class="status-dot"></span> {{ 'online' | translate }}
-  </div>
-} @else {
-  <div class="connection-status offline">
-    <span class="status-dot"></span> {{ 'offline' | translate }}
-  </div>
-}
-</div>
-
-<div class="kobo-menu">
-
-  <a routerLink="/lista" class="btn-nuevo-formulario">
-    <span class="icono-mas">+</span> {{ 'fill_form' | translate }}
+<!-- Menú de Inicio e Ítems de Navegación -->
+<div class="kobo-menu-content">
+  <!-- Call-to-Action Principal: Llenar nuevo formulario -->
+  <a routerLink="/lista" class="btn-cta-primary">
+    <span class="cta-icon-container">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </span>
+    <span class="cta-label">{{ 'fill_form' | translate }}</span>
   </a>
 
-  <div class="opciones-lista">
-
-    <button type="button" class="opcion-item" (click)="abrirSeccion('Borradores')">
-      <span class="opcion-icono">✏️</span>
-      <span class="opcion-texto">{{ 'drafts' | translate }}</span>
-      @if (cantidadBorradores > 0) {
-        <span class="badge-count">{{ cantidadBorradores }}</span>
-      }
+  <!-- Tarjetas Interactivas de Acción -->
+  <div class="menu-cards-list">
+    <!-- Borradores -->
+    <button type="button" class="menu-card-item" (click)="abrirSeccion('Borradores')">
+      <div class="card-item-left">
+        <div class="card-item-icon-box info">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </div>
+        <span class="card-item-title">{{ 'drafts' | translate }}</span>
+      </div>
+      <div class="card-item-right">
+        @if (cantidadBorradores > 0) {
+          <span class="badge-count">{{ cantidadBorradores }}</span>
+        }
+        <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
 
-    <button type="button" class="opcion-item" (click)="abrirSeccion('Listo para enviar')">
-      <span class="opcion-icono">📨</span>
-      <span class="opcion-texto">{{ 'ready_to_send' | translate }}</span>
-      @if (cantidadListos > 0) {
-        <span class="badge-count">{{ cantidadListos }}</span>
-      }
+    <!-- Listo para enviar -->
+    <button type="button" class="menu-card-item" (click)="abrirSeccion('Listo para enviar')">
+      <div class="card-item-left">
+        <div class="card-item-icon-box warning">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </div>
+        <span class="card-item-title">{{ 'ready_to_send' | translate }}</span>
+      </div>
+      <div class="card-item-right">
+        @if (cantidadListos > 0) {
+          <span class="badge-count warning">{{ cantidadListos }}</span>
+        }
+        <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
 
-    <button type="button" class="opcion-item" (click)="abrirSeccion('Enviado')">
-      <span class="opcion-icono">✅</span>
-      <span class="opcion-texto">{{ 'sent' | translate }}</span>
+    <!-- Enviados -->
+    <button type="button" class="menu-card-item" (click)="abrirSeccion('Enviado')">
+      <div class="card-item-left">
+        <div class="card-item-icon-box success">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <span class="card-item-title">{{ 'sent' | translate }}</span>
+      </div>
+      <div class="card-item-right">
+        <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
 
-    <button type="button" class="opcion-item" (click)="iniciarDescarga()" [disabled]="descargandoSeleccion">
-      <span class="opcion-icono">⬇️</span>
-      <span class="opcion-texto">{{ 'download_form' | translate }}</span>
-      @if (cantidadDescargados > 0) {
-        <span class="badge-count">{{ cantidadDescargados }}</span>
-      }
+    <!-- Descargar formulario -->
+    <button type="button" class="menu-card-item" (click)="iniciarDescarga()" [disabled]="descargandoSeleccion">
+      <div class="card-item-left">
+        <div class="card-item-icon-box primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <span class="card-item-title">{{ 'download_form' | translate }}</span>
+      </div>
+      <div class="card-item-right">
+        @if (cantidadDescargados > 0) {
+          <span class="badge-count neutral">{{ cantidadDescargados }}</span>
+        }
+        <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
 
-    <button type="button" class="opcion-item peligro" (click)="abrirSeccion('Borrar formulario')" [disabled]="borrandoSeleccion">
-      <span class="opcion-icono">🗑️</span>
-      <span class="opcion-texto">{{ 'delete_form' | translate }}</span>
-      @if (cantidadDescargados > 0) {
-        <span class="badge-count danger">{{ cantidadDescargados }}</span>
-      }
+    <!-- Borrar formulario -->
+    <button type="button" class="menu-card-item peligro" (click)="abrirSeccion('Borrar formulario')" [disabled]="borrandoSeleccion">
+      <div class="card-item-left">
+        <div class="card-item-icon-box danger">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </div>
+        <span class="card-item-title">{{ 'delete_form' | translate }}</span>
+      </div>
+      <div class="card-item-right">
+        @if (cantidadDescargados > 0) {
+          <span class="badge-count danger">{{ cantidadDescargados }}</span>
+        }
+        <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </button>
-
   </div>
 
-  <p class="version-app">{{ 'app_title' | translate }} {{ 'version' | translate }}</p>
+  <!-- Pie de página discreto -->
+  <footer class="app-home-footer">
+    <p class="version-text">ULEAM DataField PWA v1.0.0</p>
+  </footer>
 </div>
 
+<!-- Modal Selector de Descarga -->
 @if (mostrarSelectorDescarga) {
-  <div class="modal-overlay" style="display:flex;align-items:center;justify-content:center;">
+  <div class="modal-overlay">
     <div class="selector-panel">
       <div class="selector-header">
-        <h3 style="margin:0;">⬇️ {{ 'download_form' | translate }}</h3>
+        <div class="modal-title-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <h3>{{ 'download_form' | translate }}</h3>
+        </div>
         <button class="close-modal" (click)="cancelarDescarga()">✕</button>
       </div>
       <p class="selector-sub">Selecciona los formularios que deseas descargar del servidor:</p>
@@ -136,7 +282,12 @@
 
       <div class="selector-actions">
         <button class="selector-btn selector-btn-primary" (click)="confirmarDescarga()" [disabled]="seleccionDescarga.size === 0">
-          ⬇️ {{ 'download' | translate }} {{ seleccionDescarga.size > 0 ? '(' + seleccionDescarga.size + ')' : '' }}
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>{{ 'download' | translate }} {{ seleccionDescarga.size > 0 ? '(' + seleccionDescarga.size + ')' : '' }}</span>
         </button>
         <button class="selector-btn selector-btn-cancel" (click)="cancelarDescarga()">{{ 'cancel' | translate }}</button>
       </div>
@@ -144,11 +295,20 @@
   </div>
 }
 
+<!-- Modal Selector de Borrado -->
 @if (mostrarSelectorBorrar) {
-  <div class="modal-overlay" style="display:flex;align-items:center;justify-content:center;">
+  <div class="modal-overlay">
     <div class="selector-panel">
       <div class="selector-header">
-        <h3 style="margin:0;">🗑️ {{ 'delete_form' | translate }}</h3>
+        <div class="modal-title-wrap danger">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+          <h3>{{ 'delete_form' | translate }}</h3>
+        </div>
         <button class="close-modal" (click)="cancelarBorrar()">✕</button>
       </div>
       <p class="selector-sub">{{ 'delete_local_only' | translate }}:</p>
@@ -175,7 +335,11 @@
 
       <div class="selector-actions">
         <button class="selector-btn selector-btn-danger" (click)="confirmarBorrar()" [disabled]="seleccionBorrar.size === 0">
-          🗑️ {{ 'delete' | translate }} {{ seleccionBorrar.size > 0 ? '(' + seleccionBorrar.size + ')' : '' }}
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          <span>{{ 'delete' | translate }} {{ seleccionBorrar.size > 0 ? '(' + seleccionBorrar.size + ')' : '' }}</span>
         </button>
         <button class="selector-btn selector-btn-cancel" (click)="cancelarBorrar()">{{ 'cancel' | translate }}</button>
       </div>
@@ -183,6 +347,7 @@
   </div>
 }
 
+<!-- Spinners y Estados de Carga -->
 @if (descargandoSeleccion) {
   <div class="modal-overlay">
     <div class="modal-box">
@@ -196,7 +361,7 @@
 @if (borrandoSeleccion) {
   <div class="modal-overlay">
     <div class="modal-box">
-      <div class="spinner"></div>
+      <div class="spinner danger"></div>
       <h3>{{ 'delete' | translate }}...</h3>
       <p>Eliminando plantillas del dispositivo.</p>
     </div>
@@ -206,7 +371,7 @@
 @if (enviando) {
   <div class="modal-overlay">
     <div class="modal-box">
-      <div class="spinner" style="border-top-color: var(--primary);"></div>
+      <div class="spinner primary"></div>
       <h3 style="color: var(--primary);">Subiendo datos...</h3>
       <p>Enviando al servidor central.</p>
     </div>

@@ -1,4 +1,4 @@
-﻿import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { AuthService } from '@core/services/auth.service';
 import { Form, FormService, FormShare } from '@core/services/form.service';
 import { User } from '@core/models/user/user.interface';
@@ -7,6 +7,22 @@ import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 
 export type FormTab = 'DRAFT' | 'DEPLOYED' | 'ARCHIVED';
+
+export interface ProjectFormGroup {
+  projectId: string | null;
+  projectName: string;
+  forms: Form[];
+}
+
+function normalizeText(text: string | null | undefined): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
 
 @Injectable()
 export class FormDashboardViewModel {
@@ -17,11 +33,25 @@ export class FormDashboardViewModel {
 
   activeTab = signal<FormTab>('DRAFT');
   searchQuery = signal('');
+  selectedProjectCategory = signal<string>('ALL');
   myForms = signal<Form[]>([]);
   sharedForms = signal<Form[]>([]);
   isLoading = signal(false);
   errorMessage = signal('');
   actionLoading = signal<string | null>(null);
+
+  projectCategories = computed(() => {
+    const all = [...this.myForms(), ...this.sharedForms()];
+    const map = new Map<string, string>();
+    for (const f of all) {
+      const pId = f.project?.id || f.project_id || null;
+      const pName = f.project?.name || this.translate.instant('forms.dashboard.noProject');
+      if (pId) {
+        map.set(pId, pName);
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  });
 
   shareModalOpen = signal(false);
   shareFormId = signal<string | null>(null);
@@ -44,30 +74,94 @@ export class FormDashboardViewModel {
   private usersCache: User[] | null = null;
   private lookupTimer: ReturnType<typeof setTimeout> | null = null;
 
-  filteredForms = computed(() => {
-    const query = this.searchQuery().trim().toLowerCase();
-    const tab = this.activeTab();
-    const all = [...this.myForms(), ...this.sharedForms()];
+  allForms = computed(() => {
+    const map = new Map<string, Form>();
+    for (const f of this.myForms()) {
+      map.set(f.id, f);
+    }
+    for (const f of this.sharedForms()) {
+      if (!map.has(f.id)) {
+        map.set(f.id, f);
+      }
+    }
+    return Array.from(map.values());
+  });
 
-    const byState = all.filter((f) => f.state === tab);
+  filteredForms = computed(() => {
+    const rawQuery = this.searchQuery();
+    const query = normalizeText(rawQuery);
+    const tab = this.activeTab();
+    const selectedCategory = this.selectedProjectCategory();
+    const all = this.allForms();
+
+    let byState = all.filter((f) => f.state === tab);
+
+    if (selectedCategory !== 'ALL') {
+      if (selectedCategory === 'UNASSIGNED') {
+        byState = byState.filter((f) => !f.project_id && !f.project?.id);
+      } else {
+        byState = byState.filter((f) => (f.project?.id || f.project_id) === selectedCategory);
+      }
+    }
 
     if (!query) return byState;
 
-    return byState.filter(
-      (f) =>
-        f.title.toLowerCase().includes(query) ||
-        (f.description ?? '').toLowerCase().includes(query),
-    );
+    return byState.filter((f) => {
+      const title = normalizeText(f.title);
+      const desc = normalizeText(f.description);
+      const projName = normalizeText(f.project?.name);
+      const ownerName = normalizeText(f.owner?.name);
+      const ownerEmail = normalizeText(f.owner?.email);
+
+      return (
+        title.includes(query) ||
+        desc.includes(query) ||
+        projName.includes(query) ||
+        ownerName.includes(query) ||
+        ownerEmail.includes(query)
+      );
+    });
+  });
+
+  archivedFormsByProject = computed<ProjectFormGroup[]>(() => {
+    const archived = this.filteredForms();
+    if (this.activeTab() !== 'ARCHIVED') return [];
+
+    const map = new Map<string, { id: string | null; name: string; forms: Form[] }>();
+
+    for (const form of archived) {
+      const pId = form.project?.id || form.project_id || null;
+      const pName = form.project?.name || this.translate.instant('forms.dashboard.noProject');
+      const key = pId ?? 'unassigned';
+
+      if (!map.has(key)) {
+        map.set(key, { id: pId, name: pName, forms: [] });
+      }
+      map.get(key)!.forms.push(form);
+    }
+
+    return Array.from(map.values()).map((group) => ({
+      projectId: group.id,
+      projectName: group.name,
+      forms: group.forms,
+    }));
   });
 
   tabCounts = computed(() => {
-    const all = [...this.myForms(), ...this.sharedForms()];
+    const all = this.allForms();
     return {
       DRAFT: all.filter((f) => f.state === 'DRAFT').length,
       DEPLOYED: all.filter((f) => f.state === 'DEPLOYED').length,
       ARCHIVED: all.filter((f) => f.state === 'ARCHIVED').length,
     };
   });
+
+  onSearchInput(event: Event): void {
+    const value = (event.target as HTMLInputElement)?.value ?? '';
+    this.searchQuery.set(value);
+  }
+
+
 
   async loadForms(): Promise<void> {
     this.isLoading.set(true);
