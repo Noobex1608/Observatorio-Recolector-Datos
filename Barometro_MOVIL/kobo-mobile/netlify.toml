@@ -1,8 +1,14 @@
-# Netlify configuration to run npm build in Barometro_MOVIL/kobo-mobile
+# Netlify configuration to run build in Barometro_MOVIL/kobo-mobile
 [build]
   base = "Barometro_MOVIL/kobo-mobile"
   command = "npm install && npm run build"
   publish = "dist/kobo-mobile/browser"
+
+# SPA redirect rule for Angular Client-Side Routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 [[plugins]]
   package = "@netlify/angular-runtime"
