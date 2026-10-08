@@ -15,7 +15,7 @@ export class LoginComponent {
   private api = inject(ApiService);
   private router = inject(Router);
 
-  urlServidor: string = '';
+  urlServidor: string = 'https://barometro-backend.onrender.com';
   usuario: string = '';
   clave: string = '';
 

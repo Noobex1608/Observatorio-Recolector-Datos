@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://barometro-9ro8.onrender.com/api',
+  apiUrl: 'https://barometro-backend.onrender.com/api',
 };
