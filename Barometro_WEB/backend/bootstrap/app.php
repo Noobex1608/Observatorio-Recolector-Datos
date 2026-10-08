@@ -58,15 +58,28 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect('/login');
         });
 
-        // No exponer consultas SQL, host, tablas ni columnas en respuestas API en produccion.
-        $exceptions->render(function (QueryException $e, Request $request) {
-            \Illuminate\Support\Facades\Log::error('API QueryException: ' . $e->getMessage());
+        // Capturar cualquier excepcion en API y responder siempre con JSON estructurado + Log
+        $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                $payload = ['message' => 'No se pudo completar la operacion. Intenta nuevamente o contacta al administrador.'];
-                if (config('app.debug')) {
-                    $payload['error'] = $e->getMessage();
+                \Illuminate\Support\Facades\Log::error('API Exception [' . get_class($e) . ']: ' . $e->getMessage(), [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
+
+                $statusCode = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+                if ($statusCode < 400 || $statusCode > 599) {
+                    $statusCode = 500;
                 }
-                return response()->json($payload, 500);
+
+                $payload = [
+                    'message' => config('app.debug') ? $e->getMessage() : 'No se pudo completar la operacion. Intenta nuevamente o contacta al administrador.',
+                ];
+                if (config('app.debug')) {
+                    $payload['exception'] = get_class($e);
+                    $payload['file'] = $e->getFile() . ':' . $e->getLine();
+                }
+
+                return response()->json($payload, $statusCode);
             }
         });
 
