@@ -9,7 +9,7 @@ yarn-error.log*
 /.agents/skills
 .agents/skills/antigravity-workflows
 .agents/
-resources/
+resource/
 scratch/
 scripts/
 .gemini/
