@@ -58,12 +58,23 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect('/login');
         });
 
-        // No exponer consultas SQL, host, tablas ni columnas en respuestas API.
+        // No exponer consultas SQL, host, tablas ni columnas en respuestas API en produccion.
         $exceptions->render(function (QueryException $e, Request $request) {
+            \Illuminate\Support\Facades\Log::error('API QueryException: ' . $e->getMessage());
             if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json([
-                    'message' => 'No se pudo completar la operacion. Intenta nuevamente o contacta al administrador.',
-                ], 500);
+                $payload = ['message' => 'No se pudo completar la operacion. Intenta nuevamente o contacta al administrador.'];
+                if (config('app.debug')) {
+                    $payload['error'] = $e->getMessage();
+                }
+                return response()->json($payload, 500);
             }
+        });
+
+        // Garantizar que TODAS las respuestas de excepciones (401, 403, 404, 500) incluyan headers CORS
+        $exceptions->respond(function ($response) {
+            $response->headers->set('Access-Control-Allow-Origin', '*');
+            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+            $response->headers->set('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept, X-Requested-With, Origin, Correlation-Id');
+            return $response;
         });
     })->create();
