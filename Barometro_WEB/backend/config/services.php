@@ -44,6 +44,12 @@ return [
         'responses_table' => env('SUPABASE_RESPONSES_TABLE', 'responses'),
         'max_retry_attempts' => (int) env('SUPABASE_MAX_RETRY_ATTEMPTS', 12),
         'retry_base_seconds' => (int) env('SUPABASE_RETRY_BASE_SECONDS', 30),
+        'video_bucket' => env('SUPABASE_VIDEO_BUCKET', 'videos'),
+        'storage_file_limit' => (int) env('SUPABASE_STORAGE_FILE_LIMIT', 52428800), // 50MB
+    ],
+
+    'video_storage' => [
+        'driver' => env('VIDEO_STORAGE_DRIVER', 'supabase'), // Opciones: supabase, local, s3
     ],
 
     'seed' => [

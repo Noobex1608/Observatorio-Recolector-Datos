@@ -4,6 +4,7 @@ namespace App\Presentation\Http\Controllers\Api;
 
 use App\Application\Forms\Services\EnqueueFormSchemaSync;
 use App\Application\Responses\Services\EnqueueResponseSync;
+use App\Application\Responses\Services\ProcessResponseVideosService;
 use App\Domain\Forms\Services\FormFlowEngine;
 use App\Domain\Forms\Services\FormLifecycleService;
 use App\Domain\Forms\Services\FormResponseValidator;
@@ -41,6 +42,7 @@ class FormController extends Controller
         private readonly FormFlowEngine $formFlowEngine,
         private readonly FormResponseValidator $formResponseValidator,
         private readonly FormLifecycleService $formLifecycleService,
+        private readonly ProcessResponseVideosService $processResponseVideosService,
     ) {
     }
 
@@ -182,11 +184,12 @@ class FormController extends Controller
         }
 
         $data = $request->input('data', []);
+        $processedData = $this->processResponseVideosService->process(is_array($data) ? $data : [], $form->id);
 
         $response = FormResponse::create([
             'form_id' => $form->id,
             'user_id' => $currentUser?->id,
-            'data' => $data,
+            'data' => $processedData,
         ]);
 
         $this->enqueueResponseSync->enqueue($response);
@@ -674,10 +677,12 @@ class FormController extends Controller
         $activeQuestions = $this->formFlowEngine->calculateActiveQuestions($form->questions, $dataArray);
         $this->formResponseValidator->validate($activeQuestions, $dataArray);
 
+        $processedData = $this->processResponseVideosService->process($dataArray, $form->id);
+
         $response = FormResponse::create([
             'form_id' => $form->id,
             'user_id' => $currentUser?->id,
-            'data' => $data,
+            'data' => $processedData,
         ]);
 
         $this->enqueueResponseSync->enqueue($response);
