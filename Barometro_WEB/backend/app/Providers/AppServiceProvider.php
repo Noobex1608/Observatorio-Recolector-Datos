@@ -31,7 +31,8 @@ class AppServiceProvider extends ServiceProvider
             return match ($driver) {
                 'local' => $this->app->make(LocalVideoStorageAdapter::class),
                 's3' => $this->app->make(S3VideoStorageAdapter::class),
-                'supabase', default => $this->app->make(SupabaseVideoStorageAdapter::class),
+                'supabase' => $this->app->make(SupabaseVideoStorageAdapter::class),
+                default => $this->app->make(SupabaseVideoStorageAdapter::class),
             };
         });
     }
