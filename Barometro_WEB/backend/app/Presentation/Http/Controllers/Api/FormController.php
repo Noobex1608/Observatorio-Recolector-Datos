@@ -3,11 +3,14 @@
 namespace App\Presentation\Http\Controllers\Api;
 
 use App\Application\Forms\Services\EnqueueFormSchemaSync;
-use App\Application\Responses\Services\EnqueueResponseSync;
-use App\Application\Responses\Services\ProcessResponseVideosService;
+use App\Application\Responses\Services\ProcessResponseMedia;
+use App\Application\Responses\Services\ResponseExportMatrixBuilder;
+use App\Application\Responses\Services\SpreadsheetExportSanitizer;
+use App\Application\Responses\Services\StoreFormResponse;
 use App\Domain\Forms\Services\FormFlowEngine;
 use App\Domain\Forms\Services\FormLifecycleService;
 use App\Domain\Forms\Services\FormResponseValidator;
+use App\Domain\Forms\Services\FormSchemaValidator;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\FormQuestion;
@@ -15,36 +18,35 @@ use App\Models\FormResponse;
 use App\Models\FormUserShare;
 use App\Models\User;
 use App\Presentation\Http\Requests\Mobile\SubmitMobileResponseRequest;
-use App\Presentation\Http\Resources\FormResource;
-use App\Presentation\Http\Resources\QuestionResource;
 use App\Presentation\Http\Resources\FormResponseResource;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\FromGenerator;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Facades\Excel;
 use OpenApi\Attributes as OA;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 #[OA\Tag(name: 'Forms', description: 'Formularios dinamicos, publicacion, respuestas y comparticion')]
 class FormController extends Controller
 {
     public function __construct(
-        private readonly EnqueueResponseSync $enqueueResponseSync,
+        private readonly StoreFormResponse $storeFormResponse,
         private readonly EnqueueFormSchemaSync $enqueueFormSchemaSync,
         private readonly FormFlowEngine $formFlowEngine,
         private readonly FormResponseValidator $formResponseValidator,
+        private readonly FormSchemaValidator $formSchemaValidator,
         private readonly FormLifecycleService $formLifecycleService,
-        private readonly ProcessResponseVideosService $processResponseVideosService,
-    ) {
-    }
+    ) {}
 
     #[OA\Get(path: '/forms', summary: 'Listar formularios propios y compartidos', security: [['sanctum' => []]], tags: ['Forms'])]
     public function index(Request $request): JsonResponse
@@ -69,13 +71,13 @@ class FormController extends Controller
                         $inner->orWhereIn('project_id', $projectIds);
                     }
                 });
-            }, fn($query) => $query->where('user_id', $user->id))
+            }, fn ($query) => $query->where('user_id', $user->id))
             ->with(['owner:id,name,email,rol', 'project:id,name'])
             ->withCount('responses')
             ->latest()
             ->get();
 
-        $sharedForms = Form::whereHas('shares', fn($q) => $q->where('user_id', $user->id))
+        $sharedForms = Form::whereHas('shares', fn ($q) => $q->where('user_id', $user->id))
             ->with(['owner:id,name,email,rol', 'project:id,name'])
             ->withCount('responses')
             ->latest()
@@ -104,10 +106,10 @@ class FormController extends Controller
                     return;
                 }
                 $query->where('user_id', $user->id)
-                    ->orWhereHas('shares', fn($q) => $q->where('user_id', $user->id));
+                    ->orWhereHas('shares', fn ($q) => $q->where('user_id', $user->id));
             })
             ->with([
-                'questions' => fn($q) => $q->orderBy('order'),
+                'questions' => fn ($q) => $q->orderBy('order'),
                 'project.zones.assignedUsers:id,name,email',
             ])
             ->latest()
@@ -132,7 +134,7 @@ class FormController extends Controller
                     return;
                 }
                 $query->where('user_id', $user->id)
-                    ->orWhereHas('shares', fn($q) => $q->where('user_id', $user->id));
+                    ->orWhereHas('shares', fn ($q) => $q->where('user_id', $user->id));
             })
             ->select('id', 'title', 'state', 'link_uuid', 'step_by_step')
             ->latest()
@@ -164,35 +166,8 @@ class FormController extends Controller
     {
         $form = $request->getForm();
         $currentUser = $request->user();
-
-        if ($currentUser) {
-            $share = FormUserShare::where('form_id', $form->id)
-                ->where('user_id', $currentUser->id)
-                ->first();
-
-            if ($share && $share->target_responses !== null) {
-                $responsesCount = FormResponse::where('form_id', $form->id)
-                    ->where('user_id', $currentUser->id)
-                    ->count();
-
-                if ($responsesCount >= $share->target_responses) {
-                    return response()->json([
-                        'message' => 'Has alcanzado el limite de respuestas para este formulario. Espera a que el administrador lo reactive.',
-                    ], 422);
-                }
-            }
-        }
-
         $data = $request->input('data', []);
-        $processedData = $this->processResponseVideosService->process(is_array($data) ? $data : [], $form->id);
-
-        $response = FormResponse::create([
-            'form_id' => $form->id,
-            'user_id' => $currentUser?->id,
-            'data' => $processedData,
-        ]);
-
-        $this->enqueueResponseSync->enqueue($response);
+        $response = $this->storeFormResponse->submit($form, $currentUser, is_array($data) ? $data : []);
 
         return response()->json(['message' => 'Respuesta guardada', 'id' => $response->id], 201);
     }
@@ -205,8 +180,8 @@ class FormController extends Controller
             'description' => 'nullable|string',
             'project_id' => 'required|uuid|exists:projects,id',
             'step_by_step' => 'sometimes|boolean',
-            'require_consent' => 'sometimes|boolean',
-            'consent_text' => 'nullable|string',
+            'require_consent' => 'sometimes|accepted',
+            'consent_text' => 'required|string|min:10',
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
         ]);
@@ -218,33 +193,23 @@ class FormController extends Controller
             return response()->json(['message' => 'Los usuarios recolectores no pueden crear formularios'], 403);
         }
 
-        if (!$user->isSuperAdmin() && !$user->isAdmin() && !$user->leadsProject($projectId)) {
+        if (! $user->isSuperAdmin() && ! $user->isAdmin() && ! $user->leadsProject($projectId)
+            && ! $user->isProjectDelegate($projectId)) {
             return response()->json(['message' => 'No tienes permisos para crear formularios en este proyecto'], 403);
         }
 
-        $today = Carbon::today()->format('Y-m-d');
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
-
-        $state = 'DRAFT';
-        $linkUuid = null;
-
-        if ($endDate && $endDate < $today) {
-            $state = 'ARCHIVED';
-        } elseif ($startDate && $startDate <= $today) {
-            $state = 'DEPLOYED';
-            $linkUuid = (string) Str::uuid();
-        }
 
         $form = Form::create([
             'title' => $request->title,
             'description' => $request->description,
             'user_id' => $user->id,
             'project_id' => $projectId,
-            'state' => $state,
-            'link_uuid' => $linkUuid,
+            'state' => 'DRAFT',
+            'link_uuid' => null,
             'step_by_step' => $request->boolean('step_by_step'),
-            'require_consent' => $request->has('require_consent') ? $request->boolean('require_consent') : true,
+            'require_consent' => true,
             'consent_text' => $request->input('consent_text'),
             'start_date' => $startDate,
             'end_date' => $endDate,
@@ -266,8 +231,8 @@ class FormController extends Controller
         $form->load([
             'owner:id,name,email,rol',
             'project.zones.assignedUsers:id,name,email',
-            'questions' => fn($q) => $q->orderBy('order'),
-            'shares.user:id,name,email,rol'
+            'questions' => fn ($q) => $q->orderBy('order'),
+            'shares.user:id,name,email,rol',
         ]);
 
         $data = $this->formatMobileForm($form, $user);
@@ -288,21 +253,22 @@ class FormController extends Controller
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'step_by_step' => 'sometimes|boolean',
-            'require_consent' => 'sometimes|boolean',
-            'consent_text' => 'nullable|string',
+            'require_consent' => 'sometimes|accepted',
+            'consent_text' => 'sometimes|required|string|min:10',
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
         ]);
 
         $form->update($request->only([
-            'title', 'description', 'step_by_step', 'require_consent', 'consent_text', 'start_date', 'end_date'
+            'title', 'description', 'step_by_step', 'consent_text', 'start_date', 'end_date',
         ]));
+        $form->update(['require_consent' => true]);
 
         $form = $this->formLifecycleService->resolveStateForForm($form);
 
         \App\Services\AuditLogService::logFormAction($request->user(), $form, 'UPDATE');
 
-        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($form);
     }
@@ -313,7 +279,7 @@ class FormController extends Controller
         $form = Form::findOrFail($id);
         $user = $request->user();
 
-        if (!$this->canDeleteForm($form, $user)) {
+        if (! $this->canDeleteForm($form, $user)) {
             return response()->json(['message' => 'No tienes permisos para eliminar este formulario'], 403);
         }
 
@@ -334,31 +300,59 @@ class FormController extends Controller
     public function cloneForm(Request $request, string $id): JsonResponse
     {
         $source = $this->findShareManageableForm($id, $request->user());
-        $source->load(['questions' => fn($q) => $q->orderBy('order')]);
+        $source->load(['questions' => fn ($q) => $q->orderBy('order')]);
 
         $copy = DB::transaction(function () use ($source, $request) {
             $copy = Form::create([
-                'title' => $source->title . ' (copia)',
+                'title' => $source->title.' (copia)',
                 'description' => $source->description,
                 'user_id' => $request->user()->id,
                 'project_id' => $source->project_id,
                 'state' => 'DRAFT',
                 'link_uuid' => null,
                 'step_by_step' => $source->step_by_step,
-                'require_consent' => $source->require_consent,
+                'require_consent' => true,
                 'consent_text' => $source->consent_text,
                 'start_date' => $source->start_date?->format('Y-m-d'),
                 'end_date' => $source->end_date?->format('Y-m-d'),
             ]);
 
+            $questionIds = [];
             foreach ($source->questions as $question) {
-                $copy->questions()->create([
+                $clonedQuestion = $copy->questions()->create([
                     'type' => $question->type,
                     'label' => $question->label,
                     'options' => $question->options,
-                    'branch_rules' => $question->branch_rules,
+                    'branch_rules' => null,
+                    'properties' => $question->properties,
                     'required' => $question->required,
                     'order' => $question->order,
+                    'section_name' => $question->section_name,
+                ]);
+                $questionIds[$question->id] = $clonedQuestion;
+            }
+
+            foreach ($source->questions as $question) {
+                $clonedQuestion = $questionIds[$question->id];
+                $rules = $question->branch_rules;
+                if (is_array($rules)) {
+                    $rules = array_map(function ($rule) use ($questionIds) {
+                        if (! is_array($rule)) {
+                            return $rule;
+                        }
+                        foreach (['next_question_id', 'nextQuestionId'] as $key) {
+                            if (isset($rule[$key])) {
+                                $rule[$key] = isset($questionIds[$rule[$key]]) ? $questionIds[$rule[$key]]->id : null;
+                            }
+                        }
+
+                        return $rule;
+                    }, $rules);
+                }
+                $clonedQuestion->update([
+                    'parent_question_id' => $question->parent_question_id
+                        ? ($questionIds[$question->parent_question_id]->id ?? null) : null,
+                    'branch_rules' => $rules,
                 ]);
             }
 
@@ -369,7 +363,7 @@ class FormController extends Controller
         $copy->loadCount('responses');
 
         \App\Services\AuditLogService::logFormAction($request->user(), $copy, 'CLONE', "Clonado de '{$source->title}'");
-        $this->enqueueFormSchemaSync->enqueue($copy->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($copy->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($copy, 201);
     }
@@ -379,8 +373,23 @@ class FormController extends Controller
     {
         $form = $this->findLifecycleManageableForm($id, $request->user());
 
-        if (!in_array($form->state, ['DRAFT', 'ARCHIVED'], true)) {
+        if ($form->state !== 'DRAFT') {
             return response()->json(['message' => 'El formulario ya esta implementado'], 422);
+        }
+
+        $form->load('technicalSheet');
+        if ($form->technicalSheet?->status !== 'VALIDATED') {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica de este formulario'], 422);
+        }
+        if (! $form->zones()->exists()) {
+            return response()->json(['message' => 'Delimite al menos una zona antes de publicar'], 422);
+        }
+        if (! $form->questions()->exists()) {
+            return response()->json(['message' => 'Agregue al menos una pregunta antes de publicar'], 422);
+        }
+        $this->formSchemaValidator->validateForPublication($form->questions()->orderBy('order')->get());
+        if (! $form->consent_text || mb_strlen(trim($form->consent_text)) < 10) {
+            return response()->json(['message' => 'Complete el consentimiento informado antes de publicar'], 422);
         }
 
         $form->update([
@@ -389,7 +398,7 @@ class FormController extends Controller
         ]);
 
         \App\Services\AuditLogService::logFormAction($request->user(), $form, 'DEPLOY');
-        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($form);
     }
@@ -406,11 +415,10 @@ class FormController extends Controller
         $form->update(['state' => 'ARCHIVED']);
 
         \App\Services\AuditLogService::logFormAction($request->user(), $form, 'ARCHIVE');
-        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($form);
     }
-
 
     #[OA\Get(path: '/forms/{id}/questions', summary: 'Listar preguntas', security: [['sanctum' => []]], tags: ['Forms'])]
     public function getQuestions(Request $request, string $id): JsonResponse
@@ -427,6 +435,9 @@ class FormController extends Controller
 
         if ($form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
+        }
+        if ($form->technicalSheet?->status !== 'VALIDATED') {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
         }
 
         $request->validate([
@@ -456,7 +467,7 @@ class FormController extends Controller
             'parent_question_id',
         ]));
 
-        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($question, 201);
     }
@@ -469,6 +480,9 @@ class FormController extends Controller
 
         if ($question->form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
+        }
+        if ($question->form->technicalSheet?->status !== 'VALIDATED') {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
         }
 
         $request->validate([
@@ -498,7 +512,7 @@ class FormController extends Controller
             'parent_question_id',
         ]));
 
-        $this->enqueueFormSchemaSync->enqueue($question->form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($question->form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($question);
     }
@@ -512,11 +526,14 @@ class FormController extends Controller
         if ($question->form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
+        if ($question->form->technicalSheet?->status !== 'VALIDATED') {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
+        }
 
         $form = $question->form;
         $question->delete();
 
-        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn($q) => $q->orderBy('order')]));
+        $this->enqueueFormSchemaSync->enqueue($form->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json(null, 204);
     }
@@ -524,7 +541,8 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}/shares', summary: 'Listar usuarios invitados', security: [['sanctum' => []]], tags: ['Forms'])]
     public function getShares(Request $request, string $id): JsonResponse
     {
-        $form = $this->findShareManageableForm($id, $request->user());
+        $form = $this->findViewableForm($id, $request->user());
+        abort_if($request->user()->isUser(), 403);
 
         $shares = $form->shares()->with('user:id,name,email,rol')->get()->map(function ($share) use ($form) {
             $responsesCount = FormResponse::where('form_id', $form->id)
@@ -558,7 +576,7 @@ class FormController extends Controller
         ]);
 
         $user = User::where('email', $request->email)->first();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'No existe un usuario con ese correo'], 404);
         }
 
@@ -566,7 +584,7 @@ class FormController extends Controller
             return response()->json(['message' => 'No puedes compartir el formulario contigo mismo'], 422);
         }
 
-        if (!$user->isUser()) {
+        if (! $user->isUser()) {
             return response()->json(['message' => 'Solo usuarios recolectores pueden recibir permisos por formulario'], 422);
         }
 
@@ -604,7 +622,6 @@ class FormController extends Controller
         return response()->json(null, 204);
     }
 
-
     #[OA\Patch(path: '/forms/{id}/shares/{share_id}', summary: 'Actualizar target_responses de una asignacion', security: [['sanctum' => []]], tags: ['Forms'])]
     public function updateShare(Request $request, string $id, string $share_id): JsonResponse
     {
@@ -619,7 +636,15 @@ class FormController extends Controller
             return response()->json(['message' => 'Solo los recolectores pueden tener respuestas objetivo'], 422);
         }
 
-        $share->update(['target_responses' => $request->target_responses]);
+        DB::transaction(function () use ($share, $request, $form) {
+            $before = $share->target_responses;
+            $share->update(['target_responses' => $request->target_responses]);
+            \App\Services\AuditLogService::log($request->user(), 'UPDATE_SHARE_TARGET', 'permisos',
+                'Cambió la meta de respuestas del encuestador.', [
+                    'form_id' => $form->id, 'share_id' => $share->id,
+                    'before' => $before, 'after' => $share->target_responses,
+                ]);
+        });
 
         return response()->json($share->load('user:id,name,email,rol'));
     }
@@ -631,11 +656,13 @@ class FormController extends Controller
 
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
-            ->with(['questions' => fn($q) => $q->orderBy('order')])
+            ->with(['questions' => fn ($q) => $q->orderBy('order')])
             ->firstOrFail();
+        abort_if($form->start_date && $form->start_date->isFuture(), 404);
 
         $data = $form->toArray();
-        $data['questions'] = $form->questions->map(fn($q) => $this->formatMobileQuestion($q))->toArray();
+        $data['questions'] = $form->questions->map(fn ($q) => $this->formatMobileQuestion($q))->toArray();
+        $data['project_zones'] = $form->zones()->get(['id', 'name', 'geofence_type', 'target_lat', 'target_lng', 'radius_meters', 'geometry_json'])->toArray();
 
         return response()->json($data);
     }
@@ -647,45 +674,13 @@ class FormController extends Controller
 
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
-            ->with(['questions' => fn($q) => $q->orderBy('order')])
+            ->with(['questions' => fn ($q) => $q->orderBy('order')])
             ->firstOrFail();
-
-        $currentUser = $request->user();
-
-        if ($currentUser) {
-            $share = FormUserShare::where('form_id', $form->id)
-                ->where('user_id', $currentUser->id)
-                ->first();
-
-            if ($share && $share->target_responses !== null) {
-                $responsesCount = FormResponse::where('form_id', $form->id)
-                    ->where('user_id', $currentUser->id)
-                    ->count();
-
-                if ($responsesCount >= $share->target_responses) {
-                    return response()->json([
-                        'message' => 'Has alcanzado el limite de respuestas para este formulario. Espera a que el administrador lo reactive.',
-                    ], 422);
-                }
-            }
-        }
+        abort_if($form->start_date && $form->start_date->isFuture(), 404);
 
         $data = $request->data ?? [];
         $dataArray = is_array($data) ? $data : [];
-
-        // Evaluar flujo activo y validar respuestas con los servicios de dominio
-        $activeQuestions = $this->formFlowEngine->calculateActiveQuestions($form->questions, $dataArray);
-        $this->formResponseValidator->validate($activeQuestions, $dataArray);
-
-        $processedData = $this->processResponseVideosService->process($dataArray, $form->id);
-
-        $response = FormResponse::create([
-            'form_id' => $form->id,
-            'user_id' => $currentUser?->id,
-            'data' => $processedData,
-        ]);
-
-        $this->enqueueResponseSync->enqueue($response);
+        $response = $this->storeFormResponse->submit($form, $request->user(), $dataArray);
 
         return response()->json([
             'message' => 'Respuesta guardada',
@@ -699,10 +694,35 @@ class FormController extends Controller
     {
         $form = $this->findViewableForm($id, $request->user());
         $form->load('questions');
+        $pageSize = max(1, min(100, (int) $request->query('per_page', 50)));
+        $page = $form->responses()->orderByDesc('created_at')->orderByDesc('id')->paginate($pageSize);
 
         return response()->json([
             'questions' => $form->questions,
-            'responses' => $form->responses()->orderBy('created_at', 'desc')->get(),
+            'responses' => $page->items(),
+            'pagination' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'total' => $page->total(),
+            ],
+        ]);
+    }
+
+    public function getResponseMedia(Request $request, string $id, string $responseId, string $questionId): JsonResponse
+    {
+        $form = Form::findOrFail($id);
+        $user = $request->user();
+        abort_unless($user->canManageProjects() || $user->leadsProject($form->project_id)
+            || $user->isProjectDelegate($form->project_id) || $user->supervisesProject($form->project_id)
+            || ((int) $form->user_id === (int) $user->id && ! $user->isUser()), 403);
+
+        $response = $form->responses()->findOrFail($responseId);
+        $answer = $response->data[$questionId] ?? null;
+        abort_unless(is_array($answer), 404);
+
+        return response()->json([
+            'url' => app(ProcessResponseMedia::class)->temporaryUrl($answer),
+            'expires_in' => 300,
         ]);
     }
 
@@ -710,24 +730,29 @@ class FormController extends Controller
     public function getStats(Request $request, string $id): JsonResponse
     {
         $form = $this->findViewableForm($id, $request->user());
-        $form->load('questions', 'responses');
+        $form->load('questions');
         $stats = [];
 
         foreach ($form->questions as $q) {
-            if (!in_array($q->type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'LIKERT'], true)) {
+            if (! in_array($q->type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'LIKERT'], true)) {
                 continue;
             }
 
-            $counts = array_fill_keys($this->chartOptionsForQuestion($q), 0);
-            foreach ($form->responses as $r) {
+            $stats[$q->id] = array_fill_keys($this->chartOptionsForQuestion($q), 0);
+        }
+
+        foreach ($form->responses()->select(['id', 'form_id', 'data'])->cursor() as $r) {
+            foreach ($form->questions as $q) {
+                if (! isset($stats[$q->id])) {
+                    continue;
+                }
                 $answer = $r->data[$q->id] ?? null;
                 foreach ((array) $answer as $value) {
-                    if ($value !== null && $value !== '') {
-                        $counts[$value] = ($counts[$value] ?? 0) + 1;
+                    if (is_scalar($value) && $value !== '') {
+                        $stats[$q->id][$value] = ($stats[$q->id][$value] ?? 0) + 1;
                     }
                 }
             }
-            $stats[$q->id] = $counts;
         }
 
         return response()->json($stats);
@@ -737,30 +762,49 @@ class FormController extends Controller
     public function exportResponses(Request $request, string $id)
     {
         $form = $this->findViewableForm($id, $request->user());
-        $form->load(['questions' => fn($q) => $q->orderBy('order'), 'responses']);
+        $form->load(['questions' => fn ($q) => $q->orderBy('order')]);
 
         $format = strtolower($request->query('format', 'csv'));
-        $exportData = $this->buildExportMatrix($form);
-        $filename = Str::slug($form->title) . '_respuestas_' . now()->format('Y-m-d');
-
-        \App\Services\AuditLogService::logDownload(
-            $request->user(),
-            $form,
-            $form->responses->count(),
-            $format
-        );
+        abort_unless(in_array($format, ['csv', 'xlsx', 'excel'], true), 422, 'Formato de exportación no admitido.');
+        $responseCount = $form->responses()->count();
+        abort_if(($format === 'xlsx' || $format === 'excel') && $responseCount > 1000, 422,
+            'Para más de 1.000 respuestas use CSV; XLSX excedería el límite de memoria.');
+        $exportData = app(ResponseExportMatrixBuilder::class)->build($form);
+        $filename = Str::slug($form->title).'_respuestas_'.now()->format('Y-m-d');
 
         if ($format === 'xlsx' || $format === 'excel') {
-            $export = new class($exportData['rows'], $exportData['headers'], $form->title) implements FromArray, ShouldAutoSize, WithHeadings, WithStyles, WithTitle {
-                public function __construct(private array $rows, private array $headers, private string $formTitle) {}
-                public function array(): array { return $this->rows; }
-                public function headings(): array { return $this->headers; }
+            $export = new class($exportData['rows'], $exportData['headers'], $form->title) extends DefaultValueBinder implements FromGenerator, ShouldAutoSize, WithCustomValueBinder, WithHeadings, WithStyles, WithTitle
+            {
+                public function __construct(private \Generator $rows, private array $headers, private string $formTitle) {}
+
+                public function generator(): \Generator
+                {
+                    return $this->rows;
+                }
+
+                public function headings(): array
+                {
+                    return $this->headers;
+                }
+
+                public function bindValue(Cell $cell, $value): bool
+                {
+                    if (is_string($value)) {
+                        $cell->setValueExplicit($value, DataType::TYPE_STRING);
+
+                        return true;
+                    }
+
+                    return parent::bindValue($cell, $value);
+                }
+
                 public function title(): string
                 {
                     $title = preg_replace('/[\\\\\/?*\[\]:]/', '', $this->formTitle) ?: 'Respuestas';
 
                     return mb_substr($title, 0, 31);
                 }
+
                 public function styles(Worksheet $sheet): array
                 {
                     $sheet->freezePane('A2');
@@ -772,17 +816,24 @@ class FormController extends Controller
                 }
             };
 
-            return Excel::download($export, "{$filename}.xlsx");
+            $download = Excel::download($export, "{$filename}.xlsx");
+            \App\Services\AuditLogService::logGeneratedExport($request->user(), $form, $responseCount, 'xlsx');
+
+            return $download;
         }
 
-        return response()->streamDownload(function () use ($exportData) {
+        $actor = $request->user();
+
+        return response()->streamDownload(function () use ($exportData, $actor, $form, $responseCount) {
             $handle = fopen('php://output', 'w');
-            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
-            fputcsv($handle, $exportData['headers']);
+            $sanitizer = app(SpreadsheetExportSanitizer::class);
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($handle, array_map([$sanitizer, 'csvCell'], $exportData['headers']));
             foreach ($exportData['rows'] as $row) {
-                fputcsv($handle, $row);
+                fputcsv($handle, array_map([$sanitizer, 'csvCell'], $row));
             }
             fclose($handle);
+            \App\Services\AuditLogService::logGeneratedExport($actor, $form, $responseCount, 'csv');
         }, "{$filename}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
@@ -790,13 +841,9 @@ class FormController extends Controller
     public function logExport(Request $request, string $id): JsonResponse
     {
         $form = $this->findViewableForm($id, $request->user());
-        $format = strtolower($request->input('format', 'pdf'));
-
-        \App\Services\AuditLogService::logDownload(
-            $request->user(),
-            $form,
-            $form->responses()->count(),
-            $format
+        abort_unless(strtolower($request->input('format', 'pdf')) === 'pdf', 422, 'Formato no admitido.');
+        \App\Services\AuditLogService::logClientReportedExport(
+            $request->user(), $form, $form->responses()->count()
         );
 
         return response()->json(['success' => true]);
@@ -836,7 +883,9 @@ class FormController extends Controller
 
     private function abortUnlessCanView(Form $form, User $user): void
     {
-        if ($user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id) || (int) $form->user_id === (int) $user->id || $this->shareRole($form, $user) !== null) {
+        if ($user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id)
+            || $user->isProjectDelegate($form->project_id) || (int) $form->user_id === (int) $user->id
+            || $this->shareRole($form, $user) !== null) {
             return;
         }
 
@@ -846,7 +895,7 @@ class FormController extends Controller
     private function abortUnlessCanEdit(Form $form, User $user): void
     {
         $role = $this->shareRole($form, $user);
-        if ($user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id) || ((int) $form->user_id === (int) $user->id && !$user->isUser()) || $role === 'PROJECT') {
+        if ($user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id) || ((int) $form->user_id === (int) $user->id && ! $user->isUser()) || $role === 'PROJECT') {
             return;
         }
 
@@ -873,7 +922,7 @@ class FormController extends Controller
 
     private function canDeleteForm(Form $form, User $user): bool
     {
-        return $user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id) || ((int) $form->user_id === (int) $user->id && !$user->isUser());
+        return $user->isSuperAdmin() || $user->isAdmin() || $user->leadsProject($form->project_id) || ((int) $form->user_id === (int) $user->id && ! $user->isUser());
     }
 
     private function shareRole(Form $form, User $user): ?string
@@ -883,105 +932,6 @@ class FormController extends Controller
             ->value('role');
     }
 
-private function buildExportMatrix(Form $form): array
-{
-    $headers = ['start', 'end'];
-    $columnMap = [];
-
-    foreach ($form->questions as $question) {
-        $likertRows = $question->type === 'LIKERT' && is_array($question->options) && isset($question->options['rows']) && is_array($question->options['rows'])
-            ? $question->options['rows']
-            : null;
-
-        if (($question->type === 'MULTIPLE_CHOICE' || $question->type === 'SINGLE_CHOICE') && is_array($question->options)) {
-            $headers[] = $question->label;
-            $columnMap[] = ['type' => 'choice_summary', 'question_id' => $question->id, 'question_type' => $question->type];
-            foreach ($question->options as $option) {
-                $headers[] = "{$question->label}/{$option}";
-                $columnMap[] = ['type' => 'choice_option', 'question_id' => $question->id, 'option' => $option, 'question_type' => $question->type];
-            }
-        } elseif ($likertRows !== null && count($likertRows) > 1) {
-            foreach ($likertRows as $rowLabel) {
-                $headers[] = "{$question->label}/{$rowLabel}";
-                $columnMap[] = ['type' => 'likert_row', 'question_id' => $question->id, 'row' => $rowLabel];
-            }
-        } elseif ($likertRows !== null && count($likertRows) === 1) {
-            $headers[] = $question->label;
-            $columnMap[] = ['type' => 'likert_row', 'question_id' => $question->id, 'row' => $likertRows[0]];
-        } else {
-            $headers[] = $question->label;
-            $columnMap[] = ['type' => 'simple', 'question_id' => $question->id];
-        }
-    }
-
-    $headers = array_merge($headers, [
-        '_id',
-        '_uuid',
-        '_submission_time',
-        '_validation_status',
-        '_notes',
-        '_status',
-        '_submitted_by',
-        '__version__',
-        '_tags',
-        'meta/rootUuid',
-        '_index',
-    ]);
-
-    $rows = [];
-    foreach ($form->responses as $index => $response) {
-        $submittedAt = $response->created_at;
-        $submissionSerial = $submittedAt ? ($submittedAt->timestamp / 86400) + 25569 : '';
-        $responseData = is_array($response->data) ? $response->data : [];
-        $respondentMeta = is_array($response->respondent_meta) ? $response->respondent_meta : [];
-        $row = [$submissionSerial, $submissionSerial];
-
-        foreach ($columnMap as $col) {
-            $answer = $responseData[$col['question_id']] ?? null;
-
-            if ($col['type'] === 'choice_option') {
-                $selected = [];
-                if ($col['question_type'] === 'MULTIPLE_CHOICE') {
-                    $selected = is_array($answer) ? $answer : ($answer ? [$answer] : []);
-                } else {
-                    $selected = is_scalar($answer) && $answer !== '' ? [(string) $answer] : [];
-                }
-                $row[] = in_array($col['option'], $selected, true) ? '1' : '0';
-            } elseif ($col['type'] === 'choice_summary') {
-                if (is_array($answer)) {
-                    $row[] = implode(' ', array_map(fn($value) => is_scalar($value) ? (string) $value : json_encode($value), $answer));
-                } else {
-                    $row[] = $answer ?? '';
-                }
-            } elseif ($col['type'] === 'likert_row') {
-                $row[] = is_array($answer) ? ($answer[$col['row']] ?? '') : '';
-            } elseif (is_array($answer)) {
-                $row[] = implode(' ', array_map(fn($value) => is_scalar($value) ? (string) $value : json_encode($value), $answer));
-            } else {
-                $row[] = $answer ?? '';
-            }
-        }
-
-        $row = array_merge($row, [
-            $index + 1,
-            (string) $response->id,
-            $submissionSerial,
-            '',
-            '',
-            'submitted_via_web',
-            '',
-            $responseData['__version__'] ?? $responseData['_version'] ?? $respondentMeta['__version__'] ?? '',
-            '',
-            "uuid:{$response->id}",
-            $index + 1,
-        ]);
-
-        $rows[] = $row;
-    }
-
-    return ['headers' => $headers, 'rows' => $rows];
-}
-
     private function missingRequiredQuestions(Form $form, array $data): array
     {
         $missing = [];
@@ -990,16 +940,16 @@ private function buildExportMatrix(Form $form): array
         $questionById = collect($flowQuestions)->keyBy('id');
 
         foreach ($flowQuestions as $question) {
-            if (!$question->required) {
+            if (! $question->required) {
                 continue;
             }
 
-            if (!$this->isRequiredQuestionActive($question, $data, $questionById->all())) {
+            if (! $this->isRequiredQuestionActive($question, $data, $questionById->all())) {
                 continue;
             }
 
             $answer = $data[$question->id] ?? null;
-            if (!$this->hasRequiredAnswer($question, $answer)) {
+            if (! $this->hasRequiredAnswer($question, $answer)) {
                 $missing[] = [
                     'id' => $question->id,
                     'label' => $question->label,
@@ -1011,17 +961,17 @@ private function buildExportMatrix(Form $form): array
     }
 
     /**
-     * @param array<string, FormQuestion> $questionById
+     * @param  array<string, FormQuestion>  $questionById
      */
     private function isRequiredQuestionActive(FormQuestion $question, array $data, array $questionById): bool
     {
         $parentId = $question->parent_question_id ?? null;
-        if (!$parentId) {
+        if (! $parentId) {
             return true;
         }
 
         $parent = $questionById[$parentId] ?? null;
-        if (!$parent instanceof FormQuestion) {
+        if (! $parent instanceof FormQuestion) {
             return true;
         }
 
@@ -1037,7 +987,7 @@ private function buildExportMatrix(Form $form): array
     {
         $questions = $form->questions()->orderBy('order')->get()->values();
 
-        if (!$form->step_by_step) {
+        if (! $form->step_by_step) {
             return $questions->all();
         }
 
@@ -1085,7 +1035,7 @@ private function buildExportMatrix(Form $form): array
     }
 
     /**
-     * @param array<int, FormQuestion> $questions
+     * @param  array<int, FormQuestion>  $questions
      * @return array<string, bool>
      */
     private function conditionalTargetIds(array $questions): array
@@ -1093,12 +1043,12 @@ private function buildExportMatrix(Form $form): array
         $targets = [];
 
         foreach ($questions as $question) {
-            if ($question->type !== 'SINGLE_CHOICE' || !is_array($question->branch_rules)) {
+            if ($question->type !== 'SINGLE_CHOICE' || ! is_array($question->branch_rules)) {
                 continue;
             }
 
             foreach ($question->branch_rules as $rule) {
-                if (!is_array($rule)) {
+                if (! is_array($rule)) {
                     continue;
                 }
 
@@ -1115,8 +1065,8 @@ private function buildExportMatrix(Form $form): array
     }
 
     /**
-     * @param array<int, FormQuestion> $questions
-     * @param array<string, bool> $conditionalTargetIds
+     * @param  array<int, FormQuestion>  $questions
+     * @param  array<string, bool>  $conditionalTargetIds
      */
     private function nextSequentialIndex(array $questions, int $currentIndex, array $conditionalTargetIds): int
     {
@@ -1124,7 +1074,7 @@ private function buildExportMatrix(Form $form): array
 
         while ($nextIndex < count($questions)) {
             $candidate = $questions[$nextIndex] ?? null;
-            if (!$candidate || !isset($conditionalTargetIds[$candidate->id])) {
+            if (! $candidate || ! isset($conditionalTargetIds[$candidate->id])) {
                 break;
             }
 
@@ -1136,11 +1086,11 @@ private function buildExportMatrix(Form $form): array
 
     private function selectedOptionIndex(FormQuestion $question, mixed $answer): ?int
     {
-        if (!is_array($question->options)) {
+        if (! is_array($question->options)) {
             return null;
         }
 
-        $options = array_values(array_filter($question->options, fn($option) => is_scalar($option) && $option !== ''));
+        $options = array_values(array_filter($question->options, fn ($option) => is_scalar($option) && $option !== ''));
         $answerValue = is_scalar($answer) ? trim((string) $answer) : '';
 
         if ($answerValue === '') {
@@ -1161,12 +1111,12 @@ private function buildExportMatrix(Form $form): array
      */
     private function branchDecisionForQuestion(FormQuestion $question, ?int $selectedIndex): array
     {
-        if ($selectedIndex === null || !is_array($question->branch_rules)) {
+        if ($selectedIndex === null || ! is_array($question->branch_rules)) {
             return ['action' => 'CONTINUE', 'target' => null];
         }
 
         foreach ($question->branch_rules as $rule) {
-            if (!is_array($rule)) {
+            if (! is_array($rule)) {
                 continue;
             }
 
@@ -1176,7 +1126,7 @@ private function buildExportMatrix(Form $form): array
             }
 
             $action = $rule['action'] ?? 'CONTINUE';
-            if (!in_array($action, ['CONTINUE', 'GO_TO', 'END_FORM'], true)) {
+            if (! in_array($action, ['CONTINUE', 'GO_TO', 'END_FORM'], true)) {
                 $action = 'CONTINUE';
             }
 
@@ -1200,7 +1150,7 @@ private function buildExportMatrix(Form $form): array
         }
 
         if ($question->type === 'MULTIPLE_CHOICE') {
-            return is_array($answer) && count(array_filter($answer, fn($value) => $value !== null && $value !== '')) > 0;
+            return is_array($answer) && count(array_filter($answer, fn ($value) => $value !== null && $value !== '')) > 0;
         }
 
         if ($question->type === 'LIKERT') {
@@ -1208,12 +1158,12 @@ private function buildExportMatrix(Form $form): array
                 ? $question->options['rows']
                 : [$question->label];
 
-            if (!is_array($answer)) {
+            if (! is_array($answer)) {
                 return false;
             }
 
             foreach ($rows as $row) {
-                if (!isset($answer[$row]) || $answer[$row] === null || $answer[$row] === '') {
+                if (! isset($answer[$row]) || $answer[$row] === null || $answer[$row] === '') {
                     return false;
                 }
             }
@@ -1222,7 +1172,7 @@ private function buildExportMatrix(Form $form): array
         }
 
         if (is_array($answer)) {
-            return !empty(array_filter($answer, fn($v) => $v !== null && $v !== ''));
+            return ! empty(array_filter($answer, fn ($v) => $v !== null && $v !== ''));
         }
 
         if (is_scalar($answer)) {
@@ -1235,7 +1185,9 @@ private function buildExportMatrix(Form $form): array
     private function formatMobileQuestion(FormQuestion $question): array
     {
         $data = $question->toArray();
-        $data['options'] = is_array($question->options) ? array_values(array_filter($question->options, fn($v) => is_scalar($v))) : [];
+        $data['calculation_expression'] = $question->type === 'CALCULATE'
+            ? ($question->properties['expression'] ?? null) : null;
+        $data['options'] = is_array($question->options) ? array_values(array_filter($question->options, fn ($v) => is_scalar($v))) : [];
 
         if ($question->type === 'LIKERT') {
             $opts = is_array($question->options) ? $question->options : [];
@@ -1254,13 +1206,13 @@ private function buildExportMatrix(Form $form): array
         $data['consent_text'] = $form->consent_text;
         $data['start_date'] = $form->start_date?->format('Y-m-d');
         $data['end_date'] = $form->end_date?->format('Y-m-d');
-        $data['questions'] = $form->questions->map(fn($q) => $this->formatMobileQuestion($q))->toArray();
+        $data['questions'] = $form->questions->map(fn ($q) => $this->formatMobileQuestion($q))->toArray();
 
         if ($form->project) {
             $data['project_name'] = $form->project->name;
             $data['project_description'] = $form->project->description;
 
-            $zones = $form->project->zones ?? collect();
+            $zones = ($form->project->zones ?? collect())->where('form_id', $form->id);
             $userZones = ($user && $zones->isNotEmpty())
                 ? $zones->filter(function ($z) use ($user) {
                     return $z->relationLoaded('assignedUsers')
@@ -1269,7 +1221,8 @@ private function buildExportMatrix(Form $form): array
                 })
                 : collect();
 
-            $applicableZones = $userZones->isNotEmpty() ? $userZones : $zones;
+            $applicableZones = (! $user || $user->canManageProjects() || $user->leadsProject($form->project_id))
+                ? $zones : $userZones;
 
             $data['project_zones'] = $applicableZones->values()->map(function ($zone) {
                 return [
@@ -1304,14 +1257,14 @@ private function buildExportMatrix(Form $form): array
 
     private function chartOptionsForQuestion(FormQuestion $question): array
     {
-        if (!is_array($question->options)) {
+        if (! is_array($question->options)) {
             return [];
         }
 
         if ($question->type === 'LIKERT' && isset($question->options['columns']) && is_array($question->options['columns'])) {
-            return array_values(array_filter($question->options['columns'], fn($option) => $option !== null && $option !== ''));
+            return array_values(array_filter($question->options['columns'], fn ($option) => $option !== null && $option !== ''));
         }
 
-        return array_values(array_filter($question->options, fn($option) => is_scalar($option) && $option !== ''));
+        return array_values(array_filter($question->options, fn ($option) => is_scalar($option) && $option !== ''));
     }
 }

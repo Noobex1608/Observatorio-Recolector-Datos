@@ -15,7 +15,7 @@ services:
     environment:
       - APP_NAME=${APP_NAME:-Observatorio ULEAM}
       - APP_ENV=${APP_ENV:-production}
-      - APP_KEY=${APP_KEY}
+      - APP_KEY=${APP_KEY:?Defina APP_KEY para producción}
       - APP_DEBUG=${APP_DEBUG:-false}
       - APP_URL=${APP_URL:-http://localhost:8000}
       - LOG_CHANNEL=${LOG_CHANNEL:-stack}
@@ -25,13 +25,28 @@ services:
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE:-observatorio_uleam}
       - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?Defina DB_PASSWORD para producción}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?Defina los orígenes web y PWA permitidos}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - SUPABASE_SCHEMA=${SUPABASE_SCHEMA:-public}
+      - SUPABASE_SURVEYS_TABLE=${SUPABASE_SURVEYS_TABLE:-surveys}
+      - SUPABASE_QUESTIONS_TABLE=${SUPABASE_QUESTIONS_TABLE:-questions}
+      - SUPABASE_RESPONSES_TABLE=${SUPABASE_RESPONSES_TABLE:-responses}
+      - SUPABASE_RESPONSE_MEDIA_BUCKET=${SUPABASE_RESPONSE_MEDIA_BUCKET:-response-media}
+      - RESPONSE_MEDIA_DRIVER=${RESPONSE_MEDIA_DRIVER:-supabase}
+      - RESPONSE_MEDIA_MAX_FILES=${RESPONSE_MEDIA_MAX_FILES:-10}
+      - RESPONSE_MEDIA_MAX_FILE_BYTES=${RESPONSE_MEDIA_MAX_FILE_BYTES:-31457280}
+      - RESPONSE_MEDIA_MAX_TOTAL_BYTES=${RESPONSE_MEDIA_MAX_TOTAL_BYTES:-36700160}
+      - ADMIN_NAME=${ADMIN_NAME:-Administrador}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SANCTUM_STATEFUL_DOMAINS=${SANCTUM_STATEFUL_DOMAINS:-localhost,localhost:4200}
       - SESSION_DRIVER=cookie
       - CACHE_STORE=file
       - QUEUE_CONNECTION=${QUEUE_CONNECTION:-database}
     volumes:
-      - backend-storage:/var/www/html/storage/app/public
+      - backend-storage:/var/www/html/storage/app
       - backend-logs:/var/www/html/storage/logs
     depends_on:
       postgres:
@@ -39,7 +54,7 @@ services:
     networks:
       - observatorio-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/documentation"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,7 +70,7 @@ services:
     environment:
       - POSTGRES_DB=${DB_DATABASE:-observatorio_uleam}
       - POSTGRES_USER=${DB_USERNAME:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?Defina DB_PASSWORD para producción}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:

@@ -4,47 +4,40 @@ declare(strict_types=1);
 
 namespace App\Application\Profile\UseCases;
 
+use App\Application\Profile\Services\AvatarStorage;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class UploadAvatarUseCase
 {
+    public function __construct(private readonly AvatarStorage $avatarStorage) {}
+
     public function execute(User $user, UploadedFile $file): User
     {
-        // Asegurar que el directorio de avatares exista
-        if (!Storage::exists('public/avatars')) {
-            Storage::makeDirectory('public/avatars');
+        $user->loadMissing('perfil');
+        $oldAvatarUrl = $user->perfil?->avatar;
+        $newAvatarUrl = $this->avatarStorage->store($file);
+
+        try {
+            DB::transaction(function () use ($user, $newAvatarUrl): void {
+                if ($user->perfil) {
+                    $user->perfil->update(['avatar' => $newAvatarUrl]);
+                } else {
+                    $user->perfil()->create(['avatar' => $newAvatarUrl]);
+                }
+            });
+        } catch (Throwable $exception) {
+            $this->avatarStorage->delete($newAvatarUrl);
+            throw $exception;
         }
 
-        // Eliminar avatar anterior si existe
-        if ($user->perfil && $user->perfil->avatar) {
-            // Extraer nombre del archivo de la URL anterior
-            $oldFilename = basename($user->perfil->avatar);
-            $oldPath = 'public/avatars/' . $oldFilename;
-            if (Storage::exists($oldPath)) {
-                Storage::delete($oldPath);
-            }
+        if ($oldAvatarUrl && ! $this->avatarStorage->delete($oldAvatarUrl)) {
+            Log::warning('No se pudo eliminar el avatar anterior.', ['user_id' => $user->id]);
         }
 
-        // Generar nombre único para el archivo basado en la extensión MIME verificada
-        $filename = 'avatar_' . $user->id . '_' . time() . '.' . $file->extension();
-        
-        // Guardar el archivo
-        $file->storeAs('public/avatars', $filename);
-        
-        // URL completa usando APP_URL + endpoint API (evita problemas de CORS)
-        $baseUrl = rtrim(config('app.url'), '/');
-        $avatarUrl = $baseUrl . '/api/avatars/' . $filename;
-
-        // Actualizar o crear perfil con el avatar
-        if ($user->perfil) {
-            $user->perfil->update(['avatar' => $avatarUrl]);
-        } else {
-            $user->perfil()->create(['avatar' => $avatarUrl]);
-        }
-
-        // Recargar relaciones
         $user->load('perfil');
 
         return $user;

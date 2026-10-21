@@ -3,11 +3,9 @@ import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DbService, FormDefinition, FormQuestion, ProjectZoneInfo } from '../db.service';
-import { StorageService } from '../storage.service';
 import { LocationService } from '../services/location.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
-import { TranslatePipe } from '../translate.pipe';
 import { QuestionSignatureComponent } from '../questions/question-signature/question-signature.component';
 import { QuestionGpsComponent } from '../questions/question-gps/question-gps.component';
 import { QuestionMultimediaComponent } from '../questions/question-multimedia/question-multimedia.component';
@@ -17,6 +15,7 @@ import { QuestionRankingComponent } from '../questions/question-ranking/question
 import { QuestionRatingComponent } from '../questions/question-rating/question-rating.component';
 import { QuestionBarcodeComponent } from '../questions/question-barcode/question-barcode.component';
 import { QuestionLikertComponent } from '../questions/question-likert/question-likert.component';
+import { evaluateArithmetic } from '../utils/arithmetic-expression';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -24,7 +23,6 @@ import { QuestionLikertComponent } from '../questions/question-likert/question-l
     RouterLink,
     FormsModule,
     CommonModule,
-    TranslatePipe,
     QuestionSignatureComponent,
     QuestionGpsComponent,
     QuestionMultimediaComponent,
@@ -40,7 +38,6 @@ import { QuestionLikertComponent } from '../questions/question-likert/question-l
 })
 export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   private db = inject(DbService);
-  private storage = inject(StorageService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
@@ -63,6 +60,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   timerInterval: any = null;
   likertRespondidos: Record<string, boolean> = {};
   guardando = false;
+  private guardadoAlSalir = false;
 
   // Validación de Delimitación Zonal del Proyecto
   private locationService = inject(LocationService);
@@ -80,7 +78,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   mostrarConsentimiento = false;
 
   get requiereConsentimiento(): boolean {
-    return this.formulario?.require_consent !== false;
+    return true;
   }
 
   get textoConsentimiento(): string {
@@ -427,7 +425,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   }
 
   private autoGuardarBorrador() {
-    if (!this.formulario || this.guardando) return;
+    if (!this.formulario || this.guardando || this.guardadoAlSalir) return;
     const tieneRespuestas = Object.values(this.respuestas).some(v => {
       if (Array.isArray(v)) return v.length > 0;
       if (typeof v === 'object' && v !== null) return Object.values(v).some(sub => !!sub);
@@ -435,23 +433,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     });
     if (!tieneRespuestas) return;
 
-    const form = {
-      formId: this.formulario.id,
-      link_uuid: this.formulario.link_uuid,
-      formTitle: this.formulario.title,
-      answers: { ...this.respuestas },
-      estado: 'borrador' as const,
-      createdAt: this.tiempoInicioFormato,
-      duration: this.duracionTexto
-    };
-
-    if (this.draftId) {
-      this.db.responses.update(this.draftId, form);
-    } else {
-      this.storage.agregarFormulario(form as any).then(id => {
-        this.draftId = id;
-      });
-    }
+    void this.guardarConEstado('borrador').catch(() => {
+      this.toast.show('No se pudo guardar automáticamente el borrador.', 'error');
+    });
   }
 
   onCheckboxChange(qId: string, option: string, event: any) {
@@ -545,14 +529,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
             return '0';
           });
 
-          if (/^[0-9+\-*/().\s]+$/.test(expr)) {
-            const calculatedValue = Function(`"use strict"; return (${expr})`)();
-            if (typeof calculatedValue === 'number' && !isNaN(calculatedValue) && isFinite(calculatedValue)) {
-              this.respuestas[q.id] = Number(calculatedValue.toFixed(4));
-            } else {
-              this.respuestas[q.id] = 0;
-            }
-          }
+          const calculatedValue = evaluateArithmetic(expr);
+          this.respuestas[q.id] = calculatedValue !== null
+            ? Number(calculatedValue.toFixed(4)) : 0;
         } catch {
           this.respuestas[q.id] = 0;
         }
@@ -563,7 +542,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   formValido(): boolean {
     if (!this.formulario) return false;
     this.evaluarCalculosBackground();
-    for (const q of this.formulario.questions) {
+    for (const q of this.preguntasActivasParaEnvio()) {
       if (q.type === 'NOTE' || q.type === 'CALCULATE') continue;
       if (!q.required) continue;
       const val = this.respuestas[q.id];
@@ -584,12 +563,47 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       } else if (q.type === 'RATING') {
         if (typeof val !== 'number' || val <= 0) return false;
       } else if (q.type === 'BARCODE') {
-        if (!val || (typeof val === 'string' && val.trim() === '')) return false;
+        if (val === null || val === undefined || val === '' || (typeof val === 'string' && val.trim() === '')) return false;
       } else {
         if (!val || (typeof val === 'string' && val.trim() === '')) return false;
       }
     }
     return true;
+  }
+
+  private preguntasActivasParaEnvio(): FormQuestion[] {
+    if (!this.formulario) return [];
+    const questions = this.formulario.questions;
+    const active: FormQuestion[] = [];
+    const positions = Object.fromEntries(questions.map((question, index) => [question.id, index]));
+    const conditionalTargets = this.conditionalTargetIds(questions);
+    for (let index = 0; index < questions.length;) {
+      const question = questions[index];
+      if (question.parent_question_id) {
+        const parentActive = active.some(item => item.id === question.parent_question_id);
+        const parentAnswer = this.respuestas[question.parent_question_id];
+        if (!parentActive || parentAnswer === null || parentAnswer === undefined || parentAnswer === '' ||
+          (Array.isArray(parentAnswer) && parentAnswer.length === 0)) {
+          index++;
+          continue;
+        }
+      }
+      active.push(question);
+      if (!this.formulario.step_by_step) {
+        index++;
+        continue;
+      }
+      const selected = this.selectedOptionIndex(question, this.respuestas[question.id]);
+      const decision = this.branchDecisionForQuestion(question, selected);
+      if (decision.action === 'END_FORM') break;
+      if (decision.action === 'GO_TO' && decision.target && positions[decision.target] > index) {
+        index = positions[decision.target];
+      } else {
+        index++;
+        while (index < questions.length && conditionalTargets[questions[index].id]) index++;
+      }
+    }
+    return active;
   }
 
   private async guardarConEstado(estado: 'borrador' | 'listo-para-enviar') {
@@ -606,30 +620,58 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       duration: this.duracionTexto
     };
 
-    if (estado === 'borrador' && this.draftId) {
-      await this.db.responses.update(this.draftId, form);
-    } else {
-      if (this.draftId) {
-        await this.db.responses.delete(this.draftId);
-        this.draftId = null;
-      }
-      const newId = await this.storage.agregarFormulario(form as any);
-      if (estado === 'borrador') {
-        this.draftId = newId;
-      }
+    try {
+      const responseId = await this.db.transaction('rw', this.db.responses, this.db.mediaBlobs, async () => {
+        const id = this.draftId ?? await this.db.responses.add(form as any);
+        if (this.draftId) {
+          await this.db.responses.update(id, form);
+        }
+
+        const blobIds = new Set(Object.values(form.answers)
+          .filter((answer): answer is { blobId: string } => !!answer && typeof answer === 'object'
+            && typeof (answer as { blobId?: unknown }).blobId === 'string')
+          .map(answer => answer.blobId));
+        const linked = await this.db.mediaBlobs.where('responseId').equals(id).toArray();
+        for (const blob of linked) {
+          if (!blobIds.has(blob.blobId)) {
+            await this.db.mediaBlobs.delete(blob.id!);
+          }
+        }
+        for (const blobId of blobIds) {
+          const blob = await this.db.mediaBlobs.where('blobId').equals(blobId).first();
+          if (!blob) {
+            throw new Error('Falta un archivo de la encuesta. Captúralo de nuevo antes de guardar.');
+          }
+          await this.db.mediaBlobs.update(blob.id!, { responseId: id });
+        }
+        return id;
+      });
+      this.draftId = responseId;
+    } finally {
+      this.guardando = false;
     }
   }
 
   async guardarBorrador() {
-    await this.guardarConEstado('borrador');
-    this.toast.show('Borrador guardado.');
-    this.router.navigate(['/']);
+    try {
+      await this.guardarConEstado('borrador');
+      this.guardadoAlSalir = true;
+      this.toast.show('Borrador guardado.');
+      this.router.navigate(['/']);
+    } catch (error) {
+      this.toast.show(error instanceof Error ? error.message : 'No se pudo guardar el borrador. Comprueba el espacio disponible.', 'error');
+    }
   }
 
   async guardarFormulario() {
-    await this.guardarConEstado('listo-para-enviar');
-    this.toast.show('Formulario guardado.');
-    this.router.navigate(['/']);
+    try {
+      await this.guardarConEstado('listo-para-enviar');
+      this.guardadoAlSalir = true;
+      this.toast.show('Formulario guardado.');
+      this.router.navigate(['/']);
+    } catch (error) {
+      this.toast.show(error instanceof Error ? error.message : 'No se pudo guardar la encuesta. Comprueba el espacio disponible.', 'error');
+    }
   }
 
   private formatTime(segundos: number): string {
@@ -862,9 +904,14 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   async rechazarConsentimiento(): Promise<void> {
     if (this.draftId) {
       try {
-        await this.db.responses.delete(this.draftId);
+        const id = this.draftId;
+        await this.db.transaction('rw', this.db.responses, this.db.mediaBlobs, async () => {
+          await this.db.responses.delete(id);
+          await this.db.mediaBlobs.where('responseId').equals(id).delete();
+        });
       } catch {}
     }
+    this.guardadoAlSalir = true;
     this.toast.show('La persona no aceptó participar. Encuesta cerrada.');
     this.router.navigate(['/lista']);
   }

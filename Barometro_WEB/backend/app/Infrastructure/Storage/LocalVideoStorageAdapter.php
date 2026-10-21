@@ -9,6 +9,7 @@ use RuntimeException;
 class LocalVideoStorageAdapter implements VideoStorageAdapter
 {
     private string $disk;
+
     private string $directory;
 
     public function __construct(string $disk = 'public', string $directory = 'videos')
@@ -22,7 +23,7 @@ class LocalVideoStorageAdapter implements VideoStorageAdapter
         $targetPath = $this->resolvePath($path);
         $saved = Storage::disk($this->disk)->put($targetPath, $binaryData);
 
-        if (!$saved) {
+        if (! $saved) {
             throw new RuntimeException("Error al guardar video en disco local '{$this->disk}'.");
         }
 
@@ -63,7 +64,7 @@ class LocalVideoStorageAdapter implements VideoStorageAdapter
 
     public function ensureBucket(): void
     {
-        if (!Storage::disk($this->disk)->exists($this->directory)) {
+        if (! Storage::disk($this->disk)->exists($this->directory)) {
             Storage::disk($this->disk)->makeDirectory($this->directory);
         }
     }

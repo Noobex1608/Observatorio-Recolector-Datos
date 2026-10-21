@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Form;
 use App\Models\Project;
+use App\Models\ProjectZone;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -12,101 +14,108 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_api_technical_sheet_crud_and_validation(): void
+    public function test_leader_delimits_form_before_randomly_assigning_collectors(): void
     {
-        $admin = User::factory()->create(['rol' => User::ROLE_ADMIN]);
-        Sanctum::actingAs($admin);
+        $leader = User::factory()->create(['rol' => User::ROLE_PROJECT]);
+        $collectorA = User::factory()->create(['rol' => User::ROLE_USER]);
+        $collectorB = User::factory()->create(['rol' => User::ROLE_USER]);
+        $project = Project::create(['name' => 'Proyecto API Zonas', 'created_by' => $leader->id]);
+        $project->leaders()->attach($leader->id);
+        Sanctum::actingAs($leader);
 
-        $project = Project::create([
-            'name' => 'Proyecto API Test',
-            'description' => 'Prueba de endpoints',
-            'created_by' => $admin->id,
-        ]);
+        $formId = $this->postJson('/api/forms', [
+            'project_id' => $project->id,
+            'title' => 'Levantamiento',
+            'consent_text' => 'Acepto participar en este levantamiento de información.',
+        ])->assertCreated()->json('id');
 
-        // 1. Guardar borrador de Ficha Técnica
-        $response = $this->postJson("/api/projects/{$project->id}/technical-sheet", [
-            'description' => 'Levantamiento de campo 2026',
-            'start_date' => '2026-10-01',
-            'end_date' => '2026-10-31',
-            'target_sample_size' => 400,
-        ]);
+        $this->postJson("/api/projects/{$project->id}/zones", [
+            'form_id' => $formId, 'name' => 'Centro', 'geofence_type' => 'radius',
+            'target_lat' => -0.95, 'target_lng' => -80.72, 'radius_meters' => 500,
+        ])->assertStatus(422);
 
-        $response->assertStatus(200)
-            ->assertJsonPath('description', 'Levantamiento de campo 2026')
-            ->assertJsonPath('status', 'DRAFT');
+        $this->postJson("/api/forms/{$formId}/technical-sheet", [
+            'description' => 'Levantamiento territorial',
+            'start_date' => today()->format('Y-m-d'),
+            'end_date' => today()->addMonth()->format('Y-m-d'),
+        ])->assertOk();
+        $this->postJson("/api/forms/{$formId}/technical-sheet/validate")->assertOk();
 
-        // 2. Obtener Ficha Técnica
-        $responseGet = $this->getJson("/api/projects/{$project->id}/technical-sheet");
-        $responseGet->assertStatus(200)
-            ->assertJsonPath('target_sample_size', 400);
+        foreach (['Centro', 'Norte'] as $name) {
+            $this->postJson("/api/projects/{$project->id}/zones", [
+                'form_id' => $formId, 'name' => $name, 'geofence_type' => 'radius',
+                'target_lat' => -0.95, 'target_lng' => -80.72, 'radius_meters' => 500,
+                'assigned_count' => 1,
+            ])->assertCreated();
+        }
 
-        // 3. Validar Ficha Técnica
-        $responseValidate = $this->postJson("/api/projects/{$project->id}/technical-sheet/validate");
-        $responseValidate->assertStatus(200)
-            ->assertJsonPath('status', 'VALIDATED')
-            ->assertJsonPath('validated_by', $admin->id);
+        $request = ['form_id' => $formId, 'user_ids' => [$collectorA->id, $collectorB->id],
+            'seed' => 'prueba-estable'];
+        $preview = $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
+            ...$request, 'dry_run' => true,
+        ])->assertOk()->json('assignments');
+        $actual = $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
+            ...$request, 'dry_run' => false,
+        ])->assertOk()->json('assignments');
+        $this->assertSame($preview, $actual);
+        $this->assertCount(2, Form::findOrFail($formId)->zones);
+        $this->assertSame(2, array_sum(array_map('count', $actual)));
     }
 
-    public function test_api_zones_crud_and_enumerator_assignments(): void
+    public function test_bulk_assignment_rolls_back_every_zone_when_one_belongs_to_another_project(): void
     {
-        $admin = User::factory()->create(['rol' => User::ROLE_ADMIN]);
-        $enumerator1 = User::factory()->create(['rol' => User::ROLE_USER]);
-        $enumerator2 = User::factory()->create(['rol' => User::ROLE_USER]);
-        Sanctum::actingAs($admin);
+        $leader = User::factory()->create(['rol' => User::ROLE_PROJECT]);
+        $collector = User::factory()->create(['rol' => User::ROLE_USER]);
+        $project = Project::create(['name' => 'Proyecto propio']);
+        $project->leaders()->attach($leader->id);
+        $otherProject = Project::create(['name' => 'Proyecto ajeno']);
+        $form = Form::create(['project_id' => $project->id, 'user_id' => $leader->id,
+            'title' => 'Formulario propio', 'state' => 'DRAFT']);
+        $otherForm = Form::create(['project_id' => $otherProject->id, 'user_id' => $leader->id,
+            'title' => 'Formulario ajeno', 'state' => 'DRAFT']);
+        $zone = ProjectZone::create(['project_id' => $project->id, 'form_id' => $form->id,
+            'name' => 'Zona propia', 'assigned_count' => 1]);
+        $foreignZone = ProjectZone::create(['project_id' => $otherProject->id, 'form_id' => $otherForm->id,
+            'name' => 'Zona ajena', 'assigned_count' => 1]);
+        Sanctum::actingAs($leader);
 
-        $project = Project::create([
-            'name' => 'Proyecto API Zonas',
-            'created_by' => $admin->id,
-        ]);
-
-        // 1. Crear Zona 1
-        $responseZone1 = $this->postJson("/api/projects/{$project->id}/zones", [
-            'name' => 'Zona Norte',
-            'geofence_type' => 'radius',
-            'target_lat' => -0.9538,
-            'target_lng' => -80.7456,
-            'radius_meters' => 600,
-            'assigned_user_ids' => [$enumerator1->id],
-        ]);
-
-        $responseZone1->assertStatus(201)
-            ->assertJsonPath('name', 'Zona Norte')
-            ->assertJsonCount(1, 'assigned_users');
-
-        $zone1Id = $responseZone1->json('id');
-
-        // 2. Crear Zona 2
-        $responseZone2 = $this->postJson("/api/projects/{$project->id}/zones", [
-            'name' => 'Zona Sur',
-            'geofence_type' => 'manzana_polygon',
-            'hierarchy_json' => ['provincia' => '13', 'canton' => '1308'],
-            'assigned_user_ids' => [$enumerator2->id],
-        ]);
-
-        $responseZone2->assertStatus(201);
-        $zone2Id = $responseZone2->json('id');
-
-        // 3. Listar Zonas
-        $responseList = $this->getJson("/api/projects/{$project->id}/zones");
-        $responseList->assertStatus(200)
-            ->assertJsonCount(2);
-
-        // 4. Bulk Assign: Reasignar encuestadores
-        $responseBulk = $this->postJson("/api/projects/{$project->id}/zones/bulk-assign", [
+        $this->postJson("/api/projects/{$project->id}/zones/bulk-assign", [
             'assignments' => [
-                ['zone_id' => $zone1Id, 'user_ids' => [$enumerator1->id, $enumerator2->id]],
-                ['zone_id' => $zone2Id, 'user_ids' => []],
+                ['zone_id' => $zone->id, 'user_ids' => [$collector->id]],
+                ['zone_id' => $foreignZone->id, 'user_ids' => [$collector->id]],
             ],
-        ]);
+        ])->assertStatus(422);
 
-        $responseBulk->assertStatus(200);
+        $this->assertDatabaseCount('project_zone_user_assignments', 0);
+        $this->assertDatabaseCount('form_user_shares', 0);
+    }
 
-        // 5. Eliminar Zona 2
-        $this->deleteJson("/api/projects/{$project->id}/zones/{$zone2Id}")
-            ->assertStatus(204);
+    public function test_collector_must_submit_with_an_assigned_zone_when_form_has_zones(): void
+    {
+        $owner = User::factory()->create(['rol' => User::ROLE_PROJECT]);
+        $collector = User::factory()->create(['rol' => User::ROLE_USER]);
+        $project = Project::create(['name' => 'Proyecto zonas']);
+        $form = Form::create(['project_id' => $project->id, 'user_id' => $owner->id,
+            'title' => 'Censo', 'state' => 'DEPLOYED']);
+        $zone = ProjectZone::create(['project_id' => $project->id, 'form_id' => $form->id,
+            'name' => 'Zona centro', 'geofence_type' => 'radius',
+            'target_lat' => -0.95, 'target_lng' => -80.72, 'radius_meters' => 500]);
+        $question = $form->questions()->create(['type' => 'TEXT', 'label' => 'Estado',
+            'required' => true, 'order' => 1]);
+        $form->shares()->create(['user_id' => $collector->id, 'role' => 'RECOLECTOR']);
+        Sanctum::actingAs($collector);
+        $data = ['_consentimiento_aceptado' => true, $question->id => 'Bueno'];
 
-        $this->getJson("/api/projects/{$project->id}/zones")
-            ->assertStatus(200)
-            ->assertJsonCount(1);
+        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+            ->assertStatus(422)->assertJsonValidationErrors('data._project_geofence');
+        $data['_project_geofence'] = [
+            'zone_id' => $zone->id, 'latitud' => -0.95, 'longitud' => -80.72,
+        ];
+        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+            ->assertStatus(422)->assertJsonValidationErrors('data._project_geofence.zone_id');
+
+        $zone->assignedUsers()->attach($collector->id, ['role' => 'RECOLECTOR']);
+        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+            ->assertCreated();
     }
 }

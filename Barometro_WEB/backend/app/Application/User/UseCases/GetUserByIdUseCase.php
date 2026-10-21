@@ -19,17 +19,17 @@ class GetUserByIdUseCase
         // Verificar que el usuario que ejecuta la acción es admin
         $admin = User::findOrFail($adminId);
 
-        if (!$admin->canManageUsers()) {
+        if (! $admin->canManageUsers()) {
             throw new AccessDeniedHttpException('Solo los administradores pueden ver detalles de usuarios');
         }
 
         $user = User::with('perfil')->find($userId);
 
-        if (!$user) {
+        if (! $user) {
             throw new NotFoundHttpException('Usuario no encontrado');
         }
 
-        if (!$admin->canManageRole($user->rol)) {
+        if (! $admin->canManageRole($user->rol)) {
             throw new AccessDeniedHttpException('No tienes permisos para ver usuarios con ese rol');
         }
 

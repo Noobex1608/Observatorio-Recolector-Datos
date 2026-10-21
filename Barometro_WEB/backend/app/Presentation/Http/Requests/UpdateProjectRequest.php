@@ -21,6 +21,10 @@ class UpdateProjectRequest extends FormRequest
             'status' => 'nullable|string|in:ACTIVE,ARCHIVED,DRAFT',
             'leader_ids' => 'nullable|array',
             'leader_ids.*' => 'integer|exists:users,id',
+            'delegate_ids' => 'nullable|array',
+            'delegate_ids.*' => 'integer|distinct|exists:users,id',
+            'supervisor_ids' => 'nullable|array',
+            'supervisor_ids.*' => 'integer|distinct|exists:users,id',
         ];
     }
 }

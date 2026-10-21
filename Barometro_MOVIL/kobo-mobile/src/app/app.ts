@@ -1,18 +1,26 @@
 import { Component, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from './theme.service';
 import { ToastService } from './toast.service';
-import { TranslatePipe } from './translate.pipe';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CommonModule, TranslatePipe],
+  imports: [RouterOutlet, CommonModule],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
 export class AppComponent {
+  private router = inject(Router);
   theme = inject(ThemeService);
   toast = inject(ToastService);
   title = 'ULEAM';
+
+  get isLoginRoute(): boolean {
+    return this.router.url.startsWith('/login');
+  }
+
+  get isHomeRoute(): boolean {
+    return this.router.url === '/';
+  }
 }

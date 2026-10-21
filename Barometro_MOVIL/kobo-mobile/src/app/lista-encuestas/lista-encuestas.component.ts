@@ -4,7 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DbService, FormDefinition } from '../db.service';
 import { ThemeService } from '../theme.service';
-import { TranslatePipe } from '../translate.pipe';
+import { FieldTrackingService } from '../field-tracking.service';
+import { ToastService } from '../toast.service';
 
 interface FormWithProgress extends FormDefinition {
   enviadosCount: number;
@@ -15,7 +16,7 @@ interface FormWithProgress extends FormDefinition {
 
 @Component({
   selector: 'app-lista-encuestas',
-  imports: [RouterLink, CommonModule, FormsModule, TranslatePipe],
+  imports: [RouterLink, CommonModule, FormsModule],
   templateUrl: './lista-encuestas.component.html',
   styleUrls: ['./lista-encuestas.component.css']
 })
@@ -24,6 +25,9 @@ export class ListaEncuestasComponent implements OnInit {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   theme = inject(ThemeService);
+  tracking = inject(FieldTrackingService);
+  private toast = inject(ToastService);
+  trackingZoneByForm: Record<string, string> = {};
 
   formularios: FormWithProgress[] = [];
   cargando = true;
@@ -79,6 +83,13 @@ export class ListaEncuestasComponent implements OnInit {
           noIniciado,
         };
       });
+      for (const form of this.formularios) {
+        const zones = form.project_zones ?? [];
+        if (!zones.some(zone => zone.id === this.trackingZoneByForm[form.id])) {
+          if (zones.length > 0) this.trackingZoneByForm[form.id] = zones[0].id;
+          else delete this.trackingZoneByForm[form.id];
+        }
+      }
     } catch {
       this.formularios = [];
     }
@@ -102,5 +113,24 @@ export class ListaEncuestasComponent implements OnInit {
 
   trackById(_index: number, form: FormDefinition) {
     return form.id;
+  }
+
+  async startTracking(form: FormDefinition, event: Event): Promise<void> {
+    event.stopPropagation();
+    const zoneId = this.trackingZoneByForm[form.id] || form.project_zones?.[0]?.id;
+    if (!zoneId) { this.toast.show('No hay zona asignada para esta encuesta.', 'error'); return; }
+    try {
+      await this.tracking.start(form.id, zoneId);
+      this.toast.show('Jornada de campo iniciada. Ubicación visible para supervisión.');
+    } catch (error: any) {
+      await this.cargarFormularios();
+      this.toast.show(error?.error?.message || error?.message || 'No se pudo iniciar la jornada.', 'error');
+    }
+  }
+
+  async stopTracking(event: Event): Promise<void> {
+    event.stopPropagation();
+    await this.tracking.stop();
+    this.toast.show('Jornada de campo finalizada.');
   }
 }

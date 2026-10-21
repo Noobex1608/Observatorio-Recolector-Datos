@@ -31,7 +31,7 @@ case "$COMMAND" in
   install)
     echo "Installing frontend dependencies with Bun..."
     require_bun
-    bun install
+    bun install --frozen-lockfile
     ;;
   build)
     echo "Building Angular app..."

@@ -157,6 +157,24 @@
                 <span class="pill-badge neutral">Inicia {{ form.start_date }}</span>
               }
             </div>
+            @if ((form.project_zones?.length ?? 0) > 0) {
+              <div class="field-shift" (click)="$event.stopPropagation()">
+                @if (tracking.active()?.formId === form.id) {
+                  <p>Jornada activa · posición compartida mientras la app esté abierta</p>
+                  @if (tracking.error()) { <small>{{ tracking.error() }}</small> }
+                  <button type="button" (click)="stopTracking($event)">Finalizar jornada</button>
+                } @else {
+                  <label>Zona asignada
+                    <select [(ngModel)]="trackingZoneByForm[form.id]" (click)="$event.stopPropagation()">
+                      @for (zone of form.project_zones ?? []; track zone.id) { <option [value]="zone.id">{{ zone.name }}</option> }
+                    </select>
+                  </label>
+                  <button type="button" (click)="startTracking(form, $event)">Iniciar jornada y compartir ubicación</button>
+                }
+              </div>
+            } @else {
+              <p class="field-shift-unassigned">Sin zona asignada. Solicita al líder del proyecto que delimite y asigne una zona para iniciar la jornada.</p>
+            }
           </div>
 
           <!-- Derecha: Botón limpio tipo píldora "Iniciar ->" -->

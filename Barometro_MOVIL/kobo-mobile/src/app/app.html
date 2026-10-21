@@ -1,4 +1,4 @@
-<div class="kobo-container">
+<div class="kobo-container" [class.login-route]="isLoginRoute" [class.home-route]="isHomeRoute">
   <div class="kobo-accent"></div>
   <main class="main-content">
     <router-outlet></router-outlet>

@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { DbService } from '../db.service';
 import { AuthService } from '../auth.service';
+import { ApiService } from '../api.service';
 import { SyncService } from '../sync.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
@@ -17,6 +18,7 @@ import { TranslatePipe } from '../translate.pipe';
 export class InicioComponent implements OnInit, OnDestroy {
   private db = inject(DbService);
   private auth = inject(AuthService);
+  private api = inject(ApiService);
   private sync = inject(SyncService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -293,7 +295,15 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  cerrarSesion() {
+  async cerrarSesion() {
+    const servidor = this.auth.obtenerUrlServidor();
+    if (servidor && navigator.onLine && !this.auth.esModoDemo()) {
+      try {
+        await this.api.logout(servidor);
+      } catch {
+        this.toast.show('No se pudo revocar la sesión en el servidor. Revisa la conexión.', 'error');
+      }
+    }
     this.auth.logout();
     this.router.navigate(['/login']);
   }

@@ -10,7 +10,9 @@ use RuntimeException;
 class SupabaseVideoStorageAdapter implements VideoStorageAdapter
 {
     private string $bucket;
+
     private string $url;
+
     private string $serviceKey;
 
     public function __construct()
@@ -29,17 +31,17 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
         $response = Http::timeout(60)
             ->withHeaders([
                 'apikey' => $this->serviceKey,
-                'Authorization' => 'Bearer ' . $this->serviceKey,
+                'Authorization' => 'Bearer '.$this->serviceKey,
                 'Content-Type' => $mimeType,
-                'x-upsert' => 'true',
+                'x-upsert' => 'false',
             ])
             ->withBody($binaryData, $mimeType)
             ->post($endpoint);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             $message = $response->json('message')
                 ?? $response->json('error')
-                ?? ('Error de Supabase Storage (' . $response->status() . ')');
+                ?? ('Error de Supabase Storage ('.$response->status().')');
 
             throw new RuntimeException("Fallo al subir video a Supabase Storage: {$message}");
         }
@@ -57,9 +59,16 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
             $data = $matches[2];
         }
 
-        $binary = base64_decode($data);
+        if (! str_starts_with($mimeType, 'video/') || strlen($data) > 4 * (int) config('services.supabase.storage_file_limit', 52428800) / 3 + 4) {
+            throw new RuntimeException('El video supera el límite permitido o tiene un tipo inválido.');
+        }
+        $binary = base64_decode($data, true);
         if ($binary === false) {
             throw new RuntimeException('Cadena Base64 de video inválida.');
+        }
+        $detected = (new \finfo(FILEINFO_MIME_TYPE))->buffer($binary);
+        if (! is_string($detected) || ! str_starts_with($detected, 'video/')) {
+            throw new RuntimeException('El contenido no corresponde a un video válido.');
         }
 
         return $this->upload($path, $binary, $mimeType);
@@ -74,7 +83,7 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
         $response = Http::timeout(15)
             ->withHeaders([
                 'apikey' => $this->serviceKey,
-                'Authorization' => 'Bearer ' . $this->serviceKey,
+                'Authorization' => 'Bearer '.$this->serviceKey,
                 'Content-Type' => 'application/json',
             ])
             ->delete($endpoint, [
@@ -99,7 +108,7 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
         $check = Http::timeout(10)
             ->withHeaders([
                 'apikey' => $this->serviceKey,
-                'Authorization' => 'Bearer ' . $this->serviceKey,
+                'Authorization' => 'Bearer '.$this->serviceKey,
             ])
             ->get($checkEndpoint);
 
@@ -111,7 +120,7 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
         $create = Http::timeout(15)
             ->withHeaders([
                 'apikey' => $this->serviceKey,
-                'Authorization' => 'Bearer ' . $this->serviceKey,
+                'Authorization' => 'Bearer '.$this->serviceKey,
                 'Content-Type' => 'application/json',
             ])
             ->post($createEndpoint, [
@@ -129,8 +138,8 @@ class SupabaseVideoStorageAdapter implements VideoStorageAdapter
                 ],
             ]);
 
-        if (!$create->successful() && $create->status() !== 409 && $create->status() !== 400) {
-            $message = $create->json('message') ?? $create->json('error') ?? ('Estado ' . $create->status());
+        if (! $create->successful() && $create->status() !== 409 && $create->status() !== 400) {
+            $message = $create->json('message') ?? $create->json('error') ?? ('Estado '.$create->status());
             throw new RuntimeException("No se pudo crear el bucket de Supabase '{$this->bucket}': {$message}");
         }
     }

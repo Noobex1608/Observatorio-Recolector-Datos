@@ -14,7 +14,11 @@ class CorrelationIdMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $correlationId = $request->header('X-Correlation-ID') ?: (string) Str::uuid();
+        $incomingId = $request->header('X-Correlation-ID');
+        $correlationId = is_string($incomingId)
+            && preg_match('/\\A[A-Za-z0-9._:-]{1,128}\\z/D', $incomingId) === 1
+                ? $incomingId
+                : (string) Str::uuid();
 
         $request->headers->set('X-Correlation-ID', $correlationId);
 

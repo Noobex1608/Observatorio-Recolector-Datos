@@ -19,16 +19,15 @@ class GetUsersUseCase
         // Verificar que el usuario que ejecuta la acción es admin
         $admin = User::findOrFail($adminId);
 
-        if (!$admin->canManageUsers()) {
+        if (! $admin->canManageUsers()) {
             throw new AccessDeniedHttpException('Solo los administradores pueden ver la lista de usuarios');
         }
 
         $query = User::with('perfil')
-            ->orderBy('created_at', 'desc')
-            ;
+            ->orderBy('created_at', 'desc');
 
         if ($admin->isAdmin()) {
-            $query->whereIn('rol', [User::ROLE_PROJECT, User::ROLE_USER]);
+            $query->whereIn('rol', [User::ROLE_PROJECT, User::ROLE_USER, User::ROLE_SUPERVISOR]);
         }
 
         return $query->paginate($perPage);

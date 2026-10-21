@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Api;
 
-use OpenApi\Attributes as OA;
 use App\Application\User\DTOs\CreateUserDTO;
 use App\Application\User\DTOs\UpdateUserDTO;
 use App\Application\User\DTOs\UpdateUserRoleDTO;
@@ -22,6 +21,7 @@ use App\Presentation\Http\Requests\User\UpdateUserRoleRequest;
 use App\Presentation\Http\Resources\Auth\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: 'Users', description: 'Gestion de usuarios. ADMIN gestiona lideres de proyecto y usuarios; SUPER_ADMIN controla todos los roles.')]
 class UserController extends Controller
@@ -42,16 +42,16 @@ class UserController extends Controller
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 15))
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 15)),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Lista de usuarios'),
-            new OA\Response(response: 403, description: 'No autorizado')
+            new OA\Response(response: 403, description: 'No autorizado'),
         ]
     )]
     public function index(Request $request): JsonResponse
     {
-        $perPage = (int) $request->input('per_page', 15);
+        $perPage = max(1, min((int) $request->input('per_page', 15), 100));
         $users = $this->getUsersUseCase->execute($request->user()->id, $perPage);
 
         return response()->json([
@@ -71,21 +71,21 @@ class UserController extends Controller
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
                 required: ['rol'],
                 properties: [
-                    new OA\Property(property: 'rol', type: 'string', enum: ['SUPER_ADMIN', 'ADMIN', 'PROJECT', 'RECOLECTOR'], example: 'RECOLECTOR')
+                    new OA\Property(property: 'rol', type: 'string', enum: ['SUPER_ADMIN', 'ADMIN', 'PROJECT', 'RECOLECTOR'], example: 'RECOLECTOR'),
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 200, description: 'Rol actualizado'),
             new OA\Response(response: 403, description: 'No autorizado'),
-            new OA\Response(response: 404, description: 'Usuario no encontrado')
+            new OA\Response(response: 404, description: 'Usuario no encontrado'),
         ]
     )]
     public function updateRole(UpdateUserRoleRequest $request, int $id): JsonResponse
@@ -108,19 +108,18 @@ class UserController extends Controller
         ]);
     }
 
-
     #[OA\Get(
         path: '/users/{id}',
         summary: 'Obtener detalle de un usuario (solo admin)',
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Detalle del usuario'),
             new OA\Response(response: 403, description: 'No autorizado'),
-            new OA\Response(response: 404, description: 'Usuario no encontrado')
+            new OA\Response(response: 404, description: 'Usuario no encontrado'),
         ]
     )]
     public function show(Request $request, int $id): JsonResponse
@@ -149,7 +148,7 @@ class UserController extends Controller
                     new OA\Property(property: 'is_active', type: 'boolean', example: true),
                     new OA\Property(property: 'telefono', type: 'string', example: '+593999999999'),
                     new OA\Property(property: 'cargo', type: 'string', example: 'Analista'),
-                    new OA\Property(property: 'bio', type: 'string', example: 'Breve descripción')
+                    new OA\Property(property: 'bio', type: 'string', example: 'Breve descripción'),
                 ]
             )
         ),
@@ -158,7 +157,7 @@ class UserController extends Controller
             new OA\Response(response: 401, description: 'No autenticado. Ejecuta /login y autoriza Swagger con el token Bearer.'),
             new OA\Response(response: 403, description: 'No autorizado'),
             new OA\Response(response: 409, description: 'Email ya registrado'),
-            new OA\Response(response: 422, description: 'Error de validación')
+            new OA\Response(response: 422, description: 'Error de validación'),
         ]
     )]
     public function store(CreateUserRequest $request): JsonResponse
@@ -175,14 +174,13 @@ class UserController extends Controller
         ], 201);
     }
 
-
     #[OA\Put(
         path: '/users/{id}',
         summary: 'Actualizar un usuario',
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -195,7 +193,7 @@ class UserController extends Controller
                     new OA\Property(property: 'is_active', type: 'boolean', example: true),
                     new OA\Property(property: 'telefono', type: 'string', example: '+593999999999'),
                     new OA\Property(property: 'cargo', type: 'string', example: 'Analista'),
-                    new OA\Property(property: 'bio', type: 'string', example: 'Breve descripción')
+                    new OA\Property(property: 'bio', type: 'string', example: 'Breve descripción'),
                 ]
             )
         ),
@@ -204,7 +202,7 @@ class UserController extends Controller
             new OA\Response(response: 403, description: 'No autorizado'),
             new OA\Response(response: 404, description: 'Usuario no encontrado'),
             new OA\Response(response: 409, description: 'Email ya en uso'),
-            new OA\Response(response: 422, description: 'Error de validación')
+            new OA\Response(response: 422, description: 'Error de validación'),
         ]
     )]
     public function update(UpdateUserRequest $request, int $id): JsonResponse
@@ -225,13 +223,13 @@ class UserController extends Controller
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Usuario eliminado'),
             new OA\Response(response: 400, description: 'No puedes eliminarte a ti mismo'),
             new OA\Response(response: 403, description: 'No autorizado'),
-            new OA\Response(response: 404, description: 'Usuario no encontrado')
+            new OA\Response(response: 404, description: 'Usuario no encontrado'),
         ]
     )]
     public function destroy(Request $request, int $id): JsonResponse
@@ -249,13 +247,13 @@ class UserController extends Controller
         security: [['sanctum' => []]],
         tags: ['Users'],
         parameters: [
-            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         requestBody: new OA\RequestBody(
             required: false,
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'is_active', type: 'boolean', example: false, description: 'Si no se envía, se invierte el estado actual')
+                    new OA\Property(property: 'is_active', type: 'boolean', example: false, description: 'Si no se envía, se invierte el estado actual'),
                 ]
             )
         ),
@@ -263,13 +261,13 @@ class UserController extends Controller
             new OA\Response(response: 200, description: 'Estado actualizado'),
             new OA\Response(response: 400, description: 'No puedes desactivarte a ti mismo'),
             new OA\Response(response: 403, description: 'No autorizado'),
-            new OA\Response(response: 404, description: 'Usuario no encontrado')
+            new OA\Response(response: 404, description: 'Usuario no encontrado'),
         ]
     )]
     public function toggleStatus(Request $request, int $id): JsonResponse
     {
         $isActive = $request->has('is_active') ? (bool) $request->input('is_active') : null;
-        
+
         $user = $this->toggleUserStatusUseCase->execute($id, $request->user()->id, $isActive);
 
         \App\Services\AuditLogService::logUserStatusChange($request->user(), $user, $user->is_active);
@@ -281,5 +279,4 @@ class UserController extends Controller
             'data' => new UserResource($user),
         ]);
     }
-
 }

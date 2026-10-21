@@ -1,6 +1,7 @@
 <?php
 
 use App\Presentation\Http\Controllers\Api\FormController;
+use App\Presentation\Http\Controllers\Api\FormTechnicalSheetController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,6 +19,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/{id}/clone', [FormController::class, 'cloneForm']);
     Route::post('/{id}/deploy', [FormController::class, 'deploy']); // change to DEPLOYED
     Route::post('/{id}/archive', [FormController::class, 'archive']); // change to ARCHIVED
+    Route::get('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'show']);
+    Route::post('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'store']);
+    Route::post('/{id}/technical-sheet/validate', [FormTechnicalSheetController::class, 'validateSheet']);
 
     // Questions
     Route::get('/{id}/questions', [FormController::class, 'getQuestions']);
@@ -33,12 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Responses/Data Management
     Route::get('/{id}/responses', [FormController::class, 'getResponses']);
-    Route::get('/{id}/export', [FormController::class, 'exportResponses']); // Export CSV/Excel
-    Route::post('/{id}/log-export', [FormController::class, 'logExport']); // Log export in audit trail
+    Route::get('/{id}/responses/{responseId}/media/{questionId}', [FormController::class, 'getResponseMedia']);
+    Route::get('/{id}/export', [FormController::class, 'exportResponses'])->middleware('throttle:response-export'); // Export CSV/Excel
+    Route::post('/{id}/log-export', [FormController::class, 'logExport'])->middleware('throttle:response-export'); // Declaración de PDF generado en el navegador
     Route::get('/{id}/stats', [FormController::class, 'getStats']); // Graphical data
 });
 
 // Public: fetch form by link and submit response (no mandatory auth needed)
 Route::get('/fetch/{link_uuid}', [FormController::class, 'fetchForm']);
-Route::post('/submit/{link_uuid}', [FormController::class, 'submitResponse']);
-
+Route::post('/submit/{link_uuid}', [FormController::class, 'submitResponse'])->middleware('throttle:public-form-submit');

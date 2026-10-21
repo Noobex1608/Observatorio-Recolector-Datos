@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 class UpdateFormLifecycle extends Command
 {
     protected $signature = 'forms:update-lifecycle';
+
     protected $description = 'Actualiza automáticamente el estado de formularios según sus fechas de inicio y fin (despliega o archiva)';
 
     public function handle(FormLifecycleService $lifecycleService): int

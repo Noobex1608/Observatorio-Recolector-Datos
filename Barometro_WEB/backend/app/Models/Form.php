@@ -21,7 +21,7 @@ class Form extends Model
         'require_consent',
         'consent_text',
         'start_date',
-        'end_date'
+        'end_date',
     ];
 
     protected $casts = [
@@ -39,6 +39,16 @@ class Form extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function technicalSheet()
+    {
+        return $this->hasOne(FormTechnicalSheet::class);
+    }
+
+    public function zones()
+    {
+        return $this->hasMany(ProjectZone::class);
     }
 
     public function questions()

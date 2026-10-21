@@ -25,9 +25,8 @@ class SyncAllFormsSchema extends Command
             $sync->enqueueById($form->id, 'upsert');
         }
 
-        $this->info('Encolados ' . $forms->count() . ' formulario(s).');
+        $this->info('Encolados '.$forms->count().' formulario(s).');
 
         return self::SUCCESS;
     }
 }
-

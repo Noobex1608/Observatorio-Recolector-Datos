@@ -7,9 +7,9 @@ interface VideoStorageAdapter
     /**
      * Sube un archivo de video en binario y retorna su URL pública accesible.
      *
-     * @param string $path Ruta relativa o clave dentro del almacenamiento
-     * @param string $binaryData Contenido binario del archivo
-     * @param string $mimeType Tipo MIME (por defecto video/mp4)
+     * @param  string  $path  Ruta relativa o clave dentro del almacenamiento
+     * @param  string  $binaryData  Contenido binario del archivo
+     * @param  string  $mimeType  Tipo MIME (por defecto video/mp4)
      * @return string URL pública o accesible del video
      */
     public function upload(string $path, string $binaryData, string $mimeType = 'video/mp4'): string;
@@ -17,8 +17,8 @@ interface VideoStorageAdapter
     /**
      * Sube un video codificado en Base64 (Data URL o Base64 plano) y retorna su URL pública.
      *
-     * @param string $path Ruta relativa o clave dentro del almacenamiento
-     * @param string $base64DataUrl Cadena en formato data:video/...;base64,... o base64 puro
+     * @param  string  $path  Ruta relativa o clave dentro del almacenamiento
+     * @param  string  $base64DataUrl  Cadena en formato data:video/...;base64,... o base64 puro
      * @return string URL pública o accesible del video
      */
     public function uploadBase64(string $path, string $base64DataUrl): string;
@@ -26,7 +26,7 @@ interface VideoStorageAdapter
     /**
      * Elimina un archivo de video del almacenamiento.
      *
-     * @param string $path Ruta relativa o clave dentro del almacenamiento
+     * @param  string  $path  Ruta relativa o clave dentro del almacenamiento
      * @return bool True si se eliminó con éxito
      */
     public function delete(string $path): bool;
@@ -34,7 +34,7 @@ interface VideoStorageAdapter
     /**
      * Obtiene la URL pública o accesible del video dada su ruta.
      *
-     * @param string $path Ruta relativa del video
+     * @param  string  $path  Ruta relativa del video
      * @return string URL pública
      */
     public function getUrl(string $path): string;
@@ -46,8 +46,6 @@ interface VideoStorageAdapter
 
     /**
      * Retorna el identificador del driver activo (ej. 'supabase', 'local', 's3').
-     *
-     * @return string
      */
     public function getDriverName(): string;
 }

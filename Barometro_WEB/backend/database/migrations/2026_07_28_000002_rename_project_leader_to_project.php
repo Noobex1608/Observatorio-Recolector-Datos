@@ -7,7 +7,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rol_check");
+        DB::statement('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rol_check');
 
         DB::statement("UPDATE users SET rol = 'PROJECT' WHERE rol = 'PROJECT_LEADER'");
 
@@ -18,7 +18,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rol_check");
+        DB::statement('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rol_check');
 
         DB::statement("UPDATE users SET rol = 'PROJECT_LEADER' WHERE rol = 'PROJECT'");
 

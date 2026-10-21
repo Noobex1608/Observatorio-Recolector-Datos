@@ -13,11 +13,11 @@ class FormResponse extends Model
     protected $fillable = [
         'form_id',
         'user_id',
-        'data'
+        'data',
     ];
 
     protected $casts = [
-        'data' => 'array'
+        'data' => 'array',
     ];
 
     public function form()

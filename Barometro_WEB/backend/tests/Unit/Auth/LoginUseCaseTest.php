@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth;
 
-use App\Application\Auth\Contracts\SupabaseAuthUserProvisioner;
 use App\Application\Auth\DTOs\LoginDTO;
 use App\Application\Auth\UseCases\LoginUseCase;
 use App\Models\User;
@@ -23,10 +22,7 @@ class LoginUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $provisioner = $this->createMock(SupabaseAuthUserProvisioner::class);
-        $provisioner->method('ensureUser');
-
-        $this->useCase = new LoginUseCase($provisioner);
+        $this->useCase = new LoginUseCase;
     }
 
     public function test_login_successful_returns_user_and_token(): void
@@ -41,7 +37,7 @@ class LoginUseCaseTest extends TestCase
         $response = $this->useCase->execute($dto);
 
         $this->assertNotEmpty($response->token);
-        $this->assertEquals($user->email, $response->user->email);
+        $this->assertEquals($user->email, $response->email);
     }
 
     public function test_login_fails_for_inactive_user(): void
@@ -82,7 +78,7 @@ class LoginUseCaseTest extends TestCase
 
         // Create 12 tokens
         for ($i = 0; $i < 12; $i++) {
-            $user->createToken('token-' . $i);
+            $user->createToken('token-'.$i);
         }
 
         $dto = new LoginDTO(email: 'tokens@uleam.edu.ec', password: 'Password123!');

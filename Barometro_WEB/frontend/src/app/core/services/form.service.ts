@@ -22,6 +22,8 @@ export interface Form {
   updated_at: string;
   questions?: FormQuestion[];
   shares?: FormShare[];
+  technical_sheet?: { status: string } | null;
+  project_zones?: Array<{ id: string; name: string; target_lat: number | null; target_lng: number | null; radius_meters: number; geometry_json: unknown }>;
   access_role?: 'PROJECT' | 'RECOLECTOR' | null;
 }
 
@@ -187,9 +189,15 @@ export class FormService {
     return this.http.delete<void>(`${this.apiUrl}/${formId}/shares/${shareId}`);
   }
 
-  getResponses(id: string): Observable<{ questions: FormQuestion[]; responses: any[] }> {
-    return this.http.get<{ questions: FormQuestion[]; responses: any[] }>(
-      `${this.apiUrl}/${id}/responses`,
+  getResponses(id: string, page = 1): Observable<{ questions: FormQuestion[]; responses: any[]; pagination?: { current_page: number; last_page: number; total: number } }> {
+    return this.http.get<{ questions: FormQuestion[]; responses: any[]; pagination?: { current_page: number; last_page: number; total: number } }>(
+      `${this.apiUrl}/${id}/responses`, { params: new HttpParams().set('page', page).set('per_page', 50) },
+    );
+  }
+
+  getResponseMediaUrl(formId: string, responseId: string, questionId: string): Observable<{ url: string; expires_in: number }> {
+    return this.http.get<{ url: string; expires_in: number }>(
+      `${this.apiUrl}/${formId}/responses/${responseId}/media/${questionId}`,
     );
   }
 

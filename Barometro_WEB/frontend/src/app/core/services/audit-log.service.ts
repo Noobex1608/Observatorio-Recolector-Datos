@@ -32,6 +32,8 @@ export interface AuditStats {
     total_logs: number;
     total_downloads: number;
     total_responses_exported: number;
+    total_client_reported_exports: number;
+    total_legacy_exports: number;
     total_permission_changes: number;
     total_data_modifications: number;
   };

@@ -35,12 +35,12 @@ class EnsureVideoStorageBucket extends Command
             if ($adapter->getDriverName() === 'supabase') {
                 $bucketName = config('services.supabase.video_bucket', 'videos');
                 $this->line("  Bucket de Supabase: <comment>{$bucketName}</comment>");
-                $this->line("  URL de endpoint: <comment>" . config('services.supabase.url') . "/storage/v1/object/public/{$bucketName}</comment>");
+                $this->line('  URL de endpoint: <comment>'.config('services.supabase.url')."/storage/v1/object/public/{$bucketName}</comment>");
             }
 
             return self::SUCCESS;
         } catch (Throwable $e) {
-            $this->error("✗ Error configurando el almacenamiento de videos: " . $e->getMessage());
+            $this->error('✗ Error configurando el almacenamiento de videos: '.$e->getMessage());
 
             return self::FAILURE;
         }

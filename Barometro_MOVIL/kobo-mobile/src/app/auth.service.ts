@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { DbService } from './db.service';
 
 const TOKEN_KEY = 'kobo_token';
 const USER_KEY = 'kobo_user';
@@ -8,6 +9,7 @@ const DEMO_KEY = 'kobo_demo_mode';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private db = inject(DbService);
   isAuthenticated = signal<boolean>(this.hayTokenGuardado());
 
   private hayTokenGuardado(): boolean {
@@ -38,6 +40,9 @@ export class AuthService {
   }
 
   logout(): void {
+    localStorage.removeItem('field_tracking_active_shift');
+    window.dispatchEvent(new Event('field-tracking-logout'));
+    void this.db.pendingFieldTracking.clear();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(USER_EMAIL_KEY);

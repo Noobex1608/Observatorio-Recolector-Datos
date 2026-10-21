@@ -21,6 +21,7 @@ class AdminUserSeeder extends Seeder
                 $adminName = 'Super Administrador';
             } else {
                 $this->command->error('Error: configura ADMIN_EMAIL y ADMIN_PASSWORD en backend/.env');
+
                 return;
             }
         }
@@ -33,6 +34,7 @@ class AdminUserSeeder extends Seeder
                 $existingAdmin->save();
             }
             $this->command->info("Super admin listo: {$adminEmail}");
+
             return;
         }
 

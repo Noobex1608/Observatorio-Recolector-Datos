@@ -7,7 +7,7 @@
     <div class="header-row">
       <div>
         <h1 class="page-title">{{ vm.formTitle() || ('forms.responses.title' | translate) }}</h1>
-        <p class="page-subtitle">{{ 'forms.responses.subtitle' | translate: { count: vm.responses().length } }}</p>
+        <p class="page-subtitle">{{ 'forms.responses.subtitle' | translate: { count: vm.totalResponses() } }}</p>
       </div>
       <div class="export-actions">
         <button
@@ -132,23 +132,50 @@
                   <span>{{ 'forms.responses.distribution' | translate }}</span>
                   <h3>{{ chart.label }}</h3>
                 </div>
-                <strong class="chart-type">{{ 'forms.responses.chartTypes.' + chart.type | translate }}</strong>
               </div>
-              @if (chart.type === 'MULTIPLE_CHOICE') {
-                <app-bar-chart
-                  [categories]="chart.categories"
-                  [values]="chart.values"
-                  height="280px"
-                />
-              } @else {
-                <app-pie-chart
-                  [categories]="chart.categories"
-                  [values]="chart.values"
-                  [isDonut]="true"
-                  height="280px"
-                />
-              }
+              <app-pie-chart [categories]="chart.categories" [values]="chart.values" [isDonut]="true" height="280px" />
+              @if (chart.type === 'MULTIPLE_CHOICE') { <small>Porcentaje calculado sobre menciones, no sobre personas.</small> }
             </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (vm.form()?.state === 'DEPLOYED' && vm.form()?.link_uuid) {
+      <section class="charts-section">
+        <h2>Compartir encuesta pública</h2>
+        <button mat-stroked-button type="button" (click)="showQr()">Mostrar código QR</button>
+        @if (qrImage) {
+          <div class="chart-card">
+            <img [src]="qrImage" alt="Código QR para abrir la encuesta pública" width="260" height="260" />
+            <p><a [href]="collectUrl" target="_blank" rel="noopener noreferrer">{{ collectUrl }}</a></p>
+            <button mat-stroked-button type="button" (click)="downloadQr()">Descargar QR</button>
+          </div>
+        }
+      </section>
+    }
+
+    @if (vm.numericSummaries().length || vm.textSummaries().length) {
+      <section class="charts-section">
+        <h2>Resumen de otras preguntas</h2>
+        @for (summary of vm.numericSummaries(); track summary.label) {
+          <div class="chart-card"><h3>{{ summary.label }}</h3>
+            <p>{{ summary.count }} respuestas · Promedio: {{ summary.mean?.toFixed(2) ?? '—' }} · Mediana: {{ summary.count ? summary.median : '—' }} · Mínimo: {{ summary.count ? summary.min : '—' }} · Máximo: {{ summary.count ? summary.max : '—' }}</p>
+          </div>
+        }
+        @for (summary of vm.textSummaries(); track summary.label) {
+          <div class="chart-card"><h3>{{ summary.label }}</h3><p>{{ summary.answered }} respuestas con texto. Consulte el detalle en la tabla.</p></div>
+        }
+      </section>
+    }
+
+    @if (vm.gpsPoints().length > 0 || vm.gpsZones().length > 0) {
+      <section class="charts-section">
+        <h2>Ubicación de edificaciones y zonas delimitadas</h2>
+        <app-gps-results-map [points]="vm.gpsPoints()" [zones]="vm.gpsZones()" />
+        <div class="chart-card">
+          @for (point of vm.gpsPoints(); track point.responseId + point.question) {
+            <p>{{ point.question }} · X: {{ point.longitude }} · Y: {{ point.latitude }} · Precisión: {{ point.accuracy ?? '—' }} m</p>
           }
         </div>
       </section>
@@ -186,6 +213,8 @@
                         [value]="row.rawAnswers?.[col.key]"
                         [formattedValue]="row.answers[col.key] || ''"
                         [compact]="true"
+                        [formId]="vm.formId()"
+                        [responseId]="row.id"
                       />
                     } @else {
                       {{ row.answers[col.key] || '-' }}
@@ -215,6 +244,10 @@
             <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
           </table>
         </div>
+        @if (vm.nextResponsePage()) {
+          <p>Mostrando {{ vm.responses().length }} de {{ vm.totalResponses() }} respuestas. Los resúmenes numéricos y el PDF reflejan las respuestas cargadas.</p>
+          <button mat-stroked-button type="button" (click)="vm.loadMoreResponses()" [disabled]="vm.isLoadingMore()">Cargar más respuestas</button>
+        }
       }
     </section>
   }
@@ -252,6 +285,8 @@
                   [question]="field.question"
                   [value]="field.rawValue"
                   [formattedValue]="field.value"
+                  [formId]="vm.formId()"
+                  [responseId]="selectedResponse.id"
                 />
               } @else {
                 <p class="answered-value" [class.empty-answer]="field.value === '-'">

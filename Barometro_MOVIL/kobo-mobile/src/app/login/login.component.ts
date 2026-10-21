@@ -27,16 +27,15 @@ export class LoginComponent {
 
     const urlLimpia = this.urlServidor.trim().replace(/\/+$/, '');
     const usuarioLimpio = this.usuario.trim();
-    const claveLimpia = this.clave.trim();
 
-    if (!urlLimpia || !usuarioLimpio || !claveLimpia) {
+    if (!urlLimpia || !usuarioLimpio || !this.clave) {
       this.errorLogin = 'Completa la URL del servidor, usuario y contraseña.';
       return;
     }
 
     this.cargando = true;
     try {
-      const response = await this.api.login(urlLimpia, usuarioLimpio, claveLimpia);
+      const response = await this.api.login(urlLimpia, usuarioLimpio, this.clave);
       this.auth.guardarSesion(
         response.token,
         response.user.name,

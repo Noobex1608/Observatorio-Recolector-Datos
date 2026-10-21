@@ -15,14 +15,12 @@ class SyncFormResponseToSupabase implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public string $queueItemId)
-    {
-    }
+    public function __construct(public string $queueItemId) {}
 
     public function handle(SupabaseResponseWriter $writer): void
     {
         $item = ResponseSyncQueue::find($this->queueItemId);
-        if (!$item || $item->status === 'synced') {
+        if (! $item || $item->status === 'synced') {
             return;
         }
 
@@ -50,4 +48,3 @@ class SyncFormResponseToSupabase implements ShouldQueue
         }
     }
 }
-

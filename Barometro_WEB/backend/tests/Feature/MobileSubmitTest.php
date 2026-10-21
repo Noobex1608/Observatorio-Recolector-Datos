@@ -2,20 +2,26 @@
 
 namespace Tests\Feature;
 
+use App\Application\Responses\Contracts\ResponseMediaStorage;
 use App\Models\Form;
-use App\Models\FormQuestion;
 use App\Models\FormResponse;
 use App\Models\Project;
-use App\Models\ResponseSyncQueue;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Fakes\InMemoryResponseMediaStorage;
 use Tests\TestCase;
 
 class MobileSubmitTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->app->singleton(ResponseMediaStorage::class, InMemoryResponseMediaStorage::class);
+    }
 
     public function test_successful_submission_with_all_nine_kobotoolbox_question_types(): void
     {
@@ -112,6 +118,7 @@ class MobileSubmitTest extends TestCase
         $payload = [
             'form_id' => $form->id,
             'data' => [
+                '_consentimiento_aceptado' => true,
                 $qNote->id => null,
                 $qDate->id => '2026-09-18',
                 $qTime->id => '14:30:00',
@@ -198,6 +205,7 @@ class MobileSubmitTest extends TestCase
         $payload = [
             'form_id' => $form->id,
             'data' => [
+                '_consentimiento_aceptado' => true,
                 $qGps->id => ['lat' => 150.00, 'lng' => -80.00], // Latitud fuera de (-90, 90)
                 $qDate->id => '2026-15-40',                     // Fecha inválida
                 $qRating->id => 99,                             // RATING mayor que el máximo de 5
@@ -245,6 +253,7 @@ class MobileSubmitTest extends TestCase
         $payload = [
             'form_id' => $form->id,
             'data' => [
+                '_consentimiento_aceptado' => true,
                 $qNote->id => null, // Omitido / nulo
             ],
         ];

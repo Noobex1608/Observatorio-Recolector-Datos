@@ -18,7 +18,7 @@ class PublicFormSubmissionTest extends TestCase
 
     public function test_public_form_fetch_does_not_require_authentication(): void
     {
-        $project = Project::factory()->create();
+        $project = Project::create(['name' => 'Proyecto público']);
         $user = User::factory()->create();
 
         $form = Form::create([
@@ -26,11 +26,11 @@ class PublicFormSubmissionTest extends TestCase
             'project_id' => $project->id,
             'user_id' => $user->id,
             'title' => 'Encuesta Pública',
-            'status' => Form::STATUS_DEPLOYED,
+            'state' => 'DEPLOYED',
             'link_uuid' => (string) Str::uuid(),
         ]);
 
-        $response = $this->getJson('/api/forms/fetch/' . $form->link_uuid);
+        $response = $this->getJson('/api/forms/fetch/'.$form->link_uuid);
 
         $response->assertStatus(200)
             ->assertJsonPath('title', 'Encuesta Pública');
@@ -38,7 +38,7 @@ class PublicFormSubmissionTest extends TestCase
 
     public function test_public_form_submission_succeeds_without_auth_header(): void
     {
-        $project = Project::factory()->create();
+        $project = Project::create(['name' => 'Proyecto público']);
         $user = User::factory()->create();
 
         $form = Form::create([
@@ -46,11 +46,11 @@ class PublicFormSubmissionTest extends TestCase
             'project_id' => $project->id,
             'user_id' => $user->id,
             'title' => 'Encuesta de Satisfacción',
-            'status' => Form::STATUS_DEPLOYED,
+            'state' => 'DEPLOYED',
             'link_uuid' => (string) Str::uuid(),
         ]);
 
-        FormQuestion::create([
+        $question = FormQuestion::create([
             'id' => (string) Str::uuid(),
             'form_id' => $form->id,
             'type' => 'TEXT',
@@ -61,13 +61,14 @@ class PublicFormSubmissionTest extends TestCase
 
         $payload = [
             'data' => [
-                'q1' => 'Excelente servicio',
+                '_consentimiento_aceptado' => true,
+                $question->id => 'Excelente servicio',
             ],
         ];
 
-        $response = $this->postJson('/api/forms/submit/' . $form->link_uuid, $payload);
+        $response = $this->postJson('/api/forms/submit/'.$form->link_uuid, $payload);
 
         $response->assertStatus(201)
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('message', 'Respuesta guardada');
     }
 }

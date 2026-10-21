@@ -21,14 +21,14 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => [
-                'sometimes', 
-                'string', 
-                'email', 
-                'max:255', 
-                Rule::unique('users', 'email')->ignore($userId)
+                'sometimes',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($userId),
             ],
             'password' => ['nullable', 'string', 'min:8'],
-            'rol' => ['sometimes', 'string', 'in:SUPER_ADMIN,ADMIN,PROJECT,RECOLECTOR'],
+            'rol' => ['sometimes', 'string', 'in:SUPER_ADMIN,ADMIN,PROJECT,RECOLECTOR,SUPERVISOR'],
             'is_active' => ['sometimes', 'boolean'],
             'telefono' => ['nullable', 'string', 'max:20'],
             'cargo' => ['nullable', 'string', 'max:100'],
@@ -43,7 +43,7 @@ class UpdateUserRequest extends FormRequest
             'email.email' => 'El email debe tener un formato válido',
             'email.unique' => 'Este email ya está en uso por otro usuario',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres',
-            'rol.in' => 'El rol debe ser SUPER_ADMIN, ADMIN, PROJECT o RECOLECTOR',
+            'rol.in' => 'El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR',
             'is_active.boolean' => 'El campo is_active debe ser verdadero o falso',
         ];
     }

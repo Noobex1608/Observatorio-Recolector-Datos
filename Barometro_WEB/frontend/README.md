@@ -19,7 +19,7 @@ SPA Angular 21 para crear, publicar y analizar formularios dinamicos.
 O desde `frontend/`:
 
 ```bash
-bun install
+bun install --frozen-lockfile
 ```
 
 ## Desarrollo

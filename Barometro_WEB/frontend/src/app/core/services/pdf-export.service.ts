@@ -240,7 +240,7 @@ export class PdfExportService {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(...textDark);
-        const questionHeader = `${questionIndex}. [${question.type}] ${question.label}`;
+        const questionHeader = `${questionIndex}. ${question.label}`;
         const splitQHeader = doc.splitTextToSize(questionHeader, contentWidth);
         doc.text(splitQHeader, margin, currentY);
         currentY += splitQHeader.length * 4 + 2;
@@ -321,6 +321,47 @@ export class PdfExportService {
           });
 
           currentY = (doc as any).lastAutoTable.finalY + 6;
+          const slices = categories.map((name) => ({ name, count: Number(qStats[name] ?? 0) }))
+            .filter((slice) => slice.count > 0);
+          if (slices.length > 0) {
+            checkPageBreak(54);
+            const palette: Array<[number, number, number]> = [
+              [20, 184, 166], [37, 99, 235], [245, 158, 11], [239, 68, 68],
+              [139, 92, 246], [14, 165, 233], [132, 204, 22], [236, 72, 153],
+            ];
+            const visible = slices.slice(0, 7);
+            const otherCount = slices.slice(7).reduce((sum, slice) => sum + slice.count, 0);
+            if (otherCount > 0) visible.push({ name: 'Otras opciones', count: otherCount });
+            const total = visible.reduce((sum, slice) => sum + slice.count, 0);
+            const centerX = margin + 25;
+            const centerY = currentY + 22;
+            const radius = 20;
+            let angle = -Math.PI / 2;
+            visible.forEach((slice, index) => {
+              const sweep = (slice.count / total) * Math.PI * 2;
+              const segments = Math.max(2, Math.ceil(sweep / 0.12));
+              doc.setFillColor(...palette[index % palette.length]);
+              for (let segment = 0; segment < segments; segment++) {
+                const a = angle + (sweep * segment) / segments;
+                const b = angle + (sweep * (segment + 1)) / segments;
+                doc.triangle(centerX, centerY,
+                  centerX + Math.cos(a) * radius, centerY + Math.sin(a) * radius,
+                  centerX + Math.cos(b) * radius, centerY + Math.sin(b) * radius, 'F');
+              }
+              doc.rect(margin + 55, currentY + 4 + index * 5, 3, 3, 'F');
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(7.5);
+              doc.setTextColor(...textDark);
+              doc.text(`${this.truncate(slice.name, 35)}: ${((slice.count / total) * 100).toFixed(1)}%`,
+                margin + 61, currentY + 6.5 + index * 5);
+              angle += sweep;
+            });
+            if (question.type === 'MULTIPLE_CHOICE') {
+              doc.setFontSize(7);
+              doc.text('Porcentaje sobre menciones, no sobre personas.', margin + 55, currentY + 48);
+            }
+            currentY += 52;
+          }
         }
         // Caso B: Pregunta Numérica (NUMBER, RATING, RANKING)
         else if (['NUMBER', 'RATING', 'RANKING'].includes(question.type)) {
@@ -423,10 +464,14 @@ export class PdfExportService {
         // Caso D: GPS o Coordenadas
         else if (question.type === 'GPS') {
           let gpsCount = 0;
+          const gpsRows: string[][] = [];
           for (const resp of data.responses) {
             const val = resp.rawAnswers?.[question.id];
-            if (val && (typeof val === 'object' || String(val).includes(','))) {
+            const latitude = val && typeof val === 'object' ? Number(val.latitude ?? val.lat) : NaN;
+            const longitude = val && typeof val === 'object' ? Number(val.longitude ?? val.lng) : NaN;
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
               gpsCount++;
+              if (gpsRows.length < 20) gpsRows.push([String(gpsCount), longitude.toFixed(6), latitude.toFixed(6)]);
             }
           }
 
@@ -439,6 +484,13 @@ export class PdfExportService {
             currentY,
           );
           currentY += 6;
+          if (gpsRows.length > 0) {
+            autoTable(doc, { startY: currentY, margin: { left: margin, right: margin },
+              head: [['#', 'X · longitud', 'Y · latitud']], body: gpsRows,
+              theme: 'grid', styles: { fontSize: 7.5 },
+              headStyles: { fillColor: secondaryColor, textColor: [255, 255, 255] } });
+            currentY = (doc as any).lastAutoTable.finalY + 6;
+          }
         }
         // Otros tipos (FECHA, HORA, MULTIMEDIA, FIRMA, etc.)
         else {
@@ -594,7 +646,7 @@ export class PdfExportService {
         const lat = rawVal.latitude ?? rawVal.lat;
         const lng = rawVal.longitude ?? rawVal.lng;
         if (lat !== undefined && lng !== undefined) {
-          return `GPS (${Number(lat).toFixed(3)}, ${Number(lng).toFixed(3)})`;
+          return `X ${Number(lng).toFixed(6)}, Y ${Number(lat).toFixed(6)}`;
         }
       }
       return 'Coordenada GPS';

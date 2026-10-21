@@ -151,6 +151,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
 
   // Leaflet references
   private map: any = null;
+  private mapResizeObserver: ResizeObserver | null = null;
   private marker: any = null;
   private geofenceCircle: any = null;
   private LInstance: typeof import('leaflet') | null = null;
@@ -196,6 +197,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.mapResizeObserver?.disconnect();
+    this.mapResizeObserver = null;
     if (this.map) {
       this.map.off();
       this.map.remove();
@@ -221,6 +224,11 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       preferCanvas: true,
       zoomControl: true,
     });
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.mapResizeObserver = new ResizeObserver(() => this.map?.invalidateSize({ animate: false }));
+      this.mapResizeObserver.observe(container);
+    }
 
     // Capa Base OpenStreetMap
     this.LInstance.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

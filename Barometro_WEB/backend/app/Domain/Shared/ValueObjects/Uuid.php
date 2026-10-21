@@ -44,7 +44,7 @@ final class Uuid
 
     private function ensureIsValidUuid(string $value): void
     {
-        if (!RamseyUuid::isValid($value)) {
+        if (! RamseyUuid::isValid($value)) {
             throw new InvalidArgumentException(sprintf('<%s> is not a valid UUID', $value));
         }
     }

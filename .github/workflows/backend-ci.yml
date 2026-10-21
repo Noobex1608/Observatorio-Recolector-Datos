@@ -53,17 +53,17 @@ jobs:
       - name: Security Audit (Composer Audit)
         run: |
           cd Barometro_WEB/backend
-          composer audit || echo "Composer audit step completed with warnings."
+          composer audit
 
       - name: Code Style Verification (Laravel Pint)
         run: |
           cd Barometro_WEB/backend
-          vendor/bin/pint --test
+          vendor/bin/pint --test app bootstrap config routes database/migrations database/seeders database/factories tests
 
       - name: Execute Test Suite (PHPUnit)
         env:
           APP_ENV: testing
-          APP_KEY: base64:TestKeyForPHPUnitUnitTesting1234567890123=
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
@@ -74,3 +74,37 @@ jobs:
           cd Barometro_WEB/backend
           php artisan migrate:fresh --force
           vendor/bin/phpunit
+
+  mobile-test:
+    name: Mobile PWA build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Barometro_MOVIL/kobo-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Barometro_MOVIL/kobo-mobile/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --watch=false
+
+  web-test:
+    name: Web build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Barometro_WEB/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: Barometro_WEB/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --watch=false

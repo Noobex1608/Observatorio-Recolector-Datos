@@ -20,14 +20,14 @@ class FormQuestion extends Model
         'required',
         'order',
         'section_name',
-        'parent_question_id'
+        'parent_question_id',
     ];
 
     protected $casts = [
         'options' => 'array',
         'branch_rules' => 'array',
         'properties' => 'array',
-        'required' => 'boolean'
+        'required' => 'boolean',
     ];
 
     public function form()

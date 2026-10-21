@@ -30,32 +30,40 @@ class AuditLogService
             'description_es' => $descriptionEs,
             'ip_address' => Request::ip() ?? '127.0.0.1',
             'user_agent' => Request::header('User-Agent') ?? 'System/API',
-            'metadata' => $metadata,
+            'metadata' => array_merge($metadata, [
+                'correlation_id' => Request::header('X-Correlation-ID'),
+            ]),
         ]);
     }
 
-    /**
-     * Log response exports/downloads in natural language.
-     */
-    public static function logDownload(User $actor, Form $form, int $responseCount, string $format): AuditLog
+    /** Log that the server finished preparing an export; delivery to the client is not provable here. */
+    public static function logGeneratedExport(User $actor, Form $form, int $responseCount, string $format): AuditLog
     {
-        $roleName = self::getRoleLabel($actor->rol);
-        $formatUpper = strtoupper($format);
         $description = sprintf(
-            "El usuario %s (%s) exportó %d respuesta(s) del formulario '%s' en formato %s.",
-            $actor->name,
-            $roleName,
-            $responseCount,
-            $form->title,
-            $formatUpper
+            "El servidor generó %s con %d respuesta(s) del formulario '%s' para %s. La entrega al cliente no está confirmada.",
+            strtoupper($format), $responseCount, $form->title, $actor->name
         );
 
-        return self::log($actor, 'EXPORT_DATA', 'descargas', $description, [
+        return self::log($actor, 'EXPORT_GENERATED', 'descargas', $description, [
             'form_id' => $form->id,
             'form_title' => $form->title,
             'responses_count' => $responseCount,
-            'format' => $formatUpper,
+            'format' => strtoupper($format),
+            'source' => 'server',
         ]);
+    }
+
+    /** A browser-side PDF report can only be asserted by the browser itself. */
+    public static function logClientReportedExport(User $actor, Form $form, int $responseCount): AuditLog
+    {
+        return self::log($actor, 'EXPORT_CLIENT_REPORTED', 'descargas',
+            "El cliente de {$actor->name} informó que generó un PDF del formulario '{$form->title}'. La descarga no fue verificada por el servidor.", [
+                'form_id' => $form->id,
+                'form_title' => $form->title,
+                'responses_count' => $responseCount,
+                'format' => 'PDF',
+                'source' => 'client',
+            ]);
     }
 
     /**
@@ -70,10 +78,10 @@ class AuditLogService
     ): AuditLog {
         $actorRole = self::getRoleLabel($actor->rol);
         $assignedRole = self::getRoleLabel($role);
-        
-        $targetInfo = $targetResponses !== null 
-            ? sprintf(" (con límite de %d respuestas)", $targetResponses)
-            : "";
+
+        $targetInfo = $targetResponses !== null
+            ? sprintf(' (con límite de %d respuestas)', $targetResponses)
+            : '';
 
         $description = sprintf(
             "El usuario %s (%s) asignó permisos de '%s'%s al usuario %s (%s) en el formulario '%s'.",
@@ -151,10 +159,10 @@ class AuditLogService
     public static function logUserStatusChange(User $actor, User $target, bool $isActive): AuditLog
     {
         $actorRole = self::getRoleLabel($actor->rol);
-        $statusLabel = $isActive ? "activó la cuenta del" : "desactivó la cuenta del";
+        $statusLabel = $isActive ? 'activó la cuenta del' : 'desactivó la cuenta del';
 
         $description = sprintf(
-            "El usuario %s (%s) %s usuario %s (%s).",
+            'El usuario %s (%s) %s usuario %s (%s).',
             $actor->name,
             $actorRole,
             $statusLabel,
@@ -175,7 +183,7 @@ class AuditLogService
     public static function logFormAction(User $actor, Form $form, string $actionType, ?string $extraNote = null): AuditLog
     {
         $actorRole = self::getRoleLabel($actor->rol);
-        
+
         $verbs = [
             'CREATE' => 'creó el formulario en borrador',
             'UPDATE' => 'modificó la estructura o configuración del formulario',
@@ -186,7 +194,7 @@ class AuditLogService
         ];
 
         $verb = $verbs[strtoupper($actionType)] ?? "realizó la acción '{$actionType}' en";
-        $extra = $extraNote ? " ({$extraNote})" : "";
+        $extra = $extraNote ? " ({$extraNote})" : '';
 
         $description = sprintf(
             "El usuario %s (%s) %s '%s'%s.",
@@ -197,7 +205,7 @@ class AuditLogService
             $extra
         );
 
-        return self::log($actor, "FORM_" . strtoupper($actionType), 'formularios', $description, [
+        return self::log($actor, 'FORM_'.strtoupper($actionType), 'formularios', $description, [
             'form_id' => $form->id,
             'form_title' => $form->title,
             'form_state' => $form->state,
@@ -241,7 +249,7 @@ class AuditLogService
             'DELETE' => 'eliminó el proyecto',
         ];
 
-        $verb = $verbs[strtoupper($actionType)] ?? "modificó el proyecto";
+        $verb = $verbs[strtoupper($actionType)] ?? 'modificó el proyecto';
 
         $description = sprintf(
             "El usuario %s (%s) %s '%s'.",
@@ -251,7 +259,7 @@ class AuditLogService
             $project->name
         );
 
-        return self::log($actor, "PROJECT_" . strtoupper($actionType), 'proyectos', $description, [
+        return self::log($actor, 'PROJECT_'.strtoupper($actionType), 'proyectos', $description, [
             'project_id' => $project->id,
             'project_name' => $project->name,
         ]);

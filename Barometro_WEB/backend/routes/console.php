@@ -21,6 +21,14 @@ Artisan::command('forms:update-lifecycle', function () {
 
 \Illuminate\Support\Facades\Schedule::command('forms:update-lifecycle')->everyMinute();
 
+Artisan::command('field:purge-old-locations', function () {
+    $deleted = \Illuminate\Support\Facades\DB::table('field_location_reports')
+        ->where('recorded_at', '<', now()->subDays(30))->delete();
+    $this->info("Ubicaciones antiguas eliminadas: {$deleted}");
+})->purpose('Elimina reportes de ubicación con más de 30 días');
+
+\Illuminate\Support\Facades\Schedule::command('field:purge-old-locations')->daily();
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');

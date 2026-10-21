@@ -19,15 +19,27 @@
           Compartir
         </button>
       }
+      @if (vm.isEditMode() && vm.state() !== 'DEPLOYED' && !vm.editingUnlocked()) {
+        <button class="btn btn-secondary" type="button" (click)="vm.editingUnlocked.set(true)">
+          <span class="material-icons" aria-hidden="true">edit</span>
+          Editar formulario
+        </button>
+      }
       <button
         class="btn btn-primary"
         type="button"
-        (click)="vm.saveForm()"
+        (click)="saveAndContinue()"
         [disabled]="!vm.isFormValid() || vm.isSaving() || vm.isLoading()"
       >
         <span class="material-icons" aria-hidden="true">save</span>
         {{ (vm.isSaving() ? 'common.messages.saving' : 'forms.builder.saveDraft') | translate }}
       </button>
+      @if (vm.isEditMode() && canDelimitAfterSave()) {
+        <label class="toggle-row">
+          <input type="checkbox" [checked]="delimitNow()" (change)="delimitNow.set($any($event.target).checked)" />
+          Abrir delimitación zonal al guardar (requiere ficha técnica validada)
+        </label>
+      }
     </div>
   </header>
 
@@ -115,35 +127,16 @@
             </span>
           </label>
 
-          <label class="toggle-row consent-toggle">
-            <input
-              type="checkbox"
-              [checked]="vm.requireConsent()"
-              (change)="vm.updateRequireConsent($any($event.target).checked)"
-              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-            />
-            <span>
-              <strong>Consentimiento Informado Previo</strong>
-              <small>Solicitar consentimiento verbal y aceptación previa a la persona antes de habilitar las preguntas en la app móvil.</small>
-            </span>
+          <label class="field">
+            <span>Texto obligatorio del consentimiento informado</span>
+            <textarea rows="3" [ngModel]="vm.consentText()" (ngModelChange)="vm.updateConsentText($event)"
+              [disabled]="vm.isSaving() || !vm.canEditQuestions()" required
+              placeholder="Texto del consentimiento informado a presentar al inicio de la encuesta..."></textarea>
           </label>
-
-          @if (vm.requireConsent()) {
-            <label class="field">
-              <span>Texto del Consentimiento Informado (a leer por el encuestador)</span>
-              <textarea
-                rows="3"
-                [ngModel]="vm.consentText()"
-                (ngModelChange)="vm.updateConsentText($event)"
-                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                placeholder="Texto del consentimiento informado a presentar al inicio de la encuesta..."
-              ></textarea>
-            </label>
-          }
 
           <div class="date-fields-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
             <label class="field">
-              <span>Fecha de Inicio (Implementación automática)</span>
+              <span>Fecha de inicio de recolección</span>
               <input
                 type="date"
                 [ngModel]="vm.startDate()"
@@ -153,7 +146,7 @@
             </label>
 
             <label class="field">
-              <span>Fecha de Fin (Archivado automático)</span>
+              <span>Fecha de fin de recolección</span>
               <input
                 type="date"
                 [ngModel]="vm.endDate()"

@@ -4,6 +4,7 @@ import { PdfExportService } from '@core/services/pdf-export.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { GpsResultPoint, GpsResultZone } from '../../features/forms/responses/gps-results-map.component';
 
 export interface FormResponseRow {
   id: string;
@@ -36,8 +37,41 @@ export class FormResponsesViewModel {
   isLoading = signal(false);
   errorMessage = signal('');
   isExporting = signal(false);
+  responseTotal = signal(0);
+  nextResponsePage = signal<number | null>(null);
+  isLoadingMore = signal(false);
 
-  totalResponses = computed(() => this.responses().length);
+  totalResponses = computed(() => this.responseTotal());
+  gpsPoints = computed<GpsResultPoint[]>(() => {
+    const result: GpsResultPoint[] = [];
+    for (const response of this.responses()) {
+      for (const question of this.questions().filter((item) => item.type === 'GPS')) {
+        const raw = response.rawAnswers[question.id];
+        if (!raw || typeof raw !== 'object') continue;
+        const latitude = Number(raw.latitude ?? raw.lat);
+        const longitude = Number(raw.longitude ?? raw.lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
+        result.push({ responseId: response.id, question: question.label, latitude, longitude,
+          accuracy: raw.accuracy != null && Number.isFinite(Number(raw.accuracy)) ? Number(raw.accuracy) : null });
+      }
+    }
+    return result;
+  });
+  gpsZones = computed<GpsResultZone[]>(() => (this.form()?.project_zones ?? []) as GpsResultZone[]);
+  numericSummaries = computed(() => this.questions().filter((question) => question.type === 'NUMBER').map((question) => {
+    const values = this.responses().map((response) => response.rawAnswers[question.id])
+      .filter((value) => value !== null && value !== undefined && value !== '')
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+    const count = values.length;
+    return { label: question.label, count, min: values[0] ?? null, max: values[count - 1] ?? null,
+      mean: count ? values.reduce((sum, value) => sum + value, 0) / count : null,
+      median: count ? (values[Math.floor((count - 1) / 2)] + values[Math.floor(count / 2)]) / 2 : null };
+  }));
+  textSummaries = computed(() => this.questions().filter((question) => question.type === 'TEXT').map((question) => ({
+    label: question.label,
+    answered: this.responses().filter((response) => String(response.rawAnswers[question.id] ?? '').trim() !== '').length,
+  })));
 
   shareProgress = computed(() =>
     this.shares().map((s) => ({
@@ -106,10 +140,36 @@ export class FormResponsesViewModel {
       }));
 
       this.responses.set(rows);
+      this.responseTotal.set(responseData.pagination?.total ?? rows.length);
+      this.nextResponsePage.set(responseData.pagination && responseData.pagination.current_page < responseData.pagination.last_page
+        ? responseData.pagination.current_page + 1 : null);
     } catch (error: any) {
       this.errorMessage.set(error?.error?.message || this.translate.instant('forms.responses.errors.load'));
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  async loadMoreResponses(): Promise<void> {
+    const formId = this.formId();
+    const page = this.nextResponsePage();
+    if (!formId || !page || this.isLoadingMore()) return;
+    this.isLoadingMore.set(true);
+    try {
+      const data = await firstValueFrom(this.formService.getResponses(formId, page));
+      const rows: FormResponseRow[] = (data.responses ?? []).map((r: any) => ({
+        id: r.id,
+        submitted_at: r.created_at,
+        answers: this.flattenAnswers(r.data ?? {}, this.questions()),
+        rawAnswers: r.data ?? {},
+      }));
+      this.responses.update((existing) => [...existing, ...rows]);
+      this.nextResponsePage.set(data.pagination && data.pagination.current_page < data.pagination.last_page
+        ? data.pagination.current_page + 1 : null);
+    } catch (error: any) {
+      this.errorMessage.set(error?.error?.message || 'No se pudo cargar la siguiente página de respuestas.');
+    } finally {
+      this.isLoadingMore.set(false);
     }
   }
 
@@ -160,7 +220,7 @@ export class FormResponsesViewModel {
 
   getCollectUrl(linkUuid?: string): string {
     if (!linkUuid) return '';
-    return `${environment.apiUrl}/forms/fetch/${linkUuid}`;
+    return `${window.location.origin}/collect/${linkUuid}`;
   }
 
   private flattenAnswers(

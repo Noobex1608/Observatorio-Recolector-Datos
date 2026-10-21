@@ -31,4 +31,3 @@ class ResponseSyncQueue extends Model
         'synced_at' => 'datetime',
     ];
 }
-

@@ -22,7 +22,7 @@ class HttpSupabaseFormSchemaWriter implements SupabaseFormSchemaWriter
     public function replaceSurveyQuestions(string $surveyId, array $questions): void
     {
         $table = (string) config('services.supabase.questions_table', 'questions');
-        $deleteEndpoint = $this->endpoint($table, '?survey_id=eq.' . rawurlencode($surveyId));
+        $deleteEndpoint = $this->endpoint($table, '?survey_id=eq.'.rawurlencode($surveyId));
 
         $deleteResponse = $this->request()->delete($deleteEndpoint);
         $this->throwUnlessSuccessful($deleteResponse->status(), $deleteResponse->json('message') ?? $deleteResponse->json('error'));
@@ -40,7 +40,7 @@ class HttpSupabaseFormSchemaWriter implements SupabaseFormSchemaWriter
     public function deleteSurvey(string $surveyId): void
     {
         $table = (string) config('services.supabase.surveys_table', 'surveys');
-        $endpoint = $this->endpoint($table, '?id=eq.' . rawurlencode($surveyId));
+        $endpoint = $this->endpoint($table, '?id=eq.'.rawurlencode($surveyId));
 
         $response = $this->request()->delete($endpoint);
         $this->throwUnlessSuccessful($response->status(), $response->json('message') ?? $response->json('error'));
@@ -60,7 +60,7 @@ class HttpSupabaseFormSchemaWriter implements SupabaseFormSchemaWriter
         return Http::timeout(12)
             ->withHeaders([
                 'apikey' => $serviceKey,
-                'Authorization' => 'Bearer ' . $serviceKey,
+                'Authorization' => 'Bearer '.$serviceKey,
                 'Content-Type' => 'application/json',
                 'Prefer' => 'resolution=merge-duplicates,return=minimal',
                 'Accept-Profile' => $schema,
@@ -81,7 +81,7 @@ class HttpSupabaseFormSchemaWriter implements SupabaseFormSchemaWriter
             return;
         }
 
-        throw new RuntimeException((string) ($message ?: 'Supabase respondio con estado ' . $status));
+        throw new RuntimeException((string) ($message ?: 'Supabase respondio con estado '.$status));
     }
 
     private function assertValidServiceRoleKey(string $serviceKey): void

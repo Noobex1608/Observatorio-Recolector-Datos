@@ -13,6 +13,10 @@
   box-sizing: border-box;
 }
 
+.kobo-container.login-route {
+  box-shadow: none;
+}
+
 /* Línea de acento superior */
 .kobo-accent {
   height: 4px;
@@ -209,6 +213,22 @@
   padding: 12px;
 }
 
+.login-route .main-content {
+  padding: 0;
+}
+
+.home-route .main-content {
+  padding: 0;
+}
+
+.login-route .kobo-accent {
+  display: none;
+}
+
+.home-route .kobo-accent {
+  display: none;
+}
+
 /* Ajustes responsivos para pantallas pequeñas */
 @media (max-width: 440px) {
   .kobo-container {
@@ -224,6 +244,14 @@
 
   .main-content {
     padding: 10px;
+  }
+
+  .login-route .main-content {
+    padding: 0;
+  }
+
+  .home-route .main-content {
+    padding: 0;
   }
 }
 

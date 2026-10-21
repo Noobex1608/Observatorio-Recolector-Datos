@@ -26,7 +26,7 @@ class HttpSupabaseResponseWriter implements SupabaseResponseWriter
         $response = Http::timeout(10)
             ->withHeaders([
                 'apikey' => $serviceKey,
-                'Authorization' => 'Bearer ' . $serviceKey,
+                'Authorization' => 'Bearer '.$serviceKey,
                 'Content-Type' => 'application/json',
                 'Prefer' => 'resolution=merge-duplicates,return=minimal',
                 'Accept-Profile' => $schema,
@@ -34,10 +34,10 @@ class HttpSupabaseResponseWriter implements SupabaseResponseWriter
             ])
             ->post($endpoint, [$record]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             $message = $response->json('message')
                 ?? $response->json('error')
-                ?? ('Supabase respondio con estado ' . $response->status());
+                ?? ('Supabase respondio con estado '.$response->status());
 
             throw new RuntimeException((string) $message);
         }

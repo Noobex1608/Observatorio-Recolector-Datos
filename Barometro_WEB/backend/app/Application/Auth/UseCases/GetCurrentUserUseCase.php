@@ -12,7 +12,7 @@ class GetCurrentUserUseCase
     {
         // Cargar relaciones necesarias
         $user->load('perfil');
-        
+
         return $user;
     }
 }

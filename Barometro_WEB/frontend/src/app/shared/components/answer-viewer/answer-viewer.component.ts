@@ -1,8 +1,9 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { FormQuestion } from '@core/services/form.service';
+import { FormQuestion, FormService } from '@core/services/form.service';
 
 interface GpsCoords {
   lat: number;
@@ -159,7 +160,12 @@ export interface GeofenceResult {
         }
 
         @case ('MULTIMEDIA') {
-          @if (isVideoMedia) {
+          @if (isPrivateMedia && !mediaUrl) {
+            <button type="button" mat-stroked-button (click)="loadPrivateMedia()" [disabled]="loadingPrivateMedia()">
+              {{ loadingPrivateMedia() ? 'Cargando medio...' : 'Ver medio privado' }}
+            </button>
+            @if (privateMediaError()) { <span role="alert">{{ privateMediaError() }}</span> }
+          } @else if (isVideoMedia) {
             <div class="video-player-wrapper">
               <video #videoPlayer controls [src]="mediaUrl" class="native-video-player"></video>
 
@@ -277,7 +283,12 @@ export interface GeofenceResult {
         }
 
         @case ('SIGNATURE') {
-          @if (signatureUrl) {
+          @if (isPrivateMedia && !signatureUrl) {
+            <button type="button" mat-stroked-button (click)="loadPrivateMedia()" [disabled]="loadingPrivateMedia()">
+              {{ loadingPrivateMedia() ? 'Cargando firma...' : 'Ver firma privada' }}
+            </button>
+            @if (privateMediaError()) { <span role="alert">{{ privateMediaError() }}</span> }
+          } @else if (signatureUrl) {
             <div class="signature-container">
               <div class="signature-thumbnail-box" (click)="openImageModal(signatureUrl)">
                 <img [src]="signatureUrl" alt="Firma digital" class="signature-img" />
@@ -1142,13 +1153,50 @@ export interface GeofenceResult {
   `],
 })
 export class AnswerViewerComponent {
+  private readonly formService = inject(FormService);
+
   @Input({ required: true }) question!: FormQuestion;
-  @Input() value: any;
+  @Input() formId: string | null = null;
+  @Input() responseId: string | null = null;
+  private currentValue: any;
+  @Input() set value(value: any) {
+    if (value !== this.currentValue) {
+      this.privateMediaUrl.set(null);
+      this.privateMediaError.set('');
+    }
+    this.currentValue = value;
+  }
+  get value(): any { return this.currentValue; }
   @Input() formattedValue: string = '';
   @Input() compact: boolean = false;
 
   copied = signal(false);
   activeModalUrl = signal<string | null>(null);
+  privateMediaUrl = signal<string | null>(null);
+  loadingPrivateMedia = signal(false);
+  privateMediaError = signal('');
+
+  get isPrivateMedia(): boolean {
+    return !!this.value && typeof this.value === 'object'
+      && typeof this.value.path === 'string' && !!this.value.storage_driver
+      && !this.value.url && !this.value.dataUrl;
+  }
+
+  async loadPrivateMedia(): Promise<void> {
+    if (!this.formId || !this.responseId || !this.question?.id || this.loadingPrivateMedia()) return;
+    this.loadingPrivateMedia.set(true);
+    this.privateMediaError.set('');
+    try {
+      const result = await firstValueFrom(this.formService.getResponseMediaUrl(
+        this.formId, this.responseId, this.question.id,
+      ));
+      this.privateMediaUrl.set(result.url);
+    } catch {
+      this.privateMediaError.set('No se pudo abrir el medio privado. Inténtalo de nuevo.');
+    } finally {
+      this.loadingPrivateMedia.set(false);
+    }
+  }
 
   get questionType(): FormQuestion['type'] {
     return this.question?.type || 'TEXT';
@@ -1283,6 +1331,7 @@ export class AnswerViewerComponent {
   }
 
   get mediaUrl(): string {
+    if (this.privateMediaUrl()) return this.privateMediaUrl()!;
     if (!this.value) return this.formattedValue || '';
     if (typeof this.value === 'string') return this.value;
     if (typeof this.value === 'object' && this.value !== null) {
@@ -1512,6 +1561,7 @@ export class AnswerViewerComponent {
   }
 
   get signatureUrl(): string {
+    if (this.privateMediaUrl()) return this.privateMediaUrl()!;
     if (!this.value) return this.formattedValue || '';
     if (typeof this.value === 'string') return this.value;
     if (typeof this.value === 'object' && this.value !== null) {

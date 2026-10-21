@@ -17,7 +17,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'rol' => $this->rol ?? 'RECOLECTOR',
             'is_active' => $this->is_active ?? true,
-            'perfil' => $this->whenLoaded('perfil', fn() => $this->perfil ? [
+            'perfil' => $this->whenLoaded('perfil', fn () => $this->perfil ? [
                 'id' => $this->perfil->id,
                 'telefono' => $this->perfil->telefono,
                 'cargo' => $this->perfil->cargo,

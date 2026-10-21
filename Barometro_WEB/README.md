@@ -86,7 +86,7 @@ Si prefieres ejecutar directamente el frontend sin los scripts:
 
 ```bash
 cd Barometro_WEB/frontend
-bun install
+bun install --frozen-lockfile
 bun run start
 ```
 
@@ -209,3 +209,13 @@ En PowerShell:
 - Si recibes errores de permisos en Bash/zsh, asegúrate de ejecutar `chmod +x scripts/*.sh`.
 - Si el puerto `4200` está ocupado, detén el proceso que lo utiliza o cambia el puerto en `frontend/angular.json`.
 - Si el backend no conecta a la base de datos, comprueba que `docker compose` haya levantado PostgreSQL y que `backend/.env` esté presente.
+
+## 11. Flujo de encuestas y trabajo de campo
+
+Cada encuesta comienza con un formulario en estado **borrador**. En el proyecto se selecciona ese formulario y se completa su ficha técnica. Un delegado o líder puede cargar la información; solo un líder asignado al proyecto puede validarla. La validación habilita el editor de preguntas. Al guardar, la ficha y el formulario quedan en modo de lectura hasta pulsar **Editar**.
+
+El consentimiento informado es obligatorio en el editor y al responder. El líder delimita una o más zonas para el formulario seleccionado; sin al menos una zona y una pregunta no se puede publicar. La publicación es una acción explícita del líder y genera el enlace público que también se ofrece como código QR. La asignación aleatoria de encuestadores exige zonas delimitadas y muestra una vista previa antes de confirmarse.
+
+Los supervisores asignados al proyecto pueden consultar el mapa de zonas y la última posición reportada por cada encuestador. En la PWA, el encuestador inicia y termina su jornada de seguimiento de forma explícita; mientras la PWA está visible intenta enviar la ubicación cada 30 segundos y conserva temporalmente los reportes sin conexión. Los reportes de ubicación se eliminan pasados 30 días mediante el programador de Laravel. El seguimiento en segundo plano depende de las restricciones del navegador y del sistema operativo.
+
+La importación de encuestadores desde Excel queda pendiente de la plantilla de columnas que proporcionará el equipo. Hasta entonces se mantiene el alta individual y la asignación a zonas; no se presupone un formato ni se crean cuentas con datos ambiguos.

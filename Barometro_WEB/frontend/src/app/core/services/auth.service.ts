@@ -26,12 +26,13 @@ export class AuthService {
   readonly isAdmin = computed(() => ['SUPER_ADMIN', 'ADMIN'].includes(this.userSignal()?.rol ?? ''));
   readonly isProjectLeader = computed(() => this.userSignal()?.rol === 'PROJECT');
   readonly isRecolector = computed(() => this.userSignal()?.rol === 'RECOLECTOR');
+  readonly isSupervisor = computed(() => this.userSignal()?.rol === 'SUPERVISOR');
   readonly userRole = computed(() => this.userSignal()?.rol ?? null);
 
-  login(data: LoginRequest): Observable<AuthResponse> {
+  login(data: LoginRequest, rememberMe = false): Observable<AuthResponse> {
     this.loadingSignal.set(true);
     return this.api.post<AuthResponse>('/login', data).pipe(
-      tap((response) => this.handleAuthSuccess(response)),
+      tap((response) => this.handleAuthSuccess(response, rememberMe)),
       finalize(() => this.loadingSignal.set(false))
     );
   }
@@ -93,13 +94,15 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
     }
   }
 
-  private handleAuthSuccess(response: AuthResponse): void {
+  private handleAuthSuccess(response: AuthResponse, rememberMe: boolean): void {
     this.tokenSignal.set(response.token);
     this.userSignal.set(response.user);
-    this.storeToken(response.token);
+    this.storeToken(response.token, rememberMe);
     this.storeUser(response.user);
   }
 
@@ -110,24 +113,30 @@ export class AuthService {
 
   private getStoredToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
+    return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
   }
 
   private getStoredUser(): User | null {
     if (typeof window === 'undefined') return null;
-    const user = localStorage.getItem(USER_KEY);
+    const storage = sessionStorage.getItem(TOKEN_KEY) ? sessionStorage : localStorage;
+    const user = storage.getItem(USER_KEY);
     return user ? JSON.parse(user) : null;
   }
 
-  private storeToken(token: string): void {
+  private storeToken(token: string, rememberMe: boolean): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+      (rememberMe ? localStorage : sessionStorage).setItem(TOKEN_KEY, token);
     }
   }
 
   private storeUser(user: User): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      const storage = sessionStorage.getItem(TOKEN_KEY) ? sessionStorage : localStorage;
+      storage.setItem(USER_KEY, JSON.stringify(user));
     }
   }
 }

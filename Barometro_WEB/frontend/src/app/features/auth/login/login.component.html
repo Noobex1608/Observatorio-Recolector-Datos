@@ -1,75 +1,101 @@
-<div class="auth-container">
-  <mat-card class="auth-card">
-    <mat-card-header class="justify-center mb-6">
-      <div class="text-center w-full">
-        <img src="ULEAM.png" alt="ULEAM" class="auth-logo" width="80" height="80" />
-        <mat-card-title class="auth-title">{{ 'auth.login.title' | translate }}</mat-card-title>
-        <mat-card-subtitle>{{ 'auth.login.subtitle' | translate }}</mat-card-subtitle>
-      </div>
-    </mat-card-header>
+<main class="login-page">
+  <section class="visual-panel" aria-label="Universidad Laica Eloy Alfaro de Manabí">
+    <img class="campus-image" src="/fondo_banner.png" alt="Campus de la Universidad Laica Eloy Alfaro de Manabí" />
+    <div class="visual-shade" aria-hidden="true"></div>
+    <div class="visual-caption">
+      <span class="caption-rule" aria-hidden="true"></span>
+      <p class="caption-kicker">ULEAM · DATAFIELD</p>
+      <h2>{{ 'auth.login.visualTitle' | translate }}</h2>
+      <p>{{ 'auth.login.visualSubtitle' | translate }}</p>
+    </div>
+  </section>
 
-    <mat-card-content>
+  <section class="form-panel" aria-labelledby="login-heading">
+    <div class="form-shell">
+      <div class="brand">
+        <img src="/ULEAM.png" alt="" width="58" height="58" />
+        <div>
+          <strong>ULEAM DataField</strong>
+          <span>{{ 'auth.login.brandSubtitle' | translate }}</span>
+        </div>
+      </div>
+
+      <div class="heading-block">
+        <p class="eyebrow">{{ 'auth.login.eyebrow' | translate }}</p>
+        <h1 id="login-heading">{{ 'auth.login.title' | translate }}</h1>
+        <p class="intro">{{ 'auth.login.subtitle' | translate }}</p>
+        <p class="invite-note">{{ 'auth.login.inviteOnly' | translate }}</p>
+      </div>
+
       @if (error()) {
-        <div class="alert alert-error">
-          <mat-icon>error_outline</mat-icon>
+        <div class="form-alert" role="alert" id="login-error">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+          </svg>
           <span>{{ error() }}</span>
         </div>
       }
 
-      <form [formGroup]="form" (ngSubmit)="onSubmit()">
-        <mat-form-field class="w-full" appearance="outline">
-          <mat-label>{{ 'auth.login.email' | translate }}</mat-label>
-          <input matInput type="email" formControlName="email" [placeholder]="'auth.login.emailPlaceholder' | translate" />
-          <mat-icon matSuffix>email</mat-icon>
-          @if (form.get('email')?.hasError('required') && form.get('email')?.touched) {
-            <mat-error>{{ 'common.validation.required' | translate }}</mat-error>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="field">
+          <label for="login-email">{{ 'auth.login.email' | translate }}</label>
+          <input id="login-email" type="email" formControlName="email" [placeholder]="'auth.login.emailPlaceholder' | translate"
+            autocomplete="username" inputmode="email" required
+            [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            [attr.aria-describedby]="form.controls.email.invalid && form.controls.email.touched ? 'email-error' : null" />
+          @if (form.controls.email.invalid && form.controls.email.touched) {
+            <span class="field-error" id="email-error">
+              {{ (form.controls.email.hasError('required') ? 'common.validation.required' : 'common.validation.email') | translate }}
+            </span>
           }
-          @if (form.get('email')?.hasError('email')) {
-            <mat-error>{{ 'common.validation.email' | translate }}</mat-error>
-          }
-        </mat-form-field>
+        </div>
 
-        <mat-form-field class="w-full" appearance="outline">
-          <mat-label>{{ 'auth.login.password' | translate }}</mat-label>
-          <input
-            matInput
-            [type]="hidePassword() ? 'password' : 'text'"
-            formControlName="password"
-          />
-          <button
-            mat-icon-button
-            matSuffix
-            type="button"
-            (click)="hidePassword.set(!hidePassword())"
-          >
-            <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
-          </button>
-          @if (form.get('password')?.hasError('required') && form.get('password')?.touched) {
-            <mat-error>{{ 'common.validation.required' | translate }}</mat-error>
+        <div class="field">
+          <label for="login-password">{{ 'auth.login.password' | translate }}</label>
+          <div class="password-wrap">
+            <input id="login-password" [type]="hidePassword() ? 'password' : 'text'" formControlName="password"
+              [placeholder]="'auth.login.passwordPlaceholder' | translate" autocomplete="current-password" required
+              [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
+              [attr.aria-describedby]="form.controls.password.invalid && form.controls.password.touched ? 'password-error' : null" />
+            <button class="password-toggle" type="button" (click)="hidePassword.set(!hidePassword())"
+              [attr.aria-label]="(hidePassword() ? 'auth.login.showPassword' : 'auth.login.hidePassword') | translate"
+              [attr.aria-pressed]="!hidePassword()">
+              @if (hidePassword()) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 3l18 18M10.6 5.2A11.2 11.2 0 0 1 12 5c6.5 0 10 7 10 7a15.4 15.4 0 0 1-3.3 4.1M6.1 6.1C3.4 8 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.1-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+                </svg>
+              }
+            </button>
+          </div>
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <span class="field-error" id="password-error">{{ 'common.validation.required' | translate }}</span>
           }
-        </mat-form-field>
+        </div>
 
-        <button
-          mat-raised-button
-          color="primary"
-          type="submit"
-          class="w-full mt-4"
-          [disabled]="form.invalid || loading()"
-        >
+        <div class="form-options">
+          <label class="remember-control">
+            <input type="checkbox" formControlName="rememberMe" />
+            <span>{{ 'auth.login.rememberMe' | translate }}</span>
+          </label>
+          <span class="help-text">{{ 'auth.login.credentialHelp' | translate }}</span>
+        </div>
+
+        <button class="submit-button" type="submit" [disabled]="loading()">
           @if (loading()) {
-            <mat-spinner diameter="20" class="inline-block mr-2"></mat-spinner>
+            <mat-spinner diameter="18" aria-hidden="true"></mat-spinner>
             {{ 'auth.login.submitting' | translate }}
           } @else {
             {{ 'auth.login.submit' | translate }}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
           }
         </button>
       </form>
-    </mat-card-content>
 
-    <mat-card-actions class="justify-center">
-      <p class="auth-footer-text">
-        {{ 'auth.login.inviteOnly' | translate }}
-      </p>
-    </mat-card-actions>
-  </mat-card>
-</div>
+      <p class="form-footer">{{ 'auth.login.footer' | translate }}</p>
+    </div>
+  </section>
+</main>

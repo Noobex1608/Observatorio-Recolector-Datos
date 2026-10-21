@@ -77,10 +77,11 @@ export class FormBuilderViewModel {
   isSaving = signal(false);
   errorMessage = signal('');
   successMessage = signal('');
+  editingUnlocked = signal(true);
 
   isEditMode = computed(() => Boolean(this.formId()));
   questionsCount = computed(() => this.questions().length);
-  canEditQuestions = computed(() => this.state() !== 'DEPLOYED');
+  canEditQuestions = computed(() => this.state() !== 'DEPLOYED' && this.editingUnlocked());
   isFormValid = computed(() => {
     const hasTitle = this.title().trim().length > 0;
     const hasProject = Boolean(this.projectId());
@@ -106,7 +107,8 @@ export class FormBuilderViewModel {
       return hasLabel && (!needsOptions || filledOptions.length > 0) && branchingIsValid;
     });
 
-    return hasTitle && hasProject && hasQuestions && allQuestionsValid && this.canEditQuestions();
+    return hasTitle && hasProject && hasQuestions && allQuestionsValid
+      && this.consentText().trim().length >= 10 && this.canEditQuestions();
   });
 
   async loadForm(id: string): Promise<void> {
@@ -136,6 +138,7 @@ export class FormBuilderViewModel {
       );
       this.questions.set(hydratedQuestions);
       this.sections.set(this.buildSectionsFromQuestions(hydratedQuestions));
+      this.editingUnlocked.set(form.state !== 'DEPLOYED' && hydratedQuestions.length === 0);
     } catch (error: any) {
       this.errorMessage.set(error?.error?.message || this.translate.instant('forms.builder.errors.load'));
     } finally {
@@ -624,7 +627,7 @@ export class FormBuilderViewModel {
               title: this.title().trim(),
               description: this.description().trim(),
               step_by_step: resolvedStepByStep,
-              require_consent: this.requireConsent(),
+              require_consent: true,
               consent_text: this.consentText().trim() || null,
               start_date: this.startDate() || null,
               end_date: this.endDate() || null,
@@ -636,7 +639,7 @@ export class FormBuilderViewModel {
               description: this.description().trim(),
               project_id: this.projectId(),
               step_by_step: resolvedStepByStep,
-              require_consent: this.requireConsent(),
+              require_consent: true,
               consent_text: this.consentText().trim() || null,
               start_date: this.startDate() || null,
               end_date: this.endDate() || null,
@@ -705,6 +708,7 @@ export class FormBuilderViewModel {
 
       this.deletedQuestionIds.set([]);
       this.successMessage.set(this.translate.instant('forms.builder.messages.saved'));
+      this.editingUnlocked.set(false);
     } catch (error: any) {
       this.errorMessage.set(error?.error?.message || this.translate.instant('forms.builder.errors.save'));
     } finally {

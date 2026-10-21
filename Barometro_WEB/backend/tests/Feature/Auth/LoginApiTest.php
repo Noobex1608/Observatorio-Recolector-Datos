@@ -28,11 +28,8 @@ class LoginApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'success',
-                'data' => [
-                    'token',
-                    'user' => ['id', 'email', 'name', 'rol'],
-                ],
+                'token',
+                'user' => ['id', 'email', 'name', 'rol'],
             ]);
     }
 

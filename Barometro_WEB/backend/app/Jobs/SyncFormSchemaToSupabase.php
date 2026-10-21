@@ -18,28 +18,26 @@ class SyncFormSchemaToSupabase implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public string $formId, public string $action = 'upsert')
-    {
-    }
+    public function __construct(public string $formId, public string $action = 'upsert') {}
 
     public function handle(SupabaseFormSchemaWriter $writer, FormSchemaPayloadFactory $payloadFactory): void
     {
         try {
             if ($this->action === 'delete') {
                 $writer->deleteSurvey($this->formId);
+
                 return;
             }
 
-            $form = Form::with(['questions' => fn($q) => $q->orderBy('order')])->find($this->formId);
-            if (!$form) {
+            $form = Form::with(['questions' => fn ($q) => $q->orderBy('order')])->find($this->formId);
+            if (! $form) {
                 return;
             }
 
             $writer->upsertSurvey($payloadFactory->surveyFromForm($form));
             $writer->replaceSurveyQuestions($form->id, $payloadFactory->questionsFromForm($form));
         } catch (Throwable $e) {
-            Log::warning("Sincronización opcional con Supabase no completada para el formulario {$this->formId}: " . $e->getMessage());
+            Log::warning("Sincronización opcional con Supabase no completada para el formulario {$this->formId}: ".$e->getMessage());
         }
     }
 }
-

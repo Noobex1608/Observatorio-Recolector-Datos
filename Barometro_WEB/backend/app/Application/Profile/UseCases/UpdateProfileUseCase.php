@@ -19,18 +19,18 @@ class UpdateProfileUseCase
 
         // Actualizar o crear perfil
         $perfilData = [];
-        
-        if ($dto->telefono !== null) {
+
+        if ($dto->telefonoProvided) {
             $perfilData['telefono'] = $dto->telefono;
         }
-        if ($dto->cargo !== null) {
+        if ($dto->cargoProvided) {
             $perfilData['cargo'] = $dto->cargo;
         }
-        if ($dto->bio !== null) {
+        if ($dto->bioProvided) {
             $perfilData['bio'] = $dto->bio;
         }
 
-        if (!empty($perfilData)) {
+        if (! empty($perfilData)) {
             if ($user->perfil) {
                 $user->perfil->update($perfilData);
             } else {

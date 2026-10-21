@@ -55,7 +55,7 @@ describe('FormBuilderViewModel sections', () => {
     const firstTempId = vm.questions()[0].tempId;
     const secondTempId = vm.questions()[1].tempId;
 
-    vm.reorderQuestion(secondTempId, firstTempId);
+    vm.reorderQuestion(secondTempId, firstTempId, 'before');
 
     expect(vm.questions()[0].tempId).toBe(secondTempId);
     expect(vm.questions()[1].tempId).toBe(firstTempId);

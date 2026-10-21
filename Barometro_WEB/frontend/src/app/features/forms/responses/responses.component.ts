@@ -7,11 +7,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormQuestion } from '@core/services/form.service';
-import { BarChartComponent } from '@presentation/components/charts/bar-chart.component';
 import { PieChartComponent } from '@presentation/components/charts/pie-chart.component';
+import { GpsResultsMapComponent } from './gps-results-map.component';
 import { FormResponseRow, FormResponsesViewModel } from '@presentation/viewmodels/form-responses.viewmodel';
 import { AnswerViewerComponent } from '@shared/components/answer-viewer/answer-viewer.component';
 import { TranslateModule } from '@ngx-translate/core';
+import { qrDataUrl } from '@core/utils/qr-code';
 
 @Component({
   selector: 'app-form-responses',
@@ -23,8 +24,8 @@ import { TranslateModule } from '@ngx-translate/core';
     MatIconModule,
     MatProgressSpinnerModule,
     MatTableModule,
-    BarChartComponent,
     PieChartComponent,
+    GpsResultsMapComponent,
     AnswerViewerComponent,
     TranslateModule,
   ],
@@ -39,6 +40,23 @@ export class ResponsesComponent implements OnInit, OnDestroy {
 
   displayedColumns: string[] = [];
   selectedResponse: FormResponseRow | null = null;
+  qrImage: string | null = null;
+  collectUrl = '';
+
+  showQr(): void {
+    const link = this.vm.form()?.link_uuid;
+    if (!link) return;
+    this.collectUrl = this.vm.getCollectUrl(link);
+    this.qrImage = qrDataUrl(this.collectUrl);
+  }
+
+  downloadQr(): void {
+    if (!this.qrImage) return;
+    const anchor = document.createElement('a');
+    anchor.href = this.qrImage;
+    anchor.download = `qr-encuesta-${this.vm.formId()}.png`;
+    anchor.click();
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

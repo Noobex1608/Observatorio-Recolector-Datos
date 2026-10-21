@@ -30,9 +30,8 @@ class SyncPendingResponses extends Command
             SyncFormResponseToSupabase::dispatch($item->id);
         }
 
-        $this->info('Despachadas ' . $pending->count() . ' respuesta(s).');
+        $this->info('Despachadas '.$pending->count().' respuesta(s).');
 
         return self::SUCCESS;
     }
 }
-

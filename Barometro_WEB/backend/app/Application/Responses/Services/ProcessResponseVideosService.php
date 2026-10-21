@@ -5,22 +5,21 @@ namespace App\Application\Responses\Services;
 use App\Application\Responses\Contracts\VideoStorageAdapter;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Throwable;
 
 class ProcessResponseVideosService
 {
-    public function __construct(private readonly VideoStorageAdapter $videoStorage)
-    {
-    }
+    public function __construct(private readonly VideoStorageAdapter $videoStorage) {}
 
     /**
      * Procesa las respuestas de un formulario detectando videos en Base64,
      * subiéndolos mediante el adaptador de almacenamiento configurado
      * y reemplazando el Base64 pesado por la URL pública.
      *
-     * @param array $answers Diccionario de respuestas [question_id => answer_value]
-     * @param string $formId ID del formulario
-     * @param int|null $responseId ID de la respuesta si ya existe
+     * @param  array  $answers  Diccionario de respuestas [question_id => answer_value]
+     * @param  string  $formId  ID del formulario
+     * @param  int|null  $responseId  ID de la respuesta si ya existe
      * @return array Diccionario de respuestas optimizado con URLs de video
      */
     public function process(array $answers, string $formId, ?int $responseId = null): array
@@ -38,7 +37,7 @@ class ProcessResponseVideosService
 
     private function isVideoPayload(mixed $value): bool
     {
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             return false;
         }
 
@@ -61,12 +60,11 @@ class ProcessResponseVideosService
         $fileName = $payload['fileName'] ?? null;
         $extension = $this->determineExtension($dataUrl, $fileName);
         $cleanFileName = $fileName
-            ? Str::slug(pathinfo($fileName, PATHINFO_FILENAME)) . '.' . $extension
+            ? Str::slug(pathinfo($fileName, PATHINFO_FILENAME)).'.'.$extension
             : "video_{$questionId}.{$extension}";
 
-        $timestamp = now()->timestamp;
         $slugQId = Str::slug((string) $questionId);
-        $path = "responses/{$formId}/{$timestamp}_{$slugQId}_{$cleanFileName}";
+        $path = "responses/{$formId}/{$slugQId}_".Str::uuid()."_{$cleanFileName}";
 
         try {
             $uploadedUrl = $this->videoStorage->uploadBase64($path, $dataUrl);
@@ -78,35 +76,32 @@ class ProcessResponseVideosService
 
             return $payload;
         } catch (Throwable $e) {
-            Log::error("[VideoStorage] Fallo al subir video para pregunta {$questionId}: " . $e->getMessage(), [
+            Log::error("[VideoStorage] Fallo al subir video para pregunta {$questionId}: ".$e->getMessage(), [
                 'form_id' => $formId,
                 'response_id' => $responseId,
                 'exception' => $e,
             ]);
 
-            // En caso de fallo en el servicio de almacenamiento, preservamos el payload original
-            // para no perder la información enviada por el usuario.
-            return $payload;
+            throw new ServiceUnavailableHttpException(null, 'No se pudo almacenar el video. Reintente el envío.', $e);
         }
     }
 
     private function handleRawBase64Video(string $dataUrl, string|int $questionId, string $formId, ?int $responseId): string
     {
         $extension = $this->determineExtension($dataUrl);
-        $timestamp = now()->timestamp;
         $slugQId = Str::slug((string) $questionId);
-        $path = "responses/{$formId}/{$timestamp}_{$slugQId}_video.{$extension}";
+        $path = "responses/{$formId}/{$slugQId}_".Str::uuid()."_video.{$extension}";
 
         try {
             return $this->videoStorage->uploadBase64($path, $dataUrl);
         } catch (Throwable $e) {
-            Log::error("[VideoStorage] Fallo al subir video crudo para pregunta {$questionId}: " . $e->getMessage(), [
+            Log::error("[VideoStorage] Fallo al subir video crudo para pregunta {$questionId}: ".$e->getMessage(), [
                 'form_id' => $formId,
                 'response_id' => $responseId,
                 'exception' => $e,
             ]);
 
-            return $dataUrl;
+            throw new ServiceUnavailableHttpException(null, 'No se pudo almacenar el video. Reintente el envío.', $e);
         }
     }
 
@@ -121,6 +116,7 @@ class ProcessResponseVideosService
 
         if (preg_match('/^data:video\/([a-zA-Z0-9\-_]+);/i', $dataUrl, $matches)) {
             $format = strtolower($matches[1]);
+
             return match ($format) {
                 'quicktime' => 'mov',
                 'x-msvideo' => 'avi',

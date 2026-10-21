@@ -36,7 +36,10 @@ export class BorradoresComponent implements OnInit {
   async eliminar(id: number | undefined) {
     if (id === undefined) return;
     if (!confirm('¿Eliminar este borrador?')) return;
-    await this.db.responses.delete(id);
+    await this.db.transaction('rw', this.db.responses, this.db.mediaBlobs, async () => {
+      await this.db.responses.delete(id);
+      await this.db.mediaBlobs.where('responseId').equals(id).delete();
+    });
     this.borradores = await this.db.responses
       .where('estado')
       .equals('borrador')

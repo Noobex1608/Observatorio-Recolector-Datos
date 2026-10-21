@@ -17,9 +17,9 @@ class BulkAssignZonesRequest extends FormRequest
     {
         return [
             'assignments' => 'required|array|min:1',
-            'assignments.*.zone_id' => 'required|uuid|exists:project_zones,id',
+            'assignments.*.zone_id' => 'required|uuid|distinct|exists:project_zones,id',
             'assignments.*.user_ids' => 'required|array',
-            'assignments.*.user_ids.*' => 'exists:users,id',
+            'assignments.*.user_ids.*' => 'required|integer|distinct|exists:users,id',
         ];
     }
 }

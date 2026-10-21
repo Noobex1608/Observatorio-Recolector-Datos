@@ -12,11 +12,11 @@ class FormFlowEngine
     /**
      * Determine questions in the active submission flow considering branch rules and skip logic.
      *
-     * @param Collection<int, FormQuestion> $questions
-     * @param array<string, mixed> $responseValues
+     * @param  Collection<int, FormQuestion>  $questions
+     * @param  array<string, mixed>  $responseValues
      * @return Collection<int, FormQuestion>
      */
-    public function calculateActiveQuestions(Collection $questions, array $responseValues): Collection
+    public function calculateActiveQuestions(Collection $questions, array $responseValues, bool $stepByStep = true): Collection
     {
         $questionsByOrder = $questions->sortBy('order')->values();
 
@@ -25,35 +25,52 @@ class FormFlowEngine
         }
 
         $activeQuestions = collect();
-        $jumpTargetQuestionId = null;
-
+        $positions = $questionsByOrder->pluck('id')->flip()->all();
+        $targets = [];
         foreach ($questionsByOrder as $question) {
-            if ($jumpTargetQuestionId !== null) {
-                if ($question->id === $jumpTargetQuestionId) {
-                    $jumpTargetQuestionId = null;
-                } else {
-                    // Skip question until target reached
+            foreach ($question->branch_rules ?? [] as $rule) {
+                if (($rule['action'] ?? (isset($rule['next_question_id']) ? 'GO_TO' : 'CONTINUE')) === 'GO_TO'
+                    && isset($rule['next_question_id'])) {
+                    $targets[$rule['next_question_id']] = true;
+                }
+            }
+        }
+
+        for ($index = 0; $index < $questionsByOrder->count();) {
+            $question = $questionsByOrder[$index];
+
+            if ($question->parent_question_id) {
+                $parent = $activeQuestions->firstWhere('id', $question->parent_question_id);
+                $parentAnswer = $parent ? ($responseValues[$parent->id] ?? null) : null;
+                if (! $parent || $parentAnswer === null || $parentAnswer === '' || $parentAnswer === []) {
+                    $index++;
+
                     continue;
                 }
             }
 
             $activeQuestions->push($question);
 
-            // Evaluate branch decision if an answer exists for this question
+            if (! $stepByStep) {
+                $index++;
+
+                continue;
+            }
+
             $answer = $responseValues[$question->id] ?? null;
+            $decision = $answer !== null ? $this->evaluateBranchRule($question, $answer) : null;
+            if (($decision['action'] ?? null) === 'END_FORM') {
+                break;
+            }
+            $target = $decision['next_question_id'] ?? null;
+            if (($decision['action'] ?? null) === 'GO_TO' && isset($positions[$target]) && $positions[$target] > $index) {
+                $index = $positions[$target];
 
-            if ($answer !== null && !empty($question->branch_rules)) {
-                $decision = $this->evaluateBranchRule($question, $answer);
-
-                if ($decision !== null) {
-                    if ($decision['action'] === 'END_FORM') {
-                        break;
-                    }
-
-                    if ($decision['action'] === 'GO_TO' && !empty($decision['next_question_id'])) {
-                        $jumpTargetQuestionId = $decision['next_question_id'];
-                    }
-                }
+                continue;
+            }
+            $index++;
+            while ($index < $questionsByOrder->count() && isset($targets[$questionsByOrder[$index]->id])) {
+                $index++;
             }
         }
 
@@ -63,13 +80,11 @@ class FormFlowEngine
     /**
      * Evaluate branch rules for a single question based on given answer.
      *
-     * @param FormQuestion $question
-     * @param mixed $answer
      * @return array{action: string, next_question_id?: string|null}|null
      */
     public function evaluateBranchRule(FormQuestion $question, mixed $answer): ?array
     {
-        if (empty($question->branch_rules) || !is_array($question->branch_rules)) {
+        if (empty($question->branch_rules) || ! is_array($question->branch_rules)) {
             return null;
         }
 
@@ -77,7 +92,7 @@ class FormFlowEngine
 
         foreach ($question->branch_rules as $rule) {
             $optionIndex = $rule['option_index'] ?? null;
-            $action = $rule['action'] ?? 'CONTINUE';
+            $action = $rule['action'] ?? (isset($rule['next_question_id']) ? 'GO_TO' : 'CONTINUE');
             $nextQuestionId = $rule['next_question_id'] ?? null;
 
             if ($optionIndex === null) {
@@ -97,10 +112,10 @@ class FormFlowEngine
         return null;
     }
 
-    private function answerMatchesOption(mixed $answer, string $optionValue, int $optionIndex): bool
+    private function answerMatchesOption(mixed $answer, mixed $optionValue, int $optionIndex): bool
     {
         if (is_string($answer) || is_numeric($answer)) {
-            return (string) $answer === $optionValue || (string) $answer === (string) $optionIndex;
+            return (string) $answer === (string) $optionValue || (string) $answer === (string) $optionIndex;
         }
 
         if (is_array($answer)) {

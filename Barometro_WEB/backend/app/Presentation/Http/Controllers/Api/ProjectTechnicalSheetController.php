@@ -19,7 +19,7 @@ class ProjectTechnicalSheetController extends Controller
         $project = Project::findOrFail($projectId);
         $user = $request->user();
 
-        if (!$this->canViewProject($project, $user)) {
+        if (! $this->canViewProject($project, $user)) {
             return response()->json(['message' => 'No tienes permisos para ver la ficha técnica de este proyecto'], 403);
         }
 
@@ -27,7 +27,7 @@ class ProjectTechnicalSheetController extends Controller
             ->where('project_id', $project->id)
             ->first();
 
-        if (!$sheet) {
+        if (! $sheet) {
             return response()->json([
                 'id' => null,
                 'project_id' => $project->id,
@@ -53,7 +53,7 @@ class ProjectTechnicalSheetController extends Controller
         $project = Project::findOrFail($projectId);
         $user = $request->user();
 
-        if (!$this->canManageProject($project, $user)) {
+        if (! $this->canManageProject($project, $user)) {
             return response()->json(['message' => 'No tienes permisos para gestionar la ficha técnica de este proyecto'], 403);
         }
 
@@ -81,7 +81,7 @@ class ProjectTechnicalSheetController extends Controller
         $project = Project::findOrFail($projectId);
         $user = $request->user();
 
-        if (!$this->canManageProject($project, $user)) {
+        if (! $this->canManageProject($project, $user)) {
             return response()->json(['message' => 'No tienes permisos para validar la ficha técnica de este proyecto'], 403);
         }
 
@@ -117,8 +117,8 @@ class ProjectTechnicalSheetController extends Controller
     {
         return $user->canManageProjects()
             || $user->leadsProject($project->id)
-            || $project->forms()->whereHas('shares', fn($s) => $s->where('user_id', $user->id))->exists()
-            || $project->zones()->whereHas('assignedUsers', fn($u) => $u->where('users.id', $user->id))->exists();
+            || $project->forms()->whereHas('shares', fn ($s) => $s->where('user_id', $user->id))->exists()
+            || $project->zones()->whereHas('assignedUsers', fn ($u) => $u->where('users.id', $user->id))->exists();
     }
 
     private function canManageProject(Project $project, $user): bool

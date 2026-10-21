@@ -45,7 +45,7 @@ class VideoStorageAdapterTest extends TestCase
         Storage::fake('public');
 
         $adapter = new LocalVideoStorageAdapter('public', 'videos');
-        $sampleBase64 = 'data:video/mp4;base64,' . base64_encode('fake-video-content-123');
+        $sampleBase64 = 'data:video/mp4;base64,'.base64_encode('fake-video-content-123');
 
         $url = $adapter->uploadBase64('test/sample.mp4', $sampleBase64);
 
@@ -66,7 +66,7 @@ class VideoStorageAdapterTest extends TestCase
             'q_video' => [
                 'type' => 'multimedia',
                 'mediaType' => 'VIDEO',
-                'dataUrl' => 'data:video/mp4;base64,' . base64_encode('sample-video-bytes'),
+                'dataUrl' => 'data:video/mp4;base64,'.base64_encode('sample-video-bytes'),
                 'fileName' => 'entrevista.mp4',
             ],
         ];

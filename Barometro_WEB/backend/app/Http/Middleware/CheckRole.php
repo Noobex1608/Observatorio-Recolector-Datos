@@ -28,7 +28,7 @@ class CheckRole
             'path' => $request->path(),
         ]);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'message' => 'No autenticado.',
             ], 401);
@@ -40,7 +40,7 @@ class CheckRole
         }
 
         // Verificar si el usuario tiene alguno de los roles permitidos
-        if (!in_array($user->rol, $roles)) {
+        if (! in_array($user->rol, $roles)) {
             return response()->json([
                 'message' => 'No tienes permisos para acceder a este recurso.',
                 'required_roles' => $roles,

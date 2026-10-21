@@ -4,6 +4,7 @@ import { lastValueFrom } from 'rxjs';
 import { QuestionType } from './db.service';
 
 const TOKEN_KEY = 'kobo_token';
+const SERVER_KEY = 'kobo_server_url';
 
 export interface LoginResponse {
   token: string;
@@ -61,6 +62,8 @@ export interface BackendQuestion {
   hint?: string;
   calculation_expression?: string;
   media_type?: 'IMAGE' | 'AUDIO' | 'VIDEO';
+  section_name?: string | null;
+  parent_question_id?: string | null;
 }
 
 export interface SubmitResponse {
@@ -72,14 +75,23 @@ export class ApiService {
   private http = inject(HttpClient);
 
   private buildUrl(servidor: string, path: string): string {
-    const base = servidor.replace(/\/+$/, '');
+    const parsed = new URL(servidor);
+    const localDevelopment = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (parsed.protocol !== 'https:' && !(localDevelopment && parsed.protocol === 'http:')) {
+      throw new Error('El servidor debe usar HTTPS. HTTP solo se admite en desarrollo local.');
+    }
+    const base = parsed.toString().replace(/\/+$/, '');
     return `${base}/api/${path.replace(/^\//, '')}`;
   }
 
-  private getAuthHeaders(): Record<string, string> {
+  private getAuthHeaders(servidor: string): Record<string, string> {
     const token = localStorage.getItem(TOKEN_KEY);
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (token) {
+      const authenticatedServer = localStorage.getItem(SERVER_KEY);
+      if (!authenticatedServer || new URL(authenticatedServer).toString().replace(/\/+$/, '') !== new URL(servidor).toString().replace(/\/+$/, '')) {
+        throw new Error('La sesión pertenece a otro servidor. Vuelve a iniciar sesión.');
+      }
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
@@ -97,14 +109,14 @@ export class ApiService {
   fetchForms(servidor: string): Promise<BackendForm[]> {
     const url = this.buildUrl(servidor, 'mobile/forms');
     return lastValueFrom(
-      this.http.get<BackendForm[]>(url, { headers: this.getAuthHeaders() })
+      this.http.get<BackendForm[]>(url, { headers: this.getAuthHeaders(servidor) })
     );
   }
 
   fetchFormById(servidor: string, formId: string): Promise<BackendForm> {
     const url = this.buildUrl(servidor, `forms/${formId}`);
     return lastValueFrom(
-      this.http.get<BackendForm>(url, { headers: this.getAuthHeaders() })
+      this.http.get<BackendForm>(url, { headers: this.getAuthHeaders(servidor) })
     );
   }
 
@@ -112,22 +124,37 @@ export class ApiService {
     const url = this.buildUrl(servidor, `forms/submit/${linkUuid}`);
     return lastValueFrom(
       this.http.post<SubmitResponse>(url, { data }, {
-        headers: this.getAuthHeaders()
+        headers: this.getAuthHeaders(servidor)
       })
     );
+  }
+
+  startFieldTracking(servidor: string, formId: string, zoneId: string): Promise<void> {
+    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/start'),
+      { form_id: formId, zone_id: zoneId }, { headers: this.getAuthHeaders(servidor) }));
+  }
+
+  stopFieldTracking(servidor: string, formId: string): Promise<void> {
+    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/stop'),
+      { form_id: formId }, { headers: this.getAuthHeaders(servidor) }));
+  }
+
+  reportFieldLocation(servidor: string, payload: { form_id: string; zone_id: string; latitude: number; longitude: number; accuracy_meters: number; recorded_at: string }): Promise<void> {
+    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/report'),
+      payload, { headers: this.getAuthHeaders(servidor) }));
   }
 
   logout(servidor: string): Promise<void> {
     const url = this.buildUrl(servidor, 'logout');
     return lastValueFrom(
-      this.http.post<void>(url, {}, { headers: this.getAuthHeaders() })
+      this.http.post<void>(url, {}, { headers: this.getAuthHeaders(servidor) })
     );
   }
 
   updateProfile(servidor: string, data: { name: string; telefono?: string; cargo?: string; bio?: string }): Promise<any> {
     const url = this.buildUrl(servidor, 'profile');
     return lastValueFrom(
-      this.http.put(url, data, { headers: this.getAuthHeaders() })
+      this.http.put(url, data, { headers: this.getAuthHeaders(servidor) })
     );
   }
 }

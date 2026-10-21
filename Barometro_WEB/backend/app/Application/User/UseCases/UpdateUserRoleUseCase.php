@@ -22,23 +22,23 @@ class UpdateUserRoleUseCase
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($dto->adminId);
 
-            if (!$admin->canManageUsers()) {
+            if (! $admin->canManageUsers()) {
                 throw new AccessDeniedHttpException('Solo los administradores pueden cambiar roles de usuarios');
             }
 
             // Buscar el usuario a modificar
             $user = User::find($dto->userId);
 
-            if (!$user) {
+            if (! $user) {
                 throw new NotFoundHttpException('Usuario no encontrado');
             }
 
             // Validar que el rol sea válido
-            if (!in_array($dto->rol, User::ROLES, true)) {
-                throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR');
+            if (! in_array($dto->rol, User::ROLES, true)) {
+                throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR');
             }
 
-            if (!$admin->canManageRole($user->rol) || !$admin->canManageRole($dto->rol)) {
+            if (! $admin->canManageRole($user->rol) || ! $admin->canManageRole($dto->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para administrar ese rol');
             }
 

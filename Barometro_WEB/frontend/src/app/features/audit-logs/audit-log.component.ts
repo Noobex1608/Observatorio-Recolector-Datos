@@ -71,13 +71,15 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
             <mat-icon>file_download</mat-icon>
           </div>
           <div class="kpi-content">
-            <span class="kpi-label">Descargas & Exportaciones</span>
+            <span class="kpi-label">Archivos generados por el servidor</span>
             <div class="kpi-value-row">
               <span class="kpi-number">{{ s.summary.total_downloads }}</span>
-              <span class="kpi-unit">exportaciones</span>
+              <span class="kpi-unit">archivos</span>
             </div>
             <span class="kpi-detail">
-              Total de respuestas exportadas: <strong>{{ s.summary.total_responses_exported }}</strong>
+              Respuestas incluidas: <strong>{{ s.summary.total_responses_exported }}</strong>.
+              PDF declarados por el cliente: {{ s.summary.total_client_reported_exports }}.
+              Registros históricos sin verificación: {{ s.summary.total_legacy_exports }}.
             </span>
           </div>
         </div>

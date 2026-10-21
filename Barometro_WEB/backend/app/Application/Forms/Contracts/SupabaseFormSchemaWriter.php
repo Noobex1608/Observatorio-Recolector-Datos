@@ -19,4 +19,3 @@ interface SupabaseFormSchemaWriter
      */
     public function deleteSurvey(string $surveyId): void;
 }
-

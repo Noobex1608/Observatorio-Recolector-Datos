@@ -22,7 +22,7 @@ class AuditLogController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isSuperAdmin()) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
         }
 
@@ -41,12 +41,12 @@ class AuditLogController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = '%' . trim($request->query('search')) . '%';
+            $search = '%'.trim($request->query('search')).'%';
             $query->where(function ($q) use ($search) {
                 $q->where('description_es', 'like', $search)
-                  ->orWhere('user_name', 'like', $search)
-                  ->orWhere('user_email', 'like', $search)
-                  ->orWhere('action', 'like', $search);
+                    ->orWhere('user_name', 'like', $search)
+                    ->orWhere('user_email', 'like', $search)
+                    ->orWhere('action', 'like', $search);
             });
         }
 
@@ -78,18 +78,20 @@ class AuditLogController extends Controller
     public function getStats(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isSuperAdmin()) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
         }
 
         $totalLogs = AuditLog::count();
-        $totalDownloads = AuditLog::where('module', 'descargas')->count();
+        $totalGeneratedExports = AuditLog::where('action', 'EXPORT_GENERATED')->count();
+        $totalClientReports = AuditLog::where('action', 'EXPORT_CLIENT_REPORTED')->count();
+        $totalLegacyExports = AuditLog::where('action', 'EXPORT_DATA')->count();
         $totalPermissionChanges = AuditLog::where('module', 'permisos')->count();
-        $totalDataModifications = AuditLog::whereIn('module', ['formularios', 'proyectos', 'usuarios'])->count();
+        $totalDataModifications = AuditLog::whereIn('module', ['formularios', 'proyectos', 'usuarios', 'zonas'])->count();
 
         // Total exported responses count from metadata
-        $totalResponsesExported = (int) AuditLog::where('action', 'EXPORT_DATA')
-            ->selectRaw("SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.responses_count')) AS UNSIGNED)) as total")
+        $totalResponsesExported = (int) AuditLog::where('action', 'EXPORT_GENERATED')
+            ->selectRaw("SUM(CASE WHEN metadata->>'responses_count' ~ '^[0-9]+$' THEN (metadata->>'responses_count')::bigint ELSE 0 END) as total")
             ->value('total') ?? 0;
 
         // Breakdown by module
@@ -99,8 +101,8 @@ class AuditLogController extends Controller
             ->pluck('count', 'module');
 
         // Formats downloaded
-        $byFormat = AuditLog::where('action', 'EXPORT_DATA')
-            ->select(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.format')) as format"), DB::raw('count(*) as count'))
+        $byFormat = AuditLog::where('action', 'EXPORT_GENERATED')
+            ->select(DB::raw("metadata->>'format' as format"), DB::raw('count(*) as count'))
             ->groupBy('format')
             ->get()
             ->pluck('count', 'format');
@@ -114,22 +116,24 @@ class AuditLogController extends Controller
 
         // Recent 7 days activity
         $recentActivity = AuditLog::select(
-                DB::raw("DATE(created_at) as date"),
-                DB::raw("count(*) as total"),
-                DB::raw("SUM(CASE WHEN module = 'descargas' THEN 1 ELSE 0 END) as descargas"),
-                DB::raw("SUM(CASE WHEN module = 'permisos' THEN 1 ELSE 0 END) as permisos"),
-                DB::raw("SUM(CASE WHEN module IN ('formularios', 'proyectos', 'usuarios') THEN 1 ELSE 0 END) as modificaciones")
-            )
+            DB::raw('DATE(created_at) as date'),
+            DB::raw('count(*) as total'),
+            DB::raw("SUM(CASE WHEN module = 'descargas' THEN 1 ELSE 0 END) as descargas"),
+            DB::raw("SUM(CASE WHEN module = 'permisos' THEN 1 ELSE 0 END) as permisos"),
+            DB::raw("SUM(CASE WHEN module IN ('formularios', 'proyectos', 'usuarios', 'zonas') THEN 1 ELSE 0 END) as modificaciones")
+        )
             ->where('created_at', '>=', now()->subDays(7))
-            ->groupBy(DB::raw("DATE(created_at)"))
+            ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy('date', 'asc')
             ->get();
 
         return response()->json([
             'summary' => [
                 'total_logs' => $totalLogs,
-                'total_downloads' => $totalDownloads,
+                'total_downloads' => $totalGeneratedExports,
                 'total_responses_exported' => $totalResponsesExported,
+                'total_client_reported_exports' => $totalClientReports,
+                'total_legacy_exports' => $totalLegacyExports,
                 'total_permission_changes' => $totalPermissionChanges,
                 'total_data_modifications' => $totalDataModifications,
             ],
@@ -146,7 +150,7 @@ class AuditLogController extends Controller
     public function getPermissionsSummary(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !$user->isSuperAdmin()) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
         }
 
@@ -190,7 +194,7 @@ class AuditLogController extends Controller
                     'id' => $proj->id,
                     'name' => $proj->name,
                     'description' => $proj->description,
-                    'leaders' => $proj->leaders->map(fn($l) => ['id' => $l->id, 'name' => $l->name, 'email' => $l->email]),
+                    'leaders' => $proj->leaders->map(fn ($l) => ['id' => $l->id, 'name' => $l->name, 'email' => $l->email]),
                     'forms_count' => $proj->forms->count(),
                 ];
             });

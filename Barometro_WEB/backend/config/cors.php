@@ -13,17 +13,19 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', '*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_filter(array_map('trim', explode(',', (string) env(
+        'CORS_ALLOWED_ORIGINS', 'http://localhost:4200,http://localhost:4201,http://localhost:8100,https://incredible-cactus-e2cb5a.netlify.app,https://timely-druid-80b292.netlify.app'
+    )))),
 
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['X-Correlation-ID'],
 
     'max_age' => 86400,
 

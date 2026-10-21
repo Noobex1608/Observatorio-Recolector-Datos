@@ -140,10 +140,27 @@ export class GisService {
 
   // Cache en memoria (Singleton) para no repetir llamadas HTTP
   private readonly cache = new Map<string, any>();
+  private readonly maxCachedLayers = 8;
   private readonly parroquiaMap = new Map<string, string>();
 
   // Estado Reactivo con Signals de Angular 21
   readonly loading = signal<boolean>(false);
+  readonly loadError = signal<string | null>(null);
+
+  private remember(key: string, value: unknown): void {
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    while (this.cache.size > this.maxCachedLayers) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest === undefined) break;
+      this.cache.delete(oldest);
+    }
+  }
+
+  private reportLoadError(layer: string): void {
+    this.loadError.set(`No se pudo cargar la cartografía de ${layer}. Revise la conexión o los archivos GIS publicados.`);
+    this.loading.set(false);
+  }
 
   // Jerarquía seleccionada en cascada
   readonly selectedProvinciaCode = signal<string | null>(null);
@@ -194,6 +211,7 @@ export class GisService {
       return of(this.cache.get(cacheKey) as DpaData);
     }
 
+    this.loadError.set(null);
     return this.http.get<DpaData>(`${this.baseUrl}/dpa.json`).pipe(
       tap((data) => {
         if (data && data.parroquias) {
@@ -204,11 +222,12 @@ export class GisService {
             }
           });
         }
-        this.cache.set(cacheKey, data);
+        this.remember(cacheKey, data);
       }),
       shareReplay(1),
       catchError((err) => {
         console.error('[GisService] Error al cargar dpa.json:', err);
+        this.reportLoadError('DPA');
         return of({ provincias: [], cantones: [], parroquias: [] });
       })
     );
@@ -222,16 +241,17 @@ export class GisService {
       return of(this.cache.get(layerName)!);
     }
 
+    this.loadError.set(null);
     this.loading.set(true);
     return this.http.get<GisFeatureCollection>(`${this.baseUrl}/${layerName}.geojson`).pipe(
       tap((data) => {
-        this.cache.set(layerName, data);
+        this.remember(layerName, data);
         this.loading.set(false);
       }),
       shareReplay(1),
       catchError((err) => {
         console.error(`[GisService] Error al cargar la capa '${layerName}':`, err);
-        this.loading.set(false);
+        this.reportLoadError(layerName);
         const emptyCollection: GisFeatureCollection = { type: 'FeatureCollection', features: [] };
         return of(emptyCollection);
       })
@@ -247,6 +267,7 @@ export class GisService {
       return of(this.cache.get(cacheKey)!);
     }
 
+    this.loadError.set(null);
     this.loading.set(true);
     return this.http.get<GisFeatureCollection>(`${this.baseUrl}/parroquias.geojson`).pipe(
       tap((data) => {
@@ -261,13 +282,13 @@ export class GisService {
             }
           });
         }
-        this.cache.set(cacheKey, data);
+        this.remember(cacheKey, data);
         this.loading.set(false);
       }),
       shareReplay(1),
       catchError((err) => {
         console.error(`[GisService] Error al cargar parroquias:`, err);
-        this.loading.set(false);
+        this.reportLoadError('parroquias');
         const empty: GisFeatureCollection = { type: 'FeatureCollection', features: [] };
         return of(empty);
       })
@@ -292,6 +313,7 @@ export class GisService {
       return of(this.cache.get(cacheKey)!);
     }
 
+    this.loadError.set(null);
     this.loading.set(true);
     // Garantizar que DPA oficial 2026 esté cargado para resolver nombres oficiales
     return this.getDpa().pipe(
@@ -321,13 +343,13 @@ export class GisService {
         return { type: 'FeatureCollection', features };
       }),
       tap((data) => {
-        this.cache.set(cacheKey, data);
+        this.remember(cacheKey, data);
         this.loading.set(false);
       }),
       shareReplay(1),
       catchError((err) => {
         console.warn(`[GisService] No se encontraron sectores para la parroquia '${code}':`, err);
-        this.loading.set(false);
+        this.reportLoadError(`sectores (${code})`);
         return of(empty);
       })
     );
@@ -346,6 +368,7 @@ export class GisService {
       return of(this.cache.get(cacheKey)!);
     }
 
+    this.loadError.set(null);
     this.loading.set(true);
     const cantonHeader = code.length >= 4 ? `${code.substring(0, 4)}50` : code;
 
@@ -356,6 +379,7 @@ export class GisService {
             if (cantonHeader !== code) {
               return this.http.get<GisFeatureCollection>(`${this.baseUrl}/manzanas/${cantonHeader}.json`);
             }
+            this.reportLoadError(`manzanas (${code})`);
             return of(empty);
           })
         )
@@ -386,12 +410,12 @@ export class GisService {
         return { type: 'FeatureCollection', features };
       }),
       tap((data) => {
-        this.cache.set(cacheKey, data);
+        this.remember(cacheKey, data);
       }),
       shareReplay(1),
       catchError((err) => {
         console.warn(`[GisService] No se encontraron manzanas para la parroquia '${code}':`, err);
-        this.loading.set(false);
+        this.reportLoadError(`manzanas (${code})`);
         return of(empty);
       })
     );
@@ -411,13 +435,17 @@ export class GisService {
       return of(this.cache.get(cacheKey)!);
     }
 
+    this.loadError.set(null);
     this.loading.set(true);
     const load$ = this.cache.has(`manzanas_parroquia_${parrCode}`)
       ? of(this.cache.get(`manzanas_parroquia_${parrCode}`)!)
       : this.getDpa().pipe(
           switchMap(() => this.http.get<GisFeatureCollection>(`${this.baseUrl}/manzanas/${parrCode}.json`)),
-          tap((data) => this.cache.set(`manzanas_parroquia_${parrCode}`, data)),
-          catchError(() => of(empty))
+          tap((data) => this.remember(`manzanas_parroquia_${parrCode}`, data)),
+          catchError(() => {
+            this.reportLoadError(`manzanas (${parrCode})`);
+            return of(empty);
+          })
         );
 
     return load$.pipe(
@@ -455,7 +483,7 @@ export class GisService {
         return { type: 'FeatureCollection', features: filtered };
       }),
       tap((data) => {
-        this.cache.set(cacheKey, data);
+        this.remember(cacheKey, data);
       }),
       shareReplay(1)
     );

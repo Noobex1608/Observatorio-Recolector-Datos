@@ -53,6 +53,8 @@ export class SyncService {
             hint: q.hint,
             calculation_expression: q.calculation_expression,
             media_type: q.media_type,
+            section_name: q.section_name,
+            parent_question_id: q.parent_question_id,
           })),
           downloadedAt: Date.now(),
           target_responses: detalle.target_responses,
@@ -100,10 +102,11 @@ export class SyncService {
           if (val && typeof val === 'object' && (val as any).blobId) {
             const blobId = (val as any).blobId;
             const record = await this.mediaStorage.getMediaBlobById(blobId);
-            if (record && record.blob) {
-              const base64Data = await this.mediaStorage.blobToDataUrl(record.blob);
-              (payloadAnswers[key] as any).dataUrl = base64Data;
+            if (!record?.blob) {
+              throw new Error(`Falta el archivo asociado a la respuesta ${key}. No se enviará incompleta.`);
             }
+            const base64Data = await this.mediaStorage.blobToDataUrl(record.blob);
+            (payloadAnswers[key] as any).dataUrl = base64Data;
           }
         }
 

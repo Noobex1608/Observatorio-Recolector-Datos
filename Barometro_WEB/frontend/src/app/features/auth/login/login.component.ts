@@ -1,11 +1,6 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -14,17 +9,7 @@ import { AuthService } from '@core/services/auth.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    TranslateModule,
-  ],
+  imports: [CommonModule, ReactiveFormsModule, MatProgressSpinnerModule, TranslateModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })
@@ -34,22 +19,27 @@ export class LoginComponent {
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
 
-  form: FormGroup = this.fb.group({
+  readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]],
+    password: ['', Validators.required],
+    rememberMe: false,
   });
 
-  loading = signal(false);
-  error = signal<string | null>(null);
-  hidePassword = signal(true);
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly hidePassword = signal(true);
 
   onSubmit(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid || this.loading()) {
+      this.form.markAllAsTouched();
+      return;
+    }
 
     this.loading.set(true);
     this.error.set(null);
+    const { email, password, rememberMe } = this.form.getRawValue();
 
-    this.authService.login(this.form.value).subscribe({
+    this.authService.login({ email: email.trim(), password }, rememberMe).subscribe({
       next: () => {
         this.router.navigate(['/admin/dashboard']);
       },
@@ -60,4 +50,3 @@ export class LoginComponent {
     });
   }
 }
-

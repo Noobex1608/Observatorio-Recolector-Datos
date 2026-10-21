@@ -54,12 +54,12 @@ class FormSchemaPayloadFactory
 
     private function buildQuestionProperties(FormQuestion $question): array
     {
-        $properties = [
+        $properties = array_merge(is_array($question->properties) ? $question->properties : [], [
             'source_type' => $question->type,
             'section_name' => $question->section_name,
             'parent_question_id' => $question->parent_question_id,
             'branch_rules' => $question->branch_rules ?? [],
-        ];
+        ]);
 
         if (is_array($question->options)) {
             $properties['options'] = $question->options;

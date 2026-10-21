@@ -8,9 +8,7 @@ use App\Models\ResponseSyncQueue;
 
 class EnqueueResponseSync
 {
-    public function __construct(private readonly ResponseSyncPayloadFactory $payloadFactory)
-    {
-    }
+    public function __construct(private readonly ResponseSyncPayloadFactory $payloadFactory) {}
 
     public function enqueue(FormResponse $response): void
     {
@@ -28,7 +26,6 @@ class EnqueueResponseSync
             ]
         );
 
-        SyncFormResponseToSupabase::dispatch($item->id);
+        SyncFormResponseToSupabase::dispatch($item->id)->afterCommit();
     }
 }
-

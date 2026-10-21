@@ -12,6 +12,7 @@ class ProjectZone extends Model
 
     protected $fillable = [
         'project_id',
+        'form_id',
         'technical_sheet_id',
         'name',
         'description',
@@ -38,6 +39,11 @@ class ProjectZone extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function form()
+    {
+        return $this->belongsTo(Form::class);
     }
 
     public function technicalSheet()

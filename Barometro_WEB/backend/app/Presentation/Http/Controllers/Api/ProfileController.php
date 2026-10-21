@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Api;
 
-use OpenApi\Attributes as OA;
 use App\Application\Profile\DTOs\UpdateProfileDTO;
+use App\Application\Profile\Services\AvatarStorage;
 use App\Application\Profile\UseCases\UpdateProfileUseCase;
 use App\Application\Profile\UseCases\UploadAvatarUseCase;
 use App\Http\Controllers\Controller;
 use App\Presentation\Http\Resources\Auth\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: 'Profile', description: 'Endpoints de perfil de usuario')]
 class ProfileController extends Controller
@@ -19,6 +20,7 @@ class ProfileController extends Controller
     public function __construct(
         private readonly UpdateProfileUseCase $updateProfileUseCase,
         private readonly UploadAvatarUseCase $uploadAvatarUseCase,
+        private readonly AvatarStorage $avatarStorage,
     ) {}
 
     #[OA\Get(
@@ -28,7 +30,7 @@ class ProfileController extends Controller
         tags: ['Profile'],
         responses: [
             new OA\Response(response: 200, description: 'Datos del perfil'),
-            new OA\Response(response: 401, description: 'No autenticado')
+            new OA\Response(response: 401, description: 'No autenticado'),
         ]
     )]
     public function show(Request $request): JsonResponse
@@ -53,7 +55,7 @@ class ProfileController extends Controller
                     new OA\Property(property: 'name', type: 'string', example: 'Juan Pérez'),
                     new OA\Property(property: 'telefono', type: 'string', example: '+593 999 999 999'),
                     new OA\Property(property: 'cargo', type: 'string', example: 'Desarrollador'),
-                    new OA\Property(property: 'bio', type: 'string', example: 'Descripción del usuario')
+                    new OA\Property(property: 'bio', type: 'string', example: 'Descripción del usuario'),
                 ]
             )
         ),
@@ -61,7 +63,7 @@ class ProfileController extends Controller
         responses: [
             new OA\Response(response: 200, description: 'Perfil actualizado'),
             new OA\Response(response: 401, description: 'No autenticado'),
-            new OA\Response(response: 422, description: 'Datos inválidos')
+            new OA\Response(response: 422, description: 'Datos inválidos'),
         ]
     )]
     public function update(Request $request): JsonResponse
@@ -99,7 +101,7 @@ class ProfileController extends Controller
                             type: 'string',
                             format: 'binary',
                             description: 'Imagen de avatar (jpg, png, webp, max 2MB)'
-                        )
+                        ),
                     ]
                 )
             )
@@ -108,7 +110,7 @@ class ProfileController extends Controller
         responses: [
             new OA\Response(response: 200, description: 'Avatar actualizado'),
             new OA\Response(response: 401, description: 'No autenticado'),
-            new OA\Response(response: 422, description: 'Archivo inválido')
+            new OA\Response(response: 422, description: 'Archivo inválido'),
         ]
     )]
     public function uploadAvatar(Request $request): JsonResponse
@@ -136,19 +138,20 @@ class ProfileController extends Controller
         tags: ['Profile'],
         responses: [
             new OA\Response(response: 200, description: 'Avatar eliminado'),
-            new OA\Response(response: 401, description: 'No autenticado')
+            new OA\Response(response: 401, description: 'No autenticado'),
         ]
     )]
     public function deleteAvatar(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         if ($user->perfil && $user->perfil->avatar) {
-            // Eliminar archivo
-            $oldPath = str_replace('/storage/', 'public/', $user->perfil->avatar);
-            \Illuminate\Support\Facades\Storage::delete($oldPath);
-            
-            // Actualizar perfil
+            if (! $this->avatarStorage->delete($user->perfil->avatar)) {
+                return response()->json([
+                    'message' => 'No se pudo eliminar el archivo del avatar.',
+                ], 500);
+            }
+
             $user->perfil->update(['avatar' => null]);
         }
 

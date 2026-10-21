@@ -9,6 +9,7 @@ use RuntimeException;
 class S3VideoStorageAdapter implements VideoStorageAdapter
 {
     private string $disk;
+
     private string $directory;
 
     public function __construct(string $disk = 's3', string $directory = 'videos')
@@ -25,7 +26,7 @@ class S3VideoStorageAdapter implements VideoStorageAdapter
             'mimetype' => $mimeType,
         ]);
 
-        if (!$saved) {
+        if (! $saved) {
             throw new RuntimeException("Error al guardar video en S3/Cloud Storage '{$this->disk}'.");
         }
 

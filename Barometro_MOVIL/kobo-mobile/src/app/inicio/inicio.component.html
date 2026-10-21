@@ -2,28 +2,22 @@
 <header class="top-app-bar">
   <div class="brand-container">
     <div class="brand-logo-icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-        <polyline points="10 9 9 9 8 9"/>
-      </svg>
+      <img src="/login-uleam.png" alt="Isotipo de la ULEAM" />
     </div>
     <div class="brand-text">
-      <h1 class="brand-title">ULEAM DataField <span class="brand-pwa-badge">PWA</span></h1>
+      <h1 class="brand-title"><span class="brand-name"><span>ULEAM</span> DataField</span> <span class="brand-pwa-badge">PWA</span></h1>
       <p class="brand-subtitle">{{ 'app_subtitle' | translate }}</p>
     </div>
   </div>
 
   <div class="top-actions">
     <!-- Selector de Idioma -->
-    <button class="top-action-btn lang-btn" (click)="theme.toggleLang()" [title]="theme.lang() === 'es' ? 'Switch to English' : 'Cambiar a español'">
+    <button class="top-action-btn lang-btn" (click)="theme.toggleLang()" [title]="theme.lang() === 'es' ? 'Switch to English' : 'Cambiar a español'" [attr.aria-label]="theme.lang() === 'es' ? 'Cambiar idioma a inglés' : 'Switch language to Spanish'">
       <span class="lang-label">{{ theme.lang() === 'es' ? 'ES' : 'EN' }}</span>
     </button>
 
     <!-- Toggle de Modo Oscuro con Iconos SVG -->
-    <button class="top-action-btn theme-btn" (click)="theme.toggleTheme()" [title]="theme.darkMode() ? 'Modo claro' : 'Modo oscuro'">
+    <button class="top-action-btn theme-btn" (click)="theme.toggleTheme()" [title]="theme.darkMode() ? 'Modo claro' : 'Modo oscuro'" [attr.aria-label]="theme.darkMode() ? 'Activar modo claro' : 'Activar modo oscuro'">
       @if (theme.darkMode()) {
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="4"/>
@@ -38,7 +32,7 @@
 
     <!-- Botón de Avatar de Usuario -->
     <div class="avatar-container">
-      <button class="avatar-btn" (click)="toggleMenuPerfil()" title="Menú de perfil">
+      <button class="avatar-btn" (click)="toggleMenuPerfil()" title="Menú de perfil" aria-label="Abrir menú de perfil" [attr.aria-expanded]="mostrarMenuPerfil">
         {{ inicialUsuario }}
       </button>
 

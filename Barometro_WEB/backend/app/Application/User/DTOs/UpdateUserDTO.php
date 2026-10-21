@@ -17,6 +17,9 @@ final readonly class UpdateUserDTO
         public ?string $telefono = null,
         public ?string $cargo = null,
         public ?string $bio = null,
+        public bool $telefonoProvided = false,
+        public bool $cargoProvided = false,
+        public bool $bioProvided = false,
     ) {}
 
     public static function fromArray(array $data, int $userId, int $adminId): self
@@ -32,6 +35,9 @@ final readonly class UpdateUserDTO
             telefono: $data['telefono'] ?? null,
             cargo: $data['cargo'] ?? null,
             bio: $data['bio'] ?? null,
+            telefonoProvided: array_key_exists('telefono', $data),
+            cargoProvided: array_key_exists('cargo', $data),
+            bioProvided: array_key_exists('bio', $data),
         );
     }
 }

@@ -7,7 +7,7 @@ Este es el backend del proyecto `Barometro_WEB`. Aquí se documenta de forma cla
 El backend expone la API REST para la plataforma de recolección de datos. Las funciones principales son:
 
 - Autenticación con Laravel Sanctum.
-- Gestión de usuarios y roles (`SUPER_ADMIN`, `ADMIN`, `PROJECT_LEADER`, `USER`).
+- Gestión de usuarios y roles (`SUPER_ADMIN`, `ADMIN`, `PROJECT`, `RECOLECTOR`).
 - Gestión de proyectos y formularios dinamicos.
 - CRUD de formularios, preguntas y permisos.
 - Recolección de respuestas y estadísticas.
@@ -31,6 +31,10 @@ Antes de ejecutar el backend, asegúrate de tener:
 - Docker instalado.
 - El proyecto clonado en tu equipo.
 - El servicio PostgreSQL levantado usando los scripts de Docker.
+
+El superadministrador inicial se prepara con el seeder `AdminUserSeeder` (`backend.ps1 seed` o `backend.sh seed`), no con una ruta HTTP. Configura `ADMIN_EMAIL`, `ADMIN_PASSWORD` y, opcionalmente, `ADMIN_NAME` en `backend/.env` antes de usarlo. En local, el seeder conserva credenciales de desarrollo si no hay variables; no uses ese fallback fuera de un entorno local.
+
+Los avatares se guardan en el disco Laravel `public`, bajo `storage/app/public/avatars`, y se sirven por `/api/avatars/{filename}`. El wrapper local monta `backend/storage` en el contenedor. En el despliegue configura un volumen persistente para `/var/www/html/storage/app/public`; la imagen del contenedor por sí sola no conserva archivos entre recreaciones.
 
 ## Iniciar PostgreSQL y la red Docker
 
@@ -275,7 +279,7 @@ cd Vinculacion/Barometro_WEB
 ### PowerShell
 
 ```powershell
-cd C:\Users\taylor\Documents\Vinculacion\Barometro_WEB
+cd <ruta-del-checkout>\Barometro_WEB
 .\scripts\docker.ps1 up -d
 .\scripts\backend.ps1 install
 .\scripts\backend.ps1 migrate

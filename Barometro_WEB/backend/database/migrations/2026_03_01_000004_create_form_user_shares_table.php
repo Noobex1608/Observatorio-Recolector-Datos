@@ -15,10 +15,10 @@ return new class extends Migration
             // EDITOR, RECOLECTOR
             $table->enum('role', ['EDITOR', 'RECOLECTOR']);
             $table->timestamps();
-            
+
             $table->foreign('form_id')->references('id')->on('forms')->onDelete('cascade');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            
+
             $table->unique(['form_id', 'user_id']);
         });
     }

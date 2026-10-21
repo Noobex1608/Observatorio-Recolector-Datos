@@ -21,7 +21,7 @@ class FormResource extends JsonResource
             'link_uuid' => $this->link_uuid,
             'step_by_step' => (bool) ($this->step_by_step ?? false),
             'target_responses' => $this->target_responses ? (int) $this->target_responses : null,
-            'responses_count' => $this->whenHas('responses_count', $this->responses_count, fn() => $this->responses()->count()),
+            'responses_count' => $this->whenHas('responses_count', $this->responses_count, fn () => $this->responses()->count()),
             'questions' => QuestionResource::collection($this->whenLoaded('questions')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

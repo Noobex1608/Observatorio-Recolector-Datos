@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Application\User\UseCases;
 
-use App\Application\Auth\Contracts\SupabaseAuthUserProvisioner;
 use App\Application\User\DTOs\UpdateUserDTO;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -15,10 +15,6 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UpdateUserUseCase
 {
-    public function __construct(private readonly SupabaseAuthUserProvisioner $supabaseAuthUserProvisioner)
-    {
-    }
-
     /**
      * Actualiza un usuario existente.
      * Solo puede ser ejecutado por un administrador.
@@ -29,20 +25,21 @@ class UpdateUserUseCase
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($dto->adminId);
 
-            if (!$admin->canManageUsers()) {
+            if (! $admin->canManageUsers()) {
                 throw new AccessDeniedHttpException('Solo los administradores pueden actualizar usuarios');
             }
 
             // Buscar el usuario a modificar
             $user = User::with('perfil')->find($dto->userId);
 
-            if (!$user) {
+            if (! $user) {
                 throw new NotFoundHttpException('Usuario no encontrado');
             }
 
-            if (!$admin->canManageRole($user->rol)) {
+            if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para administrar usuarios con ese rol');
             }
+            $before = $user->only(['name', 'email', 'rol', 'is_active']);
 
             // Actualizar datos básicos
             if ($dto->name !== null) {
@@ -62,10 +59,10 @@ class UpdateUserUseCase
             }
 
             if ($dto->rol !== null) {
-                if (!in_array($dto->rol, User::ROLES, true)) {
-                    throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR');
+                if (! in_array($dto->rol, User::ROLES, true)) {
+                    throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR');
                 }
-                if (!$admin->canManageRole($dto->rol)) {
+                if (! $admin->canManageRole($dto->rol)) {
                     throw new AccessDeniedHttpException('No tienes permisos para asignar ese rol');
                 }
                 $user->rol = $dto->rol;
@@ -78,13 +75,18 @@ class UpdateUserUseCase
             $user->save();
 
             // Actualizar perfil
-            $perfilData = array_filter([
-                'telefono' => $dto->telefono,
-                'cargo' => $dto->cargo,
-                'bio' => $dto->bio,
-            ], fn($value) => $value !== null);
+            $perfilData = [];
+            if ($dto->telefonoProvided) {
+                $perfilData['telefono'] = $dto->telefono;
+            }
+            if ($dto->cargoProvided) {
+                $perfilData['cargo'] = $dto->cargo;
+            }
+            if ($dto->bioProvided) {
+                $perfilData['bio'] = $dto->bio;
+            }
 
-            if (!empty($perfilData)) {
+            if (! empty($perfilData)) {
                 if ($user->perfil) {
                     $user->perfil->update($perfilData);
                 } else {
@@ -95,7 +97,12 @@ class UpdateUserUseCase
             // Recargar relaciones
             $user->load('perfil');
 
-            $this->supabaseAuthUserProvisioner->ensureUser($user, $dto->password);
+            AuditLogService::log($admin, 'UPDATE_USER', 'usuarios',
+                "Actualizó los datos del usuario {$user->email}.", [
+                    'target_user_id' => $user->id,
+                    'before' => $before,
+                    'after' => $user->only(['name', 'email', 'rol', 'is_active']),
+                ]);
 
             return $user;
         });

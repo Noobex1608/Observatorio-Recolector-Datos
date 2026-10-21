@@ -35,7 +35,7 @@ try {
         'install' {
             Assert-Bun
             Write-Host 'Installing frontend dependencies with Bun...' -ForegroundColor Green
-            bun install
+            bun install --frozen-lockfile
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
         'build' {

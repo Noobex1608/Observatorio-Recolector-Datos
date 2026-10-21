@@ -26,6 +26,16 @@ class Project extends Model
         return $this->belongsToMany(User::class, 'project_user_leaders')->withTimestamps();
     }
 
+    public function delegates()
+    {
+        return $this->belongsToMany(User::class, 'project_user_delegates')->withTimestamps();
+    }
+
+    public function supervisors()
+    {
+        return $this->belongsToMany(User::class, 'project_user_supervisors')->withTimestamps();
+    }
+
     public function forms()
     {
         return $this->hasMany(Form::class);

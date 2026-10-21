@@ -20,7 +20,7 @@ class SaveTechnicalSheetRequest extends FormRequest
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
             'target_sample_size' => 'nullable|integer|min:1',
-            'status' => 'nullable|string|in:DRAFT,VALIDATED,IN_PROGRESS,COMPLETED',
+            'status' => 'prohibited',
         ];
     }
 }

@@ -25,27 +25,39 @@ chown -R www:www /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage
 chmod -R 775 /var/www/html/bootstrap/cache
 
-# Esperar a que la base de datos esté disponible
-if [ -n "$DB_HOST" ]; then
-    echo "Esperando a que la base de datos esté disponible..."
-    max_tries=30
-    counter=0
-    until php -r "new PDO('pgsql:host=$DB_HOST;port=${DB_PORT:-5432};dbname=$DB_DATABASE', '$DB_USERNAME', '$DB_PASSWORD');" 2>/dev/null; do
-        counter=$((counter + 1))
-        if [ $counter -gt $max_tries ]; then
-            echo "Error: No se pudo conectar a la base de datos después de $max_tries intentos"
-            exit 1
-        fi
-        echo "Intento $counter/$max_tries - Base de datos no disponible, esperando..."
-        sleep 2
-    done
-    echo "Base de datos conectada!"
+# Adaptar puerto de Nginx si Render o el entorno define $PORT
+if [ -n "$PORT" ] && [ "$PORT" != "8000" ]; then
+    echo "Configurando Nginx para escuchar en el puerto asignado por Render: $PORT..."
+    sed -i "s/listen 8000;/listen $PORT;/g" /etc/nginx/http.d/default.conf || true
+    sed -i "s/listen \[::\]:8000;/listen [::]:$PORT;/g" /etc/nginx/http.d/default.conf || true
 fi
 
-# Generar clave de aplicación si no existe
+# Esperar a que la base de datos esté disponible
+if [ -n "$DB_HOST" ]; then
+    echo "Verificando conexión con la base de datos en $DB_HOST..."
+    max_tries=10
+    counter=0
+    SSL_PARAM=""
+    if [ "$DB_SSLMODE" = "require" ] || echo "$DB_HOST" | grep -q "supabase"; then
+        SSL_PARAM=";sslmode=require"
+    fi
+
+    until php -r "try { new PDO('pgsql:host=$DB_HOST;port=${DB_PORT:-5432};dbname=$DB_DATABASE$SSL_PARAM', '$DB_USERNAME', '$DB_PASSWORD', [PDO::ATTR_TIMEOUT => 3]); exit(0); } catch (Exception \$e) { fwrite(STDERR, 'Aviso de conexión: ' . \$e->getMessage() . PHP_EOL); exit(1); }"; do
+        counter=$((counter + 1))
+        if [ $counter -gt $max_tries ]; then
+            echo "Error: la base de datos no está disponible tras $max_tries intentos."
+            exit 1
+        fi
+        echo "Intento $counter/$max_tries - Esperando base de datos (2s)..."
+        sleep 2
+    done
+    echo "Verificación de base de datos concluida."
+fi
+
+# La clave debe ser estable entre recreaciones y despliegues.
 if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:" ]; then
-    echo "Generando APP_KEY..."
-    php artisan key:generate --force
+    echo "Error: configure APP_KEY antes de iniciar."
+    exit 1
 fi
 
 # Limpiar cachés antiguos primero
@@ -67,20 +79,7 @@ chown -R www:www /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage
 chmod -R 775 /var/www/html/bootstrap/cache
 
-# Ejecutar migraciones
-echo "Ejecutando migraciones..."
-php artisan migrate --force
-
-# Ejecutar seeders solo si no hay usuarios (primera ejecución)
-echo "Verificando si se necesitan seeders..."
-USER_COUNT=$(php artisan tinker --execute="echo \App\Models\User::count();" 2>/dev/null | tail -1)
-if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
-    echo "Base de datos vacía, ejecutando seeders..."
-    php artisan db:seed --force
-    echo "Seeders ejecutados correctamente!"
-else
-    echo "Base de datos ya contiene datos ($USER_COUNT usuarios), saltando seeders."
-fi
+# Migraciones y usuario inicial se ejecutan como tarea explícita de liberación.
 
 # Generar documentación Swagger
 echo "Generando documentación Swagger..."

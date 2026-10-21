@@ -17,4 +17,3 @@ class EnqueueFormSchemaSync
         $this->enqueueById($form->id, 'upsert');
     }
 }
-

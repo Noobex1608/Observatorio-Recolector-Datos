@@ -16,6 +16,7 @@ class SaveProjectZoneRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'form_id' => 'sometimes|required|uuid|exists:forms,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'geofence_type' => 'nullable|string|in:radius,manzana_polygon,custom_polygon',

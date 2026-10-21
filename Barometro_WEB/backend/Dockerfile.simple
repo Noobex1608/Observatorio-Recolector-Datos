@@ -1,7 +1,7 @@
 # ========================================
 # Dockerfile Simple para Railway/Render
 # ========================================
-FROM php:8.2-cli-alpine
+FROM php:8.4-cli-alpine
 
 # Instalar dependencias
 RUN apk add --no-cache \
@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     libpng-dev \
     libwebp-dev \
     libzip-dev \
+    icu-dev \
     zip \
     unzip \
     curl \
@@ -25,6 +26,8 @@ RUN apk add --no-cache \
         gd \
         zip \
         bcmath \
+        intl \
+        pcntl \
         opcache
 
 # Configurar PHP
@@ -50,6 +53,7 @@ COPY . .
 
 # Generar autoload optimizado
 RUN composer dump-autoload --optimize --no-dev
+RUN composer check-platform-reqs --no-dev
 
 # Crear directorios y permisos
 RUN mkdir -p storage/framework/cache/data \
@@ -59,7 +63,12 @@ RUN mkdir -p storage/framework/cache/data \
     && mkdir -p storage/app/public/avatars \
     && mkdir -p storage/api-docs \
     && mkdir -p bootstrap/cache \
-    && chmod -R 777 storage bootstrap/cache
+    && addgroup -g 1000 www \
+    && adduser -u 1000 -G www -s /bin/sh -D www \
+    && chown -R www:www storage bootstrap/cache \
+    && if [ ! -e public/storage ]; then ln -s /app/storage/app/public public/storage; fi
+
+USER www
 
 # Exponer puerto
 EXPOSE 8000
@@ -69,7 +78,5 @@ CMD ["sh", "-c", "\
     php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
-    php artisan migrate --force && \
-    php artisan swagger:generate || true && \
-    php artisan storage:link || true && \
-    php artisan serve --host=0.0.0.0 --port=8000"]
+    test -n \"$APP_KEY\" && \
+    php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]

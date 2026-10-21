@@ -55,6 +55,17 @@ interface QuestionVisualMeta {
             }
           </header>
 
+          @if (!consentAccepted()) {
+            <section class="collect-form" aria-label="Consentimiento informado">
+              <h2>Consentimiento informado</h2>
+              <p style="white-space:pre-line">{{ form()!.consent_text || 'Su participación es voluntaria. ¿Acepta responder esta encuesta?' }}</p>
+              @if (consentDeclined()) { <p>La encuesta terminó porque no se aceptó el consentimiento.</p> }
+              @else {
+                <button mat-raised-button color="primary" type="button" (click)="acceptConsent()">Acepto participar</button>
+                <button mat-stroked-button type="button" (click)="consentDeclined.set(true)">No acepto</button>
+              }
+            </section>
+          } @else {
           <form (ngSubmit)="onSubmit()" class="collect-form" novalidate>
             @if (form()!.step_by_step) {
               <div class="step-progress">
@@ -172,6 +183,64 @@ interface QuestionVisualMeta {
                         placeholder="0"
                       />
                     }
+                    @case ('NOTE') {
+                      <p class="question-help">{{ question.properties?.help_text || question.label }}</p>
+                    }
+                    @case ('DATE') {
+                      <input class="text-input" type="date" [name]="question.id"
+                        [min]="question.properties?.min_date || null" [max]="question.properties?.max_date || null"
+                        [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
+                    }
+                    @case ('TIME') {
+                      <input class="text-input" type="time" [name]="question.id"
+                        [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
+                    }
+                    @case ('DATETIME') {
+                      <input class="text-input" type="datetime-local" [name]="question.id"
+                        [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
+                    }
+                    @case ('RATING') {
+                      <div class="options-list">
+                        @for (rating of ratingOptions(question); track rating) {
+                          <label class="option"><input type="radio" [name]="question.id" [value]="rating"
+                            [ngModel]="answers()[question.id]" (ngModelChange)="setNumericAnswer(question.id, $event)" />{{ rating }}</label>
+                        }
+                      </div>
+                    }
+                    @case ('RANKING') {
+                      <div class="ranking-list">
+                        @for (option of rankingOptions(question); track option; let rank = $index) {
+                          <div class="ranking-row"><span>{{ rank + 1 }}. {{ option }}</span>
+                            <button type="button" mat-stroked-button (click)="moveRanking(question, rank, -1)" [disabled]="rank === 0">↑</button>
+                            <button type="button" mat-stroked-button (click)="moveRanking(question, rank, 1)" [disabled]="rank === rankingOptions(question).length - 1">↓</button>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @case ('BARCODE') {
+                      <input class="text-input" type="text" [name]="question.id" maxlength="512"
+                        [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)"
+                        placeholder="Escriba o escanee el código" />
+                    }
+                    @case ('MULTIMEDIA') {
+                      <input class="text-input" type="file" accept="image/*,audio/*,video/*"
+                        (change)="captureMedia(question, $event)" />
+                    }
+                    @case ('SIGNATURE') {
+                      <input class="text-input" type="file" accept="image/*" capture="user"
+                        (change)="captureMedia(question, $event)" aria-label="Adjuntar imagen de firma" />
+                    }
+                    @case ('CALCULATE') {
+                      <p class="question-help">Resultado calculado al enviar las respuestas.</p>
+                    }
+                    @case ('GPS') {
+                      <div class="gps-answer">
+                        <button mat-stroked-button type="button" (click)="captureGps(question.id)">Capturar ubicación GPS</button>
+                        @if (gpsAnswer(question.id); as point) {
+                          <p>X (longitud): {{ point.longitude }} · Y (latitud): {{ point.latitude }} · Precisión: ±{{ point.accuracy }} m</p>
+                        }
+                      </div>
+                    }
                   }
 
                   @if (questionError(question.id)) {
@@ -227,6 +296,7 @@ interface QuestionVisualMeta {
               </button>
             }
           </form>
+          }
         </div>
       }
     </div>
@@ -442,6 +512,10 @@ interface QuestionVisualMeta {
         margin-top: 0.5rem;
       }
 
+      .ranking-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+      .ranking-row span { flex: 1; }
+      .question-help { margin: 0; color: var(--text-secondary); }
+
       .step-actions {
         display: grid;
         grid-template-columns: 1fr 1.5fr;
@@ -495,6 +569,8 @@ export class FormCollectComponent implements OnInit {
   loading = signal(true);
   submitting = signal(false);
   submitted = signal(false);
+  consentAccepted = signal(false);
+  consentDeclined = signal(false);
   error = signal('');
   currentStepIndex = signal(0);
   stepHistory = signal<number[]>([0]);
@@ -570,6 +646,9 @@ export class FormCollectComponent implements OnInit {
     this.formService.fetchPublicForm(this.linkUuid).subscribe({
       next: (form) => {
         this.form.set({ ...form, questions: form.questions ?? [] });
+        this.answers.set(Object.fromEntries((form.questions ?? [])
+          .filter((question) => question.type === 'RANKING')
+          .map((question) => [question.id, this.getChoiceOptions(question)])));
         this.currentStepIndex.set(0);
         this.stepHistory.set([0]);
         this.loading.set(false);
@@ -581,9 +660,80 @@ export class FormCollectComponent implements OnInit {
     });
   }
 
+  acceptConsent(): void {
+    this.consentAccepted.set(true);
+    this.answers.update((answers) => ({
+      ...answers, _consentimiento_aceptado: true, _consentimiento_fecha: new Date().toISOString(),
+    }));
+  }
+
+  gpsAnswer(questionId: string): { latitude: number; longitude: number; accuracy: number } | null {
+    const answer = this.answers()[questionId];
+    if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return null;
+    const point = answer as Record<string, unknown>;
+    return typeof point['latitude'] === 'number' && typeof point['longitude'] === 'number'
+      ? { latitude: point['latitude'], longitude: point['longitude'], accuracy: Number(point['accuracy'] ?? 0) }
+      : null;
+  }
+
+  captureGps(questionId: string): void {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      this.validationErrors.update((errors) => ({ ...errors, [questionId]: 'Este dispositivo no permite obtener GPS.' }));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => this.setAnswer(questionId, {
+        latitude: Number(position.coords.latitude.toFixed(7)),
+        longitude: Number(position.coords.longitude.toFixed(7)),
+        accuracy: position.coords.accuracy,
+        timestamp: new Date(position.timestamp).toISOString(),
+      }),
+      () => this.validationErrors.update((errors) => ({ ...errors, [questionId]: 'No se pudo obtener la ubicación. Revise los permisos GPS.' })),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
+
   setAnswer(questionId: string, value: unknown): void {
     this.answers.update((answers) => ({ ...answers, [questionId]: value }));
     this.clearQuestionError(questionId);
+  }
+
+  setNumericAnswer(questionId: string, value: unknown): void {
+    this.setAnswer(questionId, Number(value));
+  }
+
+  ratingOptions(question: FormQuestion): number[] {
+    const max = Math.max(1, Math.min(20, Number(question.properties?.max_rating ?? 5)));
+    return Array.from({ length: max }, (_, index) => index + 1);
+  }
+
+  rankingOptions(question: FormQuestion): string[] {
+    const current = this.answers()[question.id];
+    return Array.isArray(current) && current.length === this.getChoiceOptions(question).length
+      ? current.map(String) : this.getChoiceOptions(question);
+  }
+
+  moveRanking(question: FormQuestion, index: number, direction: -1 | 1): void {
+    const options = [...this.rankingOptions(question)];
+    const next = index + direction;
+    if (next < 0 || next >= options.length) return;
+    [options[index], options[next]] = [options[next], options[index]];
+    this.setAnswer(question.id, options);
+  }
+
+  captureMedia(question: FormQuestion, event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const maxBytes = Math.min(30, Math.max(1, Number(question.properties?.max_file_size_mb ?? 10))) * 1024 * 1024;
+    if (file.size > maxBytes || !/^(image|audio|video)\//.test(file.type)
+      || (question.type === 'SIGNATURE' && !file.type.startsWith('image/'))) {
+      this.validationErrors.update((errors) => ({ ...errors, [question.id]: 'Archivo no permitido o demasiado grande.' }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => this.setAnswer(question.id, reader.result);
+    reader.onerror = () => this.validationErrors.update((errors) => ({ ...errors, [question.id]: 'No se pudo leer el archivo.' }));
+    reader.readAsDataURL(file);
   }
 
   isSelected(questionId: string, option: string): boolean {
@@ -711,11 +861,15 @@ export class FormCollectComponent implements OnInit {
   }
 
   resetForm(): void {
-    this.answers.set({});
+    this.answers.set(Object.fromEntries(this.orderedQuestions()
+      .filter((question) => question.type === 'RANKING')
+      .map((question) => [question.id, this.getChoiceOptions(question)])));
     this.validationErrors.set({});
     this.currentStepIndex.set(0);
     this.stepHistory.set([0]);
     this.submitted.set(false);
+    this.consentAccepted.set(false);
+    this.consentDeclined.set(false);
     this.error.set('');
   }
 
@@ -751,6 +905,7 @@ export class FormCollectComponent implements OnInit {
   }
 
   private submitAnswers(): void {
+    if (!this.consentAccepted()) return;
     this.submitting.set(true);
 
     this.formService.submitResponse(this.linkUuid, this.answers()).subscribe({
@@ -788,7 +943,7 @@ export class FormCollectComponent implements OnInit {
 
     const errors = { ...this.validationErrors() };
 
-    if (!question.required || this.hasRequiredAnswer(question)) {
+    if (!question.required || ['NOTE', 'CALCULATE'].includes(question.type) || this.hasRequiredAnswer(question)) {
       delete errors[question.id];
       this.validationErrors.set(errors);
       return true;
@@ -810,7 +965,7 @@ export class FormCollectComponent implements OnInit {
         continue;
       }
 
-      if (!question.required || this.hasRequiredAnswer(question)) {
+      if (!question.required || ['NOTE', 'CALCULATE'].includes(question.type) || this.hasRequiredAnswer(question)) {
         continue;
       }
 

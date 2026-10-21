@@ -1,74 +1,72 @@
-<div class="login-container">
-  <div class="login-card">
-    <div class="logo-area">
-      <span class="logo-icon">📋</span>
-      <h1>ULEAM DataField <small>PWA</small></h1>
+<div class="login-page">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="hero">
+      <img src="/login-campus.png" alt="Campus de la Universidad Laica Eloy Alfaro de Manabí" />
     </div>
-    <p class="subtitle">Recopila encuestas offline</p>
 
-    <form (ngSubmit)="iniciarSesion()" #loginForm="ngForm" class="login-form">
+    <div class="brand-badge">
+      <img src="/login-uleam.png" alt="ULEAM, Universidad Laica Eloy Alfaro de Manabí" />
+    </div>
 
-      <div class="campo">
-        <label for="urlServidor">URL del Servidor API</label>
-        <input
-          type="text"
-          id="urlServidor"
-          name="urlServidor"
-          [(ngModel)]="urlServidor"
-          placeholder="http://localhost:8000"
-          required
-          class="form-input"
-          [disabled]="cargando">
-      </div>
+    <div class="card-body">
+      <header class="intro">
+        <p class="eyebrow">DATAFIELD · PWA</p>
+        <h1 id="login-title">Bienvenido</h1>
+        <p>Inicia sesión para continuar con tus encuestas.</p>
+      </header>
 
-      <div class="campo">
-        <label for="usuario">Correo electrónico / Usuario</label>
-        <input
-          type="email"
-          id="usuario"
-          name="usuario"
-          [(ngModel)]="usuario"
-          placeholder="recolector@uleam.edu.ec"
-          required
-          class="form-input"
-          [disabled]="cargando">
-      </div>
+      <form (ngSubmit)="iniciarSesion()" class="login-form">
+        <div class="campo">
+          <label for="usuario">CORREO ELECTRÓNICO</label>
+          <input
+            type="email"
+            id="usuario"
+            name="usuario"
+            [(ngModel)]="usuario"
+            placeholder="recolector@uleam.edu.ec"
+            autocomplete="username"
+            inputmode="email"
+            required
+            [disabled]="cargando" />
+        </div>
 
-      <div class="campo">
-        <label for="clave">Contraseña</label>
-        <input
-          type="password"
-          id="clave"
-          name="clave"
-          [(ngModel)]="clave"
-          placeholder="••••••••"
-          required
-          class="form-input"
-          [disabled]="cargando">
-      </div>
+        <div class="campo">
+          <label for="clave">CONTRASEÑA</label>
+          <input
+            type="password"
+            id="clave"
+            name="clave"
+            [(ngModel)]="clave"
+            placeholder="Ingresa tu contraseña"
+            autocomplete="current-password"
+            required
+            [disabled]="cargando" />
+        </div>
 
-      @if (errorLogin) {
-        <p class="error-msg">⚠ {{ errorLogin }}</p>
-      }
+        <div class="campo servidor-campo">
+          <label for="urlServidor">SERVIDOR API</label>
+          <input
+            type="url"
+            id="urlServidor"
+            name="urlServidor"
+            [(ngModel)]="urlServidor"
+            placeholder="https://tu-servidor.com"
+            inputmode="url"
+            spellcheck="false"
+            required
+            [disabled]="cargando" />
+        </div>
 
-      <button type="submit" class="btn-acceder" [disabled]="cargando">
-        @if (cargando) {
-          Verificando...
-        } @else {
-          Acceder
+        @if (errorLogin) {
+          <p class="error-msg" role="alert">{{ errorLogin }}</p>
         }
-      </button>
-    </form>
 
-    <div class="requisitos-box">
-      <p class="requisitos-titulo">Necesitas:</p>
-      <ul>
-        <li>URL de tu servidor</li>
-        <li>Usuario y contraseña válidos</li>
-        <li>Conexión a internet para el primer login</li>
-      </ul>
+        <button type="submit" class="btn-acceder" [disabled]="cargando">
+          {{ cargando ? 'VERIFICANDO...' : 'INICIAR SESIÓN' }}
+        </button>
+      </form>
+
+      <p class="access-note">¿No tienes una cuenta? <span>Solicita acceso a tu administrador.</span></p>
     </div>
-
-
-  </div>
+  </section>
 </div>

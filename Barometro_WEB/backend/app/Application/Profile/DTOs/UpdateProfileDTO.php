@@ -11,6 +11,9 @@ class UpdateProfileDTO
         public readonly ?string $telefono = null,
         public readonly ?string $cargo = null,
         public readonly ?string $bio = null,
+        public readonly bool $telefonoProvided = false,
+        public readonly bool $cargoProvided = false,
+        public readonly bool $bioProvided = false,
     ) {}
 
     public static function fromArray(array $data): self
@@ -20,16 +23,24 @@ class UpdateProfileDTO
             telefono: $data['telefono'] ?? null,
             cargo: $data['cargo'] ?? null,
             bio: $data['bio'] ?? null,
+            telefonoProvided: array_key_exists('telefono', $data),
+            cargoProvided: array_key_exists('cargo', $data),
+            bioProvided: array_key_exists('bio', $data),
         );
     }
 
     public function toArray(): array
     {
-        return array_filter([
-            'name' => $this->name,
-            'telefono' => $this->telefono,
-            'cargo' => $this->cargo,
-            'bio' => $this->bio,
-        ], fn($value) => $value !== null);
+        $data = [];
+        if ($this->name !== null) {
+            $data['name'] = $this->name;
+        }
+        foreach (['telefono', 'cargo', 'bio'] as $field) {
+            if ($this->{$field.'Provided'}) {
+                $data[$field] = $this->{$field};
+            }
+        }
+
+        return $data;
     }
 }

@@ -90,6 +90,8 @@ export interface FormQuestion {
   hint?: string;
   calculation_expression?: string;
   media_type?: 'IMAGE' | 'AUDIO' | 'VIDEO';
+  section_name?: string | null;
+  parent_question_id?: string | null;
 }
 
 export interface MediaBlob {
@@ -114,6 +116,14 @@ export interface SavedResponse {
   duration: string;
 }
 
+export interface PendingFieldTracking {
+  id?: number;
+  kind: 'report' | 'stop';
+  formId: string;
+  payload?: { form_id: string; zone_id: string; latitude: number; longitude: number; accuracy_meters: number; recorded_at: string };
+  createdAt: string;
+}
+
 export interface FormInfo {
   id: string;
   title: string;
@@ -129,6 +139,7 @@ export class DbService extends Dexie {
   responses!: Dexie.Table<SavedResponse, number>;
   formList!: Dexie.Table<FormInfo, string>;
   mediaBlobs!: Dexie.Table<MediaBlob, number>;
+  pendingFieldTracking!: Dexie.Table<PendingFieldTracking, number>;
 
   constructor() {
     super('KoboMobileDB');
@@ -137,6 +148,13 @@ export class DbService extends Dexie {
       responses: '++id, formId, estado, createdAt, [formId+estado]',
       formList: 'id, title',
       mediaBlobs: '++id, blobId, responseId, questionId'
+    });
+    this.version(5).stores({
+      forms: 'id, title, link_uuid',
+      responses: '++id, formId, estado, createdAt, [formId+estado]',
+      formList: 'id, title',
+      mediaBlobs: '++id, blobId, responseId, questionId',
+      pendingFieldTracking: '++id, formId, kind, createdAt'
     });
   }
 }

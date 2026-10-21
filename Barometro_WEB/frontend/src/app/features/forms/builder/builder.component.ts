@@ -2,12 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormQuestion, FormShare, FormService } from '@core/services/form.service';
 import { AuthService } from '@core/services/auth.service';
 import { UserService } from '@core/services/user.service';
 import { User } from '@core/models/user/user.interface';
 import { FormBuilderViewModel, FormQuestionDraft } from '@presentation/viewmodels/form-builder.viewmodel';
+import { ProjectService } from '@core/services/project.service';
 import { TranslateModule } from '@ngx-translate/core';
 
 type PreviewMode = 'mobile' | 'web';
@@ -24,11 +25,20 @@ type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
 export class BuilderComponent implements OnInit, OnDestroy {
   readonly vm = inject(FormBuilderViewModel);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly projectService = inject(ProjectService);
   private readonly formService = inject(FormService);
   readonly authService = inject(AuthService);
   private readonly userService = inject(UserService);
   private readonly document = inject(DOCUMENT);
   readonly previewMode = signal<PreviewMode>('mobile');
+  readonly delimitNow = signal(false);
+  readonly canDelimitAfterSave = computed(() => {
+    const projectId = this.vm.projectId();
+    const userId = this.authService.user()?.id;
+    const project = this.vm.projects().find((item) => item.id === projectId);
+    return !!userId && !!project?.leaders?.some((leader) => leader.id === userId);
+  });
   readonly previewModalOpen = signal(false);
   readonly draggedQuestionTempId = signal<string | null>(null);
   readonly dropTargetTempId = signal<string | null>(null);
@@ -171,9 +181,25 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
     const formId = this.route.snapshot.paramMap.get('id');
     if (formId) {
-      void this.vm.loadForm(formId);
+      this.projectService.getFormTechnicalSheet(formId).subscribe({
+        next: (sheet) => {
+          if (sheet.status === 'VALIDATED') void this.vm.loadForm(formId);
+          else this.formService.getForm(formId).subscribe({
+            next: (form) => { void this.router.navigate(['/admin/proyectos'], { queryParams: { project: form.project_id, form: formId, tab: 'sheet' } }); },
+            error: () => { void this.router.navigate(['/admin/proyectos']); },
+          });
+        },
+        error: () => { void this.router.navigate(['/admin/proyectos']); },
+      });
     } else {
-      this.vm.updateProject(this.route.snapshot.queryParamMap.get('project_id'));
+      void this.router.navigate(['/admin/proyectos']);
+    }
+  }
+
+  async saveAndContinue(): Promise<void> {
+    await this.vm.saveForm();
+    if (!this.vm.errorMessage() && this.delimitNow() && this.canDelimitAfterSave() && this.vm.formId()) {
+      await this.router.navigate(['/admin/proyectos'], { queryParams: { project: this.vm.projectId(), form: this.vm.formId(), tab: 'zones' } });
     }
   }
 

@@ -8,7 +8,7 @@ class SupabaseKeyValidator
 {
     /**
      * Valida que la service_role_key sea valida y segura.
-     * 
+     *
      * @throws RuntimeException si la clave es invalida
      */
     public static function validate(string $serviceKey): void
@@ -18,7 +18,7 @@ class SupabaseKeyValidator
         if ($trimmed === '') {
             throw new RuntimeException(
                 'SUPABASE_SERVICE_ROLE_KEY esta vacia. '
-                . 'Configura la clave en backend/.env'
+                .'Configura la clave en backend/.env'
             );
         }
 
@@ -28,8 +28,8 @@ class SupabaseKeyValidator
         if (str_starts_with($lower, 'sb_anon_') || str_starts_with($lower, 'sb_publishable_')) {
             throw new RuntimeException(
                 'SUPABASE_SERVICE_ROLE_KEY es una clave anon/publica. '
-                . 'Debes usar la service_role key. '
-                . 'Encuentrala en: https://supabase.com/dashboard/project/_/settings/api'
+                .'Debes usar la service_role key. '
+                .'Encuentrala en: https://supabase.com/dashboard/project/_/settings/api'
             );
         }
 
@@ -37,10 +37,10 @@ class SupabaseKeyValidator
         $isJwt = str_starts_with($lower, 'eyj');
         $isSecret = str_starts_with($lower, 'sb_secret_');
 
-        if (!$isJwt && !$isSecret) {
+        if (! $isJwt && ! $isSecret) {
             throw new RuntimeException(
                 'SUPABASE_SERVICE_ROLE_KEY tiene formato invalido. '
-                . 'Debe ser un JWT (comienza con "eyJ") o una clave secreta (comienza con "sb_secret_").'
+                .'Debe ser un JWT (comienza con "eyJ") o una clave secreta (comienza con "sb_secret_").'
             );
         }
 
@@ -60,7 +60,7 @@ class SupabaseKeyValidator
         if (count($parts) !== 3) {
             throw new RuntimeException(
                 'SUPABASE_SERVICE_ROLE_KEY JWT tiene formato invalido. '
-                . 'Debe tener 3 partes separadas por puntos.'
+                .'Debe tener 3 partes separadas por puntos.'
             );
         }
 
@@ -71,7 +71,7 @@ class SupabaseKeyValidator
         }
 
         $headerJson = json_decode($header, true);
-        if (!is_array($headerJson)) {
+        if (! is_array($headerJson)) {
             throw new RuntimeException('SUPABASE_SERVICE_ROLE_KEY JWT header no es JSON valido.');
         }
 
@@ -82,7 +82,7 @@ class SupabaseKeyValidator
         }
 
         $payloadJson = json_decode($payload, true);
-        if (!is_array($payloadJson)) {
+        if (! is_array($payloadJson)) {
             throw new RuntimeException('SUPABASE_SERVICE_ROLE_KEY JWT payload no es JSON valido.');
         }
 
@@ -91,8 +91,8 @@ class SupabaseKeyValidator
         if ($role !== 'service_role') {
             throw new RuntimeException(
                 'SUPABASE_SERVICE_ROLE_KEY JWT no es service_role. '
-                . 'Role encontrado: "' . $role . '". '
-                . 'Debes usar una service_role key, no una anon key.'
+                .'Role encontrado: "'.$role.'". '
+                .'Debes usar una service_role key, no una anon key.'
             );
         }
 
@@ -104,8 +104,8 @@ class SupabaseKeyValidator
             if ($exp < $now) {
                 throw new RuntimeException(
                     'SUPABASE_SERVICE_ROLE_KEY JWT esta expirado. '
-                    . 'Expira el: ' . date('Y-m-d H:i:s', $exp) . '. '
-                    . 'Rota la clave en: https://supabase.com/dashboard/project/_/settings/api'
+                    .'Expira el: '.date('Y-m-d H:i:s', $exp).'. '
+                    .'Rota la clave en: https://supabase.com/dashboard/project/_/settings/api'
                 );
             }
         }

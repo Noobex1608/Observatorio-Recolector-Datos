@@ -13,17 +13,24 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     public const ROLE_SUPER_ADMIN = 'SUPER_ADMIN';
+
     public const ROLE_ADMIN = 'ADMIN';
+
     public const ROLE_PROJECT = 'PROJECT';
+
     public const ROLE_USER = 'RECOLECTOR';
+
+    public const ROLE_SUPERVISOR = 'SUPERVISOR';
+
     public const ROLES = [
         self::ROLE_SUPER_ADMIN,
         self::ROLE_ADMIN,
         self::ROLE_PROJECT,
         self::ROLE_USER,
+        self::ROLE_SUPERVISOR,
     ];
 
     protected static function boot(): void
@@ -71,6 +78,27 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function delegatedProjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'project_user_delegates')->withTimestamps();
+    }
+
+    public function supervisedProjects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'project_user_supervisors')->withTimestamps();
+    }
+
+    public function isProjectDelegate(?string $projectId): bool
+    {
+        return $projectId !== null && $this->delegatedProjects()->whereKey($projectId)->exists();
+    }
+
+    public function supervisesProject(?string $projectId): bool
+    {
+        return $projectId !== null && $this->rol === self::ROLE_SUPERVISOR
+            && $this->supervisedProjects()->whereKey($projectId)->exists();
+    }
+
     public function isAdmin(): bool
     {
         return $this->rol === self::ROLE_ADMIN;
@@ -112,7 +140,7 @@ class User extends Authenticatable
 
     public function leadsProject(?string $projectId): bool
     {
-        if (!$projectId || !$this->isProjectLeader()) {
+        if (! $projectId || ! $this->isProjectLeader()) {
             return false;
         }
 

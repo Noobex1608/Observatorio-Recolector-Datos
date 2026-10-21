@@ -92,7 +92,7 @@ Sesion en `AuthSessionService` persiste a `localStorage`. Token Sanctum via `aut
 El builder (`/admin/forms/builder`) incluye modal "Compartir":
 
 - Busqueda de usuario por correo con preview (nombre, email, rol).
-- Asignacion con rol (`EDITOR` / `RECOLECTOR`) y respuestas objetivo (`target_responses`).
+- Asignacion con rol (`PROJECT` / `RECOLECTOR`) y respuestas objetivo (`target_responses`).
 - Tabla de usuarios asignados con barra de progreso (respuestas enviadas / objetivo).
 - Edicion inline de target, botones Reactivar/Retirar.
 - Endpoints: `GET/POST/PATCH/DELETE /api/forms/{id}/shares`.
@@ -139,7 +139,7 @@ Rutas activas orientadas a formularios:
 - Projects: CRUD de proyectos y asignacion de lideres.
 - Users: CRUD, PATCH role, PATCH status.
 - Mobile: `GET /api/mobile/forms` (formularios desplegados para el usuario).
-- Seed: `POST /api/seed/admin` (super admin inicial).
+- No hay un endpoint HTTP para crear el superadministrador inicial. La preparación usa el seeder `AdminUserSeeder` mediante Artisan y las credenciales configuradas en el entorno; los usuarios siguientes se crean desde el panel.
 
 El registro publico esta deshabilitado. Los usuarios se crean desde el panel administrativo.
 
@@ -148,11 +148,11 @@ Roles globales:
 - `SUPER_ADMIN`: control total de usuarios, proyectos, formularios, configuracion y datos.
 - `ADMIN`: gestiona proyectos, asigna lideres de proyecto y crea/gestiona formularios dentro de proyectos.
 - `PROJECT`: gestiona formularios dentro de proyectos asignados.
-- `USER`: usuario recolector/editor movil; solo ve formularios asignados y recolecta o edita segun permiso.
+- `RECOLECTOR`: usuario movil de recoleccion; solo ve formularios asignados.
 
-Los permisos `EDITOR` y `RECOLECTOR` pertenecen a la comparticion de formularios, no al rol global del usuario.
+Los permisos `PROJECT` y `RECOLECTOR` pertenecen a la comparticion de formularios, no sustituyen el rol global del usuario.
 La columna `target_responses` en `form_user_shares` define respuestas objetivo por usuario asignado.
-Todo formulario debe pertenecer a un proyecto. Los usuarios `USER` no acceden al proyecto completo: solo a los formularios que tengan asignados.
+Todo formulario debe pertenecer a un proyecto. Los usuarios `RECOLECTOR` no acceden al proyecto completo: solo a los formularios que tengan asignados.
 
 ### Estados de formulario
 

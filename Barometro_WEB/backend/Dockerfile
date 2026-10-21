@@ -27,8 +27,15 @@ RUN composer dump-autoload --optimize --no-dev
 # ========================================
 FROM php:8.4-fpm-alpine
 
+# Permite usar una replica HTTPS cuando el CDN de Alpine no es accesible
+# desde la red de construccion. Por defecto conserva los repositorios base.
+ARG ALPINE_MIRROR
+
 # Instalar dependencias del sistema
-RUN apk add --no-cache \
+RUN if [ -n "$ALPINE_MIRROR" ]; then \
+        sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${ALPINE_MIRROR%/}|g" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache \
     # Para PostgreSQL
     postgresql-dev \
     # Para GD (imágenes)
@@ -84,13 +91,17 @@ RUN echo "upload_max_filesize=50M" >> /usr/local/etc/php/conf.d/uploads.ini \
 
 # Crear usuario no-root
 RUN addgroup -g 1000 www && adduser -u 1000 -G www -s /bin/sh -D www
+RUN sed -i 's/^user = www-data/user = www/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/^group = www-data/group = www/' /usr/local/etc/php-fpm.d/www.conf
 
 # Directorio de trabajo
 WORKDIR /var/www/html
 
 # Copiar código desde stage de composer
 COPY --from=composer /app/vendor ./vendor
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY . .
+RUN composer check-platform-reqs --no-dev
 
 # Copiar configuración de nginx
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf

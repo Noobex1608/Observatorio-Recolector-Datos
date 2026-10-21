@@ -11,7 +11,11 @@ yarn-error.log*
 .agents/
 resource/
 scratch/
-scripts/
+!scripts/
+scripts/*
+!scripts/iniciar-todo.ps1
+!scripts/export-gis-partitioned.py
+!scripts/README-GIS.md
 .gemini/
 docs/
 Thumbs.db

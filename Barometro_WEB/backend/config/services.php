@@ -45,11 +45,19 @@ return [
         'max_retry_attempts' => (int) env('SUPABASE_MAX_RETRY_ATTEMPTS', 12),
         'retry_base_seconds' => (int) env('SUPABASE_RETRY_BASE_SECONDS', 30),
         'video_bucket' => env('SUPABASE_VIDEO_BUCKET', 'videos'),
+        'response_media_bucket' => env('SUPABASE_RESPONSE_MEDIA_BUCKET', 'response-media'),
         'storage_file_limit' => (int) env('SUPABASE_STORAGE_FILE_LIMIT', 52428800), // 50MB
     ],
 
     'video_storage' => [
         'driver' => env('VIDEO_STORAGE_DRIVER', 'supabase'), // Opciones: supabase, local, s3
+    ],
+
+    'response_media' => [
+        'driver' => env('RESPONSE_MEDIA_DRIVER', 'supabase'),
+        'max_files' => (int) env('RESPONSE_MEDIA_MAX_FILES', 10),
+        'max_file_bytes' => (int) env('RESPONSE_MEDIA_MAX_FILE_BYTES', 31457280),
+        'max_total_bytes' => (int) env('RESPONSE_MEDIA_MAX_TOTAL_BYTES', 36700160),
     ],
 
     'seed' => [
@@ -60,4 +68,3 @@ return [
     ],
 
 ];
-

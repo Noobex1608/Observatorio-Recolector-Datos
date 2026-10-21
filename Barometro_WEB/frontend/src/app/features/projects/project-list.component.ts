@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -12,11 +12,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '@core/services/auth.service';
 import { FormService } from '@core/services/form.service';
-import { Project, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
-import { UserService } from '@core/services/user.service';
+import { FieldMonitor, Project, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
+import { GpsResultsMapComponent } from '../forms/responses/gps-results-map.component';
 import { MapGeofenceSelectorComponent, GeofenceSelectionEvent } from '@shared/components/map-geofence-selector/map-geofence-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
@@ -37,8 +36,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     MatSnackBarModule,
     MatTabsModule,
     MatChipsModule,
-    MatCheckboxModule,
     MapGeofenceSelectorComponent,
+    GpsResultsMapComponent,
     TranslateModule,
   ],
   template: `
@@ -68,7 +67,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         </div>
       </header>
 
-      @if (canManageProjects()) {
+      @if (canManageProjects() || editingProject()) {
         <form class="project-form" [formGroup]="projectForm" (ngSubmit)="saveProject()">
           <div class="project-form-heading">
             <span class="form-icon">
@@ -91,14 +90,34 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
               <textarea matInput rows="2" formControlName="description"></textarea>
             </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'projects.leader' | translate }}</mat-label>
-              <mat-select formControlName="leader_ids" multiple>
-                @for (leader of projectLeaders(); track leader.id) {
-                  <mat-option [value]="leader.id">{{ leader.name }} - {{ leader.email }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            @if (canManageProjects()) {
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'projects.leader' | translate }}</mat-label>
+                <mat-select formControlName="leader_ids" multiple>
+                  @for (leader of projectLeaders(); track leader.id) {
+                    <mat-option [value]="leader.id">{{ leader.name }} - {{ leader.email }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+            @if (editingProject() && canAssignMembers()) {
+              <mat-form-field appearance="outline">
+                <mat-label>Delegados del proyecto</mat-label>
+                <mat-select formControlName="delegate_ids" multiple>
+                  @for (user of assignableUsers(); track user.id) {
+                    @if (user.rol === 'PROJECT') { <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option> }
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Supervisores del proyecto</mat-label>
+                <mat-select formControlName="supervisor_ids" multiple>
+                  @for (user of assignableUsers(); track user.id) {
+                    @if (user.rol === 'SUPERVISOR') { <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option> }
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
           </div>
 
           <div class="form-actions">
@@ -158,7 +177,111 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
               <mat-card-content class="panel-content">
                 <mat-tab-group animationDuration="200ms" [(selectedIndex)]="selectedTabIndex">
-                  <!-- PESTAÑA 1: RESUMEN Y FORMULARIOS -->
+                  <!-- PESTAÑA 1: FICHA TÉCNICA POR FORMULARIO -->
+                  <mat-tab>
+                    <ng-template mat-tab-label>
+                      <mat-icon class="tab-icon">assignment_turned_in</mat-icon>
+                      Ficha Técnica
+                    </ng-template>
+
+                    <div class="tab-body">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Formulario de esta ficha técnica</mat-label>
+                        <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
+                          @for (form of project.forms ?? []; track form.id) {
+                            <mat-option [value]="form.id">{{ form.title }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      @if (canCreateFormsInProject(project)) {
+                        <button mat-stroked-button type="button" (click)="openNewFormModal(project)">
+                          <mat-icon>add_circle</mat-icon> Iniciar ficha de una nueva encuesta
+                        </button>
+                      }
+                      @if (selectedFormId()) {
+                      <form [formGroup]="technicalSheetForm" (ngSubmit)="saveTechnicalSheet()" class="sheet-form">
+                        <div class="sheet-banner" [class.validated]="technicalSheet()?.status === 'VALIDATED'">
+                          <mat-icon>{{ technicalSheet()?.status === 'VALIDATED' ? 'verified_user' : 'info' }}</mat-icon>
+                          <div>
+                            <strong>{{ 'projects.technicalSheet.title' | translate }}</strong>
+                            <p>
+                              @if (technicalSheet()?.status === 'VALIDATED') {
+                                {{ 'projects.technicalSheet.validatedInfo' | translate: { name: technicalSheet()?.validator?.name || 'Administrador', date: (technicalSheet()?.validated_at | date:'medium') } }}
+                              } @else {
+                                {{ 'projects.technicalSheet.draftNotice' | translate }}
+                              }
+                            </p>
+                          </div>
+                        </div>
+
+                        <fieldset class="sheet-fields" [disabled]="!editingSheet() || !canEditSelectedProject()" style="border:0;padding:0;margin:0">
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>{{ 'projects.technicalSheet.description' | translate }}</mat-label>
+                            <textarea
+                              matInput
+                              rows="4"
+                              formControlName="description"
+                              [placeholder]="'projects.technicalSheet.descriptionPlaceholder' | translate"
+                            ></textarea>
+                          </mat-form-field>
+
+                          <div class="date-row">
+                            <mat-form-field appearance="outline">
+                              <mat-label>{{ 'projects.technicalSheet.startDate' | translate }}</mat-label>
+                              <input matInput type="date" formControlName="start_date" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                              <mat-label>{{ 'projects.technicalSheet.endDate' | translate }}</mat-label>
+                              <input matInput type="date" formControlName="end_date" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                              <mat-label>{{ 'projects.technicalSheet.targetSampleSize' | translate }}</mat-label>
+                              <input matInput type="number" formControlName="target_sample_size" placeholder="Ej. 500" />
+                            </mat-form-field>
+                          </div>
+                        </fieldset>
+
+                        <div class="sheet-actions">
+                          @if (editingSheet() && canEditSelectedProject()) { <button
+                            mat-flat-button
+                            color="primary"
+                            type="submit"
+                            [disabled]="technicalSheetForm.invalid || savingSheet()"
+                          >
+                            <mat-icon>save</mat-icon>
+                            {{ 'projects.technicalSheet.saveDraft' | translate }}
+                          </button> }
+
+                          @if (!editingSheet() && selectedForm()?.state !== 'DEPLOYED' && canEditSelectedProject()) {
+                            <button mat-stroked-button type="button" (click)="editingSheet.set(true)">
+                              <mat-icon>edit</mat-icon> Editar ficha
+                            </button>
+                          }
+
+                          @if (canLeadSelectedProject() && technicalSheet()?.id && technicalSheet()?.status !== 'VALIDATED' && !editingSheet()) {
+                            <button
+                              mat-flat-button
+                              color="accent"
+                              type="button"
+                              [disabled]="validatingSheet() || !technicalSheet()?.start_date || !technicalSheet()?.end_date"
+                              (click)="validateTechnicalSheet()"
+                            >
+                              <mat-icon>check_circle</mat-icon>
+                              {{ 'projects.technicalSheet.validateButton' | translate }}
+                            </button>
+                          }
+                          @if (technicalSheet()?.status === 'VALIDATED') {
+                            <a mat-flat-button color="primary" [routerLink]="['/admin/forms', selectedFormId(), 'edit']">Continuar al formulario</a>
+                          }
+                        </div>
+                      </form>
+                      } @else { <p>Inicia una encuesta para completar su ficha técnica.</p> }
+                    </div>
+                  </mat-tab>
+
+                  <!-- PESTAÑA 2: FORMULARIOS Y MIEMBROS -->
                   <mat-tab>
                     <ng-template mat-tab-label>
                       <mat-icon class="tab-icon">assignment</mat-icon>
@@ -179,7 +302,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                       @if ((project.forms ?? []).length > 0) {
                         <div class="form-list">
                           @for (form of project.forms; track form.id) {
-                            <a class="form-item" [routerLink]="['/admin/forms', form.id, 'edit']">
+                            <a class="form-item" [routerLink]="form.technical_sheet?.status === 'VALIDATED' || form.state === 'DEPLOYED' ? ['/admin/forms', form.id, 'edit'] : null" (click)="form.technical_sheet?.status !== 'VALIDATED' && form.state !== 'DEPLOYED' ? selectFormAndSheet(form.id) : null">
                               <div class="form-item-info">
                                 <strong>{{ form.title }}</strong>
                                 @if (form.start_date || form.end_date) {
@@ -225,86 +348,6 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                     </section>
                   </mat-tab>
 
-                  <!-- PESTAÑA 2: FICHA TÉCNICA GENERAL -->
-                  <mat-tab>
-                    <ng-template mat-tab-label>
-                      <mat-icon class="tab-icon">assignment_turned_in</mat-icon>
-                      Ficha Técnica General
-                    </ng-template>
-
-                    <div class="tab-body">
-                      <form [formGroup]="technicalSheetForm" (ngSubmit)="saveTechnicalSheet()" class="sheet-form">
-                        <div class="sheet-banner" [class.validated]="technicalSheet()?.status === 'VALIDATED'">
-                          <mat-icon>{{ technicalSheet()?.status === 'VALIDATED' ? 'verified_user' : 'info' }}</mat-icon>
-                          <div>
-                            <strong>{{ 'projects.technicalSheet.title' | translate }}</strong>
-                            <p>
-                              @if (technicalSheet()?.status === 'VALIDATED') {
-                                {{ 'projects.technicalSheet.validatedInfo' | translate: { name: technicalSheet()?.validator?.name || 'Administrador', date: (technicalSheet()?.validated_at | date:'medium') } }}
-                              } @else {
-                                {{ 'projects.technicalSheet.draftNotice' | translate }}
-                              }
-                            </p>
-                          </div>
-                        </div>
-
-                        <div class="sheet-fields">
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>{{ 'projects.technicalSheet.description' | translate }}</mat-label>
-                            <textarea
-                              matInput
-                              rows="4"
-                              formControlName="description"
-                              [placeholder]="'projects.technicalSheet.descriptionPlaceholder' | translate"
-                            ></textarea>
-                          </mat-form-field>
-
-                          <div class="date-row">
-                            <mat-form-field appearance="outline">
-                              <mat-label>{{ 'projects.technicalSheet.startDate' | translate }}</mat-label>
-                              <input matInput type="date" formControlName="start_date" />
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline">
-                              <mat-label>{{ 'projects.technicalSheet.endDate' | translate }}</mat-label>
-                              <input matInput type="date" formControlName="end_date" />
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline">
-                              <mat-label>{{ 'projects.technicalSheet.targetSampleSize' | translate }}</mat-label>
-                              <input matInput type="number" formControlName="target_sample_size" placeholder="Ej. 500" />
-                            </mat-form-field>
-                          </div>
-                        </div>
-
-                        <div class="sheet-actions">
-                          <button
-                            mat-flat-button
-                            color="primary"
-                            type="submit"
-                            [disabled]="technicalSheetForm.invalid || savingSheet()"
-                          >
-                            <mat-icon>save</mat-icon>
-                            {{ 'projects.technicalSheet.saveDraft' | translate }}
-                          </button>
-
-                          @if (canManageProjects() && technicalSheet()?.status !== 'VALIDATED') {
-                            <button
-                              mat-flat-button
-                              color="accent"
-                              type="button"
-                              [disabled]="validatingSheet() || !technicalSheetForm.value.start_date || !technicalSheetForm.value.end_date"
-                              (click)="validateTechnicalSheet()"
-                            >
-                              <mat-icon>check_circle</mat-icon>
-                              {{ 'projects.technicalSheet.validateButton' | translate }}
-                            </button>
-                          }
-                        </div>
-                      </form>
-                    </div>
-                  </mat-tab>
-
                   <!-- PESTAÑA 3: DELIMITACIÓN MULTIZONA Y ENCUESTADORES -->
                   <mat-tab>
                     <ng-template mat-tab-label>
@@ -313,6 +356,27 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                     </ng-template>
 
                     <div class="tab-body">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Primero seleccione el formulario</mat-label>
+                        <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
+                          @for (form of project.forms ?? []; track form.id) {
+                            <mat-option [value]="form.id">{{ form.title }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      @if (selectedFormId() && technicalSheet()?.status !== 'VALIDATED') {
+                        <div class="zone-prerequisite">
+                          <p>La ficha técnica de este formulario debe estar validada antes de delimitar zonas.</p>
+                          @if (canLeadSelectedProject()) {
+                            <button mat-stroked-button type="button" (click)="selectedTabIndex = 0">
+                              <mat-icon>assignment_turned_in</mat-icon>
+                              Ir a ficha técnica para validarla
+                            </button>
+                          } @else {
+                            <p>Solicita al líder del proyecto que valide la ficha técnica.</p>
+                          }
+                        </div>
+                      }
                       <!-- Resumen de Encuestadores y Zonas -->
                       <div class="zone-kpis">
                         <article class="kpi-card">
@@ -334,7 +398,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
                       <div class="zone-action-bar">
                         <h3>{{ 'projects.zones.title' | translate }}</h3>
-                        @if (canManageProjects()) {
+                        @if (canLeadSelectedProject() && selectedFormId() && technicalSheet()?.status === 'VALIDATED') {
                           <button mat-flat-button color="primary" type="button" (click)="openCreateZoneForm()">
                             <mat-icon>add_location_alt</mat-icon>
                             {{ 'projects.zones.addZone' | translate }}
@@ -487,7 +551,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                               </div>
                             </mat-card-content>
 
-                            @if (canManageProjects()) {
+                            @if (canLeadSelectedProject()) {
                               <mat-card-actions align="end">
                                 <button mat-button type="button" (click)="editZone(zone)">
                                   <mat-icon>edit</mat-icon>
@@ -509,12 +573,64 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                           }
                         }
                       </div>
+                      @if (canLeadSelectedProject() && selectedFormId() && zones().length > 0) {
+                        <mat-card class="zone-builder-card">
+                          <mat-card-content>
+                            <h3>Designación aleatoria de encuestadores</h3>
+                            <p>La delimitación está lista. Seleccione el equipo y revise la distribución antes de confirmarla.</p>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Encuestadores</mat-label>
+                              <mat-select multiple [value]="randomCandidateIds()" (selectionChange)="randomCandidateIds.set($event.value)">
+                                @for (user of allEnumerators(); track user.id) {
+                                  <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option>
+                                }
+                              </mat-select>
+                            </mat-form-field>
+                            <button mat-stroked-button type="button" [disabled]="randomCandidateIds().length === 0" (click)="previewRandomAssignment()">Previsualizar distribución</button>
+                            @if (randomPreview(); as preview) {
+                              @for (zone of zones(); track zone.id) {
+                                <p><strong>{{ zone.name }}:</strong> {{ preview.assignments[zone.id!]?.length ?? 0 }} encuestadores</p>
+                              }
+                              <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
+                            }
+                          </mat-card-content>
+                        </mat-card>
+                      }
+                      @if (canLeadSelectedProject() && selectedForm()?.state === 'DRAFT' && zones().length > 0) {
+                        <button mat-flat-button color="primary" type="button" (click)="publishSelectedForm()">Publicar encuesta</button>
+                      }
                     </div>
                   </mat-tab>
+                  @if (authService.isSupervisor() || canLeadSelectedProject() || canManageProjects()) {
+                    <mat-tab>
+                      <ng-template mat-tab-label><mat-icon class="tab-icon">track_changes</mat-icon> Supervisión</ng-template>
+                      <div class="tab-body">
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Encuesta a supervisar</mat-label>
+                          <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
+                            @for (form of project.forms ?? []; track form.id) { <mat-option [value]="form.id">{{ form.title }}</mat-option> }
+                          </mat-select>
+                        </mat-form-field>
+                        <button mat-stroked-button type="button" (click)="loadMonitor()">Actualizar posiciones</button>
+                        @if (monitor(); as data) {
+                          <p>Se muestran la última ubicación reportada y la hora de cada encuestador. Una posición antigua no indica presencia actual.</p>
+                          <app-gps-results-map [points]="monitorPoints()" [zones]="monitorZones()" />
+                          @for (collector of data.collectors; track collector.id) {
+                            <p><strong>{{ collector.name }}</strong> — {{ collector.active ? 'Jornada activa' : 'Jornada inactiva' }} ·
+                              @if (collector.last_position) {
+                                X: {{ collector.last_position.longitude }} · Y: {{ collector.last_position.latitude }} ·
+                                {{ collector.last_position.recorded_at | date:'dd/MM/yyyy HH:mm:ss' }}
+                              } @else { Sin posición reportada }
+                            </p>
+                          }
+                        }
+                      </div>
+                    </mat-tab>
+                  }
                 </mat-tab-group>
               </mat-card-content>
 
-              @if (canManageProjects()) {
+              @if (canEditSelectedProject()) {
                 <mat-card-actions align="end" class="panel-footer">
                   <button mat-button type="button" (click)="editProject(project)">
                     <mat-icon>edit</mat-icon>
@@ -571,58 +687,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                 <mat-icon matPrefix>description</mat-icon>
               </mat-form-field>
 
-              <div class="dates-config-card">
-                <div class="dates-header">
-                  <mat-icon class="dates-icon">calendar_month</mat-icon>
-                  <div>
-                    <strong>Período y Vigencia de la Encuesta</strong>
-                    <p>Defina el rango de fechas. En la fecha de inicio se implementa automáticamente y al vencer la fecha de fin se archiva para restringir accesos.</p>
-                  </div>
-                </div>
-
-                <div class="dates-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Fecha de Inicio (Implementación)</mat-label>
-                    <input matInput type="date" formControlName="start_date" />
-                    <mat-icon matPrefix>event_available</mat-icon>
-                    <mat-hint>Implementación automática</mat-hint>
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Fecha de Fin (Archivado automático)</mat-label>
-                    <input matInput type="date" formControlName="end_date" />
-                    <mat-icon matPrefix>event_busy</mat-icon>
-                    <mat-hint>Archivado automático</mat-hint>
-                  </mat-form-field>
-                </div>
-              </div>
-
-              <div class="consent-config-card">
-                <div class="consent-toggle-header">
-                  <div class="consent-toggle-info">
-                    <mat-icon class="consent-icon">verified_user</mat-icon>
-                    <div>
-                      <strong>Consentimiento Informado Previo</strong>
-                      <p>El encuestador solicitará la autorización de la persona antes de desplegar las preguntas en la app móvil.</p>
-                    </div>
-                  </div>
-                  <mat-checkbox formControlName="require_consent" color="primary"></mat-checkbox>
-                </div>
-
-                @if (newFormForm.get('require_consent')?.value) {
-                  <div class="consent-text-section">
-                    <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Texto del Consentimiento a Leer al Encuestado</mat-label>
-                      <textarea matInput formControlName="consent_text" rows="4" placeholder="Escriba el texto legal o institucional que leerá el encuestador..."></textarea>
-                      <mat-icon matPrefix>record_voice_over</mat-icon>
-                    </mat-form-field>
-                    <div class="consent-tip">
-                      <mat-icon>info</mat-icon>
-                      <span>Si el encuestado responde "Sí", se desbloquean las preguntas. Si responde "No", la encuesta finaliza inmediatamente y regresa a la lista.</span>
-                    </div>
-                  </div>
-                }
-              </div>
+              <p>El formulario se creará en borrador. Primero completarás la ficha técnica; el líder deberá validarla antes de editar preguntas.</p>
 
               <footer class="modal-actions">
                 <button mat-button type="button" (click)="closeNewFormModal()" [disabled]="savingNewForm()">
@@ -630,7 +695,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                 </button>
                 <button mat-flat-button color="primary" type="submit" [disabled]="savingNewForm() || newFormForm.invalid">
                   <mat-icon>arrow_forward</mat-icon>
-                  <span>{{ savingNewForm() ? 'Creando formulario...' : 'Continuar al Editor de Preguntas' }}</span>
+                  <span>{{ savingNewForm() ? 'Creando formulario...' : 'Continuar a Ficha Técnica' }}</span>
                 </button>
               </footer>
             </form>
@@ -644,6 +709,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       .projects-page {
         padding: 2rem;
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
         gap: 1.4rem;
         background:
           linear-gradient(180deg, rgba(15, 118, 110, 0.04), transparent 280px),
@@ -789,6 +856,11 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
         gap: 1.1rem;
         align-items: start;
+        min-width: 0;
+      }
+
+      .projects-layout > * {
+        min-width: 0;
       }
 
       .project-list {
@@ -825,7 +897,13 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       .project-row span,
       .member-row span {
         display: grid;
+        min-width: 0;
         gap: 0.2rem;
+      }
+
+      .project-row strong,
+      .project-row small {
+        overflow-wrap: anywhere;
       }
 
       .project-row small,
@@ -837,6 +915,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       .project-panel {
+        min-width: 0;
         border-radius: var(--radius-md);
         border: 1px solid var(--card-border);
         background: var(--card-bg);
@@ -845,6 +924,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .panel-header {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
         padding: 1.2rem 1.5rem 0.5rem;
@@ -874,7 +954,14 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       .panel-content {
+        min-width: 0;
         padding: 0 1.2rem 1.2rem;
+      }
+
+      .panel-content mat-tab-group {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
       }
 
       .tab-icon {
@@ -884,6 +971,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       .tab-body {
         padding: 1.2rem 0;
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
         gap: 1.2rem;
       }
 
@@ -928,9 +1017,25 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         justify-content: flex-end;
       }
 
+      .zone-prerequisite {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+      }
+
+      .zone-prerequisite p {
+        margin: 0;
+        color: var(--text-secondary);
+      }
+
       .zone-kpis {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.85rem;
       }
 
@@ -964,6 +1069,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .zone-action-bar {
         display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
         justify-content: space-between;
         align-items: center;
       }
@@ -974,6 +1081,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       .zone-builder-card {
+        min-width: 0;
         border: 1px solid var(--primary-300);
         box-shadow: 0 12px 32px var(--shadow-color);
         background: var(--card-bg);
@@ -981,14 +1089,28 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .zone-form-content {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
         gap: 1.2rem;
         padding-top: 0.5rem;
       }
 
+      .zone-inputs,
+      .enumerators-picker,
+      .map-wrapper,
+      app-map-geofence-selector {
+        min-width: 0;
+        max-width: 100%;
+      }
+
       .form-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.8rem;
+      }
+
+      .form-grid mat-form-field {
+        min-width: 0;
       }
 
       .col-span-2 {
@@ -1010,6 +1132,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .picker-actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 0.4rem;
       }
 
@@ -1045,6 +1168,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .enumerator-checkbox {
         display: flex;
+        min-width: 0;
+        max-width: 100%;
         align-items: center;
         gap: 0.4rem;
         font-size: 0.82rem;
@@ -1062,14 +1187,20 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         font-weight: 600;
       }
 
+      .enumerator-checkbox span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
       .map-wrapper {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 0.5rem;
       }
 
       .zones-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
         gap: 1rem;
       }
 
@@ -1211,11 +1342,30 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         font-weight: 700;
       }
 
+      @media (max-width: 1600px) {
+        .project-form,
+        .projects-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .project-list {
+          grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+        }
+      }
+
+      @media (max-width: 1250px) {
+        .form-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .col-span-2 {
+          grid-column: auto;
+        }
+      }
+
       @media (max-width: 900px) {
         .project-form,
         .project-fields,
-        .projects-layout,
-        .form-grid,
         .form-item,
         .member-row {
           grid-template-columns: 1fr;
@@ -1510,13 +1660,12 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     `,
   ],
 })
-export class ProjectListComponent implements OnInit {
+export class ProjectListComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
-  private readonly router = inject(Router);
-  private readonly authService = inject(AuthService);
+  readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
   private readonly projectService = inject(ProjectService);
   private readonly formService = inject(FormService);
-  private readonly userService = inject(UserService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
 
@@ -1539,8 +1688,25 @@ export class ProjectListComponent implements OnInit {
   projects = signal<Project[]>([]);
   projectLeaders = signal<Array<{ id: number; name: string; email: string }>>([]);
   allEnumerators = signal<Array<{ id: number; name: string; email: string; rol: string }>>([]);
+  assignableUsers = signal<Array<{ id: number; name: string; email: string; rol: string }>>([]);
   selectedProject = signal<Project | null>(null);
   technicalSheet = signal<ProjectTechnicalSheet | null>(null);
+  selectedFormId = signal<string | null>(null);
+  selectedForm = computed(() => this.selectedProject()?.forms?.find((form) => form.id === this.selectedFormId()) ?? null);
+  randomCandidateIds = signal<number[]>([]);
+  randomPreview = signal<{ seed: string; assignments: Record<string, number[]> } | null>(null);
+  monitor = signal<FieldMonitor | null>(null);
+  private monitorTimer: ReturnType<typeof setInterval> | null = null;
+  monitorPoints = computed(() => (this.monitor()?.collectors ?? []).flatMap((collector) => collector.last_position ? [{
+    responseId: String(collector.id), question: collector.name,
+    latitude: collector.last_position.latitude, longitude: collector.last_position.longitude,
+    accuracy: collector.last_position.accuracy_meters,
+  }] : []));
+  monitorZones = computed(() => (this.monitor()?.zones ?? []).map((zone) => ({
+    id: zone.id, name: zone.name, target_lat: zone.target_lat, target_lng: zone.target_lng,
+    radius_meters: zone.radius_meters, geometry_json: zone.geometry_json,
+  })));
+  editingSheet = signal(false);
   zones = signal<ProjectZone[]>([]);
 
   loading = signal(true);
@@ -1570,6 +1736,22 @@ export class ProjectListComponent implements OnInit {
   });
 
   canManageProjects = computed(() => this.authService.isAdmin());
+  canAssignMembers = computed(() => {
+    const project = this.selectedProject();
+    const id = this.authService.user()?.id;
+    return this.authService.isAdmin() || !!project?.leaders?.some((leader) => leader.id === id);
+  });
+  canLeadSelectedProject = computed(() => {
+    const project = this.selectedProject();
+    const id = this.authService.user()?.id;
+    return !!project?.leaders?.some((leader) => leader.id === id);
+  });
+  canEditSelectedProject = computed(() => {
+    const project = this.selectedProject();
+    const id = this.authService.user()?.id;
+    return this.authService.isAdmin() || !!project?.leaders?.some((leader) => leader.id === id)
+      || !!project?.delegates?.some((delegate) => delegate.id === id);
+  });
   canDeleteProjects = computed(() => this.authService.isSuperAdmin());
   totalForms = computed(() =>
     this.projects().reduce((total, project) => total + (project.forms?.length ?? project.forms_count ?? 0), 0),
@@ -1589,6 +1771,8 @@ export class ProjectListComponent implements OnInit {
     name: ['', [Validators.required, Validators.maxLength(255)]],
     description: [''],
     leader_ids: [[] as number[]],
+    delegate_ids: [[] as number[]],
+    supervisor_ids: [[] as number[]],
   });
 
   technicalSheetForm = this.fb.group({
@@ -1612,11 +1796,18 @@ export class ProjectListComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.selectedFormId.set(this.route.snapshot.queryParamMap.get('form'));
+    this.selectedTabIndex = this.authService.isSupervisor() ? 3
+      : this.route.snapshot.queryParamMap.get('tab') === 'zones' ? 2 : 0;
+    this.monitorTimer = setInterval(() => { if (this.selectedTabIndex === 3) this.loadMonitor(); }, 15000);
     this.loadProjects();
     if (this.canManageProjects()) {
       this.loadProjectLeaders();
-      this.loadAllEnumerators();
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.monitorTimer) clearInterval(this.monitorTimer);
   }
 
   loadProjects(): void {
@@ -1626,7 +1817,8 @@ export class ProjectListComponent implements OnInit {
         this.projects.set(projects);
         this.loading.set(false);
         if (projects.length > 0 && !this.selectedProject()) {
-          this.selectProject(projects[0]);
+          const requestedProject = projects.find((project) => project.id === this.route.snapshot.queryParamMap.get('project'));
+          this.selectProject(requestedProject ?? projects[0]);
         }
       },
       error: () => {
@@ -1644,13 +1836,13 @@ export class ProjectListComponent implements OnInit {
     });
   }
 
-  loadAllEnumerators(): void {
-    this.userService.getUsers(100, 1).subscribe({
-      next: (res) => {
-        const users = res.data || [];
-        this.allEnumerators.set(users.map((u: any) => ({ id: u.id, name: u.name, email: u.email, rol: u.rol })));
+  loadAllEnumerators(projectId: string): void {
+    this.projectService.getAssignableUsers(projectId).subscribe({
+      next: (users) => {
+        this.assignableUsers.set(users);
+        this.allEnumerators.set(users.filter((user) => user.rol === 'RECOLECTOR'));
       },
-      error: () => {},
+      error: () => { this.assignableUsers.set([]); this.allEnumerators.set([]); },
     });
   }
 
@@ -1658,17 +1850,78 @@ export class ProjectListComponent implements OnInit {
     this.projectService.getProject(project.id).subscribe({
       next: (detail) => {
         this.selectedProject.set(detail);
-        this.loadTechnicalSheet(detail.id);
-        this.loadZones(detail.id);
+        this.loadAllEnumerators(detail.id);
+        const firstForm = detail.forms?.find((form) => form.id === this.selectedFormId()) ?? detail.forms?.[0];
+        this.selectForm(firstForm?.id ?? null);
+        if (this.selectedTabIndex === 3) this.loadMonitor();
       },
       error: () => this.snackBar.open(this.translate.instant('projects.errors.loadProject'), this.translate.instant('common.buttons.close'), { duration: 3000 }),
     });
   }
 
-  loadTechnicalSheet(projectId: string): void {
-    this.projectService.getTechnicalSheet(projectId).subscribe({
+  selectForm(formId: string | null): void {
+    this.selectedFormId.set(formId);
+    this.randomPreview.set(null);
+    this.technicalSheet.set(null);
+    this.zones.set([]);
+    if (!formId) return;
+    this.loadTechnicalSheet(formId);
+    const project = this.selectedProject();
+    if (project) this.loadZones(project.id);
+    if (this.selectedTabIndex === 3) this.loadMonitor();
+  }
+
+  loadMonitor(): void {
+    const project = this.selectedProject();
+    const formId = this.selectedFormId();
+    if (!project || !formId) return;
+    this.projectService.getMonitor(project.id, formId).subscribe({
+      next: (data) => this.monitor.set(data),
+      error: () => this.monitor.set(null),
+    });
+  }
+
+  previewRandomAssignment(): void {
+    const project = this.selectedProject();
+    const formId = this.selectedFormId();
+    if (!project || !formId) return;
+    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), null, true).subscribe({
+      next: (result) => this.randomPreview.set(result),
+      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo previsualizar la designación', 'Cerrar', { duration: 3500 }),
+    });
+  }
+
+  confirmRandomAssignment(): void {
+    const project = this.selectedProject();
+    const formId = this.selectedFormId();
+    const preview = this.randomPreview();
+    if (!project || !formId || !preview) return;
+    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), preview.seed, false).subscribe({
+      next: () => { this.randomPreview.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
+      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 3500 }),
+    });
+  }
+
+  publishSelectedForm(): void {
+    const formId = this.selectedFormId();
+    const project = this.selectedProject();
+    if (!formId || !project) return;
+    this.formService.deployForm(formId).subscribe({
+      next: () => { this.snackBar.open('Encuesta publicada', 'Cerrar', { duration: 3000 }); this.selectProject(project); },
+      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo publicar', 'Cerrar', { duration: 4000 }),
+    });
+  }
+
+  selectFormAndSheet(formId: string): void {
+    this.selectForm(formId);
+    this.selectedTabIndex = 0;
+  }
+
+  loadTechnicalSheet(formId: string): void {
+    this.projectService.getFormTechnicalSheet(formId).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
+        this.editingSheet.set(!sheet.id);
         if (sheet) {
           this.technicalSheetForm.patchValue({
             description: sheet.description ?? '',
@@ -1682,13 +1935,14 @@ export class ProjectListComponent implements OnInit {
       },
       error: () => {
         this.technicalSheet.set(null);
+        this.editingSheet.set(true);
         this.technicalSheetForm.reset();
       },
     });
   }
 
   loadZones(projectId: string): void {
-    this.projectService.getProjectZones(projectId).subscribe({
+    this.projectService.getProjectZones(projectId, this.selectedFormId() ?? undefined).subscribe({
       next: (zones) => {
         this.zones.set(zones);
       },
@@ -1705,7 +1959,11 @@ export class ProjectListComponent implements OnInit {
     const payload = {
       name: this.projectForm.value.name ?? '',
       description: this.projectForm.value.description ?? null,
-      leader_ids: this.projectForm.value.leader_ids ?? [],
+      ...(this.canManageProjects() ? { leader_ids: this.projectForm.value.leader_ids ?? [] } : {}),
+      ...(this.canAssignMembers() && this.editingProject() ? {
+        delegate_ids: this.projectForm.value.delegate_ids ?? [],
+        supervisor_ids: this.projectForm.value.supervisor_ids ?? [],
+      } : {}),
     };
     const current = this.editingProject();
     const request = current
@@ -1732,8 +1990,8 @@ export class ProjectListComponent implements OnInit {
   }
 
   saveTechnicalSheet(): void {
-    const project = this.selectedProject();
-    if (!project || this.savingSheet()) return;
+    const formId = this.selectedFormId();
+    if (!formId || this.savingSheet() || !this.editingSheet()) return;
 
     this.savingSheet.set(true);
     const payload = {
@@ -1743,9 +2001,10 @@ export class ProjectListComponent implements OnInit {
       target_sample_size: this.technicalSheetForm.value.target_sample_size ?? null,
     };
 
-    this.projectService.saveTechnicalSheet(project.id, payload).subscribe({
+    this.projectService.saveFormTechnicalSheet(formId, payload).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
+        this.editingSheet.set(false);
         this.savingSheet.set(false);
         this.snackBar.open('Ficha técnica guardada correctamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
       },
@@ -1757,18 +2016,11 @@ export class ProjectListComponent implements OnInit {
   }
 
   validateTechnicalSheet(): void {
-    const project = this.selectedProject();
-    if (!project || this.validatingSheet()) return;
+    const formId = this.selectedFormId();
+    if (!formId || this.validatingSheet() || this.editingSheet()) return;
 
     this.validatingSheet.set(true);
-    const payload = {
-      description: this.technicalSheetForm.value.description ?? null,
-      start_date: this.technicalSheetForm.value.start_date ?? null,
-      end_date: this.technicalSheetForm.value.end_date ?? null,
-      target_sample_size: this.technicalSheetForm.value.target_sample_size ?? null,
-    };
-
-    this.projectService.validateTechnicalSheet(project.id, payload).subscribe({
+    this.projectService.validateFormTechnicalSheet(formId).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.validatingSheet.set(false);
@@ -1870,11 +2122,13 @@ export class ProjectListComponent implements OnInit {
 
   saveZone(): void {
     const project = this.selectedProject();
-    if (!project || this.zoneForm.invalid || this.savingZone()) return;
+    const formId = this.selectedFormId();
+    if (!project || !formId || this.zoneForm.invalid || this.savingZone()) return;
 
     this.savingZone.set(true);
     const val = this.zoneForm.value;
     const payload: ProjectZonePayload = {
+      form_id: formId,
       name: val.name ?? '',
       description: val.description ?? null,
       geofence_type: val.geofence_type ?? 'radius',
@@ -1931,6 +2185,8 @@ export class ProjectListComponent implements OnInit {
       name: project.name,
       description: project.description ?? '',
       leader_ids: (project.leaders ?? []).map((leader) => leader.id),
+      delegate_ids: (project.delegates ?? []).map((user) => user.id),
+      supervisor_ids: (project.supervisors ?? []).map((user) => user.id),
     });
   }
 
@@ -1940,21 +2196,24 @@ export class ProjectListComponent implements OnInit {
       name: '',
       description: '',
       leader_ids: [],
+      delegate_ids: [],
+      supervisor_ids: [],
     });
   }
 
-  canCreateFormsInProject(_project: Project): boolean {
-    return this.authService.isAdmin() || this.authService.isProjectLeader();
+  canCreateFormsInProject(project: Project): boolean {
+    const id = this.authService.user()?.id;
+    return this.authService.isAdmin() || !!project.leaders?.some((user) => user.id === id)
+      || !!project.delegates?.some((user) => user.id === id);
   }
 
   openNewFormModal(project: Project): void {
     this.newFormProjectId.set(project.id);
     this.newFormProjectName.set(project.name);
-    const today = new Date().toISOString().split('T')[0];
     this.newFormForm.reset({
       title: '',
       description: '',
-      start_date: today,
+      start_date: '',
       end_date: '',
       require_consent: true,
       consent_text:
@@ -1989,17 +2248,20 @@ export class ProjectListComponent implements OnInit {
         description: (raw.description || '').trim() || undefined,
         project_id: projectId,
         step_by_step: true,
-        start_date: raw.start_date || null,
-        end_date: raw.end_date || null,
-        require_consent: Boolean(raw.require_consent),
-        consent_text: raw.require_consent ? (raw.consent_text || '').trim() : null,
+        start_date: null,
+        end_date: null,
+        require_consent: true,
+        consent_text: (raw.consent_text || '').trim(),
       })
       .subscribe({
         next: (createdForm) => {
           this.savingNewForm.set(false);
           this.showNewFormModal.set(false);
-          this.snackBar.open('Formulario creado exitosamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
-          this.router.navigate(['/admin/forms', createdForm.id, 'edit']);
+          this.snackBar.open('Formulario guardado en borrador. Complete su ficha técnica.', this.translate.instant('common.buttons.close'), { duration: 3000 });
+          this.selectedFormId.set(createdForm.id);
+          this.selectedTabIndex = 0;
+          const project = this.selectedProject();
+          if (project) this.selectProject(project);
         },
         error: (err) => {
           this.savingNewForm.set(false);
@@ -2042,6 +2304,8 @@ export class ProjectListComponent implements OnInit {
       PROJECT: this.translate.instant('projects.roles.PROJECT'),
       EDITOR: this.translate.instant('projects.roles.PROJECT'),
       RECOLECTOR: this.translate.instant('projects.roles.RECOLECTOR'),
+      DELEGADO: 'Delegado',
+      SUPERVISOR: 'Supervisor',
     };
 
     return labels[role] ?? role;
