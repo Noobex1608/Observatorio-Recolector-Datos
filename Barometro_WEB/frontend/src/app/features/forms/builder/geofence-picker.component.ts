@@ -233,8 +233,10 @@ export class GeofencePickerComponent implements AfterViewInit, OnDestroy {
     });
 
     // 2. Add Base Tile Layer
-    this.LInstance.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    this.LInstance.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      updateWhenIdle: true,
+      updateWhenZooming: false,
       attribution: '&copy; OpenStreetMap contributors | Capas INEC Ecuador',
     }).addTo(this.map);
 

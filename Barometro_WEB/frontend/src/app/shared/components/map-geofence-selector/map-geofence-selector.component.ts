@@ -230,10 +230,12 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       this.mapResizeObserver.observe(container);
     }
 
-    // Capa Base OpenStreetMap
-    this.LInstance.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Capa base OpenStreetMap: usar el host oficial y pedir teselas al terminar el movimiento.
+    this.LInstance.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap & &copy; INEC Ecuador',
+      updateWhenIdle: true,
+      updateWhenZooming: false,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> | &copy; INEC Ecuador',
     }).addTo(this.map);
 
     // Grupos de Capas Leaflet

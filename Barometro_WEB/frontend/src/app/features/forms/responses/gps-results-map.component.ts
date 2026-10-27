@@ -42,7 +42,7 @@ export class GpsResultsMapComponent implements AfterViewInit, OnDestroy {
     if (!isPlatformBrowser(this.platformId) || !this.mapCanvas) return;
     this.leaflet = await import('leaflet');
     this.map = this.leaflet.map(this.mapCanvas.nativeElement).setView([-1.0, -80.7], 11);
-    this.leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    this.leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
     }).addTo(this.map);
     this.overlays = this.leaflet.layerGroup().addTo(this.map);
