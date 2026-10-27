@@ -55,7 +55,7 @@ Comandos principales:
 - Traduccion: `@ngx-translate/core`.
 - Graficos: `ngx-echarts` + `echarts`.
 - Estilos: Tailwind CSS 4 + Angular Material.
-- SSR configurado (`@angular/ssr`).
+- Build estático para Netlify; las rutas se renderizan en el navegador.
 - Build: `npx ng build` desde `frontend/`.
 
 ### Servicios HTTP

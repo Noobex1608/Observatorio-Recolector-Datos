@@ -4,16 +4,42 @@
   command = "bun install --frozen-lockfile && bun run build"
   publish = "dist/frontend/browser"
 
-# SPA redirect rule for Angular Client-Side Routing
+# Only application routes should fall back to the Angular entry point.
+# Missing JS/CSS chunks must return 404 instead of HTML with a 200 status.
 [[redirects]]
-  from = "/*"
+  from = "/auth"
   to = "/index.html"
   status = 200
 
-# Ensure Netlify uses the Angular runtime plugin (installed via Netlify UI)
-[[plugins]]
-  package = "@netlify/angular-runtime"
+[[redirects]]
+  from = "/auth/*"
+  to = "/index.html"
+  status = 200
 
+[[redirects]]
+  from = "/admin"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/collect/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/perfil"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/login"
+  to = "/index.html"
+  status = 200
 
 [build.environment]
   NODE_VERSION = "24"

@@ -17,6 +17,12 @@ export class GlobalErrorHandler implements ErrorHandler {
     const msg = String(error?.message || error?.toString() || '');
     const causeMsg = String(error?.cause?.message || error?.cause || '');
     if (
+      typeof window !== 'undefined' &&
+      /Failed to fetch dynamically imported module|Importing a module script failed|Failed to load module script|ChunkLoadError|Loading chunk/i.test(`${msg} ${causeMsg}`)
+    ) {
+      window.dispatchEvent(new Event('app-chunk-error'));
+    }
+    if (
       msg.includes('ResizeObserver') ||
       causeMsg.includes('ResizeObserver') ||
       msg.includes('undelivered notifications') ||

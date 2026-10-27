@@ -8,7 +8,7 @@ SPA Angular 21 para crear, publicar y analizar formularios dinamicos.
 - Angular Material.
 - Signals y ViewModels para estado de presentacion.
 - ECharts para graficos de respuestas.
-- Bun 1.2.18 como package manager.
+- Bun 1.3.14 como package manager.
 
 ## Instalacion
 
@@ -32,6 +32,14 @@ bun install --frozen-lockfile
 ```
 
 No hay script de lint configurado actualmente.
+
+## Despliegue en Netlify
+
+`ng build` genera una SPA estática en `dist/frontend/browser`, incluido `index.html`.
+Netlify publica ese directorio y redirige solo las rutas de la aplicación a
+`index.html`. Los recursos ausentes, como chunks JavaScript de una versión
+anterior, deben responder 404. Si una pestaña abierta intenta cargar uno de
+esos chunks tras un despliegue, `deploy-recovery.js` recarga la página una vez.
 
 ## Rutas activas
 

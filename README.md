@@ -10,7 +10,7 @@ Sistema inspirado en **KoboCollect + KoboToolbox** para la recolección de datos
 |------|-----------|
 | **Backend API** | Laravel 12, PHP 8.4 (Docker) |
 | **Base de datos** | PostgreSQL 16 (Docker) |
-| **Frontend Web** | Angular 21 con SSR, Bun 1.2.18 |
+| **Frontend Web** | Angular 21 SPA, Bun 1.3.14 |
 | **App Móvil** | Angular 21 standalone, Dexie.js (IndexedDB), PWA |
 | **Auth** | Laravel Sanctum (tokens) |
 | **Nube / Sync** | Supabase (Auth + PostgreSQL + REST/PostgREST) |
