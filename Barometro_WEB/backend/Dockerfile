@@ -125,7 +125,8 @@ RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
 
 # Script de entrada
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/migrate-and-start.sh /usr/local/bin/migrate-and-start.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/migrate-and-start.sh
 
 # Exponer puerto
 EXPOSE 8000
