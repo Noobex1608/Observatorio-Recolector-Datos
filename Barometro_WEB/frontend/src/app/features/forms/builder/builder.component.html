@@ -19,7 +19,7 @@
           Compartir
         </button>
       }
-      @if (vm.isEditMode() && vm.state() !== 'DEPLOYED' && !vm.editingUnlocked()) {
+      @if (vm.isEditMode() && vm.state() !== 'DEPLOYED' && !vm.instrumentLocked() && !vm.editingUnlocked()) {
         <button class="btn btn-secondary" type="button" (click)="vm.editingUnlocked.set(true)">
           <span class="material-icons" aria-hidden="true">edit</span>
           Editar formulario
@@ -49,6 +49,13 @@
 
   @if (vm.successMessage()) {
     <div class="alert alert-success">{{ vm.successMessage() }}</div>
+  }
+
+  @if (vm.instrumentLocked()) {
+    <div class="alert alert-warning">
+      Este instrumento ya fue publicado. Para cambiar preguntas o consentimiento, use «Duplicar» en Mis formularios.
+      La copia conservará el formulario original y sus respuestas. Las fechas se gestionan en la ficha técnica.
+    </div>
   }
 
   @if (vm.state() === 'DEPLOYED') {

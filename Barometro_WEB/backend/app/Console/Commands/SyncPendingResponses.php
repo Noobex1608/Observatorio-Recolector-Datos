@@ -14,6 +14,12 @@ class SyncPendingResponses extends Command
 
     public function handle(): int
     {
+        if (! config('services.supabase.response_sync_enabled')) {
+            $this->info('Sincronización de respuestas con Supabase desactivada en este entorno.');
+
+            return self::SUCCESS;
+        }
+
         $limit = max(1, (int) $this->option('limit'));
 
         $pending = ResponseSyncQueue::query()

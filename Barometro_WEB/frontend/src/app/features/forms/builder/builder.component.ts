@@ -197,6 +197,8 @@ export class BuilderComponent implements OnInit, OnDestroy {
   }
 
   async saveAndContinue(): Promise<void> {
+    if (this.vm.isSaving()) return;
+
     await this.vm.saveForm();
     if (!this.vm.errorMessage() && this.delimitNow() && this.canDelimitAfterSave() && this.vm.formId()) {
       await this.router.navigate(['/admin/proyectos'], { queryParams: { project: this.vm.projectId(), form: this.vm.formId(), tab: 'zones' } });

@@ -157,7 +157,9 @@
                 <span class="pill-badge neutral">Inicia {{ form.start_date }}</span>
               }
             </div>
-            @if ((form.project_zones?.length ?? 0) > 0) {
+            @if (auth.obtenerRol() !== 'RECOLECTOR') {
+              <p class="field-shift-unassigned">Para iniciar una jornada, entra con la cuenta recolectora asignada a esta encuesta. Sesión actual: {{ auth.obtenerEmail() || 'sin identificar' }}.</p>
+            } @else if ((form.project_zones?.length ?? 0) > 0) {
               <div class="field-shift" (click)="$event.stopPropagation()">
                 @if (tracking.active()?.formId === form.id) {
                   <p>Jornada activa · posición compartida mientras la app esté abierta</p>

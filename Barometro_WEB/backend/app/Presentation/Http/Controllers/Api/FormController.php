@@ -167,7 +167,7 @@ class FormController extends Controller
         $form = $request->getForm();
         $currentUser = $request->user();
         $data = $request->input('data', []);
-        $response = $this->storeFormResponse->submit($form, $currentUser, is_array($data) ? $data : []);
+        $response = $this->storeFormResponse->submit($form, $currentUser, is_array($data) ? $data : [], $request->string('client_submission_id')->toString());
 
         return response()->json(['message' => 'Respuesta guardada', 'id' => $response->id], 201);
     }
@@ -259,6 +259,12 @@ class FormController extends Controller
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
         ]);
 
+        if ($form->instrument_locked) {
+            foreach (['title', 'description', 'step_by_step', 'consent_text'] as $field) {
+                abort_if($request->has($field) && $request->input($field) != $form->$field, 409,
+                    'El instrumento ya fue publicado. Duplique el formulario para cambiar sus preguntas o consentimiento y conservar el historial.');
+            }
+        }
         $form->update($request->only([
             'title', 'description', 'step_by_step', 'consent_text', 'start_date', 'end_date',
         ]));
@@ -373,13 +379,17 @@ class FormController extends Controller
     {
         $form = $this->findLifecycleManageableForm($id, $request->user());
 
-        if ($form->state !== 'DRAFT') {
-            return response()->json(['message' => 'El formulario ya esta implementado'], 422);
+        if (! in_array($form->state, ['DRAFT', 'ARCHIVED'], true)) {
+            return response()->json(['message' => 'El formulario ya está implementado'], 422);
         }
 
         $form->load('technicalSheet');
         if ($form->technicalSheet?->status !== 'VALIDATED') {
             return response()->json(['message' => 'El líder debe validar la ficha técnica de este formulario'], 422);
+        }
+        $today = now('America/Guayaquil')->toDateString();
+        if ($form->end_date && $form->end_date->format('Y-m-d') < $today) {
+            return response()->json(['message' => 'La fecha de fin del formulario ya pasó. Actualice y valide la ficha técnica antes de publicar.'], 422);
         }
         if (! $form->zones()->exists()) {
             return response()->json(['message' => 'Delimite al menos una zona antes de publicar'], 422);
@@ -394,6 +404,7 @@ class FormController extends Controller
 
         $form->update([
             'state' => 'DEPLOYED',
+            'instrument_locked' => true,
             'link_uuid' => $form->link_uuid ?? Str::uuid(),
         ]);
 
@@ -481,6 +492,7 @@ class FormController extends Controller
         if ($question->form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
+        abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
         if ($question->form->technicalSheet?->status !== 'VALIDATED') {
             return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
         }
@@ -526,6 +538,7 @@ class FormController extends Controller
         if ($question->form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
+        abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
         if ($question->form->technicalSheet?->status !== 'VALIDATED') {
             return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
         }
@@ -680,7 +693,7 @@ class FormController extends Controller
 
         $data = $request->data ?? [];
         $dataArray = is_array($data) ? $data : [];
-        $response = $this->storeFormResponse->submit($form, $request->user(), $dataArray);
+        $response = $this->storeFormResponse->submit($form, $request->user(), $dataArray, $request->string('client_submission_id')->toString());
 
         return response()->json([
             'message' => 'Respuesta guardada',
@@ -692,7 +705,7 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}/responses', summary: 'Listar respuestas', security: [['sanctum' => []]], tags: ['Forms'])]
     public function getResponses(Request $request, string $id): JsonResponse
     {
-        $form = $this->findViewableForm($id, $request->user());
+        $form = $this->findResponsesReadableForm($id, $request->user());
         $form->load('questions');
         $pageSize = max(1, min(100, (int) $request->query('per_page', 50)));
         $page = $form->responses()->orderByDesc('created_at')->orderByDesc('id')->paginate($pageSize);
@@ -729,7 +742,7 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}/stats', summary: 'Obtener estadisticas basicas de respuestas', security: [['sanctum' => []]], tags: ['Forms'])]
     public function getStats(Request $request, string $id): JsonResponse
     {
-        $form = $this->findViewableForm($id, $request->user());
+        $form = $this->findResponsesReadableForm($id, $request->user());
         $form->load('questions');
         $stats = [];
 
@@ -761,7 +774,7 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}/export', summary: 'Exportar respuestas CSV/XLSX', security: [['sanctum' => []]], tags: ['Forms'])]
     public function exportResponses(Request $request, string $id)
     {
-        $form = $this->findViewableForm($id, $request->user());
+        $form = $this->findResponsesReadableForm($id, $request->user());
         $form->load(['questions' => fn ($q) => $q->orderBy('order')]);
 
         $format = strtolower($request->query('format', 'csv'));
@@ -840,13 +853,79 @@ class FormController extends Controller
     #[OA\Post(path: '/forms/{id}/log-export', summary: 'Registrar auditoría de exportación', security: [['sanctum' => []]], tags: ['Forms'])]
     public function logExport(Request $request, string $id): JsonResponse
     {
-        $form = $this->findViewableForm($id, $request->user());
+        $form = $this->findResponsesReadableForm($id, $request->user());
         abort_unless(strtolower($request->input('format', 'pdf')) === 'pdf', 422, 'Formato no admitido.');
         \App\Services\AuditLogService::logClientReportedExport(
             $request->user(), $form, $form->responses()->count()
         );
 
         return response()->json(['success' => true]);
+    }
+
+    /** Save a complete draft in one transaction; no partially saved instrument. */
+    public function saveDraft(Request $request, string $id): JsonResponse
+    {
+        $input = $request->validate([
+            'title' => 'required|string|max:255', 'description' => 'nullable|string',
+            'step_by_step' => 'required|boolean', 'consent_text' => 'required|string|min:10',
+            'start_date' => 'nullable|date_format:Y-m-d', 'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'expected_revision' => 'required|integer|min:0',
+            'questions' => 'required|array|min:1|max:500', 'questions.*.id' => 'required|uuid|distinct',
+            'questions.*.type' => 'required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER,NOTE,DATE,TIME,DATETIME,GPS,MULTIMEDIA,SIGNATURE,RANKING,RATING,BARCODE,CALCULATE',
+            'questions.*.label' => 'required|string', 'questions.*.order' => 'required|integer|min:0',
+            'questions.*.required' => 'required|boolean', 'questions.*.options' => 'nullable|array',
+            'questions.*.properties' => 'nullable|array', 'questions.*.section_name' => 'nullable|string|max:255',
+            'questions.*.parent_question_id' => 'nullable|uuid', 'questions.*.branch_rules' => 'nullable|array',
+            'questions.*.branch_rules.*.option_index' => 'required|integer|min:0',
+            'questions.*.branch_rules.*.action' => 'required|in:CONTINUE,GO_TO,END_FORM',
+            'questions.*.branch_rules.*.next_question_id' => 'nullable|uuid',
+        ]);
+        $form = DB::transaction(function () use ($request, $id, $input) {
+            $form = Form::whereKey($id)->lockForUpdate()->firstOrFail();
+            $this->abortUnlessCanEdit($form, $request->user());
+            abort_if($form->state === 'DEPLOYED' || $form->instrument_locked, 409,
+                'Duplique el formulario publicado para modificar el instrumento.');
+            abort_unless($form->technicalSheet?->status === 'VALIDATED', 422, 'El líder debe validar la ficha técnica.');
+            if ($form->draft_revision !== $input['expected_revision']) {
+                throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
+                    'message' => 'El formulario cambió desde que se abrió. Recargue antes de guardar.',
+                    'expected_revision' => $input['expected_revision'],
+                    'current_revision' => $form->draft_revision,
+                ], 409));
+            }
+            $ids = array_column($input['questions'], 'id');
+            abort_if(FormQuestion::whereIn('id', $ids)->where('form_id', '!=', $id)->exists(), 422, 'Las preguntas pertenecen a otro formulario.');
+            $form->fill(collect($input)->except(['questions', 'expected_revision'])->all());
+            $form->require_consent = true;
+            $form->draft_revision++;
+            $form->save();
+            // First insert rows with no parent, then set references after all IDs exist.
+            $form->questions()->update(['parent_question_id' => null]);
+            $form->questions()->whereNotIn('id', $ids)->delete();
+            foreach ($input['questions'] as $row) {
+                $question = $form->questions()->find($row['id']) ?? new FormQuestion;
+                $question->id = $row['id'];
+                $question->form_id = $id;
+                $question->fill(collect($row)->except(['id', 'parent_question_id'])->all());
+                $question->save();
+            }
+            foreach ($input['questions'] as $row) {
+                abort_if(! empty($row['parent_question_id']) && ! in_array($row['parent_question_id'], $ids, true), 422, 'La pregunta padre pertenece a otro formulario.');
+                $form->questions()->whereKey($row['id'])->update(['parent_question_id' => $row['parent_question_id'] ?? null]);
+            }
+            $this->formSchemaValidator->validateForPublication($form->questions()->get());
+            $this->enqueueFormSchemaSync->enqueue($form);
+            return $form->fresh(['questions']);
+        });
+        return response()->json($form);
+    }
+
+    private function findResponsesReadableForm(string $id, User $user): Form
+    {
+        $form = Form::findOrFail($id);
+        abort_unless(app(\App\Policies\FormPolicy::class)->viewResponses($user, $form), 403,
+            'No tienes permisos para consultar o exportar las respuestas de este formulario.');
+        return $form;
     }
 
     private function findViewableForm(string $id, User $user): Form
@@ -1201,7 +1280,9 @@ class FormController extends Controller
 
     private function formatMobileForm(Form $form, ?User $user = null): array
     {
-        $data = $form->toArray();
+        // Explicit projection: never expose loaded shares, users or project relations.
+        $data = $form->only(['id', 'title', 'description', 'project_id', 'state', 'link_uuid', 'step_by_step', 'created_at', 'updated_at', 'instrument_locked', 'draft_revision']);
+        $data['draft_revision'] = (int) ($form->draft_revision ?? 0);
         $data['require_consent'] = (bool) ($form->require_consent ?? true);
         $data['consent_text'] = $form->consent_text;
         $data['start_date'] = $form->start_date?->format('Y-m-d');

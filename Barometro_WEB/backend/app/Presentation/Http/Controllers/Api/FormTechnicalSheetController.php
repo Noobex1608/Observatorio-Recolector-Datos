@@ -73,7 +73,7 @@ class FormTechnicalSheetController extends Controller
             'La fecha de fin no puede ser anterior a la fecha de inicio.');
         DB::transaction(function () use ($sheet, $form, $user) {
             $sheet->update(['status' => 'VALIDATED', 'validated_by' => $user->id, 'validated_at' => now()]);
-            if ($form->state === 'DRAFT') {
+            if (in_array($form->state, ['DRAFT', 'ARCHIVED'], true)) {
                 $form->update([
                     'start_date' => $sheet->start_date->format('Y-m-d'),
                     'end_date' => $sheet->end_date->format('Y-m-d'),

@@ -88,6 +88,11 @@
     font-size: 1rem;
     overflow: hidden;
 
+    span,
+    .avatar-initial {
+      color: #ffffff !important;
+    }
+
     img {
       width: 100%;
       height: 100%;
@@ -124,7 +129,7 @@
 
 .badge-super-admin {
   background: rgba(200, 16, 46, 0.14);
-  color: #c8102e;
+  color: var(--uleam-red);
 }
 
 .badge-admin {

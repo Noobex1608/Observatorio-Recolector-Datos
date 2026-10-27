@@ -449,9 +449,27 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
   styles: [
     `
       .audit-container {
+        --audit-ocean: #005689;
+        --audit-sky: #46a4ff;
+        --audit-main: #0059a8;
+        --audit-deep: #004499;
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
+      }
+
+      :host-context(.dark) .audit-container {
+        --audit-ocean: #46a4ff;
+        --audit-main: #46a4ff;
+        --audit-deep: #46a4ff;
+      }
+
+      :host-context(.dark) .super-badge {
+        background: #004499;
+      }
+
+      :host-context(.dark) .refresh-btn {
+        background: #0059a8 !important;
       }
 
       .page-header {
@@ -476,8 +494,8 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         width: 48px;
         height: 48px;
         border-radius: var(--radius-md);
-        background: rgba(225, 29, 72, 0.12);
-        color: var(--primary-600);
+        background: rgba(70, 164, 255, 0.16);
+        color: var(--audit-ocean);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -500,7 +518,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         display: inline-flex;
         align-items: center;
         gap: 0.25rem;
-        background: #ef4444;
+        background: var(--audit-deep);
         color: white;
         font-size: 0.7rem;
         font-weight: 700;
@@ -527,6 +545,8 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         align-items: center;
         gap: 0.5rem;
         border-radius: var(--radius-md);
+        background: var(--audit-main) !important;
+        color: #fff !important;
       }
 
       /* KPI Cards */
@@ -562,10 +582,10 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         flex-shrink: 0;
       }
 
-      .download-kpi .kpi-icon-wrapper { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
-      .permission-kpi .kpi-icon-wrapper { background: rgba(16, 185, 129, 0.12); color: #059669; }
-      .modification-kpi .kpi-icon-wrapper { background: rgba(245, 158, 11, 0.12); color: #d97706; }
-      .total-kpi .kpi-icon-wrapper { background: rgba(139, 92, 246, 0.12); color: #7c3aed; }
+      .download-kpi .kpi-icon-wrapper { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
+      .permission-kpi .kpi-icon-wrapper { background: rgba(0, 86, 137, 0.13); color: var(--audit-ocean); }
+      .modification-kpi .kpi-icon-wrapper { background: rgba(0, 89, 168, 0.13); color: var(--audit-main); }
+      .total-kpi .kpi-icon-wrapper { background: rgba(0, 68, 153, 0.13); color: var(--audit-deep); }
 
       .kpi-content {
         display: flex;
@@ -611,6 +631,12 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         box-shadow: var(--shadow-sm) !important;
       }
 
+      .custom-tabs {
+        --mdc-tab-indicator-active-indicator-color: var(--audit-main);
+        --mat-tab-header-active-label-text-color: var(--audit-deep);
+        --mat-tab-header-active-focus-label-text-color: var(--audit-deep);
+      }
+
       .tab-body {
         padding: 1.5rem;
         display: flex;
@@ -642,6 +668,11 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         gap: 0.5rem;
       }
 
+      .search-field:focus-within {
+        border-color: var(--audit-sky);
+        box-shadow: 0 0 0 2px rgba(70, 164, 255, 0.16);
+      }
+
       .search-field input {
         border: none;
         outline: none;
@@ -652,7 +683,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
       }
 
       .search-icon {
-        color: var(--text-tertiary);
+        color: var(--audit-ocean);
       }
 
       .clear-btn {
@@ -679,7 +710,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         gap: 1rem;
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-left: 4px solid var(--primary-500);
+        border-left: 4px solid var(--audit-main);
         border-radius: var(--radius-md);
         padding: 1rem 1.25rem;
         transition: background var(--transition-fast);
@@ -689,11 +720,11 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         background: var(--hover-bg);
       }
 
-      .log-item-card.descargas { border-left-color: #2563eb; }
-      .log-item-card.permisos { border-left-color: #10b981; }
-      .log-item-card.formularios { border-left-color: #f59e0b; }
-      .log-item-card.usuarios { border-left-color: #ec4899; }
-      .log-item-card.proyectos { border-left-color: #8b5cf6; }
+      .log-item-card.descargas { border-left-color: var(--audit-sky); }
+      .log-item-card.permisos { border-left-color: var(--audit-ocean); }
+      .log-item-card.formularios { border-left-color: var(--audit-main); }
+      .log-item-card.usuarios { border-left-color: var(--audit-deep); }
+      .log-item-card.proyectos { border-left-color: var(--audit-sky); }
 
       .action-icon-circle {
         width: 38px;
@@ -702,16 +733,16 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(225, 29, 72, 0.1);
-        color: var(--primary-600);
+        background: rgba(0, 89, 168, 0.12);
+        color: var(--audit-main);
         flex-shrink: 0;
       }
 
-      .action-icon-circle.descargas { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
-      .action-icon-circle.permisos { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-      .action-icon-circle.formularios { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
-      .action-icon-circle.usuarios { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
-      .action-icon-circle.proyectos { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+      .action-icon-circle.descargas { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
+      .action-icon-circle.permisos { background: rgba(0, 86, 137, 0.13); color: var(--audit-ocean); }
+      .action-icon-circle.formularios { background: rgba(0, 89, 168, 0.13); color: var(--audit-main); }
+      .action-icon-circle.usuarios { background: rgba(0, 68, 153, 0.13); color: var(--audit-deep); }
+      .action-icon-circle.proyectos { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
 
       .log-content-col {
         flex: 1;
@@ -737,11 +768,11 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         color: var(--text-secondary);
       }
 
-      .module-chip.descargas { background: rgba(37, 99, 235, 0.15); color: #2563eb; }
-      .module-chip.permisos { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-      .module-chip.formularios { background: rgba(245, 158, 11, 0.15); color: #d97706; }
-      .module-chip.usuarios { background: rgba(236, 72, 153, 0.15); color: #db2777; }
-      .module-chip.proyectos { background: rgba(139, 92, 246, 0.15); color: #7c3aed; }
+      .module-chip.descargas { background: rgba(70, 164, 255, 0.2); color: var(--audit-deep); }
+      .module-chip.permisos { background: rgba(0, 86, 137, 0.14); color: var(--audit-ocean); }
+      .module-chip.formularios { background: rgba(0, 89, 168, 0.14); color: var(--audit-main); }
+      .module-chip.usuarios { background: rgba(0, 68, 153, 0.14); color: var(--audit-deep); }
+      .module-chip.proyectos { background: rgba(70, 164, 255, 0.2); color: var(--audit-deep); }
 
       .user-chip {
         font-size: 0.775rem;
@@ -789,14 +820,14 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         display: flex;
         align-items: flex-start;
         gap: 0.75rem;
-        background: rgba(59, 130, 246, 0.08);
-        border: 1px solid rgba(59, 130, 246, 0.2);
+        background: rgba(70, 164, 255, 0.1);
+        border: 1px solid rgba(0, 89, 168, 0.22);
         border-radius: var(--radius-md);
         padding: 0.85rem 1rem;
         color: var(--text-primary);
 
         mat-icon {
-          color: #2563eb;
+          color: var(--audit-main);
         }
 
         strong {
@@ -828,7 +859,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         margin: 0;
 
         mat-icon {
-          color: var(--primary-600);
+          color: var(--audit-main);
         }
       }
 
@@ -847,13 +878,13 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         text-transform: uppercase;
       }
 
-      .role-badge.PROJECT { background: rgba(139, 92, 246, 0.15); color: #7c3aed; }
-      .role-badge.RECOLECTOR { background: rgba(16, 185, 129, 0.15); color: #059669; }
+      .role-badge.PROJECT { background: rgba(0, 68, 153, 0.14); color: var(--audit-deep); }
+      .role-badge.RECOLECTOR { background: rgba(0, 86, 137, 0.14); color: var(--audit-ocean); }
 
       .target-badge {
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--primary-600);
+        color: var(--audit-main);
       }
 
       .user-subtext {
@@ -885,7 +916,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
       }
 
       .folder-icon {
-        color: #f59e0b;
+        color: var(--audit-ocean);
       }
 
       .proj-name {
@@ -919,7 +950,7 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
         margin-top: 0.2rem;
 
         mat-icon {
-          color: #eab308;
+          color: var(--audit-main);
         }
       }
 

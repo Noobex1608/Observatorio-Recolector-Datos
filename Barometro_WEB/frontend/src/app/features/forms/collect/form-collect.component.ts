@@ -425,7 +425,7 @@ interface QuestionVisualMeta {
       }
 
       .required {
-        color: #c8102e;
+        color: var(--uleam-red);
       }
 
       .question-error {
@@ -569,6 +569,7 @@ export class FormCollectComponent implements OnInit {
   loading = signal(true);
   submitting = signal(false);
   submitted = signal(false);
+  private clientSubmissionId = crypto.randomUUID();
   consentAccepted = signal(false);
   consentDeclined = signal(false);
   error = signal('');
@@ -868,6 +869,7 @@ export class FormCollectComponent implements OnInit {
     this.currentStepIndex.set(0);
     this.stepHistory.set([0]);
     this.submitted.set(false);
+    this.clientSubmissionId = crypto.randomUUID();
     this.consentAccepted.set(false);
     this.consentDeclined.set(false);
     this.error.set('');
@@ -908,7 +910,7 @@ export class FormCollectComponent implements OnInit {
     if (!this.consentAccepted()) return;
     this.submitting.set(true);
 
-    this.formService.submitResponse(this.linkUuid, this.answers()).subscribe({
+    this.formService.submitResponse(this.linkUuid, this.answers(), this.clientSubmissionId).subscribe({
       next: () => {
         this.submitted.set(true);
         this.submitting.set(false);

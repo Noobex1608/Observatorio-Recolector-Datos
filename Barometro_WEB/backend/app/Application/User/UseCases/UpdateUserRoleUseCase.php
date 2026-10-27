@@ -19,6 +19,7 @@ class UpdateUserRoleUseCase
     public function execute(UpdateUserRoleDTO $dto): User
     {
         return DB::transaction(function () use ($dto) {
+            app(ProtectAdministrator::class)->lock();
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($dto->adminId);
 
@@ -43,8 +44,10 @@ class UpdateUserRoleUseCase
             }
 
             // Actualizar el rol (el modelo User permitirá esto porque el admin está autenticado)
+            app(ProtectAdministrator::class)->check($user, $dto->adminId, $dto->rol, $user->is_active);
             $user->rol = $dto->rol;
             $user->save();
+            $user->tokens()->delete();
 
             // Cargar relaciones
             $user->load('perfil');

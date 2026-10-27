@@ -37,20 +37,6 @@ import { TranslateModule } from '@ngx-translate/core';
           <span class="nav-text">{{ 'layout.sidebar.myForms' | translate }}</span>
         </a>
 
-        @if (canCreateForms()) {
-          <a
-            class="nav-item"
-            routerLink="/admin/forms/builder"
-            routerLinkActive="active"
-            (click)="navigate.emit()"
-          >
-            <div class="nav-icon-wrapper">
-              <mat-icon class="nav-icon">add_circle</mat-icon>
-            </div>
-            <span class="nav-text">{{ 'layout.sidebar.newForm' | translate }}</span>
-          </a>
-        }
-
         <a
           class="nav-item"
           routerLink="/admin/proyectos"
@@ -145,7 +131,7 @@ import { TranslateModule } from '@ngx-translate/core';
       }
 
       :host-context(.dark) .nav-item.active {
-        background: rgba(248, 113, 113, 0.12);
+        background: rgba(70, 164, 255, 0.16);
         color: var(--primary-400);
       }
 
@@ -170,6 +156,12 @@ import { TranslateModule } from '@ngx-translate/core';
 
       .nav-icon {
         font-size: 20px;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        display: inline-block;
+        text-align: center;
+        letter-spacing: normal;
         color: var(--text-secondary);
         transition: color var(--transition-fast);
       }
@@ -200,7 +192,5 @@ export class SidebarComponent {
   private readonly authService = inject(AuthService);
 
   navigate = output<void>();
-  isAdmin = computed(() => this.authService.isAdmin());
   isSuperAdmin = computed(() => this.authService.isSuperAdmin());
-  canCreateForms = computed(() => this.authService.isAdmin() || this.authService.isProjectLeader());
 }

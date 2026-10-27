@@ -73,7 +73,7 @@ export class GpsResultsMapComponent implements AfterViewInit, OnDestroy {
     }
     for (const point of this._points) {
       const marker = L.circleMarker([point.latitude, point.longitude], {
-        radius: 7, color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.9,
+        radius: 7, color: '#004499', fillColor: '#46a4ff', fillOpacity: 0.9,
       }).addTo(this.overlays);
       const popup = document.createElement('div');
       popup.textContent = `${point.question} · X: ${point.longitude.toFixed(6)} · Y: ${point.latitude.toFixed(6)}${point.accuracy == null ? '' : ` · ±${point.accuracy} m`}`;

@@ -40,7 +40,7 @@ export class PdfExportService {
 
     // Colores corporativos (ULEAM / Barómetro)
     const primaryColor: [number, number, number] = [30, 58, 138]; // Azul marino #1e3a8a
-    const secondaryColor: [number, number, number] = [15, 118, 110]; // Verde azulado #0f766e
+    const secondaryColor: [number, number, number] = [0, 89, 168]; // Azul institucional #0059A8
     const textDark: [number, number, number] = [15, 23, 42]; // Slate 900
     const textMuted: [number, number, number] = [100, 116, 139]; // Slate 500
 
@@ -326,8 +326,8 @@ export class PdfExportService {
           if (slices.length > 0) {
             checkPageBreak(54);
             const palette: Array<[number, number, number]> = [
-              [20, 184, 166], [37, 99, 235], [245, 158, 11], [239, 68, 68],
-              [139, 92, 246], [14, 165, 233], [132, 204, 22], [236, 72, 153],
+              [0, 89, 168], [70, 164, 255], [0, 86, 137], [0, 68, 153],
+              [188, 20, 33], [22, 124, 202], [134, 195, 255], [216, 59, 71],
             ];
             const visible = slices.slice(0, 7);
             const otherCount = slices.slice(7).reduce((sum, slice) => sum + slice.count, 0);

@@ -1,6 +1,19 @@
 import { Injectable } from '@angular/core';
 import Dexie from 'dexie';
 
+export const ACCOUNT_SCOPE_KEY = 'kobo_account_scope';
+
+export function accountScope(userId: number, servidor: string): string {
+  const normalizedServer = new URL(servidor).toString().replace(/\/+$/, '');
+  return `${encodeURIComponent(normalizedServer)}:${userId}`;
+}
+
+function databaseName(): string {
+  if (typeof localStorage === 'undefined') return 'KoboMobileDB:unassigned';
+  const scope = localStorage.getItem('kobo_token') && localStorage.getItem(ACCOUNT_SCOPE_KEY);
+  return scope ? `KoboMobileDB:${scope}` : 'KoboMobileDB:unassigned';
+}
+
 export interface BranchRule {
   option_index: number;
   action?: 'CONTINUE' | 'GO_TO' | 'END_FORM';
@@ -106,6 +119,7 @@ export interface MediaBlob {
 }
 
 export interface SavedResponse {
+  clientSubmissionId?: string;
   id?: number;
   formId: string;
   link_uuid: string;
@@ -142,7 +156,7 @@ export class DbService extends Dexie {
   pendingFieldTracking!: Dexie.Table<PendingFieldTracking, number>;
 
   constructor() {
-    super('KoboMobileDB');
+    super(databaseName());
     this.version(4).stores({
       forms: 'id, title, link_uuid',
       responses: '++id, formId, estado, createdAt, [formId+estado]',
@@ -155,6 +169,9 @@ export class DbService extends Dexie {
       formList: 'id, title',
       mediaBlobs: '++id, blobId, responseId, questionId',
       pendingFieldTracking: '++id, formId, kind, createdAt'
+    });
+    this.responses.hook('creating', (_key, response) => {
+      response.clientSubmissionId ??= crypto.randomUUID();
     });
   }
 }

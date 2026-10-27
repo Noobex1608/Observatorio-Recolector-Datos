@@ -11,6 +11,7 @@ class Form extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'instrument_locked', 'draft_revision',
         'title',
         'description',
         'user_id',
@@ -25,6 +26,8 @@ class Form extends Model
     ];
 
     protected $casts = [
+        'instrument_locked' => 'boolean',
+        'draft_revision' => 'integer',
         'step_by_step' => 'boolean',
         'require_consent' => 'boolean',
         'start_date' => 'date:Y-m-d',

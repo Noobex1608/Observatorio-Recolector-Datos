@@ -16,7 +16,14 @@ class SubmitMobileResponseRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return true;
+        $form = $this->getForm();
+        if (! $form) {
+            return true; // Validation reports unknown/malformed identifiers.
+        }
+        if ($this->user()) {
+            return app(\App\Policies\FormPolicy::class)->submit($this->user(), $form);
+        }
+        return $this->route('link_uuid') !== null;
     }
 
     public function validationData(): array
@@ -42,12 +49,14 @@ class SubmitMobileResponseRequest extends FormRequest
             'form_id' => 'sometimes|nullable|uuid|exists:forms,id',
             'link_uuid' => 'sometimes|nullable|string|exists:forms,link_uuid',
             'data' => 'required|array',
+            'client_submission_id' => 'required|uuid',
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $v) {
+            if ($v->errors()->isNotEmpty()) { return; }
             $form = $this->getForm();
 
             if (! $form) {
@@ -56,7 +65,9 @@ class SubmitMobileResponseRequest extends FormRequest
                 return;
             }
 
-            if ($form->state !== 'DEPLOYED') {
+            if ($form->state !== 'DEPLOYED'
+                || ($form->start_date && $form->start_date->format('Y-m-d') > now('America/Guayaquil')->toDateString())
+                || ($form->end_date && $form->end_date->format('Y-m-d') < now('America/Guayaquil')->toDateString())) {
                 $v->errors()->add('form_id', 'El formulario no se encuentra en estado implementado (DEPLOYED).');
 
                 return;
@@ -73,7 +84,7 @@ class SubmitMobileResponseRequest extends FormRequest
                 return;
             }
 
-            $collector = $this->route('link_uuid') === null && $this->user()?->isUser();
+            $collector = $this->user()?->isUser();
             if ($collector && $form->zones()->exists() && ! array_key_exists('_project_geofence', $data)) {
                 $v->errors()->add('data._project_geofence', 'Indique la zona asignada antes de enviar la encuesta.');
 
@@ -115,7 +126,7 @@ class SubmitMobileResponseRequest extends FormRequest
                         return;
                     }
                 }
-                if ($this->route('link_uuid') === null && $this->user()
+                if ($this->user()
                     && ! $this->user()->canManageProjects() && ! $this->user()->leadsProject($form->project_id)
                     && ! ($zone
                         ? $zone->assignedUsers()->where('users.id', $this->user()->id)->exists()
@@ -145,14 +156,14 @@ class SubmitMobileResponseRequest extends FormRequest
         }
 
         $linkUuid = $this->route('link_uuid') ?? $this->input('link_uuid');
-        if ($linkUuid) {
+        if (is_string($linkUuid) && \Illuminate\Support\Str::isUuid($linkUuid)) {
             $this->resolvedForm = Form::where('link_uuid', $linkUuid)->first();
 
             return $this->resolvedForm;
         }
 
         $formId = $this->input('form_id');
-        if ($formId) {
+        if (is_string($formId) && \Illuminate\Support\Str::isUuid($formId)) {
             $this->resolvedForm = Form::find($formId);
 
             return $this->resolvedForm;

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\SerializeFormMutation::class])->group(function () {
     Route::get('/', [FormController::class, 'index']); // list forms
     Route::post('/', [FormController::class, 'store']); // create form
     Route::get('/{id}', [FormController::class, 'show']); // view form details
@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'show']);
     Route::post('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'store']);
     Route::post('/{id}/technical-sheet/validate', [FormTechnicalSheetController::class, 'validateSheet']);
+
+    Route::put('/{id}/draft', [FormController::class, 'saveDraft']);
 
     // Questions
     Route::get('/{id}/questions', [FormController::class, 'getQuestions']);

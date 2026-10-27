@@ -1,5 +1,7 @@
 {
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
+  "navigationRequestStrategy": "performance",
   "assetGroups": [
     {
       "name": "app",
@@ -8,22 +10,29 @@
         "files": [
           "/favicon.ico",
           "/index.html",
-          "/styles.css",
-          "/assets/**"
+          "/manifest.webmanifest",
+          "/*.js",
+          "/*.css"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/assets/**",
+          "/**/*.(svg|png|jpg|jpeg|webp|gif|woff|woff2|ttf|otf)"
         ]
       }
     }
   ],
-  "dataGroups": [
-    {
-      "name": "api-forms",
-      "urls": ["/api/forms/**"],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 50,
-        "maxAge": "1d",
-        "timeout": "10s"
-      }
-    }
+  "navigationUrls": [
+    "/**",
+    "!/**/*.*",
+    "!/**/*__*",
+    "!/**/*__*/**",
+    "!/api/**"
   ]
 }

@@ -120,10 +120,10 @@ export class ApiService {
     );
   }
 
-  submitResponse(servidor: string, linkUuid: string, data: Record<string, any>): Promise<SubmitResponse> {
-    const url = this.buildUrl(servidor, `forms/submit/${linkUuid}`);
+  submitResponse(servidor: string, linkUuid: string, data: Record<string, any>, clientSubmissionId: string): Promise<SubmitResponse> {
+    const url = this.buildUrl(servidor, 'mobile/submit');
     return lastValueFrom(
-      this.http.post<SubmitResponse>(url, { data }, {
+      this.http.post<SubmitResponse>(url, { link_uuid: linkUuid, data, client_submission_id: clientSubmissionId }, {
         headers: this.getAuthHeaders(servidor)
       })
     );

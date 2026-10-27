@@ -325,6 +325,11 @@ import { ThemeService } from '@core/services/theme.service';
         font-size: 0.875rem;
       }
 
+      .user-avatar span,
+      .menu-avatar span {
+        color: #ffffff !important;
+      }
+
       .user-info {
         display: none;
         flex-direction: column;

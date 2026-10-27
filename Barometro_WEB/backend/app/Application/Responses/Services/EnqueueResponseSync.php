@@ -12,6 +12,10 @@ class EnqueueResponseSync
 
     public function enqueue(FormResponse $response): void
     {
+        if (! config('services.supabase.response_sync_enabled')) {
+            return;
+        }
+
         $payload = $this->payloadFactory->fromFormResponse($response);
 
         $item = ResponseSyncQueue::updateOrCreate(

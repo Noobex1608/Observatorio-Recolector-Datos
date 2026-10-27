@@ -22,6 +22,7 @@ class UpdateUserUseCase
     public function execute(UpdateUserDTO $dto): User
     {
         return DB::transaction(function () use ($dto) {
+            app(ProtectAdministrator::class)->lock();
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($dto->adminId);
 
@@ -39,6 +40,7 @@ class UpdateUserUseCase
             if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para administrar usuarios con ese rol');
             }
+            app(ProtectAdministrator::class)->check($user, $dto->adminId, $dto->rol ?? $user->rol, $dto->isActive ?? $user->is_active);
             $before = $user->only(['name', 'email', 'rol', 'is_active']);
 
             // Actualizar datos básicos
@@ -73,6 +75,9 @@ class UpdateUserUseCase
             }
 
             $user->save();
+            if ($dto->password !== null || ! $user->is_active || $before['rol'] !== $user->rol) {
+                $user->tokens()->delete();
+            }
 
             // Actualizar perfil
             $perfilData = [];

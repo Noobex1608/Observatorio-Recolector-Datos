@@ -10,51 +10,51 @@ export class ChartThemeService {
 
   // Paleta de colores para tema claro
   private readonly lightColors = [
-    '#0F766E',
-    '#14B8A6',
-    '#334155',
-    '#64748B',
-    '#C8102E',
-    '#2DD4BF',
-    '#475569',
-    '#99F6DF',
-    '#A00D25',
-    '#94A3B8',
-    '#115E59',
-    '#D73A4A',
+    '#0059A8',
+    '#46A4FF',
+    '#005689',
+    '#004499',
+    '#BC1421',
+    '#167CCA',
+    '#2A6EB3',
+    '#86C3FF',
+    '#D83B47',
+    '#6D9ED1',
+    '#3774B5',
+    '#BADCFF',
   ];
 
   // Paleta de colores para tema oscuro (más brillantes)
   private readonly darkColors = [
-    '#5EEAD0',
-    '#14B8A6',
-    '#CBD5E1',
-    '#94A3B8',
+    '#46A4FF',
+    '#86C3FF',
+    '#2A80CE',
+    '#BADCFF',
     '#F87171',
-    '#2DD4BF',
-    '#64748B',
-    '#99F6DF',
-    '#EF4444',
-    '#475569',
-    '#CCFBF1',
-    '#FCA5A5',
+    '#0059A8',
+    '#6D9ED1',
+    '#A0D1FF',
+    '#D83B47',
+    '#3774B5',
+    '#C5E2FF',
+    '#8ABFFF',
   ];
 
   // Gradientes para gráficos
   readonly lightGradients = [
-    { start: '#0F766E', end: '#14B8A6' },
-    { start: '#334155', end: '#64748B' },
-    { start: '#2DD4BF', end: '#99F6DF' },
-    { start: '#C8102E', end: '#D73A4A' },
-    { start: '#64748B', end: '#94A3B8' },
+    { start: '#0059A8', end: '#46A4FF' },
+    { start: '#004499', end: '#005689' },
+    { start: '#167CCA', end: '#86C3FF' },
+    { start: '#BC1421', end: '#D83B47' },
+    { start: '#2A6EB3', end: '#BADCFF' },
   ];
 
   readonly darkGradients = [
-    { start: '#5EEAD0', end: '#14B8A6' },
-    { start: '#CBD5E1', end: '#64748B' },
-    { start: '#99F6DF', end: '#2DD4BF' },
-    { start: '#F87171', end: '#EF4444' },
-    { start: '#94A3B8', end: '#475569' },
+    { start: '#46A4FF', end: '#86C3FF' },
+    { start: '#0059A8', end: '#2A80CE' },
+    { start: '#6D9ED1', end: '#A0D1FF' },
+    { start: '#D83B47', end: '#F87171' },
+    { start: '#3774B5', end: '#BADCFF' },
   ];
 
   // Computed para obtener configuración actual del tema
@@ -65,24 +65,24 @@ export class ChartThemeService {
       ? {
           colors: this.darkColors,
           backgroundColor: 'transparent',
-          textColor: '#F3FAF7',
-          textColorSecondary: '#B8C7C1',
-          borderColor: '#243530',
-          axisLineColor: '#3A514A',
-          splitLineColor: '#243530',
-          tooltipBg: 'rgba(13, 23, 21, 0.96)',
-          tooltipBorder: '#3A514A',
+          textColor: '#F3F8FF',
+          textColorSecondary: '#BDD0E4',
+          borderColor: '#263D58',
+          axisLineColor: '#3B5C7C',
+          splitLineColor: '#263D58',
+          tooltipBg: 'rgba(12, 29, 51, 0.96)',
+          tooltipBorder: '#3B5C7C',
         }
       : {
           colors: this.lightColors,
           backgroundColor: 'transparent',
-          textColor: '#10201D',
-          textColorSecondary: '#5F6F69',
-          borderColor: '#DCE5E1',
-          axisLineColor: '#B6C7C0',
-          splitLineColor: '#E4ECE7',
-          tooltipBg: 'rgba(251, 253, 252, 0.96)',
-          tooltipBorder: '#DCE5E1',
+          textColor: '#172B44',
+          textColorSecondary: '#4E6277',
+          borderColor: '#DCE7F1',
+          axisLineColor: '#A9C3DA',
+          splitLineColor: '#E6F0F9',
+          tooltipBg: 'rgba(255, 255, 255, 0.96)',
+          tooltipBorder: '#DCE7F1',
         };
   });
 

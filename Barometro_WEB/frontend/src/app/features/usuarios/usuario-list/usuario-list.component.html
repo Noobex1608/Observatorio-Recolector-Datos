@@ -35,7 +35,7 @@
                   @if (user.perfil?.avatar) {
                     <img [src]="user.perfil.avatar" alt="Avatar" crossorigin="anonymous" />
                   } @else {
-                    <span>{{ user.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
+                    <span class="avatar-initial">{{ user.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
                   }
                 </div>
                 <div class="user-details">

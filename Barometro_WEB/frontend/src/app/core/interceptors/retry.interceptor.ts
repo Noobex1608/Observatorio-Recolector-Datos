@@ -38,7 +38,7 @@ export const retryInterceptor: HttpInterceptorFn = (req, next) => {
     switchMap(() =>
       next(req).pipe(
         retry({
-          count: MAX_RETRIES,
+          count: ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? MAX_RETRIES : 0,
           delay: (err, attempt) => {
             const status = (err as HttpErrorResponse).status;
             // Retry server errors and network failures; bubble 4xx up so

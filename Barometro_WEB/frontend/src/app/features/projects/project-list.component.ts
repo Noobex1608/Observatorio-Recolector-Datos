@@ -162,10 +162,13 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
           @if (selectedProject(); as project) {
             <mat-card class="project-panel">
-              <mat-card-header class="panel-header">
-                <div>
-                  <mat-card-title>{{ project.name }}</mat-card-title>
-                  <mat-card-subtitle>{{ 'projects.formsCount' | translate: { count: project.forms?.length ?? project.forms_count ?? 0 } }}</mat-card-subtitle>
+              <div class="panel-header">
+                <div class="panel-heading">
+                  <h2>{{ project.name }}</h2>
+                  @if (selectedForm(); as form) {
+                    <p>Formulario seleccionado: <strong>{{ form.title }}</strong></p>
+                  }
+                  <small>{{ 'projects.formsCount' | translate: { count: project.forms?.length ?? project.forms_count ?? 0 } }}</small>
                 </div>
                 @if (technicalSheet(); as sheet) {
                   <span class="status-badge" [class]="sheet.status.toLowerCase()">
@@ -173,7 +176,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                     {{ 'projects.technicalSheet.statuses.' + sheet.status | translate }}
                   </span>
                 }
-              </mat-card-header>
+              </div>
 
               <mat-card-content class="panel-content">
                 <mat-tab-group animationDuration="200ms" [(selectedIndex)]="selectedTabIndex">
@@ -713,7 +716,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         min-width: 0;
         gap: 1.4rem;
         background:
-          linear-gradient(180deg, rgba(15, 118, 110, 0.04), transparent 280px),
+          linear-gradient(180deg, rgba(0, 89, 168, 0.05), transparent 280px),
           var(--bg-primary);
         min-height: 100%;
       }
@@ -926,8 +929,35 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
+        gap: 0.75rem;
         padding: 1.2rem 1.5rem 0.5rem;
+        text-align: left;
+      }
+
+      .panel-heading {
+        min-width: 0;
+      }
+
+      .panel-heading h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+
+      .panel-heading p {
+        margin: 0.25rem 0;
+        color: var(--text-secondary);
+        overflow-wrap: anywhere;
+      }
+
+      .panel-heading strong {
+        color: var(--text-primary);
+      }
+
+      .panel-heading small {
+        color: var(--text-secondary);
       }
 
       .status-badge {
@@ -976,14 +1006,21 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         gap: 1.2rem;
       }
 
+      .sheet-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.25rem;
+        min-width: 0;
+      }
+
       .sheet-banner {
         display: flex;
         align-items: flex-start;
         gap: 0.85rem;
         padding: 1rem;
         border-radius: var(--radius-md);
-        background: var(--primary-50, rgba(15, 118, 110, 0.08));
-        border: 1px solid var(--primary-200, rgba(15, 118, 110, 0.2));
+        background: var(--primary-50, rgba(0, 89, 168, 0.08));
+        border: 1px solid var(--primary-200, rgba(0, 89, 168, 0.2));
         color: var(--text-primary);
       }
 
@@ -1015,6 +1052,11 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         display: flex;
         gap: 0.8rem;
         justify-content: flex-end;
+      }
+
+      .sheet-actions a[mat-flat-button],
+      .sheet-actions a[mat-flat-button]:visited {
+        color: #ffffff !important;
       }
 
       .zone-prerequisite {

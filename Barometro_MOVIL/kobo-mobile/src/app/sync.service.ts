@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
-import { DbService } from './db.service';
+import { ACCOUNT_SCOPE_KEY, DbService } from './db.service';
 
 import { MediaStorageService } from './services/media-storage.service';
 
@@ -81,6 +81,13 @@ export class SyncService {
     const servidor = this.auth.obtenerUrlServidor();
     if (!servidor) throw new Error('No hay servidor configurado');
 
+    const accountScope = localStorage.getItem(ACCOUNT_SCOPE_KEY);
+    const assertAccount = () => {
+      if (!accountScope || accountScope !== localStorage.getItem(ACCOUNT_SCOPE_KEY) || this.db.name !== `KoboMobileDB:${accountScope}`) {
+        throw new Error('La cuenta cambió durante la sincronización.');
+      }
+    };
+    assertAccount();
     let pendientes = await this.db.responses
       .where('estado')
       .equals('listo-para-enviar')
@@ -95,6 +102,14 @@ export class SyncService {
 
     for (const resp of pendientes) {
       try {
+        // Upgrade pending records atomically: concurrent tabs must use the same key.
+        const submissionId = await this.db.transaction('rw', this.db.responses, async () => {
+          const current = await this.db.responses.get(resp.id!);
+          if (!current) throw new Error('Respuesta no encontrada.');
+          const key = current.clientSubmissionId ?? crypto.randomUUID();
+          if (!current.clientSubmissionId) await this.db.responses.update(resp.id!, { clientSubmissionId: key });
+          return key;
+        });
         const payloadAnswers = JSON.parse(JSON.stringify(resp.answers));
 
         // Preprocesar Blobs multimedia y firmas
@@ -110,7 +125,8 @@ export class SyncService {
           }
         }
 
-        await this.api.submitResponse(servidor, resp.link_uuid, payloadAnswers);
+        assertAccount();
+        await this.api.submitResponse(servidor, resp.link_uuid, payloadAnswers, submissionId);
         await this.db.responses.update(resp.id!, { estado: 'enviado' });
 
         const form = await this.db.forms.get(resp.formId);

@@ -7,4 +7,4 @@
 .form-guardado-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 12px 16px 4px; }
 .form-guardado-top h3 { margin: 0 0 4px 0; font-size: 1rem; }
 .subtexto { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
-.btn-llenar { border: none; color: white; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; background: var(--accent); }
+.btn-llenar { border: none; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; background: var(--primary); }

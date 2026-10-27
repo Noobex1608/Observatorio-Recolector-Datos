@@ -20,6 +20,7 @@ class DeleteUserUseCase
     public function execute(int $userId, int $adminId): bool
     {
         return DB::transaction(function () use ($userId, $adminId) {
+            app(ProtectAdministrator::class)->lock();
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($adminId);
 
@@ -42,6 +43,8 @@ class DeleteUserUseCase
             if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('Solo el super admin puede eliminar administradores');
             }
+
+            app(ProtectAdministrator::class)->check($user, $adminId, $user->rol, false, true);
 
             // Eliminar tokens de acceso
             $user->tokens()->delete();

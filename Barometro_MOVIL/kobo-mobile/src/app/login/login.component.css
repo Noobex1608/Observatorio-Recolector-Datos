@@ -113,7 +113,7 @@
 }
 
 .campo:focus-within {
-  border-color: var(--login-accent);
+  border-color: #0059A8;
 }
 
 .campo label {
@@ -162,7 +162,7 @@
   margin-top: 24px;
   border: 0;
   border-radius: 0;
-  background: var(--login-accent);
+  background: #0059A8;
   color: #fff;
   font: inherit;
   font-size: 0.69rem;
@@ -173,7 +173,7 @@
 }
 
 .btn-acceder:hover:not(:disabled) {
-  background: #99101a;
+  background: #004499;
 }
 
 .btn-acceder:focus-visible {

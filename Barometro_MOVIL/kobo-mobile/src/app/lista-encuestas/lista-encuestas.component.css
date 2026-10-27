@@ -387,14 +387,14 @@
   gap: .5rem;
   margin-top: .75rem;
   padding: .65rem;
-  border: 1px solid #99f6e4;
+  border: 1px solid #badcff;
   border-radius: .75rem;
-  background: #f0fdfa;
+  background: #eef7ff;
 }
 
 .field-shift p { margin: 0; }
 .field-shift select, .field-shift button { padding: .45rem .6rem; border-radius: .45rem; }
-.field-shift button { background: #0f766e; color: white; border: 0; cursor: pointer; }
+.field-shift button { background: var(--primary, #0059a8); color: #fff; border: 0; cursor: pointer; }
 
 .field-shift-unassigned {
   margin: .65rem 0 0;

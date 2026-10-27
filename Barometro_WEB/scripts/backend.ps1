@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Position=0)]
-    [ValidateSet('start', 'stop', 'logs', 'install', 'migrate', 'seed', 'migrate-fresh', 'migrate-fresh-seed', 'cache-clear', 'swagger', 'routes', 'tinker', 'help')]
+    [ValidateSet('start', 'stop', 'logs', 'worker', 'scheduler', 'install', 'migrate', 'seed', 'migrate-fresh', 'migrate-fresh-seed', 'cache-clear', 'swagger', 'routes', 'tinker', 'help')]
     [string]$Command = 'help'
 )
 
@@ -107,7 +107,7 @@ try {
             Ensure-BackendImage
             $db = Get-DbRuntime
             docker rm -f $WorkerContainerName 2>$null | Out-Null
-            $dockerArgs = @('run', '-d', '--name', $WorkerContainerName, '--rm') + $db.Args + (Get-DevMountArgs) + @('--env-file', $EnvFile, '-e', "DB_HOST=$($db.Host)", '-e', "DB_PORT=$($db.Port)", '--entrypoint', 'php', $ImageName, 'artisan', 'queue:work', 'database', '--sleep=2', '--tries=1', '--timeout=120')
+            $dockerArgs = @('run', '-d', '--name', $WorkerContainerName, '--rm') + $db.Args + (Get-DevMountArgs) + @('--env-file', $EnvFile, '-e', "DB_HOST=$($db.Host)", '-e', "DB_PORT=$($db.Port)", '--entrypoint', 'php', $ImageName, 'artisan', 'queue:work', 'database', '--sleep=2', '--tries=5', '--timeout=120')
             & docker @dockerArgs | Out-Null
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             Write-Host 'Worker started.' -ForegroundColor Green

@@ -1,7 +1,7 @@
 # Netlify configuration to run Bun build in Barometro_WEB/frontend
 [build]
   base = "Barometro_WEB/frontend"
-  command = "bun install && bun run build"
+  command = "bun install --frozen-lockfile && bun run build"
   publish = "dist/frontend/browser"
 
 # SPA redirect rule for Angular Client-Side Routing
@@ -14,3 +14,7 @@
 [[plugins]]
   package = "@netlify/angular-runtime"
 
+
+[build.environment]
+  NODE_VERSION = "24"
+  BUN_VERSION = "1.3.14"

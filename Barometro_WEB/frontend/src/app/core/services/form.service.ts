@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface Form {
+  draft_revision?: number;
+  instrument_locked?: boolean;
   id: string;
   title: string;
   description?: string;
@@ -145,6 +147,10 @@ export class FormService {
     return this.http.put<Form>(`${this.apiUrl}/${id}`, data);
   }
 
+  saveDraft(id: string, data: Omit<Partial<Form>, 'questions'> & { expected_revision: number; questions: Partial<FormQuestion>[] }): Observable<Form> {
+    return this.http.put<Form>(`${this.apiUrl}/${id}/draft`, data);
+  }
+
   deleteForm(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
@@ -221,7 +227,7 @@ export class FormService {
     return this.http.get<Form>(`${this.apiUrl}/fetch/${linkUuid}`);
   }
 
-  submitResponse(linkUuid: string, data: Record<string, unknown>): Observable<{ message: string; id: string }> {
-    return this.http.post<{ message: string; id: string }>(`${this.apiUrl}/submit/${linkUuid}`, { data });
+  submitResponse(linkUuid: string, data: Record<string, unknown>, clientSubmissionId: string): Observable<{ message: string; id: string }> {
+    return this.http.post<{ message: string; id: string }>(`${this.apiUrl}/submit/${linkUuid}`, { data, client_submission_id: clientSubmissionId });
   }
 }

@@ -22,6 +22,10 @@ class SyncFormSchemaToSupabase implements ShouldQueue
 
     public function handle(SupabaseFormSchemaWriter $writer, FormSchemaPayloadFactory $payloadFactory): void
     {
+        if (! config('services.supabase.form_schema_sync_enabled')) {
+            return;
+        }
+
         try {
             if ($this->action === 'delete') {
                 $writer->deleteSurvey($this->formId);
@@ -34,10 +38,10 @@ class SyncFormSchemaToSupabase implements ShouldQueue
                 return;
             }
 
-            $writer->upsertSurvey($payloadFactory->surveyFromForm($form));
-            $writer->replaceSurveyQuestions($form->id, $payloadFactory->questionsFromForm($form));
+            $writer->syncSchema($payloadFactory->surveyFromForm($form), $payloadFactory->questionsFromForm($form));
         } catch (Throwable $e) {
             Log::warning("Sincronización opcional con Supabase no completada para el formulario {$this->formId}: ".$e->getMessage());
+            throw $e;
         }
     }
 }

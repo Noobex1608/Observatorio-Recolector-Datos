@@ -6,6 +6,7 @@ import { DbService, FormDefinition } from '../db.service';
 import { ThemeService } from '../theme.service';
 import { FieldTrackingService } from '../field-tracking.service';
 import { ToastService } from '../toast.service';
+import { AuthService } from '../auth.service';
 
 interface FormWithProgress extends FormDefinition {
   enviadosCount: number;
@@ -27,6 +28,7 @@ export class ListaEncuestasComponent implements OnInit {
   theme = inject(ThemeService);
   tracking = inject(FieldTrackingService);
   private toast = inject(ToastService);
+  readonly auth = inject(AuthService);
   trackingZoneByForm: Record<string, string> = {};
 
   formularios: FormWithProgress[] = [];
@@ -117,6 +119,10 @@ export class ListaEncuestasComponent implements OnInit {
 
   async startTracking(form: FormDefinition, event: Event): Promise<void> {
     event.stopPropagation();
+    if (this.auth.obtenerRol() !== 'RECOLECTOR') {
+      this.toast.show('Inicia sesión con la cuenta recolectora asignada para compartir tu ubicación.', 'error');
+      return;
+    }
     const zoneId = this.trackingZoneByForm[form.id] || form.project_zones?.[0]?.id;
     if (!zoneId) { this.toast.show('No hay zona asignada para esta encuesta.', 'error'); return; }
     try {

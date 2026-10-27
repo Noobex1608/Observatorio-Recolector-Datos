@@ -130,7 +130,7 @@ case "$COMMAND" in
       -e DB_HOST="$DB_HOST_VALUE" \
       -e DB_PORT="$DB_PORT_VALUE" \
       --entrypoint php \
-      "$IMAGE_NAME" artisan queue:work database --sleep=2 --tries=1 --timeout=120 >/dev/null
+      "$IMAGE_NAME" artisan queue:work database --sleep=2 --tries=5 --timeout=120 >/dev/null
     echo "Worker started."
     ;;
   scheduler)

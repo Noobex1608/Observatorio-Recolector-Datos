@@ -4,7 +4,8 @@
   flex-direction: column;
   min-width: 0;
   font-family: Inter, 'Segoe UI', system-ui, sans-serif;
-  --primary: #BC1421;
+  --primary: #0059A8;
+  --primary-dark: #004499;
   --danger: #BC1421;
   --success: #88BC24;
   --home-ink: #4A4A4A;
@@ -357,18 +358,18 @@
   width: 100%;
   min-height: 54px;
   padding: 0.75rem 1.25rem;
-  background: linear-gradient(135deg, #BC1421 0%, #AB101B 100%);
+  background: linear-gradient(135deg, #0059A8 0%, #004499 100%);
   color: #ffffff;
   border-radius: 13px;
   text-decoration: none;
-  box-shadow: 0 5px 13px rgba(188, 20, 33, 0.2);
+  box-shadow: 0 5px 13px rgba(0, 89, 168, 0.2);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
   box-sizing: border-box;
 
   &:hover,
   &:active {
     transform: translateY(-2px);
-    box-shadow: 0 7px 16px rgba(188, 20, 33, 0.25);
+    box-shadow: 0 7px 16px rgba(0, 89, 168, 0.25);
   }
 }
 

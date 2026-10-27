@@ -130,6 +130,16 @@ El backend quedará disponible en:
 .\scripts\backend.ps1 worker
 ```
 
+### Preparar la réplica de formularios en Supabase
+
+La base local de desarrollo y la base piloto de Supabase son entornos independientes. Mantén `SUPABASE_FORM_SCHEMA_SYNC_ENABLED=false` y `SUPABASE_RESPONSE_SYNC_ENABLED=false` en el backend local para que sus formularios y respuestas de prueba no se envíen al piloto, incluso si se ejecuta un worker. Activa cada opción únicamente en un entorno que necesite copiar esos datos a Supabase. Si el backend piloto ya usa Supabase como base principal, no necesita esta réplica. Los registros que ya estén pendientes en `response_sync_queue` local permanecen guardados, pero el comando de reintentos y los jobs no los enviarán mientras la opción esté desactivada.
+
+1. Configura `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del mismo proyecto en el entorno piloto. Si cambias `backend/.env` con un contenedor ya creado, recréalo: `backend.ps1 start` reutiliza el contenedor existente y conserva sus variables anteriores.
+2. Ejecuta `database/supabase/2026_10_21_sync_form_schema.sql` en el SQL Editor de ese proyecto. Crea las tablas de réplica `surveys` y `questions` y la función `sync_form_schema`; no modifica `forms` ni `form_questions`.
+3. Inicia el worker en el entorno piloto. Cuando la sincronización está habilitada, usa la cola de base de datos aunque `QUEUE_CONNECTION=sync`, para que una falla de Supabase no convierta un guardado exitoso en HTTP 500.
+
+La réplica no se llena retroactivamente al instalar el SQL. Los formularios existentes requieren un envío inicial a la cola.
+
 ### Ejecutar scheduler de Laravel
 
 ### Bash / zsh

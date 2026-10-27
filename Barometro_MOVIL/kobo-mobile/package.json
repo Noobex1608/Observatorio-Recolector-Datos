@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "preview:offline": "node scripts/serve-offline.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -31,5 +32,9 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "vite": "^7.3.7"
   }
 }

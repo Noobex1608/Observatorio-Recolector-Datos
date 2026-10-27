@@ -3,3 +3,15 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(self), microphone=(self)
+
+/ngsw.json
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/ngsw-worker.js
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: no-cache, max-age=0, must-revalidate

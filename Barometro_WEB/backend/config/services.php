@@ -36,6 +36,8 @@ return [
     ],
 
     'supabase' => [
+        'form_schema_sync_enabled' => (bool) env('SUPABASE_FORM_SCHEMA_SYNC_ENABLED', false),
+        'response_sync_enabled' => (bool) env('SUPABASE_RESPONSE_SYNC_ENABLED', false),
         'url' => env('SUPABASE_URL'),
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
         'schema' => env('SUPABASE_SCHEMA', 'public'),

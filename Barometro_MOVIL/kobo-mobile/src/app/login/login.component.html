@@ -23,11 +23,11 @@
             id="usuario"
             name="usuario"
             [(ngModel)]="usuario"
-            placeholder="recolector@uleam.edu.ec"
+            placeholder="Correo asignado por el administrador"
             autocomplete="username"
             inputmode="email"
             required
-            [disabled]="cargando" />
+            [disabled]="cargando()" />
         </div>
 
         <div class="campo">
@@ -40,7 +40,7 @@
             placeholder="Ingresa tu contraseña"
             autocomplete="current-password"
             required
-            [disabled]="cargando" />
+            [disabled]="cargando()" />
         </div>
 
         <div class="campo servidor-campo">
@@ -54,15 +54,15 @@
             inputmode="url"
             spellcheck="false"
             required
-            [disabled]="cargando" />
+            [disabled]="cargando()" />
         </div>
 
-        @if (errorLogin) {
-          <p class="error-msg" role="alert">{{ errorLogin }}</p>
+        @if (errorLogin()) {
+          <p class="error-msg" role="alert">{{ errorLogin() }}</p>
         }
 
-        <button type="submit" class="btn-acceder" [disabled]="cargando">
-          {{ cargando ? 'VERIFICANDO...' : 'INICIAR SESIÓN' }}
+        <button type="submit" class="btn-acceder" [disabled]="cargando()">
+          {{ cargando() ? 'VERIFICANDO...' : 'INICIAR SESIÓN' }}
         </button>
       </form>
 

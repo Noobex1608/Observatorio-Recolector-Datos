@@ -38,6 +38,8 @@ class User extends Authenticatable
         parent::boot();
     }
 
+    protected $attributes = ['is_active' => true];
+
     protected $fillable = [
         'name',
         'email',

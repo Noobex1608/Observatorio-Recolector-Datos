@@ -20,7 +20,7 @@
 /* Línea de acento superior */
 .kobo-accent {
   height: 4px;
-  background: linear-gradient(90deg, var(--primary, #1565c0), #2563eb);
+  background: linear-gradient(90deg, #005689, #46a4ff, #0059a8);
 }
 
 .main-content {
@@ -156,6 +156,12 @@
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
+}
+
+.action-btn:disabled {
+  color: #ffffff;
+  opacity: 0.72;
+  cursor: not-allowed;
 }
 
 .action-btn:active { transform: translateY(1px); }

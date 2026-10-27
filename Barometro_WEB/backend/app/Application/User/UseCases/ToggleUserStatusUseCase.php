@@ -19,6 +19,7 @@ class ToggleUserStatusUseCase
     public function execute(int $userId, int $adminId, ?bool $isActive = null): User
     {
         return DB::transaction(function () use ($userId, $adminId, $isActive) {
+            app(ProtectAdministrator::class)->lock();
             // Verificar que el usuario que ejecuta la acción es admin
             $admin = User::findOrFail($adminId);
 
@@ -41,6 +42,8 @@ class ToggleUserStatusUseCase
             if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para activar o desactivar usuarios con ese rol');
             }
+
+            app(ProtectAdministrator::class)->check($user, $adminId, $user->rol, $isActive ?? ! $user->is_active);
 
             // Si se especifica el estado, usarlo; si no, invertir el actual
             if ($isActive !== null) {

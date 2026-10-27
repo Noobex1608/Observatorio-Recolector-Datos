@@ -4,6 +4,8 @@ namespace App\Application\Forms\Contracts;
 
 interface SupabaseFormSchemaWriter
 {
+    public function syncSchema(array $survey, array $questions): void;
+
     /**
      * @throws \RuntimeException
      */

@@ -59,10 +59,10 @@ class ResponseMediaSubmissionTest extends TestCase
     public function test_new_media_are_private_referenced_and_get_temporary_url_only_after_authorization(): void
     {
         [$form, $question, $owner] = $this->formWithImageQuestion();
-        $payload = ['data' => ['_consentimiento_aceptado' => true, $question->id => $this->imageAnswer()]];
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 'data' => ['_consentimiento_aceptado' => true, $question->id => $this->imageAnswer()]];
 
-        $first = $this->postJson('/api/forms/submit/'.$form->link_uuid, $payload)->assertCreated();
-        $second = $this->postJson('/api/forms/submit/'.$form->link_uuid, $payload)->assertCreated();
+        $first = $this->postJson('/api/forms/submit/'.$form->link_uuid, array_merge($payload, ['client_submission_id' => (string) \Illuminate\Support\Str::uuid()]))->assertCreated();
+        $second = $this->postJson('/api/forms/submit/'.$form->link_uuid, array_merge($payload, ['client_submission_id' => (string) \Illuminate\Support\Str::uuid()]))->assertCreated();
         $saved = FormResponse::whereIn('id', [$first->json('id'), $second->json('id')])->get();
         $this->assertCount(2, $saved);
         $paths = $saved->map(fn ($response) => $response->data[$question->id]['path'])->all();
@@ -84,6 +84,7 @@ class ResponseMediaSubmissionTest extends TestCase
         [$form, $question] = $this->formWithImageQuestion();
         $this->media->failUpload = true;
         $this->postJson('/api/forms/submit/'.$form->link_uuid, [
+            'client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'data' => ['_consentimiento_aceptado' => true, $question->id => $this->imageAnswer()],
         ])->assertStatus(503);
         $this->assertDatabaseCount('form_responses', 0);
@@ -99,12 +100,12 @@ class ResponseMediaSubmissionTest extends TestCase
             'role' => 'RECOLECTOR', 'target_responses' => 1,
         ]);
         Sanctum::actingAs($collector);
-        $payload = ['form_id' => $form->id, 'data' => [
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 'form_id' => $form->id, 'data' => [
             '_consentimiento_aceptado' => true, $question->id => $this->imageAnswer(),
         ]];
 
-        $this->postJson('/api/mobile/submit', $payload)->assertCreated();
-        $this->postJson('/api/mobile/submit', $payload)->assertStatus(422);
+        $this->postJson('/api/mobile/submit', array_merge($payload, ['client_submission_id' => (string) \Illuminate\Support\Str::uuid()]))->assertCreated();
+        $this->postJson('/api/mobile/submit', array_merge($payload, ['client_submission_id' => (string) \Illuminate\Support\Str::uuid()]))->assertStatus(422);
         $this->assertDatabaseCount('form_responses', 1);
         $this->assertCount(1, $this->media->objects);
     }

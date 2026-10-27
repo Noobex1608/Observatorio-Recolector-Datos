@@ -73,6 +73,11 @@ class ProcessResponseMedia
         }
     }
 
+    public function resetProcessed(): void
+    {
+        $this->uploadedPaths = [];
+    }
+
     public function deleteProcessed(): void
     {
         foreach ($this->uploadedPaths as $path) {

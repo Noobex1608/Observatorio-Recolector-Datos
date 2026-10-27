@@ -19,22 +19,18 @@ class HttpSupabaseFormSchemaWriter implements SupabaseFormSchemaWriter
         $this->throwUnlessSuccessful($response->status(), $response->json('message') ?? $response->json('error'));
     }
 
+    public function syncSchema(array $survey, array $questions): void
+    {
+        // One database transaction at the remote end; no destructive HTTP fallback.
+        $response = $this->request()->post($this->endpoint('rpc/sync_form_schema'), [
+            'p_survey' => $survey, 'p_questions' => $questions,
+        ]);
+        $this->throwUnlessSuccessful($response->status(), $response->json('message'));
+    }
+
     public function replaceSurveyQuestions(string $surveyId, array $questions): void
     {
-        $table = (string) config('services.supabase.questions_table', 'questions');
-        $deleteEndpoint = $this->endpoint($table, '?survey_id=eq.'.rawurlencode($surveyId));
-
-        $deleteResponse = $this->request()->delete($deleteEndpoint);
-        $this->throwUnlessSuccessful($deleteResponse->status(), $deleteResponse->json('message') ?? $deleteResponse->json('error'));
-
-        if (empty($questions)) {
-            return;
-        }
-
-        $insertEndpoint = $this->endpoint($table, '?on_conflict=id');
-        $insertResponse = $this->request()->post($insertEndpoint, $questions);
-
-        $this->throwUnlessSuccessful($insertResponse->status(), $insertResponse->json('message') ?? $insertResponse->json('error'));
+        throw new RuntimeException('Use syncSchema para reemplazar cabecera y preguntas atómicamente.');
     }
 
     public function deleteSurvey(string $surveyId): void

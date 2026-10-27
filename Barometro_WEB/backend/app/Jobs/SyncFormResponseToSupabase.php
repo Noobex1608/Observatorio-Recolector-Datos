@@ -19,6 +19,10 @@ class SyncFormResponseToSupabase implements ShouldQueue
 
     public function handle(SupabaseResponseWriter $writer): void
     {
+        if (! config('services.supabase.response_sync_enabled')) {
+            return;
+        }
+
         $item = ResponseSyncQueue::find($this->queueItemId);
         if (! $item || $item->status === 'synced') {
             return;

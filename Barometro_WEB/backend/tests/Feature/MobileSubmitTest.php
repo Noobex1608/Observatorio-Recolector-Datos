@@ -115,7 +115,7 @@ class MobileSubmitTest extends TestCase
             'order' => 11,
         ]);
 
-        $payload = [
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,
@@ -140,6 +140,7 @@ class MobileSubmitTest extends TestCase
             ],
         ];
 
+        \App\Models\FormUserShare::firstOrCreate(['form_id' => $form->id, 'user_id' => $user->id], ['role' => 'RECOLECTOR']);
         Sanctum::actingAs($user);
 
         $response = $this->postJson('/api/mobile/submit', $payload);
@@ -202,7 +203,7 @@ class MobileSubmitTest extends TestCase
             'options' => ['1', '2', '3', '4', '5'],
         ]);
 
-        $payload = [
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,
@@ -212,6 +213,7 @@ class MobileSubmitTest extends TestCase
             ],
         ];
 
+        \App\Models\FormUserShare::firstOrCreate(['form_id' => $form->id, 'user_id' => $user->id], ['role' => 'RECOLECTOR']);
         Sanctum::actingAs($user);
 
         $response = $this->postJson('/api/mobile/submit', $payload);
@@ -250,7 +252,7 @@ class MobileSubmitTest extends TestCase
             'order' => 2,
         ]);
 
-        $payload = [
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,
@@ -258,6 +260,7 @@ class MobileSubmitTest extends TestCase
             ],
         ];
 
+        \App\Models\FormUserShare::firstOrCreate(['form_id' => $form->id, 'user_id' => $user->id], ['role' => 'RECOLECTOR']);
         Sanctum::actingAs($user);
 
         $response = $this->postJson('/api/mobile/submit', $payload);

@@ -106,16 +106,16 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
         Sanctum::actingAs($collector);
         $data = ['_consentimiento_aceptado' => true, $question->id => 'Bueno'];
 
-        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+        $this->postJson('/api/mobile/submit', ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 'form_id' => $form->id, 'data' => $data])
             ->assertStatus(422)->assertJsonValidationErrors('data._project_geofence');
         $data['_project_geofence'] = [
             'zone_id' => $zone->id, 'latitud' => -0.95, 'longitud' => -80.72,
         ];
-        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+        $this->postJson('/api/mobile/submit', ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 'form_id' => $form->id, 'data' => $data])
             ->assertStatus(422)->assertJsonValidationErrors('data._project_geofence.zone_id');
 
         $zone->assignedUsers()->attach($collector->id, ['role' => 'RECOLECTOR']);
-        $this->postJson('/api/mobile/submit', ['form_id' => $form->id, 'data' => $data])
+        $this->postJson('/api/mobile/submit', ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 'form_id' => $form->id, 'data' => $data])
             ->assertCreated();
     }
 }

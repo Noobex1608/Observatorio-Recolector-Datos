@@ -78,10 +78,11 @@ export class FormBuilderViewModel {
   errorMessage = signal('');
   successMessage = signal('');
   editingUnlocked = signal(true);
+  instrumentLocked = signal(false);
 
   isEditMode = computed(() => Boolean(this.formId()));
   questionsCount = computed(() => this.questions().length);
-  canEditQuestions = computed(() => this.state() !== 'DEPLOYED' && this.editingUnlocked());
+  canEditQuestions = computed(() => !this.instrumentLocked() && this.state() !== 'DEPLOYED' && this.editingUnlocked());
   isFormValid = computed(() => {
     const hasTitle = this.title().trim().length > 0;
     const hasProject = Boolean(this.projectId());
@@ -119,10 +120,12 @@ export class FormBuilderViewModel {
     try {
       const form = await firstValueFrom(this.formService.getForm(id));
       this.formId.set(form.id);
+      this.draftRevision = form.draft_revision ?? 0;
       this.projectId.set(form.project_id ?? null);
       this.title.set(form.title);
       this.description.set(form.description ?? '');
       this.state.set(form.state);
+      this.instrumentLocked.set(Boolean(form.instrument_locked));
       this.stepByStep.set(Boolean(form.step_by_step));
       this.requireConsent.set(form.require_consent !== false);
       this.consentText.set(form.consent_text ?? 'Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?');
@@ -140,7 +143,7 @@ export class FormBuilderViewModel {
       this.sections.set(this.buildSectionsFromQuestions(hydratedQuestions));
       this.editingUnlocked.set(form.state !== 'DEPLOYED' && hydratedQuestions.length === 0);
     } catch (error: any) {
-      this.errorMessage.set(error?.error?.message || this.translate.instant('forms.builder.errors.load'));
+      this.errorMessage.set(error?.error?.message || error?.message || this.translate.instant('forms.builder.errors.load'));
     } finally {
       this.isLoading.set(false);
     }
@@ -601,7 +604,11 @@ export class FormBuilderViewModel {
     );
   }
 
+  private draftRevision = 0;
+
   async saveForm(): Promise<void> {
+    if (this.isSaving()) return;
+
     if (!this.isFormValid()) {
       this.errorMessage.set(this.translate.instant('forms.builder.messages.invalid'));
       this.successMessage.set('');
@@ -621,91 +628,40 @@ export class FormBuilderViewModel {
       );
       const resolvedStepByStep = this.stepByStep() || hasConditionalRules;
 
-      const savedForm = formId
-        ? await firstValueFrom(
-            this.formService.updateForm(formId, {
-              title: this.title().trim(),
-              description: this.description().trim(),
-              step_by_step: resolvedStepByStep,
-              require_consent: true,
-              consent_text: this.consentText().trim() || null,
-              start_date: this.startDate() || null,
-              end_date: this.endDate() || null,
-            }),
-          )
-        : await firstValueFrom(
-            this.formService.createForm({
-              title: this.title().trim(),
-              description: this.description().trim(),
-              project_id: this.projectId(),
-              step_by_step: resolvedStepByStep,
-              require_consent: true,
-              consent_text: this.consentText().trim() || null,
-              start_date: this.startDate() || null,
-              end_date: this.endDate() || null,
-            }),
-          );
-
-      this.formId.set(savedForm.id);
+      const header = {
+        title: this.title().trim(), description: this.description().trim(),
+        step_by_step: resolvedStepByStep, require_consent: true,
+        consent_text: this.consentText().trim() || null,
+        start_date: this.startDate() || null, end_date: this.endDate() || null,
+      };
+      // Initial shell is a draft; normal flow creates it with the technical sheet first.
+      const currentId = formId ?? (await firstValueFrom(this.formService.createForm({
+        ...header, project_id: this.projectId(),
+      }))).id;
+      this.formId.set(currentId);
+      const ids = new Map(this.questions().map(q => [q.tempId, q.id ?? crypto.randomUUID()]));
+      const payload = this.questions().map(q => {
+        const properties = { ...q.properties };
+        if (typeof properties.expression === 'string') {
+          for (const [temp, id] of ids) properties.expression = properties.expression.split('${' + temp + '}').join('${' + id + '}');
+        }
+        return {
+          ...this.toQuestionPayload(q), id: ids.get(q.tempId)!, properties,
+          parent_question_id: q.parentTempId ? ids.get(q.parentTempId) ?? q.parentQuestionId ?? null : null,
+          branch_rules: q.branchRules.map(rule => ({
+            option_index: rule.optionIndex, action: rule.action,
+            next_question_id: rule.action === 'GO_TO' && rule.nextQuestionTempId
+              ? ids.get(rule.nextQuestionTempId) ?? rule.nextQuestionTempId : null,
+          })),
+        };
+      });
+      const savedForm = await firstValueFrom(this.formService.saveDraft(currentId, {
+        ...header, expected_revision: this.draftRevision, questions: payload,
+      }));
+      this.draftRevision = savedForm.draft_revision ?? 0;
       this.state.set(savedForm.state);
       this.stepByStep.set(Boolean(savedForm.step_by_step));
-      this.requireConsent.set(savedForm.require_consent !== false);
-      this.consentText.set(savedForm.consent_text ?? this.consentText());
-      this.startDate.set(savedForm.start_date ?? this.startDate());
-      this.endDate.set(savedForm.end_date ?? this.endDate());
-
-      const savedQuestionIds = new Map<string, string>();
-
-      for (const questionId of this.deletedQuestionIds()) {
-        await firstValueFrom(this.formService.deleteQuestion(questionId));
-      }
-
-      for (const question of this.questions()) {
-        const payload = this.toQuestionPayload(question);
-
-        if (question.id) {
-          await firstValueFrom(this.formService.updateQuestion(question.id, payload));
-          savedQuestionIds.set(question.tempId, question.id);
-        } else {
-          const created = await firstValueFrom(this.formService.createQuestion(savedForm.id, payload));
-          savedQuestionIds.set(question.tempId, created.id);
-          this.patchQuestion(question.tempId, { id: created.id, tempId: created.id });
-        }
-      }
-
-      for (const question of this.questions()) {
-        const resolvedParentQuestionId = question.parentTempId
-          ? (savedQuestionIds.get(question.parentTempId) ?? question.parentQuestionId ?? null)
-          : null;
-
-        if (question.id) {
-          await firstValueFrom(this.formService.updateQuestion(question.id, {
-            parent_question_id: resolvedParentQuestionId,
-          }));
-        }
-
-        this.patchQuestion(question.tempId, { parentQuestionId: resolvedParentQuestionId });
-      }
-
-      for (const question of this.questions()) {
-        if (!this.supportsBranching(question.type) || question.branchRules.length === 0) {
-          continue;
-        }
-
-        const resolvedRules = question.branchRules.map((rule) => ({
-          option_index: rule.optionIndex,
-          action: rule.action,
-          next_question_id: rule.action === 'GO_TO' && rule.nextQuestionTempId
-            ? (savedQuestionIds.get(rule.nextQuestionTempId) ?? rule.nextQuestionTempId)
-            : null,
-        }));
-
-        const questionId = savedQuestionIds.get(question.tempId) ?? question.id;
-        if (questionId) {
-          await firstValueFrom(this.formService.updateQuestion(questionId, { branch_rules: resolvedRules }));
-        }
-      }
-
+      for (const [tempId, id] of ids) this.patchQuestion(tempId, { id, tempId: id });
       this.deletedQuestionIds.set([]);
       this.successMessage.set(this.translate.instant('forms.builder.messages.saved'));
       this.editingUnlocked.set(false);
@@ -718,10 +674,12 @@ export class FormBuilderViewModel {
 
   resetForm(): void {
     this.formId.set(null);
+    this.draftRevision = 0;
     this.projectId.set(null);
     this.title.set('');
     this.description.set('');
     this.state.set('DRAFT');
+    this.instrumentLocked.set(false);
     this.stepByStep.set(false);
     this.requireConsent.set(true);
     this.consentText.set('Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?');
