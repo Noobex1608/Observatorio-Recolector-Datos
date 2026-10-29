@@ -164,7 +164,7 @@ interface QuestionVisualMeta {
                     @case ('TEXT') {
                       <textarea
                         class="text-input"
-                        [name]="question.id"
+                        [name]="question.id" [attr.aria-label]="question.label"
                         rows="3"
                         [ngModel]="answers()[question.id]"
                         (ngModelChange)="setAnswer(question.id, $event)"
@@ -176,7 +176,7 @@ interface QuestionVisualMeta {
                       <input
                         type="number"
                         class="number-input"
-                        [name]="question.id"
+                        [name]="question.id" [attr.aria-label]="question.label"
                         [ngModel]="answers()[question.id]"
                         (ngModelChange)="setAnswer(question.id, $event)"
                         [required]="question.required"
@@ -187,16 +187,16 @@ interface QuestionVisualMeta {
                       <p class="question-help">{{ question.properties?.help_text || question.label }}</p>
                     }
                     @case ('DATE') {
-                      <input class="text-input" type="date" [name]="question.id"
+                      <input class="text-input" type="date" [name]="question.id" [attr.aria-label]="question.label"
                         [min]="question.properties?.min_date || null" [max]="question.properties?.max_date || null"
                         [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
                     }
                     @case ('TIME') {
-                      <input class="text-input" type="time" [name]="question.id"
+                      <input class="text-input" type="time" [name]="question.id" [attr.aria-label]="question.label"
                         [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
                     }
                     @case ('DATETIME') {
-                      <input class="text-input" type="datetime-local" [name]="question.id"
+                      <input class="text-input" type="datetime-local" [name]="question.id" [attr.aria-label]="question.label"
                         [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)" />
                     }
                     @case ('RATING') {
@@ -218,12 +218,12 @@ interface QuestionVisualMeta {
                       </div>
                     }
                     @case ('BARCODE') {
-                      <input class="text-input" type="text" [name]="question.id" maxlength="512"
+                      <input class="text-input" type="text" [name]="question.id" maxlength="512" [attr.aria-label]="question.label"
                         [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)"
                         placeholder="Escriba o escanee el código" />
                     }
                     @case ('MULTIMEDIA') {
-                      <input class="text-input" type="file" accept="image/*,audio/*,video/*"
+                      <input class="text-input" type="file" accept="image/*,audio/*,video/*" [attr.aria-label]="question.label"
                         (change)="captureMedia(question, $event)" />
                     }
                     @case ('SIGNATURE') {
@@ -356,7 +356,7 @@ interface QuestionVisualMeta {
 
         span {
           font-weight: 800;
-          color: var(--primary-600);
+          color: var(--primary-text-600);
         }
 
         p {
@@ -417,7 +417,7 @@ interface QuestionVisualMeta {
         align-self: flex-start;
         font-size: 0.72rem;
         font-weight: 700;
-        color: var(--primary-700);
+        color: var(--primary-text-700);
         background: var(--primary-100);
         border: 1px solid var(--primary-200);
         border-radius: var(--radius-full);

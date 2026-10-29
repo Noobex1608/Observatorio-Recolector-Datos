@@ -28,20 +28,20 @@
             placeholder="Buscar dirección (ej: Av. 24 y Calle 17, o Recinto Las Piñas)..."
           />
           @if (searchQuery()) {
-            <button type="button" class="btn-clear-search" (click)="clearSearch()">
-              <span class="material-icons">close</span>
+            <button type="button" class="btn-clear-search" aria-label="Limpiar búsqueda" (click)="clearSearch()">
+              <span class="material-icons" aria-hidden="true">close</span>
             </button>
           }
           <button
             type="button"
             class="btn-search"
-            (click)="searchLocation()"
+            (click)="searchLocation()" aria-label="Buscar dirección"
             [disabled]="disabled() || isSearching()"
           >
             @if (isSearching()) {
               <span class="spinner-sm"></span>
             } @else {
-              <span class="material-icons">search</span>
+              <span class="material-icons" aria-hidden="true">search</span>
             }
           </button>
         </div>
@@ -49,10 +49,10 @@
         @if (searchResults().length > 0) {
           <div class="search-results-dropdown">
             @for (result of searchResults(); track $index) {
-              <div class="search-result-item" (click)="selectSearchResult(result)">
-                <span class="material-icons result-icon">place</span>
+              <button type="button" class="search-result-item" (click)="selectSearchResult(result)">
+                <span class="material-icons result-icon" aria-hidden="true">place</span>
                 <span class="result-name">{{ result.display_name }}</span>
-              </div>
+              </button>
             }
           </div>
         }
@@ -82,6 +82,7 @@
           />
           <input
             type="range"
+            aria-label="Radio en metros"
             min="50"
             max="3000"
             step="50"
@@ -95,7 +96,7 @@
               type="button"
               class="btn-unlock-radius"
               (click)="clearManzanaSelection()"
-              title="Borrar manzana y volver a Geocerca Circular"
+              title="Borrar las manzanas elegidas y volver a Geocerca Circular"
             >
               🔓 Usar Radio Circular
             </button>
@@ -174,7 +175,7 @@
     <div class="geofence-status-banner" [class.mode-manzana]="isManzanaGeofence()" [class.mode-rural]="isRuralZone()">
       <div class="banner-mode-tag">
         @if (isManzanaGeofence()) {
-          <span class="tag-polygon">🟢 GEOFENCE POLÍGONO MANZANA (Radio: 0m)</span>
+          <span class="tag-polygon">🟢 GEOFENCE POLÍGONO: {{ selectedManzanas().length }} {{ selectedManzanas().length === 1 ? 'MANZANA' : 'MANZANAS' }} (Radio: 0m)</span>
         } @else {
           <span class="tag-circular">🔵 GEOFENCE CIRCULAR (Radio: {{ localRadius() }}m)</span>
         }
@@ -193,7 +194,7 @@
     <span>Zoom actual: <strong>{{ currentZoom() }}</strong></span>
     <span class="zoom-pill" [class.active]="currentZoom() < 14">🟢 Parroquias (&lt;14)</span>
     <span class="zoom-pill" [class.active]="currentZoom() >= 14 && currentZoom() < 16">🔵 Sectores (14-15)</span>
-    <span class="zoom-pill" [class.active]="currentZoom() >= 16">🟠 Manzanas (&ge;16 - Haz clic en el mapa)</span>
+    <span class="zoom-pill" [class.active]="currentZoom() >= 16">🟠 Manzanas (&ge;16 - Clic para agregar o quitar)</span>
   </div>
 
   <!-- Leaflet Map Container Canvas -->

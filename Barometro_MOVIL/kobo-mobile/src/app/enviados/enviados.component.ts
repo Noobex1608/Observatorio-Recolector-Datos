@@ -86,7 +86,7 @@ export class EnviadosComponent implements OnInit {
 
   obtenerClavesRespuestas(answers: Record<string, any>): { key: string; val: string }[] {
     if (!answers || typeof answers !== 'object') return [];
-    return Object.entries(answers).map(([key, val]) => ({
+    return Object.entries(answers).filter(([key]) => key !== '_location_trace').map(([key, val]) => ({
       key,
       val: typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'Sin respuesta')
     }));

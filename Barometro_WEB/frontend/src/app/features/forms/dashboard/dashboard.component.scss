@@ -89,7 +89,7 @@
   &.active {
     background: var(--primary-50);
     border-color: var(--primary-400);
-    color: var(--primary-700);
+    color: var(--primary-text-700);
   }
 
   &:hover:not(.active) {
@@ -299,7 +299,7 @@
     height: 18px;
     margin-top: 0.05rem;
     font-size: 18px;
-    color: var(--primary-600);
+    color: var(--primary-text-600);
   }
 
   .context-copy {
@@ -374,7 +374,7 @@
 
   &.btn-deploy {
     border-color: var(--primary-400);
-    color: var(--primary-600);
+    color: var(--primary-text-600);
   }
 
   &.btn-danger {
@@ -547,7 +547,7 @@
   padding: 0.15rem 0.4rem;
   border-radius: var(--radius-sm);
   background: var(--primary-50);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .modal-backdrop {
@@ -724,7 +724,7 @@
 }
 
 .user-preview-role {
-  color: var(--primary-600) !important;
+  color: var(--primary-text-600) !important;
   font-size: 0.7rem !important;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -799,7 +799,7 @@
 
   &.role-recolector {
     background: var(--primary-50);
-    color: var(--primary-600);
+    color: var(--primary-text-600);
   }
 }
 
@@ -855,7 +855,7 @@
 .btn-edit-target {
   margin-left: 0.35rem;
   background: transparent;
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .btn-danger-sm {
@@ -1007,7 +1007,7 @@
       color: var(--text-primary);
 
       span {
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
     }
   }

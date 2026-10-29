@@ -30,6 +30,10 @@ export interface ProjectZoneInfo {
   radius_meters: number;
   hierarchy_json?: any;
   geometry_json?: any;
+  /** Meta de encuestas de la zona (null = sin meta). */
+  target_responses?: number | null;
+  /** Encuestas que el servidor ya recibió para la zona, al último dato descargado. */
+  responses_count?: number;
 }
 
 export interface FormDefinition {
@@ -130,14 +134,6 @@ export interface SavedResponse {
   duration: string;
 }
 
-export interface PendingFieldTracking {
-  id?: number;
-  kind: 'report' | 'stop';
-  formId: string;
-  payload?: { form_id: string; zone_id: string; latitude: number; longitude: number; accuracy_meters: number; recorded_at: string };
-  createdAt: string;
-}
-
 export interface FormInfo {
   id: string;
   title: string;
@@ -153,7 +149,6 @@ export class DbService extends Dexie {
   responses!: Dexie.Table<SavedResponse, number>;
   formList!: Dexie.Table<FormInfo, string>;
   mediaBlobs!: Dexie.Table<MediaBlob, number>;
-  pendingFieldTracking!: Dexie.Table<PendingFieldTracking, number>;
 
   constructor() {
     super(databaseName());
@@ -170,6 +165,8 @@ export class DbService extends Dexie {
       mediaBlobs: '++id, blobId, responseId, questionId',
       pendingFieldTracking: '++id, formId, kind, createdAt'
     });
+    // La jornada en vivo se reemplazó por el trazado dentro de cada respuesta.
+    this.version(6).stores({ pendingFieldTracking: null });
     this.responses.hook('creating', (_key, response) => {
       response.clientSubmissionId ??= crypto.randomUUID();
     });

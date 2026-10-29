@@ -548,6 +548,7 @@
       "descriptionPlaceholder": "Describe los objetivos del estudio, la población objetivo, muestra estimada y metodología de recolección...",
       "startDate": "Fecha de Inicio",
       "endDate": "Fecha de Fin",
+      "endBeforeStart": "La fecha de fin no puede ser anterior a la fecha de inicio.",
       "targetSampleSize": "Muestra Objetivo (Cuota Total)",
       "status": "Estado de la Ficha",
       "validateButton": "Validar Ficha Técnica",

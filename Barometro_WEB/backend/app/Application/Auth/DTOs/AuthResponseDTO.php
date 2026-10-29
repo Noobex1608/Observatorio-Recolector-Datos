@@ -14,6 +14,7 @@ final readonly class AuthResponseDTO
         public string $email,
         public string $rol,
         public string $token,
+        public bool $mustChangePassword = false,
         public ?array $perfil = null,
     ) {}
 
@@ -25,6 +26,7 @@ final readonly class AuthResponseDTO
             email: $user->email,
             rol: $user->rol ?? User::ROLE_USER,
             token: $token,
+            mustChangePassword: (bool) $user->must_change_password,
             perfil: $user->perfil ? [
                 'id' => $user->perfil->id,
                 'telefono' => $user->perfil->telefono,
@@ -43,6 +45,7 @@ final readonly class AuthResponseDTO
                 'name' => $this->name,
                 'email' => $this->email,
                 'rol' => $this->rol,
+                'must_change_password' => $this->mustChangePassword,
                 'perfil' => $this->perfil,
             ],
             'token' => $this->token,

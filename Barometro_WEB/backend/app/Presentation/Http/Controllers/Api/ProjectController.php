@@ -25,7 +25,7 @@ class ProjectController extends Controller
     #[OA\Get(path: '/projects', summary: 'Listar proyectos visibles', security: [['sanctum' => []]], tags: ['Projects'])]
     public function index(Request $request): JsonResponse
     {
-        $this->lifecycleService->syncStates();
+        $this->lifecycleService->syncStatesIfDue();
         $user = $request->user();
 
         $query = Project::with(['leaders:id,name,email,rol', 'delegates:id,name,email,rol', 'supervisors:id,name,email,rol', 'creator:id,name,email,rol'])
@@ -106,7 +106,7 @@ class ProjectController extends Controller
     #[OA\Get(path: '/projects/{id}', summary: 'Ver proyecto', security: [['sanctum' => []]], tags: ['Projects'])]
     public function show(Request $request, string $id): JsonResponse
     {
-        $this->lifecycleService->syncStates();
+        $this->lifecycleService->syncStatesIfDue();
         $project = Project::with(['leaders:id,name,email,rol', 'delegates:id,name,email,rol', 'supervisors:id,name,email,rol', 'forms.owner:id,name,email,rol', 'forms.technicalSheet', 'forms.shares.user:id,name,email,rol', 'technicalSheet.validator:id,name,email', 'zones.assignedUsers:id,name,email,rol'])->findOrFail($id);
         $user = $request->user();
 

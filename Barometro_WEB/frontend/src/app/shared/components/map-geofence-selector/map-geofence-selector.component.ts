@@ -8,6 +8,7 @@ import {
   signal,
   effect,
   computed,
+  untracked,
   viewChild,
   inject,
   PLATFORM_ID,
@@ -30,7 +31,10 @@ export interface GeofenceSelectionEvent {
     zona?: string;
     localidad?: string;
     sector?: string;
+    /** Primera manzana elegida (compatibilidad con zonas de una sola manzana). */
     manzana?: string;
+    /** Todas las manzanas que forman la zona, en el orden en que se eligieron. */
+    manzanas?: string[];
   };
   properties?: Record<string, any>;
 }
@@ -66,6 +70,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   targetLng = input<number | null>(null);
   radiusMeters = input<number>(500);
   disabled = input<boolean>(false);
+  /** Códigos de manzana de una zona ya guardada, para volver a marcarlos al editarla. */
+  initialManzanas = input<string[]>([]);
 
   // Output
   geofenceChange = output<GeofenceSelectionEvent>();
@@ -101,10 +107,15 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   readonly selectedZona = signal<string>('');
   readonly selectedLocalidad = signal<string>('');
   readonly selectedSector = signal<string>('');
-  readonly selectedManzana = signal<string>('');
+  /** Manzanas que forman la geocerca (modo polígono). Clic en una manzana la agrega o la quita. */
+  readonly selectedManzanas = signal<string[]>([]);
+  /** Feature GeoJSON de cada manzana elegida: se conserva aunque se vuelvan a dibujar las capas. */
+  private readonly selectedManzanaFeatures = new Map<string, any>();
+  private pendingRestoreManzanas: string[] = [];
+  private restoredManzanasKey = '';
 
   // Computados de Estado de Geocerca (Única Fuente de Verdad)
-  readonly isManzanaGeofence = computed(() => !!this.selectedManzana());
+  readonly isManzanaGeofence = computed(() => this.selectedManzanas().length > 0);
   readonly isRuralZone = computed(() => {
     const z = this.selectedZona();
     const p = this.selectedParroquia();
@@ -119,12 +130,15 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   // Banner status text 100% en vivo según DPA oficial 2026 (Estado y Serialización Limpia)
   readonly bannerStatusText = computed(() => {
     if (this.isManzanaGeofence()) {
-      const code = this.selectedManzana();
+      const codes = this.selectedManzanas();
       const parCode = this.selectedParroquia();
       const parName = this.gisService.getParroquiaName(parCode);
       const secCode = this.selectedSector();
       const locName = parName || (secCode ? `Sector ${secCode}` : 'Sector INEC');
-      return `📍 Manzana INEC: ${code} | ${locName}`;
+      const label = codes.length === 1
+        ? `Manzana INEC: ${codes[0]}`
+        : `${codes.length} manzanas INEC: ${codes.slice(0, 3).join(', ')}${codes.length > 3 ? ` y ${codes.length - 3} más` : ''}`;
+      return `📍 ${label} | ${locName}`;
     } else {
       const r = this.localRadius();
       const lat = this.localLat() !== null ? this.localLat() : '0';
@@ -181,6 +195,16 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       if (this.map && this.LInstance) {
         this.updateMarkerAndCircle(false);
       }
+    });
+
+    // Al editar una zona de manzanas, volver a marcarlas cuando su capa esté dibujada.
+    effect(() => {
+      const codes = this.initialManzanas() ?? [];
+      const key = codes.join(',');
+      if (key === this.restoredManzanasKey) return;
+      this.restoredManzanasKey = key;
+      this.pendingRestoreManzanas = [...codes];
+      untracked(() => this.applyPendingManzanaRestore());
     });
   }
 
@@ -270,6 +294,9 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
 
     this.map.on('click', (e: any) => {
       if (this.disabled()) return;
+      // Con manzanas elegidas, un clic fuera de ellas no borra la selección (sería fácil perderla
+      // al apuntar entre dos manzanas). Para volver al radio se usa el botón "Usar Radio Circular".
+      if (this.isManzanaGeofence()) return;
       this.clearManzanaSelection();
       this.setPosition(e.latlng.lat, e.latlng.lng, true);
     });
@@ -368,7 +395,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     this.selectedZona.set('');
     this.selectedLocalidad.set('');
     this.selectedSector.set('');
-    this.selectedManzana.set('');
+    this.resetSelectedManzanas();
 
     this.clearManzanaSelection();
     this.sectoresGroup?.clearLayers();
@@ -403,7 +430,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     this.selectedZona.set('');
     this.selectedLocalidad.set('');
     this.selectedSector.set('');
-    this.selectedManzana.set('');
+    this.resetSelectedManzanas();
 
     this.clearManzanaSelection();
     this.sectoresGroup?.clearLayers();
@@ -435,7 +462,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     if (!code) {
       this.selectedParroquia.set('');
       this.selectedSector.set('');
-      this.selectedManzana.set('');
+      this.resetSelectedManzanas();
       this.clearManzanaSelection();
       this.sectoresGroup?.clearLayers();
       this.manzanasGroup?.clearLayers();
@@ -453,7 +480,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     this.selectedZona.set('');
     this.selectedLocalidad.set('');
     this.selectedSector.set('');
-    this.selectedManzana.set('');
+    this.resetSelectedManzanas();
 
     this.clearManzanaSelection();
 
@@ -512,7 +539,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   onZonaChange(code: string): void {
     this.selectedZona.set(code);
     this.selectedSector.set('');
-    this.selectedManzana.set('');
+    this.resetSelectedManzanas();
 
     this.clearManzanaSelection();
     this.sectoresGroup?.clearLayers();
@@ -534,7 +561,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   onLocalidadChange(localidad: string): void {
     this.selectedLocalidad.set(localidad);
     this.selectedSector.set('');
-    this.selectedManzana.set('');
+    this.resetSelectedManzanas();
     this.clearManzanaSelection();
     this.sectoresGroup?.clearLayers();
     this.manzanasGroup?.clearLayers();
@@ -610,7 +637,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   onSectorChange(code: string): void {
     if (!code) {
       this.selectedSector.set('');
-      this.selectedManzana.set('');
+      this.resetSelectedManzanas();
       this.clearManzanaSelection();
       this.manzanasGroup?.clearLayers();
       this.manzanasList.set([]);
@@ -694,6 +721,20 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       layer.bringToFront();
     }
     this.manzanasList.set(options.sort((a, b) => a.name.localeCompare(b.name)));
+    this.applyPendingManzanaRestore();
+  }
+
+  /** Marca las manzanas de la zona guardada que ya estén dibujadas, sin emitir cambios. */
+  private applyPendingManzanaRestore(): void {
+    if (!this.pendingRestoreManzanas.length || !this.manzanaLayersMap.size) return;
+    const ready = this.pendingRestoreManzanas.filter((code) => this.manzanaLayersMap.has(code));
+    if (!ready.length) return;
+    this.pendingRestoreManzanas = this.pendingRestoreManzanas.filter((code) => !this.manzanaLayersMap.has(code));
+    for (const code of ready) {
+      if (this.selectedManzanaFeatures.has(code)) continue;
+      const layer = this.manzanaLayersMap.get(code);
+      if (layer?.feature) this.onManzanaClick(code, layer.feature, layer, true);
+    }
   }
 
   /**
@@ -710,8 +751,13 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private onManzanaClick(code: string, feature: any, layer: any): void {
-    if (this.disabled()) return;
+  /**
+   * Clic en una manzana: la agrega a la geocerca, o la quita si ya estaba elegida.
+   * `restoring` = se está reconstruyendo una zona guardada: no conmuta ni emite cambios.
+   */
+  private onManzanaClick(code: string, feature: any, layer: any, restoring = false): void {
+    if (this.disabled() && !restoring) return;
+    if (!code) return;
 
     // Si la zona es rural, prohibir manzana y forzar Modo B Circular
     if (this.isRuralZone()) {
@@ -740,24 +786,53 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       this.selectedSector.set(secCode);
     }
 
-    this.selectedManzana.set(code);
-    this.highlightLayer(layer);
+    if (this.selectedManzanaFeatures.has(code)) {
+      if (restoring) return;
+      // Segundo clic sobre una manzana elegida: quitarla de la geocerca.
+      this.selectedManzanaFeatures.delete(code);
+      this.selectedManzanas.set(this.selectedManzanas().filter((c) => c !== code));
+      if (!this.isManzanaGeofence()) {
+        this.highlightGroup?.clearLayers();
+        if (this.selectedInecInfo()?.level === 'manzana') {
+          this.selectedInecInfo.set(null);
+        }
+        this.updateMarkerAndCircle(false);
+        this.emitGeofenceChange();
+        return;
+      }
+    } else {
+      this.selectedManzanaFeatures.set(code, feature);
+      this.selectedManzanas.set([...this.selectedManzanas(), code]);
+    }
+
+    const codes = this.selectedManzanas();
+    const entries = codes
+      .map((c) => ({ code: c, feature: this.selectedManzanaFeatures.get(c) }))
+      .filter((entry) => !!entry.feature);
+    this.highlightManzanas(entries);
 
     let centerLat = this.localLat() ?? 0;
     let centerLng = this.localLng() ?? 0;
 
-    if (layer && layer.getBounds) {
-      const bounds = layer.getBounds();
-      const center = bounds.getCenter();
-      centerLat = Number(center.lat.toFixed(6));
-      centerLng = Number(center.lng.toFixed(6));
+    // Centro del conjunto de manzanas (o de la única elegida).
+    if (this.LInstance && entries.length) {
+      const bounds = this.LInstance.geoJSON({
+        type: 'FeatureCollection',
+        features: entries.map((entry) => entry.feature),
+      } as any).getBounds();
+      if (bounds.isValid()) {
+        const center = bounds.getCenter();
+        centerLat = Number(center.lat.toFixed(6));
+        centerLng = Number(center.lng.toFixed(6));
+      }
     }
 
-    const props = feature?.properties || {};
-    const name = props.nombre || `Manzana ${code}`;
+    const lastCode = codes[codes.length - 1];
+    const props = this.selectedManzanaFeatures.get(lastCode)?.properties || {};
+    const name = codes.length === 1 ? props.nombre || `Manzana ${lastCode}` : `${codes.length} manzanas`;
 
     const gisSelection: GisSelection = {
-      code,
+      code: lastCode,
       name,
       level: 'manzana',
       lat: centerLat,
@@ -767,8 +842,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       codCanton: this.selectedCanton(),
       codParroquia: this.selectedParroquia(),
       codSector: this.selectedSector(),
-      codManzana: code,
-      geometry: feature?.geometry,
+      codManzana: lastCode,
+      geometry: this.mergedManzanaGeometry(),
       properties: props,
     };
 
@@ -789,8 +864,32 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       this.marker.setLatLng([centerLat, centerLng]);
     }
 
+    if (restoring) return;
     this.updateZoneName(name);
     this.emitGeofenceChange();
+  }
+
+  /** Une las manzanas elegidas en una sola geometría: Polygon si es una, MultiPolygon si son varias. */
+  private mergedManzanaGeometry(): any {
+    const polygons: any[] = [];
+    for (const code of this.selectedManzanas()) {
+      const geometry = this.selectedManzanaFeatures.get(code)?.geometry;
+      if (geometry?.type === 'Polygon') {
+        polygons.push(geometry.coordinates);
+      } else if (geometry?.type === 'MultiPolygon') {
+        polygons.push(...geometry.coordinates);
+      }
+    }
+    if (!polygons.length) return undefined;
+    return polygons.length === 1
+      ? { type: 'Polygon', coordinates: polygons[0] }
+      : { type: 'MultiPolygon', coordinates: polygons };
+  }
+
+  private resetSelectedManzanas(): void {
+    this.selectedManzanas.set([]);
+    this.selectedManzanaFeatures.clear();
+    this.highlightGroup?.clearLayers();
   }
 
   private fitMapToBoundsForPrefix(prefixCode: string): void {
@@ -808,18 +907,37 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private highlightLayer(layer: any): void {
+  /**
+   * Dibuja en verde las manzanas elegidas. La capa resaltada queda encima de la capa naranja,
+   * así que es ella la que recibe el clic para quitar una manzana de la selección.
+   */
+  private highlightManzanas(entries: Array<{ code: string; feature: any }>): void {
     if (!this.LInstance || !this.highlightGroup) return;
 
     this.highlightGroup.clearLayers();
 
-    if (layer && layer.toGeoJSON) {
-      const highlight = this.LInstance.geoJSON(layer.toGeoJSON(), {
+    for (const { code, feature } of entries) {
+      const name = feature?.properties?.nombre || `Manzana ${code}`;
+      const highlight = this.LInstance.geoJSON(feature, {
         style: {
           weight: 4,
-          color: '#10b981', // Verde esmeralda para el polígono de manzana activo
+          color: '#10b981', // Verde esmeralda para las manzanas elegidas
           fillColor: '#10b981',
           fillOpacity: 0.35,
+        },
+        onEachFeature: (_f: any, l: any) => {
+          l.bindTooltip(`<b>Manzana:</b> ${name}<br><small>Cod: ${code}</small><br><small>Clic para quitarla</small>`, { sticky: true });
+          l.on('click', (e: any) => {
+            if (this.LInstance?.DomEvent) {
+              this.LInstance.DomEvent.stopPropagation(e);
+              this.LInstance.DomEvent.preventDefault(e);
+            }
+            if (e.originalEvent) {
+              e.originalEvent.stopPropagation();
+              e.originalEvent.preventDefault();
+            }
+            this.onManzanaClick(code, feature, l);
+          });
         },
       });
       this.highlightGroup.addLayer(highlight);
@@ -830,9 +948,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
    * Conmuta forzadamente de MODO A (Polígono) a MODO B (Radio Circular)
    */
   clearManzanaSelection(): void {
-    if (this.selectedManzana()) {
-      this.selectedManzana.set('');
-      this.highlightGroup?.clearLayers();
+    if (this.isManzanaGeofence()) {
+      this.resetSelectedManzanas();
       if (this.selectedInecInfo()?.level === 'manzana') {
         this.selectedInecInfo.set(null);
       }
@@ -845,7 +962,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
    * Resuelve la parroquia automáticamente según coordenadas
    */
   private resolveParroquiaFromCoordinates(lat: number, lng: number, forceLoad = false): void {
-    if (!this.parroquiaLayersMap.size || this.selectedManzana()) return;
+    if (!this.parroquiaLayersMap.size || this.isManzanaGeofence()) return;
 
     const latLng = this.LInstance ? this.LInstance.latLng(lat, lng) : [lat, lng];
 
@@ -884,7 +1001,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     this.localRadius.set(r);
 
     // Exclusión mutua: Si había manzana seleccionada, se limpia para pasar a Geocerca Circular
-    if (this.selectedManzana()) {
+    if (this.isManzanaGeofence()) {
       this.clearManzanaSelection();
     }
 
@@ -1018,7 +1135,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     }
 
     if (this.geofenceCircle) {
-      if (this.selectedManzana()) {
+      if (this.isManzanaGeofence()) {
         // En Modo Manzana: Desactivar radio y remover el círculo del mapa
         this.geofenceCircle.setRadius(0);
         if (this.map.hasLayer(this.geofenceCircle)) {
@@ -1076,7 +1193,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     const lng = this.localLng();
     const radius = this.localRadius();
     const inec = this.selectedInecInfo();
-    const isManzanaGeofence = !!this.selectedManzana();
+    const isManzanaGeofence = this.isManzanaGeofence();
+    const manzanas = this.selectedManzanas();
 
     this.geofenceChange.emit({
       zone_name: name,
@@ -1090,12 +1208,14 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
         zona: this.selectedZona() || inec?.properties?.['cod_zona'] || undefined,
         localidad: this.selectedLocalidad() || inec?.properties?.['localidad'] || undefined,
         sector: this.selectedSector() || undefined,
-        manzana: isManzanaGeofence ? this.selectedManzana() : undefined,
+        manzana: isManzanaGeofence ? manzanas[0] : undefined,
+        manzanas: isManzanaGeofence ? [...manzanas] : undefined,
       },
       properties: {
         ...inec?.properties,
         geofence_type: isManzanaGeofence ? 'manzana_polygon' : 'circular_radius',
-        polygon_geometry: isManzanaGeofence ? inec?.geometry : undefined,
+        polygon_geometry: isManzanaGeofence ? this.mergedManzanaGeometry() : undefined,
+        manzanas_count: isManzanaGeofence ? manzanas.length : 0,
       },
     });
   }

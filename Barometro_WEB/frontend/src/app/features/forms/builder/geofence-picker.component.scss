@@ -563,3 +563,6 @@
     transform: rotate(360deg);
   }
 }
+
+/* Resultado de búsqueda como botón real (teclado y lector de pantalla) */
+button.search-result-item { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }

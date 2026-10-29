@@ -54,7 +54,7 @@
   @if (vm.instrumentLocked()) {
     <div class="alert alert-warning">
       Este instrumento ya fue publicado. Para cambiar preguntas o consentimiento, use «Duplicar» en Mis formularios.
-      La copia conservará el formulario original y sus respuestas. Las fechas se gestionan en la ficha técnica.
+      La copia conservará el formulario original y sus respuestas. Las fechas de cada formulario se gestionan en la pestaña Ficha Técnica del proyecto.
     </div>
   }
 
@@ -229,6 +229,7 @@
                   <input
                     class="section-title-input"
                     type="text"
+                    [attr.aria-label]="'forms.builder.sectionPlaceholder' | translate"
                     [ngModel]="section.title"
                     (ngModelChange)="vm.updateSectionTitle(section.tempId, $event)"
                     [disabled]="vm.isSaving() || !vm.canEditQuestions()"
@@ -386,6 +387,7 @@
                               type="text"
                               [ngModel]="option"
                               (ngModelChange)="vm.updateOption(question.tempId, optionIndex, $event)"
+                              [attr.aria-label]="('forms.builder.optionPlaceholder' | translate) + ' ' + (optionIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.optionPlaceholder' | translate"
                             />
@@ -436,6 +438,7 @@
 
                               @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
                                 <select
+                                  aria-label="Pregunta de destino"
                                   [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
                                   (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
                                   [disabled]="vm.isSaving() || !vm.canEditQuestions()"
@@ -489,6 +492,7 @@
                               type="text"
                               [ngModel]="column"
                               (ngModelChange)="vm.updateLikertColumn(question.tempId, columnIndex, $event)"
+                              [attr.aria-label]="('forms.builder.likert.columnPlaceholder' | translate) + ' ' + (columnIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.likert.columnPlaceholder' | translate"
                             />
@@ -510,6 +514,7 @@
                               type="text"
                               [ngModel]="row"
                               (ngModelChange)="vm.updateLikertRow(question.tempId, rowIndex, $event)"
+                              [attr.aria-label]="('forms.builder.likert.rowPlaceholder' | translate) + ' ' + (rowIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.likert.rowPlaceholder' | translate"
                             />
@@ -891,6 +896,7 @@
                               type="text"
                               [ngModel]="option"
                               (ngModelChange)="vm.updateOption(question.tempId, optionIndex, $event)"
+                              [attr.aria-label]="('forms.builder.optionPlaceholder' | translate) + ' ' + (optionIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.optionPlaceholder' | translate"
                             />
@@ -941,6 +947,7 @@
 
                               @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
                                 <select
+                                  aria-label="Pregunta de destino"
                                   [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
                                   (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
                                   [disabled]="vm.isSaving() || !vm.canEditQuestions()"
@@ -994,6 +1001,7 @@
                               type="text"
                               [ngModel]="column"
                               (ngModelChange)="vm.updateLikertColumn(question.tempId, columnIndex, $event)"
+                              [attr.aria-label]="('forms.builder.likert.columnPlaceholder' | translate) + ' ' + (columnIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.likert.columnPlaceholder' | translate"
                             />
@@ -1015,6 +1023,7 @@
                               type="text"
                               [ngModel]="row"
                               (ngModelChange)="vm.updateLikertRow(question.tempId, rowIndex, $event)"
+                              [attr.aria-label]="('forms.builder.likert.rowPlaceholder' | translate) + ' ' + (rowIndex + 1)"
                               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                               [placeholder]="'forms.builder.likert.rowPlaceholder' | translate"
                             />
@@ -1092,9 +1101,9 @@
                 </p>
 
                 @if (question.type === 'TEXT') {
-                  <input type="text" disabled [placeholder]="'forms.builder.shortAnswer' | translate" />
+                  <input type="text" disabled aria-label="Vista previa de la respuesta" [placeholder]="'forms.builder.shortAnswer' | translate" />
                 } @else if (question.type === 'NUMBER') {
-                  <input type="number" disabled placeholder="0" />
+                  <input type="number" disabled aria-label="Vista previa de la respuesta" placeholder="0" />
                 } @else if (question.type === 'LIKERT') {
                   <div class="preview-likert-summary">
                     <span class="material-icons" aria-hidden="true">view_module</span>
@@ -1133,11 +1142,11 @@
 </section>
 
 @if (previewModalOpen()) {
-  <div class="preview-modal-backdrop" (click)="closePreview()">
-    <div class="preview-modal" (click)="$event.stopPropagation()">
+  <div class="preview-modal-backdrop" (click)="closePreview()" (keydown.escape)="closePreview()">
+    <div class="preview-modal" role="dialog" aria-modal="true" aria-labelledby="builder-preview-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="preview-modal-header">
         <div>
-          <h3>{{ 'forms.builder.previewTitle' | translate }}</h3>
+          <h3 id="builder-preview-title">{{ 'forms.builder.previewTitle' | translate }}</h3>
           <p>{{ 'forms.builder.previewModeLabel' | translate }}</p>
         </div>
 
@@ -1202,9 +1211,9 @@
                   </legend>
 
                   @if (question.type === 'TEXT') {
-                    <textarea rows="3" [placeholder]="'forms.collect.textPlaceholder' | translate"></textarea>
+                    <textarea rows="3" aria-label="Vista previa de la respuesta" [placeholder]="'forms.collect.textPlaceholder' | translate"></textarea>
                   } @else if (question.type === 'NUMBER') {
-                    <input type="number" placeholder="0" />
+                    <input type="number" aria-label="Vista previa de la respuesta" placeholder="0" />
                   } @else if (question.type === 'LIKERT') {
                     <div class="collect-likert-wrap">
                       <div
@@ -1255,11 +1264,11 @@
 }
 
 @if (shareModalOpen) {
-  <div class="modal-backdrop" (click)="closeShareModal()">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
+  <div class="modal-backdrop" (click)="closeShareModal()" (keydown.escape)="closeShareModal()">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="builder-share-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>Compartir formulario</h3>
-        <button type="button" class="modal-close" (click)="closeShareModal()">&times;</button>
+        <h3 id="builder-share-title">Compartir formulario</h3>
+        <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeShareModal()">&times;</button>
       </div>
 
       <div class="modal-body">
@@ -1358,6 +1367,7 @@
                       <div class="inline-edit">
                         <input
                           type="number"
+                          aria-label="Meta de respuestas"
                           [ngModel]="editTargetValue"
                           (ngModelChange)="editTargetValue = $event === '' ? null : +$event"
                           min="1"

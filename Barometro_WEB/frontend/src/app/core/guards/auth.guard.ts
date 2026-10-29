@@ -19,6 +19,7 @@ export const authGuard: CanActivateFn = () => {
 
   // Si ya tenemos el usuario en memoria, permitir acceso
   if (authService.user()) {
+    if (authService.user()?.must_change_password) return router.createUrlTree(['/auth/change-password']);
     return true;
   }
 
@@ -29,6 +30,7 @@ export const authGuard: CanActivateFn = () => {
         router.navigate(['/auth/login']);
         return false;
       }
+      if (authService.user()?.must_change_password) return router.createUrlTree(['/auth/change-password']);
       return true;
     }),
     catchError(() => {
@@ -50,6 +52,6 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
-  router.navigate(['/admin/dashboard']);
+  router.navigate([authService.user()?.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
   return false;
 };

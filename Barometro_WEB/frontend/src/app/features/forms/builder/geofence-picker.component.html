@@ -3,7 +3,7 @@
   <!-- Header -->
   <div class="geofence-card-header">
     <div class="header-title">
-      <span class="material-icons title-icon">location_on</span>
+      <span class="material-icons title-icon" aria-hidden="true">location_on</span>
       <h3>Delimitación Cartográfica INEC (Geofencing)</h3>
     </div>
     <button
@@ -12,7 +12,7 @@
       (click)="useCurrentLocation()"
       [disabled]="disabled()"
     >
-      <span class="material-icons">my_location</span>
+      <span class="material-icons" aria-hidden="true">my_location</span>
       Usar mi ubicación actual
     </button>
   </div>
@@ -46,20 +46,20 @@
           placeholder="Buscar dirección (ej: Av. 24 y Calle 17, o Recinto Las Piñas)..."
         />
         @if (searchQuery()) {
-          <button type="button" class="btn-clear-search" (click)="clearSearch()">
-            <span class="material-icons">close</span>
+          <button type="button" class="btn-clear-search" aria-label="Limpiar búsqueda" (click)="clearSearch()">
+            <span class="material-icons" aria-hidden="true">close</span>
           </button>
         }
         <button
           type="button"
           class="btn-search"
-          (click)="searchLocation()"
+          (click)="searchLocation()" aria-label="Buscar dirección"
           [disabled]="disabled() || isSearching()"
         >
           @if (isSearching()) {
             <span class="spinner-sm"></span>
           } @else {
-            <span class="material-icons">search</span>
+            <span class="material-icons" aria-hidden="true">search</span>
           }
         </button>
       </div>
@@ -68,10 +68,10 @@
       @if (searchResults().length > 0) {
         <div class="search-results-dropdown">
           @for (result of searchResults(); track $index) {
-            <div class="search-result-item" (click)="selectSearchResult(result)">
-              <span class="material-icons result-icon">place</span>
+            <button type="button" class="search-result-item" (click)="selectSearchResult(result)">
+              <span class="material-icons result-icon" aria-hidden="true">place</span>
               <span class="result-name">{{ result.display_name }}</span>
-            </div>
+            </button>
           }
         </div>
       }
@@ -159,7 +159,7 @@
   <div class="map-wrapper">
     <div #mapContainer class="leaflet-map-container"></div>
     <div class="map-instruction-overlay">
-      <span class="material-icons">touch_app</span>
+      <span class="material-icons" aria-hidden="true">touch_app</span>
       <span>Haz clic sobre una manzana/sector o arrastra el marcador para seleccionar el área</span>
     </div>
   </div>
@@ -168,7 +168,7 @@
   @if (isManzanaGeofence()) {
     <div class="manzana-geofence-card">
       <div class="geofence-card-header">
-        <span class="material-icons card-icon">hexagon</span>
+        <span class="material-icons card-icon" aria-hidden="true">hexagon</span>
         <div class="card-text">
           <h4 class="card-title">Geocerca Activa: Polígono Manzana INEC (Radio: 0m)</h4>
           <p class="card-sub">
@@ -181,12 +181,12 @@
           class="btn-switch-mode"
           (click)="clearManzanaSelection()"
         >
-          <span class="material-icons">radar</span>
+          <span class="material-icons" aria-hidden="true">radar</span>
           Cambiar a Radio Circular
         </button>
       </div>
       <div class="geofence-card-info">
-        <span class="material-icons info-icon">verified</span>
+        <span class="material-icons info-icon" aria-hidden="true">verified</span>
         <span>El área de cobertura queda delimitada exactamente por el polígono oficial de esta manzana. El radio circular se desactiva.</span>
       </div>
     </div>
@@ -195,7 +195,7 @@
     <div class="radius-slider-card">
       <div class="slider-header">
         <label for="radius-range-slider" class="slider-label">
-          <span class="material-icons">radar</span>
+          <span class="material-icons" aria-hidden="true">radar</span>
           Radio de Cobertura: <strong>{{ localRadius() }} metros</strong>
           @if (isRuralZone()) {
             <span class="rural-tag-sm">🌾 Zona Rural (Coordenada + Radio)</span>
@@ -230,7 +230,7 @@
 
   <!-- Discrete Coordinates Info -->
   <div class="coords-discrete-footer">
-    <span class="material-icons icon-discrete">pin_drop</span>
+    <span class="material-icons icon-discrete" aria-hidden="true">pin_drop</span>
     <span>
       Centroide:
       <strong>{{ localLat() !== null ? localLat() : 'Sin definir' }}</strong>,

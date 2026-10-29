@@ -12,6 +12,7 @@ import { SidebarComponent } from './sidebar.component';
   standalone: true,
   imports: [CommonModule, RouterOutlet, MatSidenavModule, HeaderComponent, SidebarComponent, TranslateModule],
   template: `
+    <a class="skip-link" href="#contenido-principal" (click)="skipToMain($event)">Saltar al contenido principal</a>
     <div class="layout-container">
       <!-- Header fijo -->
       <app-header (toggleSidenav)="toggleSidenav()" class="layout-header"></app-header>
@@ -32,7 +33,7 @@ import { SidebarComponent } from './sidebar.component';
 
         <!-- Contenido principal -->
         <mat-sidenav-content class="layout-content">
-          <main class="layout-main animate-fade-in">
+          <main id="contenido-principal" tabindex="-1" class="layout-main animate-fade-in">
             <router-outlet></router-outlet>
           </main>
         </mat-sidenav-content>
@@ -96,6 +97,12 @@ export class MainLayoutComponent {
   private themeService = inject(ThemeService);
 
   sidenavOpen = signal(true);
+
+  /** Lleva el foco al contenido sin cambiar la URL (el enlace con # recargaría la ruta). */
+  skipToMain(event: Event): void {
+    event.preventDefault();
+    document.getElementById('contenido-principal')?.focus();
+  }
   isMobile = signal(false);
 
   constructor() {

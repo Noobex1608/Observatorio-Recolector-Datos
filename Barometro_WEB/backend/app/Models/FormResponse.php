@@ -15,12 +15,19 @@ class FormResponse extends Model
         'form_id',
         'user_id',
         'data',
+        'location_trace',
+        'trace_started_at',
     ];
+
+    /** El trazado GPS se entrega solo en la vista de supervisión. */
+    protected $hidden = ['location_trace'];
 
     protected $casts = [
         'data' => 'array',
         'instrument_snapshot' => 'array',
         'consent_evidence' => 'array',
+        'location_trace' => 'array',
+        'trace_started_at' => 'datetime',
     ];
 
     public function form()

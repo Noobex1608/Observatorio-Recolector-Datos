@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
 
         $middleware->appendToGroup('api', \App\Http\Middleware\EnsureActiveUser::class);
+        $middleware->appendToGroup('api', \App\Http\Middleware\EnsurePasswordChanged::class);
 
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,

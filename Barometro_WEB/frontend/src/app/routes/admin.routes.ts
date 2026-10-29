@@ -44,6 +44,12 @@ export const ADMIN_ROUTES: Routes = [
       import('../features/projects/project-list.component').then((m) => m.ProjectListComponent),
     title: 'routes.projects',
   },
+  {
+    path: 'proyectos/:projectId/supervision/:userId',
+    loadComponent: () =>
+      import('../features/projects/supervision/collector-route.component').then((m) => m.CollectorRouteComponent),
+    title: 'routes.projects',
+  },
   // Usuarios (solo admin)
   {
     path: 'usuarios',

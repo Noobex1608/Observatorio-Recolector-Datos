@@ -32,6 +32,7 @@
       <div class="category-select">
         <mat-icon>category</mat-icon>
         <select
+          aria-label="Filtrar por proyecto"
           [ngModel]="vm.selectedProjectCategory()"
           (ngModelChange)="vm.selectedProjectCategory.set($event)"
         >
@@ -47,12 +48,13 @@
         <mat-icon>search</mat-icon>
         <input
           type="text"
+          [attr.aria-label]="'forms.dashboard.searchPlaceholder' | translate"
           [placeholder]="'forms.dashboard.searchPlaceholder' | translate"
           [value]="vm.searchQuery()"
           (input)="vm.onSearchInput($event)"
         />
         @if (vm.searchQuery()) {
-          <button class="search-clear-btn" type="button" (click)="vm.searchQuery.set('')">
+          <button class="search-clear-btn" type="button" aria-label="Limpiar búsqueda" (click)="vm.searchQuery.set('')">
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -322,11 +324,11 @@
 </div>
 
 @if (vm.shareModalOpen()) {
-  <div class="modal-backdrop" (click)="vm.closeShareModal()">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
+  <div class="modal-backdrop" (click)="vm.closeShareModal()" (keydown.escape)="vm.closeShareModal()">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="dashboard-share-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>{{ 'forms.dashboard.shareTitle' | translate }}</h3>
-        <button class="modal-close" (click)="vm.closeShareModal()" type="button">&times;</button>
+        <h3 id="dashboard-share-title">{{ 'forms.dashboard.shareTitle' | translate }}</h3>
+        <button class="modal-close" (click)="vm.closeShareModal()" type="button" aria-label="Cerrar">&times;</button>
       </div>
 
       <div class="modal-body">
@@ -432,6 +434,7 @@
                       <div class="inline-edit">
                         <input
                           type="number"
+                          aria-label="Meta de respuestas"
                           [ngModel]="vm.editTargetValue()"
                           (ngModelChange)="vm.setEditTargetFromInput($event)"
                           min="1"
@@ -475,11 +478,11 @@
 }
 
 @if (vm.linkModalOpen()) {
-  <div class="modal-overlay" (click)="vm.closeLinkModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
+  <div class="modal-overlay" (click)="vm.closeLinkModal()" (keydown.escape)="vm.closeLinkModal()">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-link-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2>{{ 'forms.dashboard.publicLinkTitle' | translate }}</h2>
-        <button class="modal-close" (click)="vm.closeLinkModal()" type="button">x</button>
+        <h2 id="dashboard-link-title">{{ 'forms.dashboard.publicLinkTitle' | translate }}</h2>
+        <button class="modal-close" (click)="vm.closeLinkModal()" type="button" aria-label="Cerrar">&times;</button>
       </div>
 
       <p class="modal-subtitle">
@@ -487,7 +490,7 @@
       </p>
 
       <div class="link-box">
-        <input type="text" readonly [value]="vm.linkUrl()" />
+        <input type="text" readonly aria-label="Enlace público del formulario" [value]="vm.linkUrl()" />
         <button class="btn-primary" (click)="copyLink()" type="button">
           <mat-icon>content_copy</mat-icon>
           {{ 'common.buttons.copy' | translate }}

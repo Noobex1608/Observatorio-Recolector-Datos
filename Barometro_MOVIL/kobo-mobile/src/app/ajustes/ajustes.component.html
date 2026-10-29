@@ -6,8 +6,8 @@
 
   <div class="contenido-ajustes">
     <!-- Idioma -->
-    <div class="ajuste-item" (click)="theme.toggleLang()">
-      <div class="icono">🌐</div>
+    <div class="ajuste-item" role="button" tabindex="0" (click)="theme.toggleLang()" (keydown.enter)="theme.toggleLang()" (keydown.space)="$event.preventDefault(); theme.toggleLang()">
+      <div class="icono" aria-hidden="true">🌐</div>
       <div class="ajuste-item-body">
         <p class="titulo">{{ 'language' | translate }}</p>
         <p class="subtitulo">{{ theme.lang() === 'es' ? 'Español' : 'English' }}</p>
@@ -16,8 +16,8 @@
     </div>
 
     <!-- Modo oscuro -->
-    <div class="ajuste-item" (click)="theme.toggleTheme()">
-      <div class="icono">{{ theme.darkMode() ? '🌙' : '☀️' }}</div>
+    <div class="ajuste-item" role="switch" tabindex="0" [attr.aria-checked]="theme.darkMode()" aria-label="Modo oscuro" (click)="theme.toggleTheme()" (keydown.enter)="theme.toggleTheme()" (keydown.space)="$event.preventDefault(); theme.toggleTheme()">
+      <div class="icono" aria-hidden="true">{{ theme.darkMode() ? '🌙' : '☀️' }}</div>
       <div class="ajuste-item-body">
         <p class="titulo">{{ theme.darkMode() ? 'dark_mode' : 'light_mode' | translate }}</p>
         <p class="subtitulo">{{ theme.darkMode() ? 'Activo' : 'Inactivo' }}</p>
@@ -28,8 +28,8 @@
     </div>
 
     <!-- Servidor -->
-    <div class="ajuste-item" (click)="cambiarServidor()">
-      <div class="icono">☁️</div>
+    <div class="ajuste-item" role="button" tabindex="0" (click)="cambiarServidor()" (keydown.enter)="cambiarServidor()" (keydown.space)="$event.preventDefault(); cambiarServidor()">
+      <div class="icono" aria-hidden="true">☁️</div>
       <div class="ajuste-item-body">
         <p class="titulo">{{ 'server_url' | translate }}</p>
         <p class="subtitulo">{{ 'change_server' | translate }}</p>
@@ -37,8 +37,8 @@
     </div>
 
     <!-- Limpiar datos -->
-    <div class="ajuste-item" (click)="limpiarDatos()">
-      <div class="icono">🗑️</div>
+    <div class="ajuste-item" role="button" tabindex="0" (click)="limpiarDatos()" (keydown.enter)="limpiarDatos()" (keydown.space)="$event.preventDefault(); limpiarDatos()">
+      <div class="icono" aria-hidden="true">🗑️</div>
       <div class="ajuste-item-body">
         <p class="titulo">{{ 'delete_form' | translate }}</p>
         <p class="subtitulo">{{ 'delete_local_only' | translate }}</p>
@@ -46,8 +46,8 @@
     </div>
 
     <!-- Acerca de -->
-    <div class="ajuste-item" (click)="verAcercaDe()">
-      <div class="icono">ℹ️</div>
+    <div class="ajuste-item" role="button" tabindex="0" (click)="verAcercaDe()" (keydown.enter)="verAcercaDe()" (keydown.space)="$event.preventDefault(); verAcercaDe()">
+      <div class="icono" aria-hidden="true">ℹ️</div>
       <div class="ajuste-item-body">
         <p class="titulo">{{ 'about' | translate }}</p>
         <p class="subtitulo">{{ 'version' | translate }}</p>

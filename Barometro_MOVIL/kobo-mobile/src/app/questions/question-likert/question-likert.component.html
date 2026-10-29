@@ -71,6 +71,8 @@
                       [value]="col"
                       [checked]="isSelected(row, col)"
                       [disabled]="disabled()"
+                      [attr.aria-label]="row + ': ' + col"
+                      (change)="selectOption(row, col)"
                     />
                     <span class="radio-custom"></span>
                     <span class="screen-reader-only">{{ col }}</span>

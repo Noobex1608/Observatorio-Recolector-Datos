@@ -5,7 +5,7 @@
   </main>
 </div>
 
-<div class="toast-container">
+<div class="toast-container" role="status" aria-live="polite">
   @for (t of toast.toasts(); track t.id) {
     <div class="toast" [class]="'toast toast-' + t.type" (click)="toast.dismiss(t.id)">
       {{ t.message }}

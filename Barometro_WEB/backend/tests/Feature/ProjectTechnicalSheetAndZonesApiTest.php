@@ -34,12 +34,12 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
             'target_lat' => -0.95, 'target_lng' => -80.72, 'radius_meters' => 500,
         ])->assertStatus(422);
 
-        $this->postJson("/api/forms/{$formId}/technical-sheet", [
+        $this->postJson("/api/projects/{$project->id}/technical-sheet", [
             'description' => 'Levantamiento territorial',
             'start_date' => today()->format('Y-m-d'),
             'end_date' => today()->addMonth()->format('Y-m-d'),
         ])->assertOk();
-        $this->postJson("/api/forms/{$formId}/technical-sheet/validate")->assertOk();
+        $this->postJson("/api/projects/{$project->id}/technical-sheet/validate")->assertOk();
 
         foreach (['Centro', 'Norte'] as $name) {
             $this->postJson("/api/projects/{$project->id}/zones", [
@@ -48,6 +48,14 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
                 'assigned_count' => 1,
             ])->assertCreated();
         }
+
+        // Solo se sortea entre el equipo activo del proyecto.
+        $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
+            'form_id' => $formId, 'user_ids' => [$collectorA->id], 'dry_run' => true,
+        ])->assertStatus(422)->assertJsonPath('message', 'Seleccione únicamente encuestadores registrados y activos en este proyecto');
+        $project->collectors()->attach([
+            $collectorA->id => ['is_active' => true], $collectorB->id => ['is_active' => true],
+        ]);
 
         $request = ['form_id' => $formId, 'user_ids' => [$collectorA->id, $collectorB->id],
             'seed' => 'prueba-estable'];

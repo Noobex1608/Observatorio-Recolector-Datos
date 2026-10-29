@@ -4,15 +4,18 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DbService, FormDefinition } from '../db.service';
 import { ThemeService } from '../theme.service';
-import { FieldTrackingService } from '../field-tracking.service';
 import { ToastService } from '../toast.service';
 import { AuthService } from '../auth.service';
+import { SyncService } from '../sync.service';
+import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
 
 interface FormWithProgress extends FormDefinition {
   enviadosCount: number;
   completado: boolean;
   expirado: boolean;
   noIniciado: boolean;
+  /** Avance de las zonas con meta: cuántas encuestas faltan (descuenta lo pendiente en el teléfono). */
+  zonasAvance: Array<{ id: string; name: string; meta: number; restantes: number }>;
 }
 
 @Component({
@@ -26,10 +29,9 @@ export class ListaEncuestasComponent implements OnInit {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   theme = inject(ThemeService);
-  tracking = inject(FieldTrackingService);
   private toast = inject(ToastService);
   readonly auth = inject(AuthService);
-  trackingZoneByForm: Record<string, string> = {};
+  private sync = inject(SyncService);
 
   formularios: FormWithProgress[] = [];
   cargando = true;
@@ -38,6 +40,15 @@ export class ListaEncuestasComponent implements OnInit {
 
   async ngOnInit() {
     await this.cargarFormularios();
+    // Con conexión, trae el avance real de las metas (también lo que enviaron otros encuestadores).
+    if (navigator.onLine) {
+      try {
+        await this.sync.actualizarAvance();
+        await this.cargarFormularios();
+      } catch {
+        // Sin servidor se muestran los últimos datos guardados.
+      }
+    }
   }
 
   async cargarFormularios() {
@@ -67,6 +78,7 @@ export class ListaEncuestasComponent implements OnInit {
       }
 
       const today = new Date().toISOString().split('T')[0];
+      const pendientesZona = pendientesPorZona(pendientes);
 
       this.formularios = forms.map(f => {
         const serverCount = f.responses_count ?? 0;
@@ -77,21 +89,20 @@ export class ListaEncuestasComponent implements OnInit {
         const expirado = Boolean(f.end_date && today > f.end_date);
         const noIniciado = Boolean(f.start_date && today < f.start_date);
 
+        const zonasAvance = (f.project_zones ?? []).flatMap(zone => {
+          const restantes = restantesZona(zone, pendientesZona[zone.id] ?? 0);
+          return restantes === null ? [] : [{ id: zone.id, name: zone.name, meta: zone.target_responses!, restantes }];
+        });
+
         return {
           ...f,
           enviadosCount: totalCount,
           completado,
           expirado,
           noIniciado,
+          zonasAvance,
         };
       });
-      for (const form of this.formularios) {
-        const zones = form.project_zones ?? [];
-        if (!zones.some(zone => zone.id === this.trackingZoneByForm[form.id])) {
-          if (zones.length > 0) this.trackingZoneByForm[form.id] = zones[0].id;
-          else delete this.trackingZoneByForm[form.id];
-        }
-      }
     } catch {
       this.formularios = [];
     }
@@ -117,26 +128,4 @@ export class ListaEncuestasComponent implements OnInit {
     return form.id;
   }
 
-  async startTracking(form: FormDefinition, event: Event): Promise<void> {
-    event.stopPropagation();
-    if (this.auth.obtenerRol() !== 'RECOLECTOR') {
-      this.toast.show('Inicia sesión con la cuenta recolectora asignada para compartir tu ubicación.', 'error');
-      return;
-    }
-    const zoneId = this.trackingZoneByForm[form.id] || form.project_zones?.[0]?.id;
-    if (!zoneId) { this.toast.show('No hay zona asignada para esta encuesta.', 'error'); return; }
-    try {
-      await this.tracking.start(form.id, zoneId);
-      this.toast.show('Jornada de campo iniciada. Ubicación visible para supervisión.');
-    } catch (error: any) {
-      await this.cargarFormularios();
-      this.toast.show(error?.error?.message || error?.message || 'No se pudo iniciar la jornada.', 'error');
-    }
-  }
-
-  async stopTracking(event: Event): Promise<void> {
-    event.stopPropagation();
-    await this.tracking.stop();
-    this.toast.show('Jornada de campo finalizada.');
-  }
 }

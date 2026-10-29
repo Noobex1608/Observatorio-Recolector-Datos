@@ -5,10 +5,25 @@ namespace App\Domain\Forms\Services;
 use App\Application\Forms\Services\EnqueueFormSchemaSync;
 use App\Models\Form;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class FormLifecycleService
 {
     public function __construct(private readonly EnqueueFormSchemaSync $schemaSync) {}
+
+    /**
+     * Versión para el camino de una petición HTTP: ejecuta syncStates() como mucho una vez por minuto.
+     * El planificador (forms:update-lifecycle, cada minuto) es quien archiva normalmente; esto queda
+     * como respaldo por si el planificador no corre, sin escribir en la base en cada listado.
+     * El envío de respuestas valida las fechas por su cuenta (StoreFormResponse), así que este margen
+     * de hasta un minuto no permite recibir datos fuera de periodo.
+     */
+    public function syncStatesIfDue(): void
+    {
+        if (Cache::add('forms:lifecycle-sync', true, now()->addMinute())) {
+            $this->syncStates();
+        }
+    }
 
     /**
      * Solo archiva formularios ya publicados cuando termina su vigencia.

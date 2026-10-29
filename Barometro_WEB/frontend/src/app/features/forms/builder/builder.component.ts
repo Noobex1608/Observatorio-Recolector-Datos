@@ -1,3 +1,4 @@
+import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
@@ -17,7 +18,7 @@ type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
 @Component({
   selector: 'app-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslateModule],
+  imports: [A11yModule, CommonModule, FormsModule, RouterLink, TranslateModule],
   templateUrl: './builder.component.html',
   styleUrl: './builder.component.scss',
   providers: [FormBuilderViewModel],

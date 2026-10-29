@@ -2,6 +2,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { Component, Input, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
+import { A11yModule } from '@angular/cdk/a11y';
 import { MatIconModule } from '@angular/material/icon';
 import { FormQuestion, FormService } from '@core/services/form.service';
 
@@ -23,7 +24,7 @@ export interface GeofenceResult {
 @Component({
   selector: 'app-answer-viewer',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, DatePipe],
+  imports: [A11yModule, CommonModule, MatIconModule, MatButtonModule, DatePipe],
   template: `
     <div class="answer-viewer-root">
       @switch (questionType) {
@@ -203,6 +204,7 @@ export interface GeofenceResult {
                   <div class="transcription-content">
                     @if (isEditing) {
                       <textarea
+                        aria-label="Transcripción"
                         class="transcription-textarea"
                         [value]="transcriptionText"
                         (input)="transcriptionText = $any($event.target).value"
@@ -253,6 +255,7 @@ export interface GeofenceResult {
                   <div class="transcription-content">
                     @if (isEditing) {
                       <textarea
+                        aria-label="Transcripción"
                         class="transcription-textarea"
                         [value]="transcriptionText"
                         (input)="transcriptionText = $any($event.target).value"
@@ -273,7 +276,7 @@ export interface GeofenceResult {
                 class="media-thumbnail"
                 (click)="openImageModal(mediaUrl)"
               />
-              <button type="button" class="btn-zoom" (click)="openImageModal(mediaUrl)">
+              <button type="button" class="btn-zoom" aria-label="Ampliar imagen" (click)="openImageModal(mediaUrl)">
                 <mat-icon>zoom_in</mat-icon>
               </button>
             </div>
@@ -370,9 +373,9 @@ export interface GeofenceResult {
 
       <!-- Lightbox Modal para Firma e Imágenes -->
       @if (activeModalUrl()) {
-        <div class="lightbox-overlay" (click)="closeModal()">
-          <div class="lightbox-content" (click)="$event.stopPropagation()">
-            <button type="button" class="lightbox-close" (click)="closeModal()">
+        <div class="lightbox-overlay" (click)="closeModal()" (keydown.escape)="closeModal()">
+          <div class="lightbox-content" role="dialog" aria-modal="true" aria-label="Vista ampliada" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
+            <button type="button" class="lightbox-close" aria-label="Cerrar vista ampliada" (click)="closeModal()">
               <mat-icon>close</mat-icon>
             </button>
             <img [src]="activeModalUrl()" alt="Vista ampliada" class="lightbox-img" />

@@ -4,6 +4,7 @@ import { ApiService } from './api.service';
 import { ACCOUNT_SCOPE_KEY, DbService } from './db.service';
 
 import { MediaStorageService } from './services/media-storage.service';
+import { zonaDeRespuesta } from './utils/zone-progress';
 
 @Injectable({ providedIn: 'root' })
 export class SyncService {
@@ -15,7 +16,8 @@ export class SyncService {
   async obtenerFormulariosDisponibles(): Promise<{ id: string; title: string }[]> {
     const servidor = this.auth.obtenerUrlServidor();
     if (!servidor) throw new Error('No hay servidor configurado');
-    const forms = await this.api.fetchForms(servidor);
+    // Solo hace falta id y título: los metadatos no incluyen preguntas ni zonas, así que pesan mucho menos.
+    const forms = await this.api.fetchFormsMetadata(servidor);
     return forms.map(f => ({ id: f.id, title: f.title }));
   }
 
@@ -33,7 +35,9 @@ export class SyncService {
 
     for (const form of aDescargar) {
       try {
-        const detalle = await this.api.fetchFormById(servidor, form.id);
+        // /mobile/forms ya trae preguntas, zonas, cuota y fechas (mismo formato que /forms/{id}),
+        // así que no se vuelve a pedir cada formulario: una sola petición para toda la descarga.
+        const detalle = form;
         await this.db.forms.put({
           id: detalle.id,
           title: detalle.title,
@@ -131,8 +135,12 @@ export class SyncService {
 
         const form = await this.db.forms.get(resp.formId);
         if (form) {
+          // La zona también suma una encuesta recibida, para que "faltan N" baje sin esperar a otra descarga.
+          const zoneId = zonaDeRespuesta(payloadAnswers);
           await this.db.forms.update(resp.formId, {
             responses_count: (form.responses_count ?? 0) + 1,
+            project_zones: (form.project_zones ?? []).map(zone =>
+              zone.id === zoneId ? { ...zone, responses_count: (zone.responses_count ?? 0) + 1 } : zone),
           });
         }
 
@@ -143,7 +151,35 @@ export class SyncService {
       }
     }
 
+    if (enviados > 0) {
+      // Trae el avance real (incluye lo que enviaron los demás encuestadores). Si falla, se queda el conteo local.
+      await this.actualizarAvance().catch(() => undefined);
+    }
+
     return { enviados, fallos };
+  }
+
+  /**
+   * Actualiza, sin volver a descargar preguntas ni mapas, las metas y el avance de los formularios
+   * guardados en el teléfono: el del encuestador y el de cada zona.
+   */
+  async actualizarAvance(): Promise<void> {
+    const servidor = this.auth.obtenerUrlServidor();
+    if (!servidor || !navigator.onLine || this.auth.esModoDemo()) return;
+    const metadata = await this.api.fetchFormsMetadata(servidor);
+    for (const meta of metadata) {
+      const form = await this.db.forms.get(meta.id);
+      if (!form) continue;
+      const progress = new Map((meta.zones_progress ?? []).map(zone => [zone.id, zone]));
+      await this.db.forms.update(meta.id, {
+        target_responses: meta.target_responses ?? undefined,
+        responses_count: meta.responses_count ?? undefined,
+        project_zones: (form.project_zones ?? []).map(zone => {
+          const remote = progress.get(zone.id);
+          return remote ? { ...zone, target_responses: remote.target_responses, responses_count: remote.responses_count } : zone;
+        }),
+      });
+    }
   }
 
   async cantidadPendientes(): Promise<number> {

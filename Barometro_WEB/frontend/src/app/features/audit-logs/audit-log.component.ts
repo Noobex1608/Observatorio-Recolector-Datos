@@ -151,11 +151,12 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
                   <mat-icon class="search-icon">search</mat-icon>
                   <input
                     type="text"
+                    aria-label="Buscar en el registro"
                     placeholder="Buscar en el registro en lenguaje natural (ej. Juan, descargó, permiso)..."
                     [(ngModel)]="searchQuery"
                     (keyup.enter)="onSearch()"
                   />
-                  <button *ngIf="searchQuery" class="clear-btn" (click)="clearSearch()">
+                  <button *ngIf="searchQuery" class="clear-btn" type="button" aria-label="Limpiar búsqueda" (click)="clearSearch()">
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>

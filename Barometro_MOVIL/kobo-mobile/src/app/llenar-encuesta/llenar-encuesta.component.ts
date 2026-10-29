@@ -16,6 +16,8 @@ import { QuestionRatingComponent } from '../questions/question-rating/question-r
 import { QuestionBarcodeComponent } from '../questions/question-barcode/question-barcode.component';
 import { QuestionLikertComponent } from '../questions/question-likert/question-likert.component';
 import { evaluateArithmetic } from '../utils/arithmetic-expression';
+import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
+import { TRACE_KEY, TraceEvent, TraceRecorder } from '../utils/trace-recorder';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -61,6 +63,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   likertRespondidos: Record<string, boolean> = {};
   guardando = false;
   private guardadoAlSalir = false;
+  /** Recorrido GPS tomado mientras se llena la encuesta (viaja dentro de la respuesta). */
+  private traza: TraceRecorder | null = null;
+  puntosTrazado = 0;
 
   // Validación de Delimitación Zonal del Proyecto
   private locationService = inject(LocationService);
@@ -68,6 +73,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   estadoValidacion: 'inactivo' | 'verificando' | 'valido' | 'fuera_zona' | 'error' = 'inactivo';
   errorValidacionTexto = '';
   zonaValidada: ProjectZoneInfo | null = null;
+  /** Encuestas que le faltan a la zona detectada (null = la zona no tiene meta). */
+  restantesZonaActiva: number | null = null;
   distanciaAZonaMetros: number | null = null;
   distanciaFormateada = '';
   coordenadasActuales: { lat: number; lng: number; precision: number } | null = null;
@@ -152,6 +159,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       } else {
         this.inicializarRespuestas();
       }
+
+      this.iniciarTrazado();
 
       if (this.tieneDelimitacionZonal && !this.respuestas['_project_geofence']) {
         this.mostrarValidacionZonal = true;
@@ -424,6 +433,22 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     this.autoGuardarBorrador();
   }
 
+  /** Un punto GPS al iniciar la encuesta o al retomar su borrador. */
+  private iniciarTrazado(): void {
+    const previo = this.respuestas[TRACE_KEY];
+    delete this.respuestas[TRACE_KEY];
+    this.traza = new TraceRecorder(previo);
+    this.puntosTrazado = this.traza.points;
+    void this.registrarPunto(previo ? 'reanudar' : 'inicio');
+  }
+
+  private async registrarPunto(evento: TraceEvent, timeoutMs?: number): Promise<void> {
+    if (!this.traza) return;
+    await this.traza.capture(evento, timeoutMs);
+    this.puntosTrazado = this.traza.points;
+    this.cdr.markForCheck();
+  }
+
   private autoGuardarBorrador() {
     if (!this.formulario || this.guardando || this.guardadoAlSalir) return;
     const tieneRespuestas = Object.values(this.respuestas).some(v => {
@@ -614,7 +639,10 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       formId: this.formulario.id,
       link_uuid: this.formulario.link_uuid,
       formTitle: this.formulario.title,
-      answers: { ...this.respuestas },
+      answers: {
+        ...this.respuestas,
+        ...(this.traza ? { [TRACE_KEY]: this.traza.snapshot(estado === 'listo-para-enviar') } : {}),
+      } as Record<string, any>,
       estado,
       createdAt: this.tiempoInicioFormato,
       duration: this.duracionTexto
@@ -665,6 +693,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
 
   async guardarFormulario() {
     try {
+      this.guardando = true;
+      // Punto de fin: se espera poco para no frenar al encuestador; sin señal se guarda igual.
+      await this.registrarPunto('fin', 8000);
       await this.guardarConEstado('listo-para-enviar');
       this.guardadoAlSalir = true;
       this.toast.show('Formulario guardado.');
@@ -794,6 +825,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
         this.distanciaAZonaMetros = minDistance !== Infinity ? minDistance : null;
         this.distanciaFormateada = this.distanciaAZonaMetros !== null ? this.formatearDistancia(this.distanciaAZonaMetros) : 'Desconocida';
       }
+      await this.calcularAvanceZona(this.zonaValidada);
     } catch (err: any) {
       this.estadoValidacion = 'error';
       this.errorValidacionTexto = err?.message || 'No se pudo obtener la ubicación GPS del dispositivo.';
@@ -859,7 +891,22 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     return inside;
   }
 
+  get zonaActivaCompleta(): boolean {
+    return this.restantesZonaActiva === 0;
+  }
+
+  /** Meta − recibidas − pendientes en este teléfono para la zona (las respuestas fuera de zona también cuentan). */
+  private async calcularAvanceZona(zone: ProjectZoneInfo | null): Promise<void> {
+    this.restantesZonaActiva = null;
+    if (!zone || !this.formulario) return;
+    const pendientes = await this.db.responses
+      .where({ formId: this.formulario.id, estado: 'listo-para-enviar' })
+      .toArray();
+    this.restantesZonaActiva = restantesZona(zone, pendientesPorZona(pendientes)[zone.id] ?? 0);
+  }
+
   comenzarEncuestaValidada(): void {
+    if (this.zonaActivaCompleta) return;
     this.mostrarValidacionZonal = false;
     if (this.requiereConsentimiento && !this.respuestas['_consentimiento_aceptado']) {
       this.mostrarConsentimiento = true;
@@ -868,6 +915,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   }
 
   continuarFueraDeZona(): void {
+    if (this.zonaActivaCompleta) return;
     const user = this.coordenadasActuales;
     const zone = this.zonaValidada;
     this.respuestas['_project_geofence'] = {

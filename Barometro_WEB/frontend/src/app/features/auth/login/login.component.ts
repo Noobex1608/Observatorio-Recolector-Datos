@@ -40,8 +40,8 @@ export class LoginComponent {
     const { email, password, rememberMe } = this.form.getRawValue();
 
     this.authService.login({ email: email.trim(), password }, rememberMe).subscribe({
-      next: () => {
-        this.router.navigate(['/admin/dashboard']);
+      next: (response) => {
+        this.router.navigate([response.user.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
       },
       error: (err) => {
         this.loading.set(false);

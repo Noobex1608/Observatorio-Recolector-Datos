@@ -14,7 +14,7 @@ use Illuminate\Validation\Validator;
 class FormResponseValidator
 {
     private const METADATA_KEYS = [
-        '_consentimiento_aceptado', '_consentimiento_fecha', '_project_geofence',
+        '_consentimiento_aceptado', '_consentimiento_fecha', '_project_geofence', '_location_trace',
         '_version', '__version__',
     ];
 

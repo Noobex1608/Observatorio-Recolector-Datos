@@ -19,9 +19,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\SerializeFormMutation::c
     Route::post('/{id}/clone', [FormController::class, 'cloneForm']);
     Route::post('/{id}/deploy', [FormController::class, 'deploy']); // change to DEPLOYED
     Route::post('/{id}/archive', [FormController::class, 'archive']); // change to ARCHIVED
+    // La ficha técnica es una por proyecto; desde el formulario solo se consulta la de su proyecto.
     Route::get('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'show']);
-    Route::post('/{id}/technical-sheet', [FormTechnicalSheetController::class, 'store']);
-    Route::post('/{id}/technical-sheet/validate', [FormTechnicalSheetController::class, 'validateSheet']);
 
     Route::put('/{id}/draft', [FormController::class, 'saveDraft']);
 

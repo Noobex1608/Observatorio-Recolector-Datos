@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers\Api;
 
+use App\Application\Forms\Services\FormShareAccess;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
-use App\Models\FormUserShare;
 use App\Models\Project;
 use App\Models\ProjectZone;
 use App\Models\User;
@@ -57,12 +57,12 @@ class ProjectZoneController extends Controller
         if (! $form) {
             return response()->json(['message' => 'Seleccione primero un formulario del proyecto'], 422);
         }
-        if ($form->technicalSheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'La ficha técnica debe estar validada antes de delimitar'], 422);
+        if (! app(\App\Domain\Projects\Services\ProjectSurveyPeriod::class)->isValidated($project->id)) {
+            return response()->json(['message' => 'La ficha técnica del proyecto debe estar validada antes de delimitar'], 422);
         }
 
         $zone = DB::transaction(function () use ($project, $form, $data, $user) {
-            $this->assertActiveCollectors($data['assigned_user_ids'] ?? []);
+            $this->assertActiveCollectors($project, $data['assigned_user_ids'] ?? []);
             $assignedCount = isset($data['assigned_count'])
                 ? (int) $data['assigned_count']
                 : (! empty($data['assigned_user_ids']) ? count($data['assigned_user_ids']) : 0);
@@ -130,7 +130,7 @@ class ProjectZoneController extends Controller
         $zone = DB::transaction(function () use ($project, $zoneId, $data, $user) {
             $zone = ProjectZone::where('project_id', $project->id)->whereKey($zoneId)
                 ->lockForUpdate()->firstOrFail();
-            $this->assertActiveCollectors($data['assigned_user_ids'] ?? []);
+            $this->assertActiveCollectors($project, $data['assigned_user_ids'] ?? [], $zone);
             abort_if(isset($data['form_id']) && $data['form_id'] !== $zone->form_id,
                 422, 'No se puede mover una zona a otro formulario');
             $before = $zone->only(['name', 'form_id', 'target_responses', 'assigned_count']);
@@ -182,7 +182,11 @@ class ProjectZoneController extends Controller
 
         $zone = ProjectZone::where('project_id', $project->id)->findOrFail($zoneId);
         DB::transaction(function () use ($zone, $user) {
+            $userIds = $zone->assignedUsers()->pluck('users.id')->all();
+            $zone->assignedUsers()->detach();
             $zone->delete();
+            // Quien se queda sin ninguna zona del formulario ya no puede enviar encuestas: se le retira el acceso.
+            $this->revokeFormAccessWithoutZone($zone->form_id, $userIds);
             AuditLogService::log($user, 'DELETE_ZONE', 'zonas', "Eliminó la zona {$zone->name}.", [
                 'zone_id' => $zone->id, 'project_id' => $zone->project_id, 'form_id' => $zone->form_id,
             ]);
@@ -207,7 +211,7 @@ class ProjectZoneController extends Controller
                     ->whereKey($item['zone_id'])->lockForUpdate()->first();
                 abort_unless($zone && $zone->form_id && Form::where('project_id', $project->id)->whereKey($zone->form_id)->exists(), 422,
                     'La zona debe pertenecer a un formulario de este proyecto.');
-                $this->assertActiveCollectors($item['user_ids']);
+                $this->assertActiveCollectors($project, $item['user_ids'], $zone);
                 abort_if($zone->assigned_count && count($item['user_ids']) > $zone->assigned_count,
                     422, 'La asignación supera la cuota de encuestadores de la zona.');
                 $this->syncZoneCollectors($zone, $item['user_ids']);
@@ -249,6 +253,11 @@ class ProjectZoneController extends Controller
         if ($users->count() !== count($data['user_ids'])) {
             return response()->json(['message' => 'Seleccione únicamente encuestadores activos'], 422);
         }
+        $members = $project->collectors()->wherePivot('is_active', true)
+            ->whereIn('users.id', $data['user_ids'])->count();
+        if ($members !== count($data['user_ids'])) {
+            return response()->json(['message' => 'Seleccione únicamente encuestadores registrados y activos en este proyecto'], 422);
+        }
 
         $seed = $data['seed'] ?? (string) Str::uuid();
         $ids = $users->pluck('id')->sortBy(fn ($id) => hash('sha256', $seed.':'.$id))->values();
@@ -273,10 +282,7 @@ class ProjectZoneController extends Controller
                     $sync = [];
                     foreach ($assignments[$zone->id] as $userId) {
                         $sync[$userId] = ['role' => 'RECOLECTOR'];
-                        FormUserShare::firstOrCreate(
-                            ['form_id' => $form->id, 'user_id' => $userId],
-                            ['role' => 'RECOLECTOR']
-                        );
+                        app(FormShareAccess::class)->grant($form->id, (int) $userId);
                     }
                     $lockedZone->assignedUsers()->sync($sync);
                 }
@@ -309,13 +315,25 @@ class ProjectZoneController extends Controller
         return $user->canManageProjects() || $user->leadsProject($project->id);
     }
 
-    private function assertActiveCollectors(array $ids): void
+    /**
+     * Solo encuestadores activos que pertenezcan (activos) al equipo del proyecto. Quien ya estaba en la
+     * zona se acepta aunque no esté en el equipo, para que las zonas creadas antes sigan siendo editables.
+     */
+    private function assertActiveCollectors(Project $project, array $ids, ?ProjectZone $zone = null): void
     {
-        $ids = array_values(array_unique($ids));
+        $ids = array_values(array_unique(array_map('intval', $ids)));
         $users = User::whereIn('id', $ids)->lockForUpdate()->get();
         abort_if($users->count() !== count($ids)
             || $users->contains(fn (User $user) => $user->rol !== User::ROLE_USER || ! $user->is_active), 422,
             'Solo se pueden asignar encuestadores activos.');
+
+        $members = $project->collectors()->wherePivot('is_active', true)
+            ->whereIn('users.id', $ids)->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+        $alreadyInZone = $zone
+            ? $zone->assignedUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        abort_if(array_diff($ids, $members, $alreadyInZone) !== [], 422,
+            'Solo puedes asignar encuestadores registrados y activos en este proyecto. Agrégalos en la pestaña Encuestadores.');
     }
 
     private function syncZoneCollectors(ProjectZone $zone, array $ids): void
@@ -324,10 +342,32 @@ class ProjectZoneController extends Controller
         foreach ($ids as $id) {
             $sync[$id] = ['role' => 'RECOLECTOR'];
             if ($zone->form_id) {
-                FormUserShare::firstOrCreate(['form_id' => $zone->form_id, 'user_id' => $id],
-                    ['role' => 'RECOLECTOR']);
+                app(FormShareAccess::class)->grant($zone->form_id, (int) $id);
             }
         }
+        $previous = $zone->assignedUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
         $zone->assignedUsers()->sync($sync);
+        $this->revokeFormAccessWithoutZone($zone->form_id, array_diff($previous, array_map('intval', $ids)));
+    }
+
+    /**
+     * Retira el acceso de recolector al formulario a quien ya no tiene ninguna zona de ese formulario
+     * (su meta personal se archiva, ver FormShareAccess).
+     * Sin zona, el servidor rechaza sus envíos, así que solo vería un formulario que no puede usar.
+     */
+    private function revokeFormAccessWithoutZone(?string $formId, array $userIds): void
+    {
+        $userIds = array_values(array_unique(array_map('intval', $userIds)));
+        if (! $formId || $userIds === []) {
+            return;
+        }
+        $stillAssigned = DB::table('project_zone_user_assignments')
+            ->join('project_zones', 'project_zones.id', '=', 'project_zone_user_assignments.zone_id')
+            ->where('project_zones.form_id', $formId)
+            ->whereIn('project_zone_user_assignments.user_id', $userIds)
+            ->pluck('project_zone_user_assignments.user_id')->map(fn ($id) => (int) $id)->all();
+        $revoke = array_values(array_diff($userIds, $stillAssigned));
+        // La meta personal queda archivada como borrador inactivo y vuelve si se le reasigna.
+        app(FormShareAccess::class)->revoke($formId, $revoke);
     }
 }

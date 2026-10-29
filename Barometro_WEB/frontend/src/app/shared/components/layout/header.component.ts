@@ -31,7 +31,7 @@ import { ThemeService } from '@core/services/theme.service';
       <div class="header-content">
         <!-- Left section -->
         <div class="header-left">
-          <button class="menu-btn" (click)="toggleSidenav.emit()" [matTooltip]="'layout.header.menu' | translate">
+          <button [attr.aria-label]="'layout.header.menu' | translate" class="menu-btn" (click)="toggleSidenav.emit()" [matTooltip]="'layout.header.menu' | translate">
             <mat-icon>menu</mat-icon>
           </button>
 
@@ -71,7 +71,7 @@ import { ThemeService } from '@core/services/theme.service';
           </mat-menu>
 
           <!-- Theme toggle -->
-          <button
+          <button [attr.aria-label]="(themeService.isDark() ? 'layout.header.themeLight' : 'layout.header.themeDark') | translate"
             class="theme-btn"
             (click)="themeService.toggleTheme()"
             [matTooltip]="(themeService.isDark() ? 'layout.header.themeLight' : 'layout.header.themeDark') | translate"
@@ -221,7 +221,7 @@ import { ThemeService } from '@core/services/theme.service';
       .brand-subtitle {
         font-size: 0.75rem;
         font-weight: 500;
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .header-right {
@@ -245,7 +245,7 @@ import { ThemeService } from '@core/services/theme.service';
 
       .lang-btn:hover {
         background: var(--hover-bg);
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .lang-code {
@@ -264,7 +264,7 @@ import { ThemeService } from '@core/services/theme.service';
 
       .check-icon {
         margin-left: auto;
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .theme-btn {
@@ -283,7 +283,7 @@ import { ThemeService } from '@core/services/theme.service';
 
       .theme-btn:hover {
         background: var(--hover-bg);
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .theme-icon {
