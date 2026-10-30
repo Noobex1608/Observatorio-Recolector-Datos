@@ -264,7 +264,7 @@ export class FormDashboardViewModel {
     this.matchedUser.set(null);
     this.editingShareId.set(null);
     this.shareModalOpen.set(true);
-    this.loadShares(formId);
+    void this.loadShares(formId);
   }
 
   closeShareModal(): void {

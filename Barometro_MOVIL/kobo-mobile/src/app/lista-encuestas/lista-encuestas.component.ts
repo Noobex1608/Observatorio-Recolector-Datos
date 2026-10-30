@@ -38,7 +38,11 @@ export class ListaEncuestasComponent implements OnInit {
   errorCarga = '';
   filtroTexto = '';
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     await this.cargarFormularios();
     // Con conexión, trae el avance real de las metas (también lo que enviaron otros encuestadores).
     if (navigator.onLine) {
@@ -121,7 +125,7 @@ export class ListaEncuestasComponent implements OnInit {
 
   irALlenar(formId: string, disabled: boolean) {
     if (disabled) return;
-    this.router.navigate(['/llenar', formId]);
+    void this.router.navigate(['/llenar', formId]);
   }
 
   trackById(_index: number, form: FormDefinition) {

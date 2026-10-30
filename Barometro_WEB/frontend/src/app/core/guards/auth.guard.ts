@@ -13,7 +13,7 @@ export const authGuard: CanActivateFn = () => {
 
   // Si no hay token, redirigir a login
   if (!authService.isAuthenticated()) {
-    router.navigate(['/auth/login']);
+    void router.navigate(['/auth/login']);
     return false;
   }
 
@@ -27,14 +27,14 @@ export const authGuard: CanActivateFn = () => {
   return authService.checkAuth().pipe(
     map((isValid) => {
       if (!isValid) {
-        router.navigate(['/auth/login']);
+        void router.navigate(['/auth/login']);
         return false;
       }
       if (authService.user()?.must_change_password) return router.createUrlTree(['/auth/change-password']);
       return true;
     }),
     catchError(() => {
-      router.navigate(['/auth/login']);
+      void router.navigate(['/auth/login']);
       return of(false);
     }),
   );
@@ -52,6 +52,6 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
-  router.navigate([authService.user()?.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
+  void router.navigate([authService.user()?.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
   return false;
 };

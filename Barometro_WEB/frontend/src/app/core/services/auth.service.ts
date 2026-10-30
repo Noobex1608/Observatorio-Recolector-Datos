@@ -117,7 +117,7 @@ export class AuthService {
 
   private clearAuth(): void {
     this.clearAuthSilent();
-    this.router.navigate(['/auth/login']);
+    void this.router.navigate(['/auth/login']);
   }
 
   private getStoredToken(): string | null {

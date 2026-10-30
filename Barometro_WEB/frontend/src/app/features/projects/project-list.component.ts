@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,7 +15,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '@core/services/auth.service';
 import { Form, FormService } from '@core/services/form.service';
-import { CollectorCandidate, CollectorImportRow, Project, ProjectCollector, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
+import { CollectorCandidate, CollectorImportRow, Project, RandomAssignment, ProjectCollector, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
 import { SupervisionCollectorsComponent } from './supervision/supervision-collectors.component';
 import { MapGeofenceSelectorComponent, GeofenceSelectionEvent } from '@shared/components/map-geofence-selector/map-geofence-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -747,21 +747,34 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
                         <mat-card class="zone-builder-card">
                           <mat-card-content>
                             <h3>Designación aleatoria de encuestadores</h3>
-                            <p>La delimitación está lista. Seleccione el equipo y revise la distribución antes de confirmarla.</p>
-                            <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>Encuestadores</mat-label>
-                              <mat-select multiple [value]="randomCandidateIds()" (selectionChange)="randomCandidateIds.set($event.value)">
-                                @for (user of allEnumerators(); track user.id) {
-                                  <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option>
-                                }
-                              </mat-select>
-                            </mat-form-field>
-                            <button mat-stroked-button type="button" [disabled]="randomCandidateIds().length === 0" (click)="previewRandomAssignment()">Previsualizar distribución</button>
-                            @if (randomPreview(); as preview) {
-                              @for (zone of zones(); track zone.id) {
-                                <p><strong>{{ zone.name }}:</strong> {{ preview.assignments[zone.id!]?.length ?? 0 }} encuestadores</p>
+                            @if (zonesHaveAssignments()) {
+                              <p class="random-note">Las zonas de este formulario ya tienen encuestadores. El sorteo solo se usa con zonas vacías; ajusta las asignaciones desde cada zona.</p>
+                            } @else {
+                              <p>Indica cuántos encuestadores necesitas. El sistema los elige al azar entre los
+                                <strong>{{ activeTeamCount() }}</strong> encuestadores activos del proyecto y los reparte entre las {{ zones().length }} zonas.</p>
+                              <div class="random-row">
+                                <mat-form-field appearance="outline">
+                                  <mat-label>Cantidad de encuestadores</mat-label>
+                                  <input matInput type="number" min="1" [max]="randomMax()" [value]="randomCount()"
+                                         (input)="setRandomCount($any($event.target).value)" />
+                                  <mat-hint>Máximo {{ randomMax() }}@if (zoneCapacity() !== null) { · las zonas admiten {{ zoneCapacity() }} }</mat-hint>
+                                </mat-form-field>
+                                <button mat-stroked-button type="button" [disabled]="!randomCountValid()" (click)="previewRandomAssignment()">
+                                  <mat-icon aria-hidden="true">casino</mat-icon> {{ randomPreview() ? 'Volver a sortear' : 'Sortear' }}
+                                </button>
+                              </div>
+                              @if (randomPreview(); as preview) {
+                                <div class="random-preview" aria-live="polite">
+                                  <p class="random-note">Vista previa: {{ preview.users.length }} de {{ preview.pool_size }} encuestadores activos. Nada se guarda hasta confirmar.</p>
+                                  @for (zone of zones(); track zone.id) {
+                                    <div class="random-zone">
+                                      <strong>{{ zone.name }}</strong>
+                                      <span>{{ randomNames(preview, zone.id!) || 'Sin encuestadores' }}</span>
+                                    </div>
+                                  }
+                                  <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
+                                </div>
                               }
-                              <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
                             }
                           </mat-card-content>
                         </mat-card>
@@ -1306,6 +1319,14 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
         font-size: 1.05rem;
       }
 
+      .random-row { display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+      .random-row mat-form-field { flex: 0 1 260px; }
+      .random-row button { margin-top: 0.6rem; }
+      .random-note { color: var(--text-secondary); font-size: 0.88rem; }
+      .random-preview { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
+      .random-zone { display: grid; gap: 0.15rem; padding: 0.6rem 0.8rem; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--bg-secondary); }
+      .random-zone span { color: var(--text-secondary); font-size: 0.88rem; }
+      .random-preview > button { justify-self: start; }
       .zone-builder-card {
         min-width: 0;
         border: 1px solid var(--primary-300);
@@ -1911,7 +1932,7 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
     `,
   ],
 })
-export class ProjectListComponent implements OnInit, OnDestroy {
+export class ProjectListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -1966,8 +1987,21 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   technicalSheet = signal<ProjectTechnicalSheet | null>(null);
   selectedFormId = signal<string | null>(null);
   selectedForm = computed(() => this.selectedProject()?.forms?.find((form) => form.id === this.selectedFormId()) ?? null);
-  randomCandidateIds = signal<number[]>([]);
-  randomPreview = signal<{ seed: string; assignments: Record<string, number[]> } | null>(null);
+  randomCount = signal<number | null>(null);
+  randomPreview = signal<RandomAssignment | null>(null);
+  activeTeamCount = computed(() => this.collectors().filter((collector) => collector.is_active).length);
+  /** Suma de cupos de las zonas; null si alguna zona no tiene cupo definido. */
+  zoneCapacity = computed(() => {
+    const zones = this.zones();
+    return zones.length && zones.every((zone) => !!zone.assigned_count)
+      ? zones.reduce((total, zone) => total + (zone.assigned_count ?? 0), 0) : null;
+  });
+  randomMax = computed(() => Math.min(this.activeTeamCount(), this.zoneCapacity() ?? Number.MAX_SAFE_INTEGER));
+  randomCountValid = computed(() => {
+    const count = this.randomCount();
+    return count !== null && Number.isInteger(count) && count >= 1 && count <= this.randomMax();
+  });
+  zonesHaveAssignments = computed(() => this.zones().some((zone) => (zone.assigned_users?.length ?? 0) > 0));
   editingSheet = signal(false);
   zones = signal<ProjectZone[]>([]);
 
@@ -2066,10 +2100,6 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     if (this.canManageProjects()) {
       this.loadProjectLeaders();
     }
-  }
-
-  ngOnDestroy(): void {
-    // Sin suscripciones de larga duración: la supervisión vive en su propio componente.
   }
 
   loadProjects(): void {
@@ -2383,10 +2413,23 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     const project = this.selectedProject();
     const formId = this.selectedFormId();
     if (!project || !formId) return;
-    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), null, true).subscribe({
+    const count = this.randomCount();
+    if (count === null) return;
+    this.projectService.randomAssignZones(project.id, formId, count, null, true).subscribe({
       next: (result) => this.randomPreview.set(result),
       error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo previsualizar la designación', 'Cerrar', { duration: 3500 }),
     });
+  }
+
+  setRandomCount(value: string): void {
+    const count = value === '' ? null : Number(value);
+    this.randomCount.set(count !== null && Number.isFinite(count) ? Math.trunc(count) : null);
+    this.randomPreview.set(null);
+  }
+
+  randomNames(preview: RandomAssignment, zoneId: string): string {
+    const names = new Map(preview.users.map((user) => [user.id, user.name]));
+    return (preview.assignments[zoneId] ?? []).map((id) => names.get(id) ?? `#${id}`).join(', ');
   }
 
   confirmRandomAssignment(): void {
@@ -2394,9 +2437,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     const formId = this.selectedFormId();
     const preview = this.randomPreview();
     if (!project || !formId || !preview) return;
-    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), preview.seed, false).subscribe({
-      next: () => { this.randomPreview.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
-      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 3500 }),
+    this.projectService.randomAssignZones(project.id, formId, preview.users.length, preview.seed, false, preview.users.map((user) => user.id)).subscribe({
+      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
+      error: (err) => {
+        if (err?.status === 409) this.randomPreview.set(null);
+        this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 4000 });
+      },
     });
   }
 

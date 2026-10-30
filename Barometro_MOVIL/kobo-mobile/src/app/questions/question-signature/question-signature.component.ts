@@ -143,7 +143,7 @@ export class QuestionSignatureComponent implements AfterViewInit, OnDestroy {
     if (!this.isDrawing()) return;
     this.isDrawing.set(false);
     this.isSigned.set(true);
-    this.saveSignature();
+    void this.saveSignature();
   }
 
   clear(): void {

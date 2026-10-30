@@ -32,7 +32,11 @@ export class ListoParaEnviarComponent implements OnInit {
   progressPercent = 0;
   isOnline = navigator.onLine;
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     this.formularios = (await this.storage.obtenerFormularios())
       .filter(f => f.estado === 'listo-para-enviar');
     this.cdr.detectChanges();
@@ -149,6 +153,6 @@ export class ListoParaEnviarComponent implements OnInit {
   }
 
   volver() {
-    this.router.navigate(['/']);
+    void this.router.navigate(['/']);
   }
 }

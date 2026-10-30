@@ -16,7 +16,7 @@ export const adminGuard: CanActivateFn = () => {
   }
 
   // Redirigir a dashboard si no es admin
-  router.navigate(['/admin/dashboard']);
+  void router.navigate(['/admin/dashboard']);
   return false;
 };
 
@@ -35,9 +35,9 @@ export function roleGuard(...allowedRoles: UserRole[]): CanActivateFn {
     // Redirigir según el rol del usuario
     const userRole = authService.userRole();
     if (!userRole) {
-      router.navigate(['/auth/login']);
+      void router.navigate(['/auth/login']);
     } else {
-      router.navigate(['/admin/dashboard']);
+      void router.navigate(['/admin/dashboard']);
     }
     
     return false;

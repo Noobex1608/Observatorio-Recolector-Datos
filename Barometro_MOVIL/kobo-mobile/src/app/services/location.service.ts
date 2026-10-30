@@ -32,8 +32,13 @@ export class LocationService {
   readonly permissionStatus = signal<'granted' | 'prompt' | 'denied' | 'unsupported'>('prompt');
   readonly isSupported = signal<boolean>('geolocation' in navigator);
 
-  constructor() {
-    this.checkPermissionStatus();
+  /** Consulta el permiso una sola vez, de forma diferida (no en el constructor). */
+  private permissionChecked = false;
+
+  private ensurePermissionStatus(): void {
+    if (this.permissionChecked) return;
+    this.permissionChecked = true;
+    this.checkPermissionStatus().catch(() => this.permissionStatus.set('prompt'));
   }
 
   async checkPermissionStatus(): Promise<'granted' | 'prompt' | 'denied' | 'unsupported'> {
@@ -59,6 +64,7 @@ export class LocationService {
   }
 
   getCurrentPosition(options: GpsOptions = {}): Promise<GpsLocationPayload> {
+    this.ensurePermissionStatus();
     const timeoutMs = options.timeout ?? 12000;
     const defaultOptions: PositionOptions = {
       enableHighAccuracy: options.enableHighAccuracy ?? true,

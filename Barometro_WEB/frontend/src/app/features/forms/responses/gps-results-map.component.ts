@@ -38,7 +38,11 @@ export class GpsResultsMapComponent implements AfterViewInit, OnDestroy {
 
   constructor(@Inject(PLATFORM_ID) private platformId: object) {}
 
-  async ngAfterViewInit(): Promise<void> {
+  ngAfterViewInit(): void {
+    void this.prepararMapa();
+  }
+
+  private async prepararMapa(): Promise<void> {
     if (!isPlatformBrowser(this.platformId) || !this.mapCanvas) return;
     this.leaflet = await import('leaflet');
     this.map = this.leaflet.map(this.mapCanvas.nativeElement).setView([-1.0, -80.7], 11);

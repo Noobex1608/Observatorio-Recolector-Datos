@@ -5,6 +5,7 @@ namespace App\Presentation\Http\Requests\Mobile;
 use App\Domain\Forms\Services\FormFlowEngine;
 use App\Domain\Forms\Services\FormResponseCalculator;
 use App\Domain\Forms\Services\FormResponseValidator;
+use App\Domain\Forms\Services\TextFormat;
 use App\Domain\Projects\Services\ProjectGeofenceVerifier;
 use App\Models\Form;
 use Illuminate\Foundation\Http\FormRequest;
@@ -138,6 +139,13 @@ class SubmitMobileResponseRequest extends FormRequest
             }
 
             $questions = $form->questions()->orderBy('order')->get();
+            // Correo, cédula y teléfono se guardan normalizados (minúsculas / solo dígitos).
+            foreach ($questions as $question) {
+                $format = $question->type === 'TEXT' ? TextFormat::of($question->properties) : null;
+                if ($format !== null && is_string($data[$question->id] ?? null)) {
+                    $data[$question->id] = TextFormat::normalize($format, $data[$question->id]);
+                }
+            }
             $data = app(FormResponseCalculator::class)->calculate($questions, $data);
             $active = app(FormFlowEngine::class)->calculateActiveQuestions($questions, $data, (bool) $form->step_by_step);
             app(FormResponseValidator::class)->validate($active, $data, $v, $questions);

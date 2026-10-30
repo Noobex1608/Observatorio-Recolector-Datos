@@ -47,8 +47,10 @@
                 <mat-icon>camera_alt</mat-icon>
               </button>
             </div>
+            <label for="avatar-file-input" class="visually-hidden">Subir foto de perfil</label>
             <input
               #fileInput
+              id="avatar-file-input"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               (change)="onFileSelected($event)"

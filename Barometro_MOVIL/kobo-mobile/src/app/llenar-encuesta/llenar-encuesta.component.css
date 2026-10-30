@@ -929,3 +929,15 @@
   color: var(--text-secondary);
   white-space: nowrap;
 }
+
+/* Formato inválido en preguntas de correo, cédula o teléfono */
+.form-input.form-input-invalid {
+  border-color: var(--danger);
+}
+
+.campo-error {
+  margin: 0.4rem 0 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 600;
+}

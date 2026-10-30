@@ -150,8 +150,9 @@ export function qrMatrix(text: string): boolean[][] {
 
   const dataBits = interleaved.flatMap((byte) => Array.from({ length: 8 }, (_, index) => (byte >>> (7 - index)) & 1));
   let index = 0;
-  for (let right = size - 1; right >= 1; right -= 2) {
-    if (right === 6) right = 5;
+  for (let column = size - 1; column >= 1; column -= 2) {
+    // La columna 6 es el patrón de sincronización: a partir de ahí se desplaza una a la izquierda.
+    const right = column <= 6 ? column - 1 : column;
     for (let vertical = 0; vertical < size; vertical++) {
       const y = ((right + 1) & 2) === 0 ? size - 1 - vertical : vertical;
       for (let offset = 0; offset < 2; offset++) {

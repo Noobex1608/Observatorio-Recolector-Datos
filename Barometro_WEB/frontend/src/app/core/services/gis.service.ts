@@ -84,8 +84,8 @@ export function formatSectorName(
 
   // Si tiene 12 dígitos estándar INEC, formatear siempre como: Sector X (Zona Y, PARROQUIA)
   if (code.length === 12 && /^\d+$/.test(code)) {
-    const zonaNum = parseInt(code.substring(6, 9), 10);
-    const sectorNum = parseInt(code.substring(9, 12), 10);
+    const zonaNum = Number.parseInt(code.substring(6, 9), 10);
+    const sectorNum = Number.parseInt(code.substring(9, 12), 10);
     const parStr = parroquiaName ? `, ${parroquiaName}` : '';
     return `Sector ${sectorNum} (Zona ${zonaNum}${parStr})`;
   }
@@ -112,9 +112,9 @@ export function formatManzanaName(
 
   // Si tiene 15 dígitos estándar INEC, formatear siempre como: Manzana X - Sector Y (Zona Z, PARROQUIA)
   if (code.length === 15 && /^\d+$/.test(code)) {
-    const zonaNum = parseInt(code.substring(6, 9), 10);
-    const sectorNum = parseInt(code.substring(9, 12), 10);
-    const manzanaNum = parseInt(code.substring(12, 15), 10);
+    const zonaNum = Number.parseInt(code.substring(6, 9), 10);
+    const sectorNum = Number.parseInt(code.substring(9, 12), 10);
+    const manzanaNum = Number.parseInt(code.substring(12, 15), 10);
     const parStr = parroquiaName ? `, ${parroquiaName}` : '';
     return `Manzana ${manzanaNum} - Sector ${sectorNum} (Zona ${zonaNum}${parStr})`;
   }
@@ -186,7 +186,7 @@ export class GisService {
           const sec = (p['cod_sector'] || p['sec'] || '').toString().trim();
           if (sec.length >= 9 && /^\d+$/.test(sec.substring(0, 9))) {
             const zCode = sec.substring(0, 9);
-            const zNum = parseInt(sec.substring(6, 9), 10);
+            const zNum = Number.parseInt(sec.substring(6, 9), 10);
             const label = zNum === 999 ? `Zona 999 (Sector Rural)` : `Zona ${zNum}`;
             if (!zonaMap.has(zCode)) {
               zonaMap.set(zCode, label);

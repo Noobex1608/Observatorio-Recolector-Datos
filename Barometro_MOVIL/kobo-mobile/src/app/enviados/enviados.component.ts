@@ -27,7 +27,11 @@ export class EnviadosComponent implements OnInit {
 
   respuestaDetalle: SavedResponse | null = null;
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     await this.cargarEnviados();
   }
 
@@ -93,6 +97,6 @@ export class EnviadosComponent implements OnInit {
   }
 
   volver() {
-    this.router.navigate(['/']);
+    void this.router.navigate(['/']);
   }
 }

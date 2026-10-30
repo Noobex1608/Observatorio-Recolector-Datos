@@ -370,20 +370,32 @@
           @if (preguntaActual) {
             <div class="pregunta-box step-card">
               @if (preguntaActual!.type !== 'NOTE') {
-                <label class="pregunta-label" [id]="'pregunta-' + preguntaActual!.id">
+                <span class="pregunta-label" [id]="'pregunta-' + preguntaActual!.id">
                   {{ preguntaActual!.order + 1 }}. {{ preguntaActual!.label }}
                   @if (preguntaActual!.required) { <span class="required-star">*</span> }
-                </label>
+                </span>
               }
 
               @if (preguntaActual!.type === 'TEXT') {
+                @let formato = textFormatInput(textFormatOf(preguntaActual!.properties));
+                @let errorTexto = camposTocados.has(preguntaActual!.id) ? errorFormato(preguntaActual!) : null;
                 <input
-                  type="text"
+                  [type]="formato.type"
+                  [attr.inputmode]="formato.inputmode"
+                  [attr.autocomplete]="formato.autocomplete"
+                  [attr.maxlength]="formato.maxlength"
                   [name]="preguntaActual!.id" [attr.aria-labelledby]="'pregunta-' + preguntaActual!.id"
+                  [attr.aria-invalid]="errorTexto ? 'true' : null"
+                  [attr.aria-describedby]="errorTexto ? 'error-' + preguntaActual!.id : null"
                   [(ngModel)]="respuestas[preguntaActual!.id]"
-                  placeholder="Escriba aquí..."
+                  (blur)="camposTocados.add(preguntaActual!.id)"
+                  [placeholder]="formato.placeholder || 'Escriba aquí...'"
                   class="form-input"
+                  [class.form-input-invalid]="errorTexto"
                 />
+                @if (errorTexto) {
+                  <p class="campo-error" [id]="'error-' + preguntaActual!.id" role="alert">{{ errorTexto }}</p>
+                }
               }
 
               @if (preguntaActual!.type === 'NUMBER') {
@@ -545,14 +557,32 @@
         @for (q of formulario.questions; track trackByQuestionId($index, q)) {
           <div class="pregunta-box">
             @if (q.type !== 'NOTE') {
-              <label class="pregunta-label" [id]="'pregunta-' + q.id">
+              <span class="pregunta-label" [id]="'pregunta-' + q.id">
                 {{ q.order + 1 }}. {{ q.label }}
                 @if (q.required) { <span class="required-star">*</span> }
-              </label>
+              </span>
             }
 
             @if (q.type === 'TEXT') {
-              <input type="text" [name]="q.id" [attr.aria-labelledby]="'pregunta-' + q.id" [(ngModel)]="respuestas[q.id]" placeholder="Escriba aquí..." class="form-input" />
+              @let formato = textFormatInput(textFormatOf(q.properties));
+              @let errorTexto = camposTocados.has(q.id) ? errorFormato(q) : null;
+              <input
+                [type]="formato.type"
+                [attr.inputmode]="formato.inputmode"
+                [attr.autocomplete]="formato.autocomplete"
+                [attr.maxlength]="formato.maxlength"
+                [name]="q.id" [attr.aria-labelledby]="'pregunta-' + q.id"
+                [attr.aria-invalid]="errorTexto ? 'true' : null"
+                [attr.aria-describedby]="errorTexto ? 'error-' + q.id : null"
+                [(ngModel)]="respuestas[q.id]"
+                (blur)="camposTocados.add(q.id)"
+                [placeholder]="formato.placeholder || 'Escriba aquí...'"
+                class="form-input"
+                [class.form-input-invalid]="errorTexto"
+              />
+              @if (errorTexto) {
+                <p class="campo-error" [id]="'error-' + q.id" role="alert">{{ errorTexto }}</p>
+              }
             }
             @if (q.type === 'NUMBER') {
               <input type="number" [name]="q.id" [attr.aria-labelledby]="'pregunta-' + q.id" [(ngModel)]="respuestas[q.id]" placeholder="Ej. 25" min="0" class="form-input" />

@@ -51,7 +51,7 @@ export class QuestionDateTimeComponent {
       const type = this.qType();
       if (type === 'DATETIME') {
         const d = new Date(val);
-        if (!isNaN(d.getTime())) {
+        if (!Number.isNaN(d.getTime())) {
           this.rawValue.set(this.formatForDatetimeLocal(d));
           return;
         }
@@ -72,7 +72,7 @@ export class QuestionDateTimeComponent {
 
     if (type === 'DATETIME' && val) {
       const d = new Date(val);
-      if (!isNaN(d.getTime())) {
+      if (!Number.isNaN(d.getTime())) {
         normalized = d.toISOString();
       }
     }

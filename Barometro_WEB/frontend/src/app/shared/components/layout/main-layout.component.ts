@@ -122,7 +122,7 @@ export class MainLayoutComponent {
 
   toggleSidenav(): void {
     if (this.isMobile()) {
-      this.sidenav.toggle();
+      void this.sidenav.toggle();
     } else {
       this.sidenavOpen.update((v) => !v);
     }
@@ -130,7 +130,7 @@ export class MainLayoutComponent {
 
   onNavigate(): void {
     if (this.isMobile()) {
-      this.sidenav.close();
+      void this.sidenav.close();
     }
   }
 }

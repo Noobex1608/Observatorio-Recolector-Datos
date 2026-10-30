@@ -55,6 +55,15 @@ class FormResponseValidator
 
             $options = is_array($question->options) ? $question->options : [];
             $properties = is_array($question->properties) ? $question->properties : [];
+            $format = $type === 'TEXT' ? TextFormat::of($properties) : null;
+            if ($format !== null && is_string($value)) {
+                $formatError = TextFormat::error($format, TextFormat::normalize($format, $value));
+                if ($formatError !== null) {
+                    $errors[$question->id][] = "'{$question->label}': {$formatError}";
+
+                    continue;
+                }
+            }
             $valid = match ($type) {
                 'TEXT' => is_string($value) && mb_strlen($value) <= 10000,
                 'NUMBER', 'CALCULATE' => is_numeric($value) && is_finite((float) $value)

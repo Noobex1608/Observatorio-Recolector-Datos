@@ -368,7 +368,7 @@ export class PdfExportService {
           const numbers: number[] = [];
           for (const resp of data.responses) {
             const raw = resp.rawAnswers?.[question.id];
-            if (raw !== undefined && raw !== null && raw !== '' && !isNaN(Number(raw))) {
+            if (raw !== undefined && raw !== null && raw !== '' && !Number.isNaN(Number(raw))) {
               numbers.push(Number(raw));
             }
           }
@@ -467,8 +467,8 @@ export class PdfExportService {
           const gpsRows: string[][] = [];
           for (const resp of data.responses) {
             const val = resp.rawAnswers?.[question.id];
-            const latitude = val && typeof val === 'object' ? Number(val.latitude ?? val.lat) : NaN;
-            const longitude = val && typeof val === 'object' ? Number(val.longitude ?? val.lng) : NaN;
+            const latitude = val && typeof val === 'object' ? Number(val.latitude ?? val.lat) : Number.NaN;
+            const longitude = val && typeof val === 'object' ? Number(val.longitude ?? val.lng) : Number.NaN;
             if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
               gpsCount++;
               if (gpsRows.length < 20) gpsRows.push([String(gpsCount), longitude.toFixed(6), latitude.toFixed(6)]);

@@ -18,6 +18,7 @@ import { QuestionLikertComponent } from '../questions/question-likert/question-l
 import { evaluateArithmetic } from '../utils/arithmetic-expression';
 import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
 import { TRACE_KEY, TraceEvent, TraceRecorder } from '../utils/trace-recorder';
+import { textFormatError, textFormatInput, textFormatOf } from '../utils/text-format';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -93,7 +94,11 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       'Buenos días/tardes. Somos de la Universidad Laica Eloy Alfaro de Manabí (ULEAM). Estamos realizando una investigación académica y comunitaria. Su participación es completamente voluntaria y sus respuestas serán tratadas de manera anónima y confidencial. ¿Acepta participar en esta encuesta?';
   }
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     try {
       const formId = this.route.snapshot.paramMap.get('id');
       if (!formId) {
@@ -164,7 +169,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
 
       if (this.tieneDelimitacionZonal && !this.respuestas['_project_geofence']) {
         this.mostrarValidacionZonal = true;
-        this.verificarUbicacionZonal();
+        void this.verificarUbicacionZonal();
       } else if (this.requiereConsentimiento && !this.respuestas['_consentimiento_aceptado']) {
         this.mostrarConsentimiento = true;
       }
@@ -211,10 +216,25 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     return Math.round((actual / total) * 100);
   }
 
+  readonly textFormatOf = textFormatOf;
+  readonly textFormatInput = textFormatInput;
+  /** Preguntas en las que el encuestador ya salió del campo: solo ahí se muestra el error de formato. */
+  camposTocados = new Set<string>();
+
+  /** Error de formato (correo, cédula, teléfono) de una pregunta de texto; null si es válida o está vacía. */
+  errorFormato(pregunta: FormQuestion | null | undefined): string | null {
+    if (pregunta?.type !== 'TEXT') return null;
+    return textFormatError(textFormatOf(pregunta.properties), this.respuestas[pregunta.id]);
+  }
+
   get puedeAvanzar(): boolean {
     const pregunta = this.preguntaActual;
     if (!pregunta) {
       return true;
+    }
+
+    if (this.errorFormato(pregunta)) {
+      return false;
     }
 
     const respuesta = this.respuestas[pregunta.id];
@@ -368,8 +388,9 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (pregunta.required && !this.puedeAvanzar) {
-      this.toast.show('Debes responder la pregunta antes de avanzar.', 'error');
+    if (!this.puedeAvanzar) {
+      this.camposTocados.add(pregunta.id);
+      this.toast.show(this.errorFormato(pregunta) ?? 'Debes responder la pregunta antes de avanzar.', 'error');
       return;
     }
 
@@ -545,11 +566,11 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
           expr = expr.replace(/\$\{([^}]+)\}/g, (_, qId) => {
             const val = this.respuestas[qId];
             if (val === undefined || val === null || val === '') return '0';
-            if (typeof val === 'number') return isNaN(val) ? '0' : String(val);
+            if (typeof val === 'number') return Number.isNaN(val) ? '0' : String(val);
             if (typeof val === 'boolean') return val ? '1' : '0';
             if (typeof val === 'string') {
               const parsed = Number(val.trim());
-              return isNaN(parsed) ? '0' : String(parsed);
+              return Number.isNaN(parsed) ? '0' : String(parsed);
             }
             return '0';
           });
@@ -569,6 +590,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     this.evaluarCalculosBackground();
     for (const q of this.preguntasActivasParaEnvio()) {
       if (q.type === 'NOTE' || q.type === 'CALCULATE') continue;
+      if (this.errorFormato(q)) return false;
       if (!q.required) continue;
       const val = this.respuestas[q.id];
       if (q.type === 'MULTIPLE_CHOICE' || q.type === 'RANKING') {
@@ -685,7 +707,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       await this.guardarConEstado('borrador');
       this.guardadoAlSalir = true;
       this.toast.show('Borrador guardado.');
-      this.router.navigate(['/']);
+      void this.router.navigate(['/']);
     } catch (error) {
       this.toast.show(error instanceof Error ? error.message : 'No se pudo guardar el borrador. Comprueba el espacio disponible.', 'error');
     }
@@ -699,7 +721,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       await this.guardarConEstado('listo-para-enviar');
       this.guardadoAlSalir = true;
       this.toast.show('Formulario guardado.');
-      this.router.navigate(['/']);
+      void this.router.navigate(['/']);
     } catch (error) {
       this.toast.show(error instanceof Error ? error.message : 'No se pudo guardar la encuesta. Comprueba el espacio disponible.', 'error');
     }
@@ -945,7 +967,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     this.respuestas['_consentimiento_fecha'] = new Date().toISOString();
     this.mostrarConsentimiento = false;
     this.toast.show('Consentimiento informado aceptado.');
-    this.guardarBorrador();
+    void this.guardarBorrador();
     this.cdr.detectChanges();
   }
 
@@ -961,6 +983,6 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     }
     this.guardadoAlSalir = true;
     this.toast.show('La persona no aceptó participar. Encuesta cerrada.');
-    this.router.navigate(['/lista']);
+    void this.router.navigate(['/lista']);
   }
 }

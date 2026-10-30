@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -61,7 +62,7 @@ export class UsuarioFormComponent implements OnInit {
     const id = this.route.snapshot.params['id'];
     if (id) {
       this.isEditMode.set(true);
-      this.userId.set(parseInt(id, 10));
+      this.userId.set(Number.parseInt(id, 10));
       this.loadUser();
     }
   }
@@ -99,7 +100,7 @@ export class UsuarioFormComponent implements OnInit {
           this.translate.instant('common.buttons.close'),
           { duration: 3000 }
         );
-        this.router.navigate(['/admin/usuarios']);
+        void this.router.navigate(['/admin/usuarios']);
       },
     });
   }
@@ -139,39 +140,25 @@ export class UsuarioFormComponent implements OnInit {
   }
 
   private createUser(data: any): void {
-    this.userService.createUser(data).subscribe({
-      next: () => {
-        this.snackBar.open(
-          this.translate.instant('users.messages.created'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
-        this.router.navigate(['/admin/usuarios']);
-      },
-      error: (err) => {
-        const message = err.error?.message || this.translate.instant('users.messages.createError');
-        this.snackBar.open(message, this.translate.instant('common.buttons.close'), { duration: 3000 });
-        this.loading.set(false);
-      },
-    });
+    this.saveUser(this.userService.createUser(data), 'users.messages.created', 'users.messages.createError');
   }
 
   private updateUser(data: any): void {
     const id = this.userId();
     if (!id) return;
+    this.saveUser(this.userService.updateUser(id, data), 'users.messages.updated', 'users.messages.updateError');
+  }
 
-    this.userService.updateUser(id, data).subscribe({
+  /** Guarda el usuario, avisa el resultado y vuelve a la lista si salió bien. */
+  private saveUser(request: Observable<unknown>, successKey: string, errorKey: string): void {
+    const close = this.translate.instant('common.buttons.close');
+    request.subscribe({
       next: () => {
-        this.snackBar.open(
-          this.translate.instant('users.messages.updated'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
-        this.router.navigate(['/admin/usuarios']);
+        this.snackBar.open(this.translate.instant(successKey), close, { duration: 3000 });
+        void this.router.navigate(['/admin/usuarios']);
       },
       error: (err) => {
-        const message = err.error?.message || this.translate.instant('users.messages.updateError');
-        this.snackBar.open(message, this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.snackBar.open(err.error?.message || this.translate.instant(errorKey), close, { duration: 3000 });
         this.loading.set(false);
       },
     });

@@ -92,7 +92,7 @@ export class QuestionBarcodeComponent implements OnDestroy {
         if (this.videoRef && this.mediaStream) {
           const video = this.videoRef.nativeElement;
           video.srcObject = this.mediaStream;
-          video.play().then(() => {
+          void video.play().then(() => {
             this.detectFrame();
           });
         }

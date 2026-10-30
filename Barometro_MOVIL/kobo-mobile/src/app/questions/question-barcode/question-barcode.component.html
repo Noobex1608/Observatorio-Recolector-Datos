@@ -1,11 +1,11 @@
 <div class="barcode-container" [class.disabled]="disabled()">
   <div class="barcode-header">
-    <label class="barcode-label">
+    <span class="barcode-label">
       {{ question().label }}
       @if (question().required) {
         <span class="required-badge">*</span>
       }
-    </label>
+    </span>
     @if (question().hint) {
       <p class="barcode-hint">{{ question().hint }}</p>
     }

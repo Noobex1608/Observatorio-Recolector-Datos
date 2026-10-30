@@ -121,8 +121,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     const p = this.selectedParroquia();
     if (z && (z === '999' || z.endsWith('999'))) return true;
     if (p && p.length >= 6) {
-      const parrNum = parseInt(p.substring(4, 6), 10);
-      if (!isNaN(parrNum) && parrNum >= 51) return true;
+      const parrNum = Number.parseInt(p.substring(4, 6), 10);
+      if (!Number.isNaN(parrNum) && parrNum >= 51) return true;
     }
     return false;
   });
@@ -208,7 +208,11 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  async ngAfterViewInit(): Promise<void> {
+  ngAfterViewInit(): void {
+    void this.prepararMapa();
+  }
+
+  private async prepararMapa(): Promise<void> {
     if (!this.isBrowser) return;
 
     try {
@@ -1086,10 +1090,10 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   }
 
   selectSearchResult(result: NominatimSearchResult): void {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
+    const lat = Number.parseFloat(result.lat);
+    const lng = Number.parseFloat(result.lon);
 
-    if (isNaN(lat) || isNaN(lng)) return;
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
 
     this.searchResults.set([]);
     this.searchQuery.set(result.display_name.split(',')[0]);

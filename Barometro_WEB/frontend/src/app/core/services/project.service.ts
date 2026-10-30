@@ -258,9 +258,14 @@ export class ProjectService {
     return this.http.post<ProjectZone[]>(`${this.apiUrl}/${projectId}/zones/bulk-assign`, { assignments });
   }
 
-  randomAssignZones(projectId: string, formId: string, userIds: number[], seed: string | null, dryRun: boolean): Observable<{ seed: string; dry_run: boolean; assignments: Record<string, number[]> }> {
-    return this.http.post<{ seed: string; dry_run: boolean; assignments: Record<string, number[]> }>(`${this.apiUrl}/${projectId}/zones/random-assign`, {
-      form_id: formId, user_ids: userIds, seed, dry_run: dryRun,
+  /**
+   * Sorteo de encuestadores: se indica la cantidad y el servidor elige al azar entre el equipo activo
+   * del proyecto y los reparte en las zonas. Al confirmar se envían los elegidos en la vista previa.
+   */
+  randomAssignZones(projectId: string, formId: string, count: number, seed: string | null, dryRun: boolean, expectedUserIds?: number[]): Observable<RandomAssignment> {
+    return this.http.post<RandomAssignment>(`${this.apiUrl}/${projectId}/zones/random-assign`, {
+      form_id: formId, count, seed, dry_run: dryRun,
+      ...(expectedUserIds ? { expected_user_ids: expectedUserIds } : {}),
     });
   }
 
@@ -278,6 +283,15 @@ export class ProjectService {
     if (options.date) params['date'] = options.date;
     return this.http.get<CollectorRoute>(`${this.apiUrl}/${projectId}/supervision/collectors/${userId}`, { params });
   }
+}
+
+export interface RandomAssignment {
+  seed: string;
+  dry_run: boolean;
+  pool_size: number;
+  capacity: number | null;
+  assignments: Record<string, number[]>;
+  users: { id: number; name: string; email: string }[];
 }
 
 export interface SupervisionCollector {

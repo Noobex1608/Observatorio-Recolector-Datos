@@ -32,3 +32,12 @@ build_localidades.py
 Barometro_WEB/frontend/public/assets/gis/manzanas.geojson
 Barometro_WEB/frontend/public/assets/gis/sectores.geojson
 Barometro_WEB/frontend/public/assets/gis/zonas.geojson
+
+# Análisis local de SonarQube
+!scripts/sonar/
+scripts/sonar/reporte/
+scripts/sonar/.sonar-local.env
+!scripts/zap/
+scripts/zap/reporte/
+
+scripts/

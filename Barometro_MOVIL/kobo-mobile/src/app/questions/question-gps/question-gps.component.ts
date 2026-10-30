@@ -136,7 +136,7 @@ export class QuestionGpsComponent {
     if (!loc?.timestamp) return null;
     try {
       const date = new Date(loc.timestamp);
-      if (isNaN(date.getTime())) return null;
+      if (Number.isNaN(date.getTime())) return null;
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     } catch {
       return null;
@@ -227,7 +227,7 @@ export class QuestionGpsComponent {
     const lat = this.manualLat();
     const lng = this.manualLng();
 
-    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
+    if (lat === null || lng === null || Number.isNaN(lat) || Number.isNaN(lng)) {
       this.errorMessage.set('Por favor, ingrese coordenadas de latitud y longitud válidas.');
       return;
     }

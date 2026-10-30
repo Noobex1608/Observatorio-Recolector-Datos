@@ -49,6 +49,7 @@ export type QuestionType =
 
 export interface FormQuestionProperties {
   help_text?: string;
+  text_format?: 'email' | 'cedula_ec' | 'telefono_ec' | null;
   min_date?: string;
   max_date?: string;
   default_now?: boolean;

@@ -11,6 +11,7 @@ import { User } from '@core/models/user/user.interface';
 import { FormBuilderViewModel, FormQuestionDraft } from '@presentation/viewmodels/form-builder.viewmodel';
 import { ProjectService } from '@core/services/project.service';
 import { TranslateModule } from '@ngx-translate/core';
+import { TEXT_FORMATS, textFormatInput } from '@core/utils/text-format';
 
 type PreviewMode = 'mobile' | 'web';
 type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
@@ -60,6 +61,9 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
     return this.toPreviewQuestions(visibleQuestions);
   });
+
+  readonly textFormats = TEXT_FORMATS;
+  readonly textFormatInput = textFormatInput;
 
   readonly questionTypes: Array<{
     value: FormQuestion['type'];

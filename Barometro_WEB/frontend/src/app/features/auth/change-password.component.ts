@@ -43,7 +43,7 @@ export class ChangePasswordComponent {
   });
 
   submit(): void {
-    if (!this.auth.isAuthenticated()) { this.router.navigate(['/auth/login']); return; }
+    if (!this.auth.isAuthenticated()) { void this.router.navigate(['/auth/login']); return; }
     const { current, password, confirmation } = this.form.getRawValue();
     if (password !== confirmation) { this.error.set('Las contraseñas no coinciden.'); return; }
     this.busy.set(true);

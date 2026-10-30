@@ -1209,14 +1209,14 @@ export class AnswerViewerComponent {
     if (!this.value && !this.formattedValue) return null;
     const raw = this.value || this.formattedValue;
     const dateObj = new Date(raw);
-    return isNaN(dateObj.getTime()) ? null : dateObj;
+    return Number.isNaN(dateObj.getTime()) ? null : dateObj;
   }
 
   get gpsCoords(): GpsCoords | null {
     if (!this.value) {
       if (this.formattedValue && this.formattedValue.includes(',')) {
-        const parts = this.formattedValue.split(',').map((p) => parseFloat(p.trim()));
-        if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+        const parts = this.formattedValue.split(',').map((p) => Number.parseFloat(p.trim()));
+        if (!Number.isNaN(parts[0]) && !Number.isNaN(parts[1])) {
           return { lat: parts[0], lng: parts[1] };
         }
       }
@@ -1224,21 +1224,21 @@ export class AnswerViewerComponent {
     }
 
     if (typeof this.value === 'object' && this.value !== null) {
-      const lat = parseFloat(this.value.latitude ?? this.value.lat);
-      const lng = parseFloat(this.value.longitude ?? this.value.lng);
-      if (!isNaN(lat) && !isNaN(lng)) {
+      const lat = Number.parseFloat(this.value.latitude ?? this.value.lat);
+      const lng = Number.parseFloat(this.value.longitude ?? this.value.lng);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
         return {
           lat,
           lng,
-          accuracy: this.value.accuracy ? Math.round(parseFloat(this.value.accuracy)) : undefined,
+          accuracy: this.value.accuracy ? Math.round(Number.parseFloat(this.value.accuracy)) : undefined,
         };
       }
     }
 
     if (Array.isArray(this.value) && this.value.length >= 2) {
-      const lat = parseFloat(this.value[0]);
-      const lng = parseFloat(this.value[1]);
-      if (!isNaN(lat) && !isNaN(lng)) {
+      const lat = Number.parseFloat(this.value[0]);
+      const lng = Number.parseFloat(this.value[1]);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
         return { lat, lng };
       }
     }
@@ -1295,7 +1295,7 @@ export class AnswerViewerComponent {
     const radius = props.radius_meters ?? props.geofencing?.radius ?? 500;
     const name = props.zone_name ?? props.geofencing?.name ?? 'Zona Asignada';
 
-    if (targetLat !== null && targetLng !== null && !isNaN(targetLat) && !isNaN(targetLng)) {
+    if (targetLat !== null && targetLng !== null && !Number.isNaN(Number(targetLat)) && !Number.isNaN(Number(targetLng))) {
       const dist = this.calculateDistanceMeters(coords.lat, coords.lng, targetLat, targetLng);
       const isInside = dist <= radius;
 
@@ -1457,7 +1457,7 @@ export class AnswerViewerComponent {
             if (finalResult) {
               resolve(`"${finalResult}"`);
             } else {
-              this.fallbackAudioBufferAnalysis(mediaUrl).then(resolve);
+              void this.fallbackAudioBufferAnalysis(mediaUrl).then(resolve);
             }
           };
 
@@ -1484,7 +1484,7 @@ export class AnswerViewerComponent {
         }
       }
 
-      this.fallbackAudioBufferAnalysis(mediaUrl).then(resolve);
+      void this.fallbackAudioBufferAnalysis(mediaUrl).then(resolve);
     });
   }
 
@@ -1556,7 +1556,7 @@ export class AnswerViewerComponent {
 
   copyTranscription(): void {
     if (!this.transcriptionText) return;
-    navigator.clipboard.writeText(this.transcriptionText);
+    void navigator.clipboard.writeText(this.transcriptionText);
     this.isCopied = true;
     setTimeout(() => {
       this.isCopied = false;
@@ -1593,8 +1593,8 @@ export class AnswerViewerComponent {
 
   get ratingValue(): number | null {
     const val = this.value !== undefined && this.value !== null ? this.value : this.formattedValue;
-    const num = parseFloat(val);
-    return isNaN(num) ? null : Math.round(num);
+    const num = Number.parseFloat(val);
+    return Number.isNaN(num) ? null : Math.round(num);
   }
 
   get maxRating(): number {
@@ -1611,7 +1611,7 @@ export class AnswerViewerComponent {
 
   copyToClipboard(text: string): void {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+    void navigator.clipboard.writeText(text).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2000);
     });

@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import Dexie from 'dexie';
+import Dexie from 'dexie';
+import { trimTrailingSlashes } from './utils/url';
 
 export const ACCOUNT_SCOPE_KEY = 'kobo_account_scope';
 
 export function accountScope(userId: number, servidor: string): string {
-  const normalizedServer = new URL(servidor).toString().replace(/\/+$/, '');
+  const normalizedServer = trimTrailingSlashes(new URL(servidor).toString());
   return `${encodeURIComponent(normalizedServer)}:${userId}`;
 }
 
@@ -75,6 +76,7 @@ export type QuestionType =
 
 export interface FormQuestionProperties {
   help_text?: string;
+  text_format?: 'email' | 'cedula_ec' | 'telefono_ec' | null;
   capture_accuracy?: boolean;
   allow_manual_fallback?: boolean;
   target_lat?: number | null;

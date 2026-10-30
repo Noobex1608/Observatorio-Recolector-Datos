@@ -77,7 +77,7 @@ import { ROUTE_COLORS, RouteMapComponent } from './route-map.component';
         } @else {
           <section class="layout">
             <div class="map-panel">
-              <app-route-map [zones]="data.zones" [surveys]="data.surveys" [selectedId]="selectedId()" (select)="toggle($event)" />
+              <app-route-map [zones]="data.zones" [surveys]="data.surveys" [selectedId]="selectedId()" (surveySelect)="toggle($event)" />
               <ul class="legend" aria-label="Leyenda del mapa">
                 <li><span class="swatch" [style.background]="colors.inside"></span>Dentro de la zona</li>
                 <li><span class="swatch" [style.background]="colors.outside"></span>Fuera de la zona</li>

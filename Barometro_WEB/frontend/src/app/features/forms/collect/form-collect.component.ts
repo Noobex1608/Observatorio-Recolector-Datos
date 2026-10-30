@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,18 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Form, FormQuestion, FormService } from '@core/services/form.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { normalizeTextFormat, textFormatError, textFormatInput, textFormatOf } from '@core/utils/text-format';
+
+/** Avance de una encuesta pública guardado en la pestaña para sobrevivir a una recarga. */
+interface SavedProgress {
+  answers: Record<string, unknown>;
+  consentAccepted: boolean;
+  consentDeclined: boolean;
+  currentStepIndex: number;
+  stepHistory: number[];
+  clientSubmissionId: string;
+  submitted: boolean;
+}
 
 interface QuestionVisualMeta {
   level: number;
@@ -61,8 +73,10 @@ interface QuestionVisualMeta {
               <p style="white-space:pre-line">{{ form()!.consent_text || 'Su participación es voluntaria. ¿Acepta responder esta encuesta?' }}</p>
               @if (consentDeclined()) { <p>La encuesta terminó porque no se aceptó el consentimiento.</p> }
               @else {
-                <button mat-raised-button color="primary" type="button" (click)="acceptConsent()">Acepto participar</button>
-                <button mat-stroked-button type="button" (click)="consentDeclined.set(true)">No acepto</button>
+                <div class="consent-actions">
+                  <button mat-raised-button color="primary" type="button" (click)="acceptConsent()">Acepto participar</button>
+                  <button mat-stroked-button type="button" (click)="consentDeclined.set(true)">No acepto</button>
+                </div>
               }
             </section>
           } @else {
@@ -88,7 +102,7 @@ interface QuestionVisualMeta {
                   class="question-block"
                   [class.invalid]="questionError(question.id)"
                   [class.subquestion]="getQuestionLevel(question.id) > 0"
-                  [style.margin-left.px]="getQuestionIndent(question.id)"
+                  [style.--indent]="getQuestionIndent(question.id) + 'px'"
                 >
                   <label class="question-label">
                     {{ getQuestionDisplayNumber(question.id) }}. {{ question.label }}
@@ -134,6 +148,28 @@ interface QuestionVisualMeta {
                       </div>
                     }
                     @case ('LIKERT') {
+                      <!-- En pantallas angostas cada fila se muestra como un grupo de opciones, sin desplazamiento lateral. -->
+                      <div class="likert-stacked">
+                        @for (row of getLikertRows(question); track row; let rowIndex = $index) {
+                          <fieldset class="likert-group">
+                            <legend>{{ row }}</legend>
+                            <div class="options-list">
+                              @for (column of getLikertColumns(question); track column) {
+                                <label class="option">
+                                  <input
+                                    type="radio"
+                                    [name]="question.id + '-m-' + rowIndex"
+                                    [value]="column"
+                                    [ngModel]="getLikertAnswer(question.id, row)"
+                                    (ngModelChange)="setLikertAnswer(question.id, row, $event)"
+                                  />
+                                  {{ column }}
+                                </label>
+                              }
+                            </div>
+                          </fieldset>
+                        }
+                      </div>
                       <div class="likert-table-wrap">
                         <div
                           class="likert-table"
@@ -162,6 +198,22 @@ interface QuestionVisualMeta {
                       </div>
                     }
                     @case ('TEXT') {
+                      @if (textFormatOf(question.properties); as format) {
+                        <input
+                          class="text-input"
+                          [type]="textFormatInput(format).type"
+                          [attr.inputmode]="textFormatInput(format).inputmode"
+                          [attr.autocomplete]="textFormatInput(format).autocomplete"
+                          [attr.maxlength]="textFormatInput(format).maxlength"
+                          [name]="question.id" [attr.aria-label]="question.label"
+                          [attr.aria-invalid]="questionError(question.id) ? 'true' : null"
+                          [ngModel]="answers()[question.id]"
+                          (ngModelChange)="setAnswer(question.id, $event)"
+                          (blur)="checkTextFormat(question)"
+                          [required]="question.required"
+                          [placeholder]="textFormatInput(format).placeholder"
+                        />
+                      } @else {
                       <textarea
                         class="text-input"
                         [name]="question.id" [attr.aria-label]="question.label"
@@ -171,6 +223,7 @@ interface QuestionVisualMeta {
                         [required]="question.required"
                         [placeholder]="'forms.collect.textPlaceholder' | translate"
                       ></textarea>
+                      }
                     }
                     @case ('NUMBER') {
                       <input
@@ -250,6 +303,10 @@ interface QuestionVisualMeta {
               }
             }
 
+            @if (submitError()) {
+              <p class="submit-error" role="alert">{{ submitError() }}</p>
+            }
+
             @if (form()!.step_by_step) {
               <div class="step-actions">
                 <button
@@ -305,6 +362,7 @@ interface QuestionVisualMeta {
     `
       .collect-page {
         min-height: 100vh;
+        min-height: 100dvh;
         background: var(--bg-primary);
         padding: 1.5rem 1rem;
         display: flex;
@@ -320,20 +378,29 @@ interface QuestionVisualMeta {
         overflow: hidden;
       }
 
+      /* Colores explícitos: los estilos globales de h1/p no deben ganarle al fondo azul (contraste AA). */
       .collect-header {
         padding: 1.5rem;
-        background: var(--primary-600);
-        color: white;
+        background: #0059a8;
+        color: #ffffff;
 
         h1 {
           margin: 0 0 0.5rem;
           font-size: 1.5rem;
+          line-height: 1.3;
+          color: #ffffff;
+          background: none;
+          overflow-wrap: anywhere;
         }
 
         p {
           margin: 0;
-          opacity: 0.9;
-          font-size: 0.875rem;
+          font-size: 0.9375rem;
+          line-height: 1.5;
+          color: #e6f0fa;
+          background: none;
+          white-space: pre-line;
+          overflow-wrap: anywhere;
         }
       }
 
@@ -367,6 +434,8 @@ interface QuestionVisualMeta {
       }
 
       .question-block {
+        margin-left: var(--indent, 0);
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -444,10 +513,57 @@ interface QuestionVisualMeta {
       .option {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
+        gap: 0.6rem;
+        min-height: 44px;
+        padding: 0.35rem 0.6rem;
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
         color: var(--text-secondary);
         cursor: pointer;
+        overflow-wrap: anywhere;
+      }
+
+      .option:hover {
+        background: var(--hover-bg);
+      }
+
+      .option input {
+        flex: none;
+        width: 20px;
+        height: 20px;
+        accent-color: var(--primary-600);
+      }
+
+      .consent-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .submit-error {
+        margin: 0;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-md);
+        background: var(--error-bg);
+        color: var(--error-color);
+        font-weight: 600;
+      }
+
+      .likert-stacked {
+        display: none;
+      }
+
+      .likert-group {
+        margin: 0 0 0.75rem;
+        padding: 0.5rem 0.75rem 0.25rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+      }
+
+      .likert-group legend {
+        padding: 0 0.35rem;
+        font-weight: 600;
+        color: var(--text-primary);
       }
 
       .likert-table-wrap {
@@ -504,7 +620,8 @@ interface QuestionVisualMeta {
         border-radius: var(--radius-md);
         background: var(--bg-primary);
         color: var(--text-primary);
-        font-size: 0.875rem;
+        /* 16px evita que iOS amplíe la página al enfocar el campo */
+        font-size: 1rem;
       }
 
       .submit-btn {
@@ -513,7 +630,31 @@ interface QuestionVisualMeta {
       }
 
       .ranking-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-      .ranking-row span { flex: 1; }
+      .ranking-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+      .ranking-row button { min-width: 44px; min-height: 44px; }
+      .gps-answer p { overflow-wrap: anywhere; }
+
+      @media (max-width: 600px) {
+        .collect-page { padding: 0; }
+        .collect-card { border: none; border-radius: 0; }
+        .collect-header { padding: 1.1rem 1rem; }
+        .collect-header h1 { font-size: 1.25rem; }
+        .collect-form { padding: 1rem; gap: 1rem; }
+        .question-block { padding: 0.75rem; }
+        .question-block.subquestion { margin-left: min(var(--indent, 0px), 12px); }
+        .step-progress { flex-direction: column; gap: 0.25rem; }
+        .likert-stacked { display: block; }
+        .likert-table-wrap { display: none; }
+        .consent-actions > button { flex: 1 1 100%; }
+        .step-actions {
+          position: sticky;
+          bottom: 0;
+          padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
+          background: var(--card-bg);
+          border-top: 1px solid var(--border-color);
+        }
+        .state-box { padding: 2.5rem 1.25rem; }
+      }
       .question-help { margin: 0; color: var(--text-secondary); }
 
       .step-actions {
@@ -569,12 +710,14 @@ export class FormCollectComponent implements OnInit {
   loading = signal(true);
   submitting = signal(false);
   submitted = signal(false);
-  private clientSubmissionId = crypto.randomUUID();
+  private clientSubmissionId: string = crypto.randomUUID();
   consentAccepted = signal(false);
   consentDeclined = signal(false);
   error = signal('');
   currentStepIndex = signal(0);
   stepHistory = signal<number[]>([0]);
+  submitError = signal('');
+  private restored = false;
 
   orderedQuestions = computed(() =>
     [...(this.form()?.questions ?? [])].sort((left, right) => left.order - right.order),
@@ -633,6 +776,66 @@ export class FormCollectComponent implements OnInit {
 
   private linkUuid = '';
 
+  constructor() {
+    // Guarda el avance en la pestaña cada vez que cambia, para que una recarga no lo pierda.
+    effect(() => {
+      const progress: SavedProgress = {
+        answers: this.answers(),
+        consentAccepted: this.consentAccepted(),
+        consentDeclined: this.consentDeclined(),
+        currentStepIndex: this.currentStepIndex(),
+        stepHistory: this.stepHistory(),
+        clientSubmissionId: this.clientSubmissionId,
+        submitted: this.submitted(),
+      };
+      if (this.restored) this.saveProgress(progress);
+    });
+  }
+
+  private get storageKey(): string {
+    return `uleam:collect:${this.linkUuid}`;
+  }
+
+  private saveProgress(progress: SavedProgress): void {
+    try {
+      sessionStorage.setItem(this.storageKey, JSON.stringify(progress));
+    } catch {
+      // Sin espacio (p. ej. fotos grandes): se guarda el resto y los archivos se vuelven a adjuntar.
+      try {
+        const answers = Object.fromEntries(Object.entries(progress.answers)
+          .filter(([, value]) => !(typeof value === 'string' && value.startsWith('data:'))));
+        sessionStorage.setItem(this.storageKey, JSON.stringify({ ...progress, answers }));
+      } catch { /* almacenamiento no disponible: la encuesta sigue funcionando sin guardar */ }
+    }
+  }
+
+  private clearProgress(): void {
+    try { sessionStorage.removeItem(this.storageKey); } catch { /* sin almacenamiento */ }
+  }
+
+  /** Restaura el avance guardado si corresponde a las preguntas actuales del formulario. */
+  private restoreProgress(questions: FormQuestion[]): void {
+    let saved: Partial<SavedProgress> | null = null;
+    try { saved = JSON.parse(sessionStorage.getItem(this.storageKey) ?? 'null'); } catch { saved = null; }
+    if (saved && typeof saved === 'object') {
+      const ids = new Set(questions.map((question) => question.id));
+      const answers = Object.fromEntries(Object.entries(saved.answers ?? {})
+        .filter(([key]) => ids.has(key) || key.startsWith('_')));
+      const valid = (index: unknown) => Number.isInteger(index) && (index as number) >= 0 && (index as number) < questions.length;
+      const history = Array.isArray(saved.stepHistory) && saved.stepHistory.every(valid) && saved.stepHistory.length > 0
+        ? saved.stepHistory : [0];
+      this.answers.update((current) => ({ ...current, ...answers }));
+      this.consentAccepted.set(saved.consentAccepted === true);
+      this.stepHistory.set(history);
+      this.currentStepIndex.set(valid(saved.currentStepIndex) ? saved.currentStepIndex! : history[history.length - 1]);
+      if (typeof saved.clientSubmissionId === 'string' && saved.clientSubmissionId) {
+        this.clientSubmissionId = saved.clientSubmissionId;
+      }
+      this.submitted.set(saved.submitted === true);
+    }
+    this.restored = true;
+  }
+
   ngOnInit(): void {
     this.linkUuid = this.route.snapshot.paramMap.get('uuid') ?? '';
     if (!this.linkUuid) {
@@ -652,6 +855,7 @@ export class FormCollectComponent implements OnInit {
           .map((question) => [question.id, this.getChoiceOptions(question)])));
         this.currentStepIndex.set(0);
         this.stepHistory.set([0]);
+        this.restoreProgress(form.questions ?? []);
         this.loading.set(false);
       },
       error: () => {
@@ -873,6 +1077,20 @@ export class FormCollectComponent implements OnInit {
     this.consentAccepted.set(false);
     this.consentDeclined.set(false);
     this.error.set('');
+    this.submitError.set('');
+    this.clearProgress();
+  }
+
+  readonly textFormatOf = textFormatOf;
+  readonly textFormatInput = textFormatInput;
+
+  /** Al salir del campo avisa de inmediato si el correo, la cédula o el teléfono no son válidos. */
+  checkTextFormat(question: FormQuestion): void {
+    const message = textFormatError(textFormatOf(question.properties), this.answers()[question.id]);
+    const errors = { ...this.validationErrors() };
+    if (message) errors[question.id] = message;
+    else if (errors[question.id] && !this.answerErrorFor(question)) delete errors[question.id];
+    this.validationErrors.set(errors);
   }
 
   questionError(questionId: string): string {
@@ -909,14 +1127,16 @@ export class FormCollectComponent implements OnInit {
   private submitAnswers(): void {
     if (!this.consentAccepted()) return;
     this.submitting.set(true);
+    this.submitError.set('');
 
-    this.formService.submitResponse(this.linkUuid, this.answers(), this.clientSubmissionId).subscribe({
+    this.formService.submitResponse(this.linkUuid, this.normalizedAnswers(), this.clientSubmissionId).subscribe({
       next: () => {
         this.submitted.set(true);
         this.submitting.set(false);
       },
-      error: () => {
-        this.error.set(this.translate.instant('forms.collect.errors.submit'));
+      error: (err) => {
+        // El formulario y las respuestas se conservan: el encuestado puede corregir o reintentar.
+        this.submitError.set(err?.error?.message || this.translate.instant('forms.collect.errors.submit'));
         this.submitting.set(false);
       },
     });
@@ -944,19 +1164,41 @@ export class FormCollectComponent implements OnInit {
     }
 
     const errors = { ...this.validationErrors() };
+    const message = this.answerErrorFor(question);
 
-    if (!question.required || ['NOTE', 'CALCULATE'].includes(question.type) || this.hasRequiredAnswer(question)) {
+    if (!message) {
       delete errors[question.id];
       this.validationErrors.set(errors);
       return true;
     }
 
-    errors[question.id] = question.type === 'LIKERT'
-      ? this.translate.instant('forms.collect.errors.requiredLikert')
-      : this.translate.instant('forms.collect.errors.required');
-
+    errors[question.id] = message;
     this.validationErrors.set(errors);
     return false;
+  }
+
+  /** Error de la respuesta: obligatoria sin contestar o con formato inválido (correo, cédula, teléfono). */
+  private answerErrorFor(question: FormQuestion): string | null {
+    if (['NOTE', 'CALCULATE'].includes(question.type)) return null;
+    if (question.required && !this.hasRequiredAnswer(question)) {
+      return question.type === 'LIKERT'
+        ? this.translate.instant('forms.collect.errors.requiredLikert')
+        : this.translate.instant('forms.collect.errors.required');
+    }
+    return question.type === 'TEXT'
+      ? textFormatError(textFormatOf(question.properties), this.answers()[question.id])
+      : null;
+  }
+
+  /** Respuestas listas para enviar: correo en minúsculas, cédula y teléfono solo con dígitos. */
+  private normalizedAnswers(): Record<string, unknown> {
+    const answers = { ...this.answers() };
+    for (const question of this.form()?.questions ?? []) {
+      const format = question.type === 'TEXT' ? textFormatOf(question.properties) : null;
+      const value = answers[question.id];
+      if (format && typeof value === 'string' && value.trim() !== '') answers[question.id] = normalizeTextFormat(format, value);
+    }
+    return answers;
   }
 
   private buildValidationErrors(questions: FormQuestion[]): Record<string, string> {
@@ -967,13 +1209,8 @@ export class FormCollectComponent implements OnInit {
         continue;
       }
 
-      if (!question.required || ['NOTE', 'CALCULATE'].includes(question.type) || this.hasRequiredAnswer(question)) {
-        continue;
-      }
-
-      errors[question.id] = question.type === 'LIKERT'
-        ? this.translate.instant('forms.collect.errors.requiredLikert')
-        : this.translate.instant('forms.collect.errors.required');
+      const message = this.answerErrorFor(question);
+      if (message) errors[question.id] = message;
     }
 
     return errors;

@@ -31,7 +31,7 @@
 
       <div *ngFor="let form of formularios" class="form-guardado-card" [class.selected]="isSeleccionado(form)">
         <label class="guardar-checkbox">
-          <input type="checkbox" [checked]="isSeleccionado(form)" (change)="toggleSeleccion(form)">
+          <input type="checkbox" [checked]="isSeleccionado(form)" (change)="toggleSeleccion(form)" [attr.aria-label]="'Seleccionar ' + form.formTitle">
           <span class="custom-checkbox"></span>
         </label>
 

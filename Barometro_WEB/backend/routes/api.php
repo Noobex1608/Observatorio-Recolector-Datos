@@ -47,8 +47,8 @@ Route::get('/avatars/{filename}', function (string $filename) {
     $disk = Storage::disk('public');
 
     if (! $disk->exists($path)) {
+        // CORS lo aplica el middleware con la lista de orígenes de config/cors.php.
         return response()->json(['message' => 'Avatar no encontrado'], 404)
-            ->header('Access-Control-Allow-Origin', '*')
             ->header('Cross-Origin-Resource-Policy', 'cross-origin');
     }
 
@@ -58,7 +58,6 @@ Route::get('/avatars/{filename}', function (string $filename) {
     return response($file, 200)
         ->header('Content-Type', $mimeType)
         ->header('Cache-Control', 'public, max-age=31536000')
-        ->header('Access-Control-Allow-Origin', '*')
         ->header('Cross-Origin-Resource-Policy', 'cross-origin');
 })->where('filename', '[a-zA-Z0-9_\-\.]+');
 

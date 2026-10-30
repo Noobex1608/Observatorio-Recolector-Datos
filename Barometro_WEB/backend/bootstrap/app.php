@@ -2,6 +2,7 @@
 
 use App\Domain\Shared\Exceptions\ApiException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         $middleware->appendToGroup('api', \App\Http\Middleware\EnsureActiveUser::class);
         $middleware->appendToGroup('api', \App\Http\Middleware\EnsurePasswordChanged::class);
@@ -43,6 +45,17 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // El backend solo expone una API: todo error (404 de rutas inexistentes incluido) responde en JSON.
+        $exceptions->shouldRenderJsonWhen(fn () => true);
+
+        // Un identificador con formato inválido (p. ej. texto donde va un UUID) es un recurso inexistente,
+        // no un error del servidor: PostgreSQL lo reporta como 22P02.
+        $exceptions->render(function (QueryException $e) {
+            if (($e->errorInfo[0] ?? $e->getCode()) === '22P02') {
+                return response()->json(['message' => 'Recurso no encontrado.'], 404);
+            }
+        });
+
         // Handle ApiException - structured error responses
         $exceptions->render(function (ApiException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {

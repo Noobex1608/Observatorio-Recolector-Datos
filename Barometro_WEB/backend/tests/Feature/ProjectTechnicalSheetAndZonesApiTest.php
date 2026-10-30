@@ -49,25 +49,34 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
             ])->assertCreated();
         }
 
-        // Solo se sortea entre el equipo activo del proyecto.
-        $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
-            'form_id' => $formId, 'user_ids' => [$collectorA->id], 'dry_run' => true,
-        ])->assertStatus(422)->assertJsonPath('message', 'Seleccione únicamente encuestadores registrados y activos en este proyecto');
+        // Se indica solo la cantidad: el sorteo es entre el equipo activo del proyecto.
+        $url = "/api/projects/{$project->id}/zones/random-assign";
+        $this->postJson($url, ['form_id' => $formId, 'count' => 1, 'dry_run' => true])
+            ->assertStatus(422)->assertJsonPath('message', 'El proyecto no tiene encuestadores activos. Agrégalos en la pestaña Encuestadores.');
+        $collectorC = User::factory()->create(['rol' => User::ROLE_USER]);
+        $outsider = User::factory()->create(['rol' => User::ROLE_USER]);
         $project->collectors()->attach([
             $collectorA->id => ['is_active' => true], $collectorB->id => ['is_active' => true],
+            $collectorC->id => ['is_active' => true],
         ]);
+        $this->postJson($url, ['form_id' => $formId, 'count' => 4, 'dry_run' => true])
+            ->assertStatus(422)->assertJsonPath('message', 'Solo hay 3 encuestadores activos en el proyecto.');
+        $this->postJson($url, ['form_id' => $formId, 'count' => 3, 'dry_run' => true])
+            ->assertStatus(422)->assertJsonPath('message', 'Las zonas admiten como máximo 2 encuestadores en total.');
 
-        $request = ['form_id' => $formId, 'user_ids' => [$collectorA->id, $collectorB->id],
-            'seed' => 'prueba-estable'];
-        $preview = $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
-            ...$request, 'dry_run' => true,
-        ])->assertOk()->json('assignments');
-        $actual = $this->postJson("/api/projects/{$project->id}/zones/random-assign", [
-            ...$request, 'dry_run' => false,
-        ])->assertOk()->json('assignments');
-        $this->assertSame($preview, $actual);
+        $request = ['form_id' => $formId, 'count' => 2, 'seed' => 'prueba-estable'];
+        $preview = $this->postJson($url, [...$request, 'dry_run' => true])->assertOk()
+            ->assertJsonPath('pool_size', 3)->assertJsonCount(2, 'users')->json();
+        $chosen = array_column($preview['users'], 'id');
+        $this->assertNotContains($outsider->id, $chosen);
+        $this->postJson($url, [...$request, 'dry_run' => false, 'expected_user_ids' => [$outsider->id, $chosen[0]]])
+            ->assertStatus(409);
+        $actual = $this->postJson($url, [...$request, 'dry_run' => false, 'expected_user_ids' => $chosen])
+            ->assertOk()->json('assignments');
+        $this->assertSame($preview['assignments'], $actual);
         $this->assertCount(2, Form::findOrFail($formId)->zones);
         $this->assertSame(2, array_sum(array_map('count', $actual)));
+        $this->assertEqualsCanonicalizing($chosen, array_merge(...array_values($actual)));
     }
 
     public function test_bulk_assignment_rolls_back_every_zone_when_one_belongs_to_another_project(): void

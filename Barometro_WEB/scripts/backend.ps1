@@ -28,7 +28,7 @@ function Ensure-BackendImage {
     docker image inspect $ImageName *> $null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Docker image $ImageName not found. Building..." -ForegroundColor Yellow
-        docker build -t $ImageName -f Dockerfile .
+        docker build --pull -t $ImageName -f Dockerfile .
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
 }
@@ -125,7 +125,7 @@ try {
         'install' {
             Ensure-EnvFile
             Write-Host 'Building backend image...' -ForegroundColor Green
-            docker build -t $ImageName -f Dockerfile .
+            docker build --pull -t $ImageName -f Dockerfile .
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
         'migrate' { Run-Artisan migrate --force }

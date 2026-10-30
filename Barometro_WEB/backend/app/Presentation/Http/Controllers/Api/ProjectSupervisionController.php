@@ -48,12 +48,13 @@ class ProjectSupervisionController extends Controller
         $today = CarbonImmutable::now(self::TIMEZONE)->startOfDay()->utc();
         $stats = FormResponse::query()->whereIn('form_id', $formIds)->whereIn('user_id', $ids)
             ->groupBy('user_id')
+            ->addBinding($today->toDateTimeString(), 'select')
             ->get([
                 'user_id',
                 DB::raw('count(*) as responses'),
                 DB::raw('count(location_trace) as traced'),
                 DB::raw('max(coalesce(trace_started_at, created_at)) as last_activity'),
-                DB::raw("sum(case when coalesce(trace_started_at, created_at) >= '{$today->toDateTimeString()}' then 1 else 0 end) as today"),
+                DB::raw('sum(case when coalesce(trace_started_at, created_at) >= ? then 1 else 0 end) as today'),
                 DB::raw("sum(case when data->'_project_geofence'->>'fuera_de_zona' = 'true' then 1 else 0 end) as outside"),
             ])->keyBy('user_id');
         $zones = DB::table('project_zone_user_assignments as a')->join('project_zones as z', 'z.id', '=', 'a.zone_id')

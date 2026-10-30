@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
-import { QuestionType } from './db.service';
+import { QuestionType } from './db.service';
+import { trimTrailingSlashes } from './utils/url';
 
 const TOKEN_KEY = 'kobo_token';
 const SERVER_KEY = 'kobo_server_url';
@@ -92,7 +93,7 @@ export class ApiService {
     if (parsed.protocol !== 'https:' && !(localDevelopment && parsed.protocol === 'http:')) {
       throw new Error('El servidor debe usar HTTPS. HTTP solo se admite en desarrollo local.');
     }
-    const base = parsed.toString().replace(/\/+$/, '');
+    const base = trimTrailingSlashes(parsed.toString());
     return `${base}/api/${path.replace(/^\//, '')}`;
   }
 
@@ -101,7 +102,7 @@ export class ApiService {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (token) {
       const authenticatedServer = localStorage.getItem(SERVER_KEY);
-      if (!authenticatedServer || new URL(authenticatedServer).toString().replace(/\/+$/, '') !== new URL(servidor).toString().replace(/\/+$/, '')) {
+      if (!authenticatedServer || trimTrailingSlashes(new URL(authenticatedServer).toString()) !== trimTrailingSlashes(new URL(servidor).toString())) {
         throw new Error('La sesión pertenece a otro servidor. Vuelve a iniciar sesión.');
       }
       headers['Authorization'] = `Bearer ${token}`;

@@ -28,7 +28,7 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
   zones = input<RouteZone[]>([]);
   surveys = input<RouteSurvey[]>([]);
   selectedId = input<string | null>(null);
-  select = output<string>();
+  surveySelect = output<string>();
 
   private L?: typeof Leaflet;
   private map?: Leaflet.Map;
@@ -51,7 +51,11 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  async ngAfterViewInit(): Promise<void> {
+  ngAfterViewInit(): void {
+    void this.prepararMapa();
+  }
+
+  private async prepararMapa(): Promise<void> {
     const element = this.canvas()?.nativeElement;
     if (!isPlatformBrowser(this.platformId) || !element) return;
     this.L = await import('leaflet');
@@ -109,7 +113,7 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
         const b = path[i];
         const color = !b[5] ? ROUTE_COLORS.weak : b[4] === false || a[4] === false ? ROUTE_COLORS.outside : b[4] === true ? ROUTE_COLORS.inside : ROUTE_COLORS.unknown;
         L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: selected === survey.id ? 6 : 4, opacity })
-          .on('click', () => this.select.emit(survey.id)).addTo(this.layer!);
+          .on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       }
       // Puntos intermedios: cada vez que se retomó el borrador.
       for (const point of path.slice(1, -1)) {
@@ -118,19 +122,19 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
           radius: 6, color: point[4] === false ? ROUTE_COLORS.outside : ROUTE_COLORS.unknown, fillColor: '#fff', fillOpacity: 1, weight: 3, opacity,
         })
           .bindTooltip(`Encuesta ${index + 1} · ${point[6] === 'reanudar' ? 'retomó el borrador' : 'punto'} ${new Date(point[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${where}${point[2] != null ? ` · ±${point[2]} m` : ''}`)
-          .on('click', () => this.select.emit(survey.id)).addTo(this.layer!);
+          .on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       }
       const pinColor = survey.alerts.some((a) => a.code === 'fuera_de_zona' || a.code === 'salio_de_zona' || a.code === 'excepcion_zona')
         ? ROUTE_COLORS.outside : ROUTE_COLORS.inside;
       const startTime = new Date(survey.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       L.marker(start, { opacity, icon: L.divIcon({ className: '', html: `<span class="route-pin" style="background:${pinColor}">${index + 1}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] }) })
         .bindTooltip(`Encuesta ${index + 1} · inicio ${startTime}`)
-        .on('click', () => this.select.emit(survey.id)).addTo(this.layer!);
+        .on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       if (path.length > 1) {
         const last = path[path.length - 1];
         const endColor = last[4] === false ? ROUTE_COLORS.outside : '#24384f';
         L.marker(end, { opacity, icon: L.divIcon({ className: '', html: `<span class="route-pin end" style="background:${endColor}">■</span>`, iconSize: [24, 24], iconAnchor: [12, 12] }) })
-          .bindTooltip(`Encuesta ${index + 1} · ${last[6] === 'fin' ? 'fin' : 'último punto'} ${new Date(last[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${last[4] === false ? ' · fuera de zona' : ''}`).on('click', () => this.select.emit(survey.id)).addTo(this.layer!);
+          .bindTooltip(`Encuesta ${index + 1} · ${last[6] === 'fin' ? 'fin' : 'último punto'} ${new Date(last[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${last[4] === false ? ' · fuera de zona' : ''}`).on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       }
       const bounds = L.latLngBounds(path.map((p) => [p[0], p[1]] as Leaflet.LatLngTuple));
       this.boundsBySurvey.set(survey.id, bounds);

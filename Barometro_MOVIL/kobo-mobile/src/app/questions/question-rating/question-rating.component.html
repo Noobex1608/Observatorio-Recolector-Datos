@@ -1,11 +1,11 @@
 <div class="rating-container" [class.disabled]="disabled()">
   <div class="rating-header">
-    <label class="rating-label">
+    <span class="rating-label">
       {{ question().label }}
       @if (question().required) {
         <span class="required-badge">*</span>
       }
-    </label>
+    </span>
     @if (question().hint) {
       <p class="rating-hint">{{ question().hint }}</p>
     }

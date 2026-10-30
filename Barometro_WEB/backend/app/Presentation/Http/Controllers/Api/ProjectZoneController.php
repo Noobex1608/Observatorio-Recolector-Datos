@@ -234,10 +234,15 @@ class ProjectZoneController extends Controller
         abort_unless($request->user()->leadsProject($project->id), 403);
         $data = $request->validate([
             'form_id' => 'required|uuid|exists:forms,id',
-            'user_ids' => 'required|array|min:1',
-            'user_ids.*' => 'required|integer|distinct|exists:users,id',
+            'count' => 'required|integer|min:1|max:10000',
             'seed' => 'nullable|string|max:100',
             'dry_run' => 'sometimes|boolean',
+            // Al confirmar se envían los elegidos en la vista previa: si el equipo cambió, se pide sortear de nuevo.
+            'expected_user_ids' => 'sometimes|array',
+            'expected_user_ids.*' => 'integer',
+        ], [
+            'count.required' => 'Indique cuántos encuestadores desea sortear.',
+            'count.min' => 'Indique al menos 1 encuestador.',
         ]);
         $form = Form::where('project_id', $project->id)->findOrFail($data['form_id']);
         $zones = $form->zones()->withCount('assignedUsers')->orderBy('id')->get();
@@ -248,19 +253,30 @@ class ProjectZoneController extends Controller
             return response()->json(['message' => 'Ya existen asignaciones. Revísalas antes de hacer un nuevo sorteo'], 422);
         }
 
-        $users = User::whereIn('id', $data['user_ids'])->where('rol', User::ROLE_USER)
-            ->where('is_active', true)->get();
-        if ($users->count() !== count($data['user_ids'])) {
-            return response()->json(['message' => 'Seleccione únicamente encuestadores activos'], 422);
+        // Sorteo entre todo el equipo activo del proyecto: se eligen `count` al azar y se reparten.
+        $pool = $project->collectors()->wherePivot('is_active', true)
+            ->where('users.rol', User::ROLE_USER)->where('users.is_active', true)
+            ->get(['users.id', 'users.name', 'users.email']);
+        $count = (int) $data['count'];
+        if ($pool->isEmpty()) {
+            return response()->json(['message' => 'El proyecto no tiene encuestadores activos. Agrégalos en la pestaña Encuestadores.'], 422);
         }
-        $members = $project->collectors()->wherePivot('is_active', true)
-            ->whereIn('users.id', $data['user_ids'])->count();
-        if ($members !== count($data['user_ids'])) {
-            return response()->json(['message' => 'Seleccione únicamente encuestadores registrados y activos en este proyecto'], 422);
+        if ($count > $pool->count()) {
+            return response()->json(['message' => "Solo hay {$pool->count()} encuestadores activos en el proyecto."], 422);
+        }
+        $capacity = $zones->contains(fn ($zone) => ! $zone->assigned_count) ? null : $zones->sum('assigned_count');
+        if ($capacity !== null && $count > $capacity) {
+            return response()->json(['message' => "Las zonas admiten como máximo {$capacity} encuestadores en total."], 422);
         }
 
         $seed = $data['seed'] ?? (string) Str::uuid();
-        $ids = $users->pluck('id')->sortBy(fn ($id) => hash('sha256', $seed.':'.$id))->values();
+        $ids = $pool->pluck('id')->sortBy(fn ($id) => hash('sha256', $seed.':'.$id))->take($count)->values();
+        if (array_key_exists('expected_user_ids', $data)) {
+            $expected = collect($data['expected_user_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all();
+            if ($expected !== $ids->sort()->values()->all()) {
+                return response()->json(['message' => 'El equipo del proyecto cambió desde la vista previa. Vuelve a sortear antes de confirmar.'], 409);
+            }
+        }
         $assignments = $zones->mapWithKeys(fn ($zone) => [$zone->id => []])->all();
         foreach ($ids as $userId) {
             $candidate = $zones->sortBy(fn ($zone) => count($assignments[$zone->id]))
@@ -298,7 +314,14 @@ class ProjectZoneController extends Controller
             ]);
         }
 
-        return response()->json(['seed' => $seed, 'dry_run' => $request->boolean('dry_run'), 'assignments' => $assignments]);
+        $chosen = $pool->whereIn('id', $ids)->keyBy('id');
+
+        return response()->json([
+            'seed' => $seed, 'dry_run' => $request->boolean('dry_run'),
+            'pool_size' => $pool->count(), 'capacity' => $capacity,
+            'assignments' => $assignments,
+            'users' => $ids->map(fn ($id) => ['id' => $id, 'name' => $chosen[$id]->name, 'email' => $chosen[$id]->email])->values(),
+        ]);
     }
 
     private function canViewProject(Project $project, $user): bool

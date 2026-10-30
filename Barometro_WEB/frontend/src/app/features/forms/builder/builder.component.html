@@ -196,6 +196,21 @@
                     </span>
                   </button>
                 }
+                <p class="question-menu-group">Datos con validación</p>
+                @for (format of textFormats; track format.value) {
+                  <button
+                    class="question-menu-item"
+                    type="button"
+                    (click)="vm.addTextQuestion(format.value)"
+                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    <span class="material-icons" aria-hidden="true">{{ format.icon }}</span>
+                    <span>
+                      <strong>{{ format.defaultLabel }}</strong>
+                      <small>{{ format.hint }}</small>
+                    </span>
+                  </button>
+                }
               </div>
             </details>
           </div>
@@ -535,6 +550,27 @@
                           }
                         }
                       </div>
+                    </div>
+                  }
+
+                  @if (question.type === 'TEXT') {
+                    <div class="properties-panel">
+                      <label class="field">
+                        <span>Formato de la respuesta</span>
+                        <select
+                          [ngModel]="question.properties.text_format ?? ''"
+                          (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'text_format', $event || null)"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                        >
+                          <option value="">Texto libre (sin validación)</option>
+                          @for (format of textFormats; track format.value) {
+                            <option [value]="format.value">{{ format.label }}</option>
+                          }
+                        </select>
+                      </label>
+                      @if (question.properties.text_format) {
+                        <p class="field-hint">Se valida en la app, en el enlace público y al guardar en el servidor.</p>
+                      }
                     </div>
                   }
 
@@ -1101,7 +1137,12 @@
                 </p>
 
                 @if (question.type === 'TEXT') {
-                  <input type="text" disabled aria-label="Vista previa de la respuesta" [placeholder]="'forms.builder.shortAnswer' | translate" />
+                  <input
+                    [type]="textFormatInput(question.properties.text_format ?? null).type"
+                    disabled
+                    aria-label="Vista previa de la respuesta"
+                    [placeholder]="textFormatInput(question.properties.text_format ?? null).placeholder || ('forms.builder.shortAnswer' | translate)"
+                  />
                 } @else if (question.type === 'NUMBER') {
                   <input type="number" disabled aria-label="Vista previa de la respuesta" placeholder="0" />
                 } @else if (question.type === 'LIKERT') {
@@ -1228,7 +1269,7 @@
                           <span class="collect-likert-row">{{ row || ('forms.builder.likert.emptyRow' | translate) }}</span>
                           @for (column of question.likertColumns; track $index) {
                             <label class="collect-likert-cell">
-                              <input type="radio" [name]="'preview-' + question.tempId + '-' + rowIndex" />
+                              <input type="radio" [name]="'preview-' + question.tempId + '-' + rowIndex" [attr.aria-label]="(row || 'Fila ' + (rowIndex + 1)) + ': ' + column" />
                             </label>
                           }
                         }

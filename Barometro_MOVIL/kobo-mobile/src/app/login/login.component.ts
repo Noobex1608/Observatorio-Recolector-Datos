@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../auth.service';
 import { ApiService, LoginResponse } from '../api.service';
+import { trimTrailingSlashes } from '../utils/url';
 
 @Component({
   selector: 'app-login',
@@ -35,7 +36,7 @@ export class LoginComponent {
   async iniciarSesion() {
     this.errorLogin.set('');
 
-    const urlLimpia = this.urlServidor.trim().replace(/\/+$/, '');
+    const urlLimpia = trimTrailingSlashes(this.urlServidor.trim());
     const usuarioLimpio = this.usuario.trim();
 
     if (!urlLimpia || !usuarioLimpio || !this.clave) {
