@@ -315,6 +315,7 @@ import { ThemeService } from '@core/services/theme.service';
       .user-avatar {
         width: 32px;
         height: 32px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -380,6 +381,7 @@ import { ThemeService } from '@core/services/theme.service';
       .menu-avatar {
         width: 48px;
         height: 48px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -393,6 +395,7 @@ import { ThemeService } from '@core/services/theme.service';
       .menu-user-info {
         display: flex;
         flex-direction: column;
+        min-width: 0;
       }
 
       .menu-user-name {
@@ -403,6 +406,7 @@ import { ThemeService } from '@core/services/theme.service';
       .menu-user-email {
         font-size: 0.875rem;
         color: var(--text-secondary);
+        overflow-wrap: anywhere;
       }
 
       ::ng-deep .menu-item {
