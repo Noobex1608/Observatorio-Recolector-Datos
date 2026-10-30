@@ -79,7 +79,17 @@ chown -R www:www /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage
 chmod -R 775 /var/www/html/bootstrap/cache
 
-# Migraciones y usuario inicial se ejecutan como tarea explícita de liberación.
+# Migraciones: se aplican en cada arranque para que la base nunca quede atrás del código.
+# Si fallan, el contenedor no arranca y Render mantiene en línea la versión anterior.
+# Para omitirlas (p. ej. un worker adicional): RUN_MIGRATIONS=false
+if [ "${RUN_MIGRATIONS:-true}" != "false" ]; then
+    echo "Aplicando migraciones pendientes..."
+    if ! php artisan migrate --force --no-interaction; then
+        echo "Error: las migraciones fallaron; se detiene el arranque."
+        exit 1
+    fi
+    php artisan migrate:status --no-interaction 2>/dev/null | tail -n 5 || true
+fi
 
 # Generar documentación Swagger
 echo "Generando documentación Swagger..."
