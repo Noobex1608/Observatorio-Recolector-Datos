@@ -16,7 +16,7 @@
 .btn-regreso {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -71,7 +71,7 @@
   height: 50px;
   border-radius: 10px;
   background-color: rgba(88, 166, 255, 0.15);
-  color: var(--primary);
+  color: var(--primary-text);
   display: grid;
   place-items: center;
   font-size: 1.3rem;
@@ -96,7 +96,7 @@
 .ajuste-switch-info {
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   background: rgba(88, 166, 255, 0.12);
   padding: 4px 12px;
   border-radius: 20px;
@@ -133,3 +133,5 @@
 .toggle-switch.active .toggle-knob {
   transform: translateX(24px);
 }
+
+.ajuste-item:focus-visible { border-radius: 12px; }

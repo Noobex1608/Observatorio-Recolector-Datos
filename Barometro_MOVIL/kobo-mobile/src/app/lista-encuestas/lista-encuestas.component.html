@@ -30,11 +30,12 @@
         <input
           type="text"
           class="search-input"
+          aria-label="Buscar encuesta por título"
           placeholder="Buscar encuesta por título..."
           [(ngModel)]="filtroTexto"
         />
         @if (filtroTexto) {
-          <button type="button" class="btn-clear-search" (click)="filtroTexto = ''">✕</button>
+          <button type="button" class="btn-clear-search" (click)="filtroTexto = ''" aria-label="Limpiar búsqueda">✕</button>
         }
       </div>
     </div>
@@ -142,6 +143,13 @@
                 </span>
               }
 
+              <!-- Avance de las zonas con meta -->
+              @for (zona of form.zonasAvance; track zona.id) {
+                <span class="pill-badge" [class.warning]="zona.restantes === 0" [class.neutral]="zona.restantes > 0">
+                  {{ zona.name }}: {{ zona.restantes === 0 ? 'meta de zona alcanzada' : 'faltan ' + zona.restantes + ' de ' + zona.meta }}
+                </span>
+              }
+
               <!-- Badge Completado -->
               @if (form.completado) {
                 <span class="pill-badge warning">Límite alcanzado</span>
@@ -157,25 +165,8 @@
                 <span class="pill-badge neutral">Inicia {{ form.start_date }}</span>
               }
             </div>
-            @if (auth.obtenerRol() !== 'RECOLECTOR') {
-              <p class="field-shift-unassigned">Para iniciar una jornada, entra con la cuenta recolectora asignada a esta encuesta. Sesión actual: {{ auth.obtenerEmail() || 'sin identificar' }}.</p>
-            } @else if ((form.project_zones?.length ?? 0) > 0) {
-              <div class="field-shift" (click)="$event.stopPropagation()">
-                @if (tracking.active()?.formId === form.id) {
-                  <p>Jornada activa · posición compartida mientras la app esté abierta</p>
-                  @if (tracking.error()) { <small>{{ tracking.error() }}</small> }
-                  <button type="button" (click)="stopTracking($event)">Finalizar jornada</button>
-                } @else {
-                  <label>Zona asignada
-                    <select [(ngModel)]="trackingZoneByForm[form.id]" (click)="$event.stopPropagation()">
-                      @for (zone of form.project_zones ?? []; track zone.id) { <option [value]="zone.id">{{ zone.name }}</option> }
-                    </select>
-                  </label>
-                  <button type="button" (click)="startTracking(form, $event)">Iniciar jornada y compartir ubicación</button>
-                }
-              </div>
-            } @else {
-              <p class="field-shift-unassigned">Sin zona asignada. Solicita al líder del proyecto que delimite y asigne una zona para iniciar la jornada.</p>
+            @if (auth.obtenerRol() === 'RECOLECTOR' && (form.project_zones?.length ?? 0) === 0) {
+              <p class="field-shift-unassigned">Sin zona asignada. Solicita al líder del proyecto que delimite y asigne una zona.</p>
             }
           </div>
 
@@ -188,7 +179,7 @@
             } @else if (form.noIniciado) {
               <span class="btn-action-pill disabled">No iniciada</span>
             } @else {
-              <button type="button" class="btn-action-pill primary" aria-label="Iniciar encuesta">
+              <button type="button" class="btn-action-pill primary" [attr.aria-label]="'Iniciar encuesta ' + form.title">
                 <span>Iniciar</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12"/>

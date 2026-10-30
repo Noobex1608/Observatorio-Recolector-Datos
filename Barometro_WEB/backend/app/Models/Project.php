@@ -41,6 +41,12 @@ class Project extends Model
         return $this->hasMany(Form::class);
     }
 
+    public function collectors()
+    {
+        return $this->belongsToMany(User::class, 'project_collectors')
+            ->withPivot('is_active')->withTimestamps();
+    }
+
     public function technicalSheet()
     {
         return $this->hasOne(ProjectTechnicalSheet::class);

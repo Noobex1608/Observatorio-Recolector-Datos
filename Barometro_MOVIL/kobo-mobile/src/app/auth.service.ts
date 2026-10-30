@@ -28,7 +28,6 @@ export class AuthService {
     const scope = accountScope(userId, servidor);
     if (localStorage.getItem(ACCOUNT_SCOPE_KEY) !== scope) {
       localStorage.removeItem('field_tracking_active_shift');
-      window.dispatchEvent(new Event('field-tracking-logout'));
     }
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, nombre);
@@ -58,7 +57,6 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem('field_tracking_active_shift');
-    window.dispatchEvent(new Event('field-tracking-logout'));
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(USER_EMAIL_KEY);

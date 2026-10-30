@@ -1,14 +1,15 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
-import { QuestionType } from './db.service';
+import { QuestionType } from './db.service';
+import { trimTrailingSlashes } from './utils/url';
 
 const TOKEN_KEY = 'kobo_token';
 const SERVER_KEY = 'kobo_server_url';
 
 export interface LoginResponse {
   token: string;
-  user: { id: number; name: string; email: string; rol: string };
+  user: { id: number; name: string; email: string; rol: string; must_change_password?: boolean };
 }
 
 export interface BranchRule {
@@ -27,6 +28,10 @@ export interface BackendProjectZone {
   radius_meters: number;
   hierarchy_json?: any;
   geometry_json?: any;
+  /** Meta de encuestas de la zona (null = sin meta). */
+  target_responses?: number | null;
+  /** Encuestas que el servidor ya recibió para la zona, al último dato descargado. */
+  responses_count?: number;
 }
 
 export interface BackendForm {
@@ -46,6 +51,14 @@ export interface BackendForm {
   project_id?: string;
   project_name?: string;
   project_zones?: BackendProjectZone[];
+}
+
+export interface BackendFormMetadata {
+  id: string;
+  title: string;
+  target_responses?: number | null;
+  responses_count?: number | null;
+  zones_progress?: Array<{ id: string; target_responses: number | null; responses_count: number }>;
 }
 
 export interface BackendQuestion {
@@ -80,7 +93,7 @@ export class ApiService {
     if (parsed.protocol !== 'https:' && !(localDevelopment && parsed.protocol === 'http:')) {
       throw new Error('El servidor debe usar HTTPS. HTTP solo se admite en desarrollo local.');
     }
-    const base = parsed.toString().replace(/\/+$/, '');
+    const base = trimTrailingSlashes(parsed.toString());
     return `${base}/api/${path.replace(/^\//, '')}`;
   }
 
@@ -89,7 +102,7 @@ export class ApiService {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (token) {
       const authenticatedServer = localStorage.getItem(SERVER_KEY);
-      if (!authenticatedServer || new URL(authenticatedServer).toString().replace(/\/+$/, '') !== new URL(servidor).toString().replace(/\/+$/, '')) {
+      if (!authenticatedServer || trimTrailingSlashes(new URL(authenticatedServer).toString()) !== trimTrailingSlashes(new URL(servidor).toString())) {
         throw new Error('La sesión pertenece a otro servidor. Vuelve a iniciar sesión.');
       }
       headers['Authorization'] = `Bearer ${token}`;
@@ -106,10 +119,24 @@ export class ApiService {
     );
   }
 
+  changeTemporaryPassword(servidor: string, token: string, currentPassword: string, password: string): Promise<unknown> {
+    return lastValueFrom(this.http.post(this.buildUrl(servidor, 'change-password'), {
+      current_password: currentPassword, password, password_confirmation: password,
+    }, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } }));
+  }
+
   fetchForms(servidor: string): Promise<BackendForm[]> {
     const url = this.buildUrl(servidor, 'mobile/forms');
     return lastValueFrom(
       this.http.get<BackendForm[]>(url, { headers: this.getAuthHeaders(servidor) })
+    );
+  }
+
+  /** Lista liviana (sin preguntas ni geometrías): títulos, cuotas y avance por zona. */
+  fetchFormsMetadata(servidor: string): Promise<BackendFormMetadata[]> {
+    const url = this.buildUrl(servidor, 'mobile/forms/metadata');
+    return lastValueFrom(
+      this.http.get<BackendFormMetadata[]>(url, { headers: this.getAuthHeaders(servidor) })
     );
   }
 
@@ -127,21 +154,6 @@ export class ApiService {
         headers: this.getAuthHeaders(servidor)
       })
     );
-  }
-
-  startFieldTracking(servidor: string, formId: string, zoneId: string): Promise<void> {
-    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/start'),
-      { form_id: formId, zone_id: zoneId }, { headers: this.getAuthHeaders(servidor) }));
-  }
-
-  stopFieldTracking(servidor: string, formId: string): Promise<void> {
-    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/stop'),
-      { form_id: formId }, { headers: this.getAuthHeaders(servidor) }));
-  }
-
-  reportFieldLocation(servidor: string, payload: { form_id: string; zone_id: string; latitude: number; longitude: number; accuracy_meters: number; recorded_at: string }): Promise<void> {
-    return lastValueFrom(this.http.post<void>(this.buildUrl(servidor, 'mobile/field-tracking/report'),
-      payload, { headers: this.getAuthHeaders(servidor) }));
   }
 
   logout(servidor: string): Promise<void> {

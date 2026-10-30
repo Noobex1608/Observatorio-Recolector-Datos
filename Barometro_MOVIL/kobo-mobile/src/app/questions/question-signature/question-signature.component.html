@@ -1,11 +1,11 @@
 <div class="signature-container" [class.disabled]="disabled()">
   <div class="signature-header">
-    <label class="signature-label">
+    <span class="signature-label">
       {{ question().label }}
       @if (question().required) {
         <span class="required-badge">*</span>
       }
-    </label>
+    </span>
     @if (question().hint) {
       <p class="signature-hint">{{ question().hint }}</p>
     }

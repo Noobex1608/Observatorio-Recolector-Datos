@@ -127,7 +127,7 @@ import { TranslateModule } from '@ngx-translate/core';
       .nav-item.active {
         background: var(--primary-50);
         border-left-color: var(--primary-600);
-        color: var(--primary-700);
+        color: var(--primary-text-700);
       }
 
       :host-context(.dark) .nav-item.active {
@@ -167,7 +167,7 @@ import { TranslateModule } from '@ngx-translate/core';
       }
 
       .nav-item:hover .nav-icon {
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .nav-item.active .nav-icon {

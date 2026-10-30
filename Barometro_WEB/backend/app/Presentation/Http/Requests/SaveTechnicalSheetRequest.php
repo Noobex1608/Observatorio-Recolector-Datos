@@ -23,4 +23,21 @@ class SaveTechnicalSheetRequest extends FormRequest
             'status' => 'prohibited',
         ];
     }
+
+    /**
+     * Mensajes en español: el proyecto no publica los archivos de traducción de Laravel,
+     * así que sin esto la API devolvía la clave cruda (por ejemplo "validation.after_or_equal").
+     */
+    public function messages(): array
+    {
+        return [
+            'description.max' => 'La descripción no puede superar los 5000 caracteres.',
+            'start_date.date_format' => 'La fecha de inicio debe tener el formato AAAA-MM-DD.',
+            'end_date.date_format' => 'La fecha de fin debe tener el formato AAAA-MM-DD.',
+            'end_date.after_or_equal' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
+            'target_sample_size.integer' => 'La muestra objetivo debe ser un número entero.',
+            'target_sample_size.min' => 'La muestra objetivo debe ser al menos 1.',
+            'status.prohibited' => 'El estado de la ficha no se puede modificar desde este formulario.',
+        ];
+    }
 }

@@ -43,6 +43,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'cedula',
+        'must_change_password',
         'supabase_auth_id',
         'password',
         'rol',
@@ -60,6 +62,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
     }
 

@@ -1,6 +1,7 @@
 <?php
 namespace App\Application\Responses\Services;
 
+use App\Domain\Responses\Services\LocationTraceSanitizer;
 use App\Models\Form;
 use App\Models\FormResponse;
 use App\Models\User;
@@ -10,7 +11,11 @@ use Throwable;
 
 class StoreFormResponse
 {
-    public function __construct(private readonly ProcessResponseMedia $media, private readonly EnqueueResponseSync $sync) {}
+    public function __construct(
+        private readonly ProcessResponseMedia $media,
+        private readonly EnqueueResponseSync $sync,
+        private readonly LocationTraceSanitizer $traces,
+    ) {}
 
     public function submit(Form $form, ?User $user, array $data, string $submissionId): FormResponse
     {
@@ -40,6 +45,17 @@ class StoreFormResponse
                     abort_if($form->responses()->where('user_id', $user->id)->count() >= $share->target_responses,
                         422, 'Has alcanzado el límite de respuestas para este formulario.');
                 }
+                // Meta de encuestas de la zona: la fila del formulario ya está bloqueada, así que el conteo
+                // y la inserción no se cruzan con otro envío del mismo formulario.
+                $zoneId = is_array($data['_project_geofence'] ?? null) ? ($data['_project_geofence']['zone_id'] ?? null) : null;
+                $zone = is_string($zoneId) ? $form->zones()->whereKey($zoneId)->first() : null;
+                if ($zone && $zone->target_responses !== null) {
+                    abort_if($form->responses()->where('data->_project_geofence->zone_id', $zone->id)->count() >= $zone->target_responses,
+                        422, "La zona «{$zone->name}» ya alcanzó su meta de {$zone->target_responses} encuestas.");
+                }
+                // El trazado GPS va en su propia columna: no es una respuesta y no debe salir en exportes.
+                $trace = $this->traces->sanitize($data['_location_trace'] ?? null);
+                unset($data['_location_trace']);
                 $processed = $this->media->process($data, $form);
                 if (($processed['_project_geofence']['fuera_de_zona'] ?? false) === true) {
                     $processed['_requires_supervisor_review'] = true;
@@ -52,6 +68,8 @@ class StoreFormResponse
                     'form_id' => $form->id, 'user_id' => $user?->id, 'data' => $processed,
                     'client_submission_id' => $submissionId, 'submission_hash' => $hash,
                     'instrument_snapshot' => $snapshot,
+                    'location_trace' => $trace,
+                    'trace_started_at' => $trace['started_at'] ?? null,
                     'consent_evidence' => [
                         'required' => (bool) ($form->require_consent ?? true),
                         'accepted' => ($data['_consentimiento_aceptado'] ?? false) === true,

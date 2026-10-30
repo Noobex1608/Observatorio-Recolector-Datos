@@ -78,7 +78,7 @@
 }
 
 .brand-name span {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .brand-pwa-badge {
@@ -124,7 +124,7 @@
 
 .top-action-btn:hover {
   background-color: var(--bg-item-hover, #f1f5f9);
-  color: var(--primary);
+  color: var(--primary-text);
   border-color: var(--primary);
 }
 
@@ -261,7 +261,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .menu-icon-wrap.danger {
@@ -446,7 +446,7 @@
 
 .card-item-icon-box.info {
   background-color: rgba(188, 20, 33, 0.09);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .card-item-icon-box.warning {
@@ -487,7 +487,7 @@
 }
 
 .menu-card-item:hover:not(:disabled) .chevron-icon {
-  color: var(--primary);
+  color: var(--primary-text);
   transform: translateX(2px);
 }
 
@@ -621,7 +621,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--primary);
+  color: var(--primary-text);
 
   h3 {
     margin: 0;

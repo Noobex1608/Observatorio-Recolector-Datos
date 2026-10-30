@@ -11,6 +11,7 @@ use App\Domain\Forms\Services\FormFlowEngine;
 use App\Domain\Forms\Services\FormLifecycleService;
 use App\Domain\Forms\Services\FormResponseValidator;
 use App\Domain\Forms\Services\FormSchemaValidator;
+use App\Domain\Projects\Services\ProjectSurveyPeriod;
 use App\Http\Controllers\Controller;
 use App\Models\Form;
 use App\Models\FormQuestion;
@@ -46,12 +47,13 @@ class FormController extends Controller
         private readonly FormResponseValidator $formResponseValidator,
         private readonly FormSchemaValidator $formSchemaValidator,
         private readonly FormLifecycleService $formLifecycleService,
+        private readonly ProjectSurveyPeriod $projectPeriod,
     ) {}
 
     #[OA\Get(path: '/forms', summary: 'Listar formularios propios y compartidos', security: [['sanctum' => []]], tags: ['Forms'])]
     public function index(Request $request): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
         $user = $request->user();
 
         if ($user->isSuperAdmin() || $user->isAdmin()) {
@@ -78,12 +80,18 @@ class FormController extends Controller
             ->get();
 
         $sharedForms = Form::whereHas('shares', fn ($q) => $q->where('user_id', $user->id))
-            ->with(['owner:id,name,email,rol', 'project:id,name'])
+            ->with([
+                'owner:id,name,email,rol',
+                'project:id,name',
+                'shares' => fn ($q) => $q->where('user_id', $user->id)->select(['id', 'form_id', 'user_id', 'role']),
+            ])
             ->withCount('responses')
             ->latest()
             ->get()
-            ->map(function (Form $form) use ($user) {
-                $form->setAttribute('access_role', $this->shareRole($form, $user));
+            ->map(function (Form $form) {
+                // Rol leído de la relación precargada (antes: una consulta por formulario).
+                $form->setAttribute('access_role', $form->shares->first()?->role);
+                $form->unsetRelation('shares');
 
                 return $form;
             });
@@ -97,7 +105,7 @@ class FormController extends Controller
     #[OA\Get(path: '/mobile/forms', summary: 'Listar formularios para app móvil (formato plano con preguntas)', security: [['sanctum' => []]], tags: ['Mobile'])]
     public function mobileIndex(Request $request): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
         $user = $request->user();
 
         $forms = Form::where('state', 'DEPLOYED')
@@ -115,8 +123,11 @@ class FormController extends Controller
             ->latest()
             ->get();
 
-        $result = $forms->map(function (Form $form) use ($user) {
-            return $this->formatMobileForm($form, $user);
+        $userStats = $this->userFormStats($forms->pluck('id')->all(), $user);
+        $zoneCounts = $this->zoneResponseCounts($forms->pluck('id')->all());
+
+        $result = $forms->map(function (Form $form) use ($user, $userStats, $zoneCounts) {
+            return $this->formatMobileForm($form, $user, $userStats, $zoneCounts);
         });
 
         return response()->json($result);
@@ -125,7 +136,7 @@ class FormController extends Controller
     #[OA\Get(path: '/mobile/forms/metadata', summary: 'Obtener metadatos actualizados de formularios (sin preguntas)', security: [['sanctum' => []]], tags: ['Mobile'])]
     public function mobileMetadata(Request $request): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
         $user = $request->user();
 
         $forms = Form::where('state', 'DEPLOYED')
@@ -137,13 +148,15 @@ class FormController extends Controller
                     ->orWhereHas('shares', fn ($q) => $q->where('user_id', $user->id));
             })
             ->select('id', 'title', 'state', 'link_uuid', 'step_by_step')
+            ->with('zones:id,form_id,target_responses')
             ->latest()
             ->get();
 
-        $result = $forms->map(function (Form $form) use ($user) {
-            $share = FormUserShare::where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->first();
+        $userStats = $this->userFormStats($forms->pluck('id')->all(), $user);
+        $zoneCounts = $this->zoneResponseCounts($forms->pluck('id')->all());
+
+        $result = $forms->map(function (Form $form) use ($userStats, $zoneCounts) {
+            $stats = $userStats[$form->id] ?? null;
 
             return [
                 'id' => $form->id,
@@ -151,10 +164,14 @@ class FormController extends Controller
                 'state' => $form->state,
                 'link_uuid' => $form->link_uuid,
                 'step_by_step' => (bool) $form->step_by_step,
-                'target_responses' => $share?->target_responses ?? null,
-                'responses_count' => $share
-                    ? FormResponse::where('form_id', $form->id)->where('user_id', $user->id)->count()
-                    : null,
+                'target_responses' => $stats['target_responses'] ?? null,
+                'responses_count' => $stats['responses_count'] ?? null,
+                // Avance por zona para que la app actualice cuántas encuestas faltan sin volver a descargar.
+                'zones_progress' => $form->zones->map(fn ($zone) => [
+                    'id' => $zone->id,
+                    'target_responses' => $zone->target_responses,
+                    'responses_count' => (int) ($zoneCounts[$zone->id] ?? 0),
+                ])->values()->all(),
             ];
         });
 
@@ -200,6 +217,7 @@ class FormController extends Controller
 
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
+        $this->projectPeriod->assertWithin($projectId, $startDate, $endDate);
 
         $form = Form::create([
             'title' => $request->title,
@@ -225,7 +243,7 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/{id}', summary: 'Ver detalle de formulario', security: [['sanctum' => []]], tags: ['Forms'])]
     public function show(Request $request, string $id): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
         $user = $request->user();
         $form = $this->findViewableForm($id, $user);
         $form->load([
@@ -265,6 +283,11 @@ class FormController extends Controller
                     'El instrumento ya fue publicado. Duplique el formulario para cambiar sus preguntas o consentimiento y conservar el historial.');
             }
         }
+        $this->projectPeriod->assertWithin(
+            $form->project_id,
+            $request->has('start_date') ? $request->input('start_date') : $form->start_date?->format('Y-m-d'),
+            $request->has('end_date') ? $request->input('end_date') : $form->end_date?->format('Y-m-d'),
+        );
         $form->update($request->only([
             'title', 'description', 'step_by_step', 'consent_text', 'start_date', 'end_date',
         ]));
@@ -383,13 +406,17 @@ class FormController extends Controller
             return response()->json(['message' => 'El formulario ya está implementado'], 422);
         }
 
-        $form->load('technicalSheet');
-        if ($form->technicalSheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica de este formulario'], 422);
+        $sheet = $this->projectPeriod->sheet($form->project_id);
+        if ($sheet?->status !== 'VALIDATED') {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto'], 422);
         }
+        // Sin fechas propias, el formulario toma el periodo del proyecto.
+        $form->start_date ??= $sheet->start_date;
+        $form->end_date ??= $sheet->end_date;
+        $this->projectPeriod->assertWithin($form->project_id, $form->start_date?->format('Y-m-d'), $form->end_date?->format('Y-m-d'));
         $today = now('America/Guayaquil')->toDateString();
         if ($form->end_date && $form->end_date->format('Y-m-d') < $today) {
-            return response()->json(['message' => 'La fecha de fin del formulario ya pasó. Actualice y valide la ficha técnica antes de publicar.'], 422);
+            return response()->json(['message' => 'La fecha de fin del formulario ya pasó. Actualice sus fechas (dentro del periodo del proyecto) antes de publicar.'], 422);
         }
         if (! $form->zones()->exists()) {
             return response()->json(['message' => 'Delimite al menos una zona antes de publicar'], 422);
@@ -403,6 +430,8 @@ class FormController extends Controller
         }
 
         $form->update([
+            'start_date' => $form->start_date,
+            'end_date' => $form->end_date,
             'state' => 'DEPLOYED',
             'instrument_locked' => true,
             'link_uuid' => $form->link_uuid ?? Str::uuid(),
@@ -447,8 +476,8 @@ class FormController extends Controller
         if ($form->state === 'DEPLOYED') {
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
-        if ($form->technicalSheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
+        if (! $this->projectPeriod->isValidated($form->project_id)) {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
         }
 
         $request->validate([
@@ -459,6 +488,7 @@ class FormController extends Controller
             'options' => 'nullable|array',
             'branch_rules' => 'nullable|array',
             'properties' => 'nullable|array',
+            'properties.text_format' => 'nullable|in:email,cedula_ec,telefono_ec',
             'section_name' => 'nullable|string|max:255',
             'parent_question_id' => 'nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -493,8 +523,8 @@ class FormController extends Controller
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
         abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
-        if ($question->form->technicalSheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
+        if (! $this->projectPeriod->isValidated($question->form->project_id)) {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
         }
 
         $request->validate([
@@ -505,6 +535,7 @@ class FormController extends Controller
             'options' => 'sometimes|nullable|array',
             'branch_rules' => 'sometimes|nullable|array',
             'properties' => 'sometimes|nullable|array',
+            'properties.text_format' => 'nullable|in:email,cedula_ec,telefono_ec',
             'section_name' => 'sometimes|nullable|string|max:255',
             'parent_question_id' => 'sometimes|nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -539,8 +570,8 @@ class FormController extends Controller
             return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
         }
         abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
-        if ($question->form->technicalSheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica antes de editar preguntas'], 422);
+        if (! $this->projectPeriod->isValidated($question->form->project_id)) {
+            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
         }
 
         $form = $question->form;
@@ -557,10 +588,16 @@ class FormController extends Controller
         $form = $this->findViewableForm($id, $request->user());
         abort_if($request->user()->isUser(), 403);
 
-        $shares = $form->shares()->with('user:id,name,email,rol')->get()->map(function ($share) use ($form) {
-            $responsesCount = FormResponse::where('form_id', $form->id)
-                ->where('user_id', $share->user_id)
-                ->count();
+        $shares = $form->shares()->with('user:id,name,email,rol')->get();
+        // Un solo conteo agrupado por usuario (antes: un COUNT por cada asignación).
+        $countsByUser = FormResponse::where('form_id', $form->id)
+            ->whereIn('user_id', $shares->pluck('user_id')->all())
+            ->groupBy('user_id')
+            ->selectRaw('user_id, COUNT(*) AS total')
+            ->pluck('total', 'user_id');
+
+        $shares = $shares->map(function ($share) use ($countsByUser) {
+            $responsesCount = (int) ($countsByUser[$share->user_id] ?? 0);
 
             return [
                 'id' => $share->id,
@@ -608,6 +645,8 @@ class FormController extends Controller
                 'target_responses' => $request->role === 'RECOLECTOR' ? $request->target_responses : null,
             ]
         );
+
+        app(\App\Application\Forms\Services\FormShareAccess::class)->forgetArchived($form->id, $user->id);
 
         \App\Services\AuditLogService::logPermissionShare(
             $request->user(),
@@ -665,7 +704,7 @@ class FormController extends Controller
     #[OA\Get(path: '/forms/fetch/{link_uuid}', summary: 'Obtener formulario publico implementado', tags: ['Forms'])]
     public function fetchForm(string $link_uuid): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
 
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
@@ -683,7 +722,7 @@ class FormController extends Controller
     #[OA\Post(path: '/forms/submit/{link_uuid}', summary: 'Enviar respuesta publica', tags: ['Forms'])]
     public function submitResponse(SubmitMobileResponseRequest $request, string $link_uuid): JsonResponse
     {
-        $this->formLifecycleService->syncStates();
+        $this->formLifecycleService->syncStatesIfDue();
 
         $form = Form::where('link_uuid', $link_uuid)
             ->where('state', 'DEPLOYED')
@@ -754,6 +793,21 @@ class FormController extends Controller
             $stats[$q->id] = array_fill_keys($this->chartOptionsForQuestion($q), 0);
         }
 
+        if ($stats === []) {
+            return response()->json($stats);
+        }
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            // PostgreSQL agrupa y cuenta dentro de la base: no se transfiere ni decodifica el JSON de cada respuesta.
+            foreach ($this->aggregateChoiceAnswers($form->id, array_keys($stats)) as $row) {
+                $value = json_decode($row->answer, true);
+                $stats[$row->question_id][$value] = ($stats[$row->question_id][$value] ?? 0) + (int) $row->total;
+            }
+
+            return response()->json($stats);
+        }
+
+        // Respaldo para otros motores (SQLite en las pruebas): mismo resultado, recorriendo en PHP.
         foreach ($form->responses()->select(['id', 'form_id', 'data'])->cursor() as $r) {
             foreach ($form->questions as $q) {
                 if (! isset($stats[$q->id])) {
@@ -769,6 +823,37 @@ class FormController extends Controller
         }
 
         return response()->json($stats);
+    }
+
+    /**
+     * Cuenta respuestas por pregunta y valor en PostgreSQL. Replica la regla del recorrido en PHP:
+     * un valor suelto cuenta una vez, cada elemento de una lista (opción múltiple) y cada valor de un
+     * objeto (fila de Likert) cuentan por separado, y se ignoran nulos, textos vacíos y valores anidados.
+     *
+     * @param  array<int, string>  $questionIds
+     * @return array<int, object{question_id: string, answer: string, total: int}> answer = valor en JSON
+     */
+    private function aggregateChoiceAnswers(string $formId, array $questionIds): array
+    {
+        $placeholders = implode(', ', array_fill(0, count($questionIds), '?'));
+
+        return DB::select(<<<SQL
+            SELECT q.key AS question_id, x.value::text AS answer, COUNT(*) AS total
+            FROM form_responses r
+            CROSS JOIN LATERAL jsonb_each(r.data) AS q(key, value)
+            CROSS JOIN LATERAL (
+                SELECT e.value FROM jsonb_array_elements(CASE WHEN jsonb_typeof(q.value) = 'array' THEN q.value ELSE '[]'::jsonb END) AS e(value)
+                UNION ALL
+                SELECT o.value FROM jsonb_each(CASE WHEN jsonb_typeof(q.value) = 'object' THEN q.value ELSE '{}'::jsonb END) AS o(key, value)
+                UNION ALL
+                SELECT q.value WHERE jsonb_typeof(q.value) NOT IN ('array', 'object')
+            ) AS x(value)
+            WHERE r.form_id = ?
+              AND q.key IN ({$placeholders})
+              AND jsonb_typeof(x.value) IN ('string', 'number', 'boolean')
+              AND x.value <> '""'::jsonb
+            GROUP BY q.key, x.value
+            SQL, [$formId, ...$questionIds]);
     }
 
     #[OA\Get(path: '/forms/{id}/export', summary: 'Exportar respuestas CSV/XLSX', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -885,7 +970,12 @@ class FormController extends Controller
             $this->abortUnlessCanEdit($form, $request->user());
             abort_if($form->state === 'DEPLOYED' || $form->instrument_locked, 409,
                 'Duplique el formulario publicado para modificar el instrumento.');
-            abort_unless($form->technicalSheet?->status === 'VALIDATED', 422, 'El líder debe validar la ficha técnica.');
+            abort_unless($this->projectPeriod->isValidated($form->project_id), 422, 'El líder debe validar la ficha técnica del proyecto.');
+            $this->projectPeriod->assertWithin(
+                $form->project_id,
+                array_key_exists('start_date', $input) ? $input['start_date'] : $form->start_date?->format('Y-m-d'),
+                array_key_exists('end_date', $input) ? $input['end_date'] : $form->end_date?->format('Y-m-d'),
+            );
             if ($form->draft_revision !== $input['expected_revision']) {
                 throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
                     'message' => 'El formulario cambió desde que se abrió. Recargue antes de guardar.',
@@ -1278,7 +1368,10 @@ class FormController extends Controller
         return $data;
     }
 
-    private function formatMobileForm(Form $form, ?User $user = null): array
+    /**
+     * @param  array<string, array{target_responses: ?int, responses_count: int}>|null  $userStats  precalculado con userFormStats()
+     */
+    private function formatMobileForm(Form $form, ?User $user = null, ?array $userStats = null, ?array $zoneCounts = null): array
     {
         // Explicit projection: never expose loaded shares, users or project relations.
         $data = $form->only(['id', 'title', 'description', 'project_id', 'state', 'link_uuid', 'step_by_step', 'created_at', 'updated_at', 'instrument_locked', 'draft_revision']);
@@ -1305,8 +1398,11 @@ class FormController extends Controller
             $applicableZones = (! $user || $user->canManageProjects() || $user->leadsProject($form->project_id))
                 ? $zones : $userZones;
 
-            $data['project_zones'] = $applicableZones->values()->map(function ($zone) {
+            $zoneCounts ??= $this->zoneResponseCounts([$form->id]);
+            $data['project_zones'] = $applicableZones->values()->map(function ($zone) use ($zoneCounts) {
                 return [
+                    'target_responses' => $zone->target_responses,
+                    'responses_count' => (int) ($zoneCounts[$zone->id] ?? 0),
                     'id' => $zone->id,
                     'name' => $zone->name,
                     'description' => $zone->description,
@@ -1323,17 +1419,79 @@ class FormController extends Controller
         }
 
         if ($user) {
-            $share = FormUserShare::where('form_id', $form->id)
-                ->where('user_id', $user->id)
-                ->first();
+            $stats = ($userStats ?? $this->userFormStats([$form->id], $user))[$form->id] ?? null;
 
-            $data['target_responses'] = $share?->target_responses ?? null;
-            $data['responses_count'] = $share
-                ? FormResponse::where('form_id', $form->id)->where('user_id', $user->id)->count()
-                : null;
+            $data['target_responses'] = $stats['target_responses'] ?? null;
+            $data['responses_count'] = $stats['responses_count'] ?? null;
         }
 
         return $data;
+    }
+
+    /**
+     * Encuestas recibidas por zona (la zona viaja en data._project_geofence.zone_id), en una consulta.
+     *
+     * @param  array<int, string>  $formIds
+     * @return array<string, int>  zone_id => total
+     */
+    private function zoneResponseCounts(array $formIds): array
+    {
+        if ($formIds === []) {
+            return [];
+        }
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            return FormResponse::whereIn('form_id', $formIds)
+                ->whereRaw("data->'_project_geofence'->>'zone_id' IS NOT NULL")
+                ->groupByRaw("data->'_project_geofence'->>'zone_id'")
+                ->selectRaw("data->'_project_geofence'->>'zone_id' AS zone_id, COUNT(*) AS total")
+                ->pluck('total', 'zone_id')->map(fn ($total) => (int) $total)->all();
+        }
+        $counts = [];
+        foreach (\App\Models\ProjectZone::whereIn('form_id', $formIds)->pluck('id') as $zoneId) {
+            $counts[$zoneId] = FormResponse::whereIn('form_id', $formIds)
+                ->where('data->_project_geofence->zone_id', $zoneId)->count();
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Meta y avance del usuario por formulario en dos consultas, sin importar cuántos formularios haya.
+     * Solo incluye formularios donde el usuario tiene una asignación (igual que el comportamiento anterior).
+     *
+     * @param  array<int, string>  $formIds
+     * @return array<string, array{target_responses: ?int, responses_count: int}>
+     */
+    private function userFormStats(array $formIds, User $user): array
+    {
+        if ($formIds === []) {
+            return [];
+        }
+
+        $shares = FormUserShare::whereIn('form_id', $formIds)
+            ->where('user_id', $user->id)
+            ->get(['form_id', 'target_responses'])
+            ->keyBy('form_id');
+
+        if ($shares->isEmpty()) {
+            return [];
+        }
+
+        $counts = FormResponse::whereIn('form_id', $shares->keys()->all())
+            ->where('user_id', $user->id)
+            ->groupBy('form_id')
+            ->selectRaw('form_id, COUNT(*) AS total')
+            ->pluck('total', 'form_id');
+
+        $stats = [];
+        foreach ($shares as $formId => $share) {
+            $stats[$formId] = [
+                'target_responses' => $share->target_responses,
+                'responses_count' => (int) ($counts[$formId] ?? 0),
+            ];
+        }
+
+        return $stats;
     }
 
     private function chartOptionsForQuestion(FormQuestion $question): array

@@ -45,7 +45,11 @@ export class InicioComponent implements OnInit, OnDestroy {
   seleccionBorrar = new Set<string>();
   borrandoSeleccion = false;
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     await this.cargarContadores();
     this.urlServidor = this.auth.obtenerUrlServidor();
     this.nombreUsuario = this.auth.obtenerUsuario();
@@ -85,13 +89,13 @@ export class InicioComponent implements OnInit, OnDestroy {
 
   abrirSeccion(nombre: string) {
     if (nombre === 'Listo para enviar') {
-      this.router.navigate(['/listo-para-enviar']);
+      void this.router.navigate(['/listo-para-enviar']);
     } else if (nombre === 'Borradores') {
-      this.router.navigate(['/borradores']);
+      void this.router.navigate(['/borradores']);
     } else if (nombre === 'Enviado') {
-      this.router.navigate(['/enviados']);
+      void this.router.navigate(['/enviados']);
     } else if (nombre === 'Borrar formulario') {
-      this.iniciarBorrar();
+      void this.iniciarBorrar();
     }
   }
 
@@ -159,11 +163,11 @@ export class InicioComponent implements OnInit, OnDestroy {
   }
 
   irAjustes() {
-    this.router.navigate(['/ajustes']);
+    void this.router.navigate(['/ajustes']);
   }
 
   irPerfil() {
-    this.router.navigate(['/perfil']);
+    void this.router.navigate(['/perfil']);
   }
 
   verAcercaDe() {
@@ -195,7 +199,7 @@ export class InicioComponent implements OnInit, OnDestroy {
       if (err?.status === 401) {
         this.toast.show('Sesión expirada o no autorizada. Redirigiendo al login...', 'error');
         this.auth.logout();
-        this.router.navigate(['/login']);
+        void this.router.navigate(['/login']);
       } else {
         this.toast.show('Error al conectar con el servidor.', 'error');
       }
@@ -246,7 +250,7 @@ export class InicioComponent implements OnInit, OnDestroy {
       if (err?.status === 401) {
         this.toast.show('Sesión expirada. Por favor vuelve a iniciar sesión.', 'error');
         this.auth.logout();
-        this.router.navigate(['/login']);
+        void this.router.navigate(['/login']);
       } else {
         this.toast.show('Error al descargar formularios.', 'error');
       }
@@ -286,7 +290,7 @@ export class InicioComponent implements OnInit, OnDestroy {
       if (err?.status === 401) {
         this.toast.show('Sesión expirada. Por favor vuelve a iniciar sesión.', 'error');
         this.auth.logout();
-        this.router.navigate(['/login']);
+        void this.router.navigate(['/login']);
       } else {
         this.toast.show('Error al enviar formularios.', 'error');
       }
@@ -305,6 +309,6 @@ export class InicioComponent implements OnInit, OnDestroy {
       }
     }
     this.auth.logout();
-    this.router.navigate(['/login']);
+    void this.router.navigate(['/login']);
   }
 }

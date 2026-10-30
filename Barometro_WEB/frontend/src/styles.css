@@ -61,6 +61,11 @@
   --primary-800: #004499;
   --primary-900: #082f59;
   --primary-color: var(--primary-600);
+  /* Texto en color de marca: en claro es el mismo tono; en oscuro se aclara para mantener 4.5:1. */
+  --primary-text-500: var(--primary-500);
+  --primary-text-600: var(--primary-600);
+  --primary-text-700: var(--primary-700);
+  --primary-text-800: var(--primary-800);
   --accent-color: var(--uleam-red);
 
   --mat-sys-primary: var(--primary-600);
@@ -76,7 +81,7 @@
   --bg-tertiary: #e6f0f9;
   --text-primary: #172b44;
   --text-secondary: #4e6277;
-  --text-tertiary: #71859a;
+  --text-tertiary: #5b6f84; /* 4.8:1 sobre --bg-primary (antes 3.5:1) */
   --border-color: #d5e1ec;
   --border-hover: #a9c3da;
   --shadow-color: rgba(0, 68, 153, 0.09);
@@ -113,9 +118,19 @@
   --card-border: #263d58;
   --hover-bg: #193553;
   --mat-sys-primary: var(--primary-400);
-  --mat-sys-on-primary: #ffffff;
+  --mat-sys-on-primary: #04182e; /* texto oscuro sobre primary-400: 6.8:1 (antes 2.6:1 con blanco) */
   --mat-sys-primary-container: #123b64;
   --mat-sys-on-primary-container: #dceeff;
+  /* Tintes de fondo y texto de marca legibles sobre la paleta azul marino. */
+  --primary-50: #12304f;
+  --primary-100: #173b60;
+  --primary-text-500: #86c3ff;
+  --primary-text-600: #86c3ff;
+  --primary-text-700: #86c3ff;
+  --primary-text-800: #86c3ff;
+  --mat-tab-header-inactive-label-text-color: var(--text-secondary);
+  --mat-tab-header-inactive-hover-label-text-color: var(--text-primary);
+  --mat-tab-header-inactive-focus-label-text-color: var(--text-primary);
 }
 
 /* ================================================
@@ -543,8 +558,26 @@ textarea.mat-mdc-input-element {
 /* Tabs */
 .mat-mdc-tab-group {
   --mdc-tab-indicator-active-indicator-color: var(--primary-600);
-  --mat-tab-header-active-label-text-color: var(--primary-600);
+  --mat-tab-header-active-label-text-color: var(--primary-text-600);
+  --mat-tab-header-active-hover-label-text-color: var(--primary-text-600);
+  --mat-tab-header-active-focus-label-text-color: var(--primary-text-600);
   --mat-tab-header-active-ripple-color: var(--primary-100);
+  /* Nombres de tokens de Angular Material 20+ */
+  --mat-tab-active-indicator-color: var(--primary-text-600);
+  --mat-tab-active-label-text-color: var(--primary-text-600);
+  --mat-tab-active-hover-label-text-color: var(--primary-text-600);
+  --mat-tab-active-focus-label-text-color: var(--primary-text-600);
+  --mat-tab-active-hover-indicator-color: var(--primary-text-600);
+  --mat-tab-active-focus-indicator-color: var(--primary-text-600);
+  --mat-tab-inactive-label-text-color: var(--text-secondary);
+  --mat-tab-inactive-hover-label-text-color: var(--text-primary);
+  --mat-tab-inactive-focus-label-text-color: var(--text-primary);
+}
+
+.dark input[type='date'],
+.dark input[type='time'],
+.dark input[type='datetime-local'] {
+  color-scheme: dark;
 }
 
 .mat-mdc-tab-header {
@@ -557,7 +590,7 @@ textarea.mat-mdc-input-element {
 }
 
 .mat-mdc-tab.mdc-tab--active {
-  color: var(--primary-600) !important;
+  color: var(--primary-text-600) !important;
 }
 
 /* Chips */
@@ -880,7 +913,7 @@ a.mat-mdc-unelevated-button[color='primary'] .mdc-button__label {
 
 /* Text utilities */
 .text-gradient {
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 /* ================================================
@@ -1007,7 +1040,7 @@ a.mat-mdc-unelevated-button[color='primary'] .mdc-button__label {
 
 .icon-primary {
   background-color: var(--primary-50);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .dark .icon-primary {
@@ -1111,7 +1144,7 @@ a.mat-mdc-unelevated-button[color='primary'] .mdc-button__label {
 
 .label-badge-primary {
   background-color: var(--primary-50);
-  color: var(--primary-700);
+  color: var(--primary-text-700);
 }
 
 .dark .label-badge-primary {
@@ -1169,7 +1202,7 @@ small,
 
 /* Links en modo oscuro */
 a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .dark a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
@@ -1307,7 +1340,7 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 .logo-subtitle {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1336,12 +1369,12 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 }
 
 .nav-link:hover {
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   background: var(--hover-bg);
 }
 
 .nav-link.active {
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   background: var(--primary-50);
 }
 
@@ -1398,7 +1431,7 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 
 .lang-toggle:hover {
   background: var(--hover-bg);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .lang-code {
@@ -1428,7 +1461,7 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 
 .theme-toggle:hover {
   background: var(--hover-bg);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 /* User menu button */
@@ -1560,7 +1593,7 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 
 .check-icon {
   margin-left: auto;
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .observatories-menu {
@@ -1632,7 +1665,7 @@ a:not([class*='mat-']):not([class*='btn']):not([class*='nav']) {
 }
 
 .footer-links a:hover {
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 .footer-copy p {
@@ -1863,7 +1896,7 @@ body.immersive-modal-open .layout-main {
 }
 
 .source-icon mat-icon {
-  color: var(--primary-500);
+  color: var(--primary-text-500);
 }
 .dark .source-icon {
   background: rgba(200, 16, 46, 0.14);
@@ -1883,7 +1916,7 @@ body.immersive-modal-open .layout-main {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  color: var(--primary-500);
+  color: var(--primary-text-500);
   font-size: 0.8125rem;
   text-decoration: none;
 }
@@ -2031,4 +2064,20 @@ body.immersive-modal-open .layout-main {
   height: 16px;
   margin: 0;
   accent-color: var(--primary-600);
+}
+
+/* ===== Accesibilidad (WCAG 2.2) ===== */
+:root { --focus-ring: #0059a8; }
+.dark { --focus-ring: #86c3ff; }
+/* Foco siempre visible al navegar con teclado (2.4.7). Los campos de Material ya muestran su propio estado. */
+:focus-visible { outline: 3px solid var(--focus-ring) !important; outline-offset: 2px !important; }
+.mat-mdc-form-field :focus-visible, .mat-mdc-input-element:focus-visible, .mat-mdc-select:focus-visible { outline: none !important; }
+/* Texto solo para lectores de pantalla */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* Enlace "Saltar al contenido principal" (2.4.1): visible solo al recibir foco */
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 2000; padding: 10px 16px; border-radius: 8px; background: var(--card-bg, #fff); color: var(--text-primary); font-weight: 600; text-decoration: none; transform: translateY(-200%); transition: transform 0.15s; }
+.skip-link:focus { transform: translateY(0); }
+/* Respetar la preferencia de movimiento reducido (2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

@@ -2,7 +2,8 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../auth.service';
-import { ApiService } from '../api.service';
+import { ApiService, LoginResponse } from '../api.service';
+import { trimTrailingSlashes } from '../utils/url';
 
 @Component({
   selector: 'app-login',
@@ -17,6 +18,10 @@ export class LoginComponent {
   urlServidor: string = this.defaultServerUrl();
   usuario: string = '';
   clave: string = '';
+  nuevaClave: string = '';
+  confirmarClave: string = '';
+  readonly requiereCambio = signal(false);
+  private pendingLogin: { response: LoginResponse; servidor: string; clave: string } | null = null;
 
   readonly cargando = signal(false);
   readonly errorLogin = signal('');
@@ -31,7 +36,7 @@ export class LoginComponent {
   async iniciarSesion() {
     this.errorLogin.set('');
 
-    const urlLimpia = this.urlServidor.trim().replace(/\/+$/, '');
+    const urlLimpia = trimTrailingSlashes(this.urlServidor.trim());
     const usuarioLimpio = this.usuario.trim();
 
     if (!urlLimpia || !usuarioLimpio || !this.clave) {
@@ -42,6 +47,11 @@ export class LoginComponent {
     this.cargando.set(true);
     try {
       const response = await this.api.login(urlLimpia, usuarioLimpio, this.clave);
+      if (response.user.must_change_password) {
+        this.pendingLogin = { response, servidor: urlLimpia, clave: this.clave };
+        this.requiereCambio.set(true);
+        return;
+      }
       this.auth.guardarSesion(
         response.token,
         response.user.id,
@@ -53,6 +63,35 @@ export class LoginComponent {
       window.location.replace(new URL('.', document.baseURI).href);
     } catch (error) {
       this.errorLogin.set(this.mensajeErrorLogin(error));
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  async cambiarClaveTemporal(): Promise<void> {
+    this.errorLogin.set('');
+    const pending = this.pendingLogin;
+    if (!pending) return;
+    if (this.nuevaClave.length < 12 || !/[a-z]/.test(this.nuevaClave) || !/[A-Z]/.test(this.nuevaClave) || !/[0-9]/.test(this.nuevaClave)) {
+      this.errorLogin.set('Usa al menos 12 caracteres, con mayúsculas, minúsculas y números.');
+      return;
+    }
+    if (this.nuevaClave !== this.confirmarClave) {
+      this.errorLogin.set('Las contraseñas no coinciden.');
+      return;
+    }
+    this.cargando.set(true);
+    try {
+      await this.api.changeTemporaryPassword(pending.servidor, pending.response.token, pending.clave, this.nuevaClave);
+      const { response, servidor } = pending;
+      this.auth.guardarSesion(response.token, response.user.id, response.user.name, response.user.email, response.user.rol, servidor);
+      this.pendingLogin = null;
+      this.clave = '';
+      this.nuevaClave = '';
+      this.confirmarClave = '';
+      window.location.replace(new URL('.', document.baseURI).href);
+    } catch (error) {
+      this.errorLogin.set(error instanceof HttpErrorResponse ? error.error?.message || 'No se pudo cambiar la contraseña.' : 'No se pudo cambiar la contraseña.');
     } finally {
       this.cargando.set(false);
     }

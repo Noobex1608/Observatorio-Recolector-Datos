@@ -51,9 +51,8 @@ export class AjustesComponent {
       if (current && new URL(current).origin === target.origin) return;
     } catch { /* El modo demo no tiene origen HTTP. */ }
     const unsent = await this.db.responses.where('estado').anyOf('borrador', 'listo-para-enviar').count();
-    const pendingLocations = await this.db.pendingFieldTracking.count();
-    if (unsent > 0 || pendingLocations > 0) {
-      this.toast.show(`Hay ${unsent} respuestas y ${pendingLocations} ubicaciones pendientes. Sincronícelas antes de cambiar el servidor.`);
+    if (unsent > 0) {
+      this.toast.show(`Hay ${unsent} respuestas pendientes. Sincronícelas antes de cambiar el servidor.`);
       return;
     }
     if (!confirm('Se cerrará la sesión y se borrarán del dispositivo las encuestas y respuestas ya enviadas del servidor anterior. ¿Continuar?')) return;

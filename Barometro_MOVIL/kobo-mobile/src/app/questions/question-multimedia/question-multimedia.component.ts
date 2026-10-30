@@ -251,7 +251,7 @@ export class QuestionMultimediaComponent implements OnDestroy {
     const media = this.currentMedia();
     if (media?.mediaType === 'AUDIO') {
       await this.removeMedia();
-      this.startAudioRecording();
+      void this.startAudioRecording();
     } else {
       const inputId = media?.mediaType === 'VIDEO' ? `file-input-video-${this.question().id}` : `file-input-${this.question().id}`;
       const fileInput = (document.getElementById(inputId) || document.getElementById(`file-input-${this.question().id}`)) as HTMLInputElement;

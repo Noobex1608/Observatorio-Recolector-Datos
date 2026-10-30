@@ -163,7 +163,7 @@
 
         .result-icon {
           font-size: 1rem;
-          color: var(--primary-700);
+          color: var(--primary-text-700);
         }
 
         .result-name {
@@ -245,7 +245,7 @@
       label {
         font-size: 0.75rem;
         font-weight: 700;
-        color: var(--primary-700);
+        color: var(--primary-text-700);
         text-transform: uppercase;
         letter-spacing: 0.02em;
       }
@@ -491,3 +491,6 @@
     border-color: #30363d;
   }
 }
+
+/* Resultado de búsqueda como botón real (teclado y lector de pantalla) */
+button.search-result-item { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }

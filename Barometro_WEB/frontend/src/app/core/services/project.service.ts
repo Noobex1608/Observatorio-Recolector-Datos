@@ -30,6 +30,36 @@ export interface ProjectMember {
   form_title?: string | null;
 }
 
+export interface CollectorPage {
+  data: ProjectCollector[];
+  pagination: { current_page: number; last_page: number; per_page: number; total: number };
+}
+
+export interface CollectorCandidate {
+  id: number;
+  name: string;
+  email: string;
+  cedula: string | null;
+}
+
+export interface ProjectCollector {
+  id: number;
+  name: string;
+  email: string;
+  cedula: string;
+  is_active: boolean;
+  form_ids: string[];
+}
+
+export interface CollectorImportRow {
+  row: number;
+  cedula: string;
+  name: string;
+  email: string;
+  status: 'nuevo' | 'existente';
+  errors: string[];
+}
+
 export interface ProjectPayload {
   name: string;
   description?: string | null;
@@ -74,6 +104,7 @@ export interface ProjectZone {
     parroquia?: string;
     sector?: string;
     manzana?: string;
+    manzanas?: string[];
   } | null;
   geometry_json?: any;
   target_responses?: number | null;
@@ -126,6 +157,54 @@ export class ProjectService {
     return this.http.get<Array<Pick<User, 'id' | 'name' | 'email' | 'rol'>>>(`${this.apiUrl}/${projectId}/assignable-users`);
   }
 
+  getCollectors(projectId: string): Observable<ProjectCollector[]> {
+    return this.http.get<ProjectCollector[]>(`${this.apiUrl}/${projectId}/collectors`);
+  }
+
+  /** Una página del equipo del proyecto, con búsqueda por nombre, correo o cédula. */
+  getCollectorPage(projectId: string, page: number, q = '', perPage = 25): Observable<CollectorPage> {
+    return this.http.get<CollectorPage>(`${this.apiUrl}/${projectId}/collectors`, {
+      params: { page, per_page: perPage, q },
+    });
+  }
+
+  /** IDs de todos los encuestadores activos del proyecto que coinciden con la búsqueda. */
+  getCollectorIds(projectId: string, q = ''): Observable<number[]> {
+    return this.http.get<number[]>(`${this.apiUrl}/${projectId}/collectors/ids`, { params: { q } });
+  }
+
+  /** Usuarios encuestadores del sistema que aún no están en el proyecto. */
+  getCollectorCandidates(projectId: string, q = ''): Observable<CollectorCandidate[]> {
+    return this.http.get<CollectorCandidate[]>(`${this.apiUrl}/${projectId}/collectors/candidates`, { params: { q } });
+  }
+
+  attachCollectors(projectId: string, userIds: number[]): Observable<{ added: number }> {
+    return this.http.post<{ added: number }>(`${this.apiUrl}/${projectId}/collectors/attach`, { user_ids: userIds });
+  }
+
+  getCollectorTemplate(projectId: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${projectId}/collectors/template`, { responseType: 'blob' });
+  }
+
+  importCollectors(projectId: string, file: File, preview: boolean): Observable<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }> }> {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('preview', preview ? '1' : '0');
+    return this.http.post<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }> }>(`${this.apiUrl}/${projectId}/collectors/import`, body);
+  }
+
+  updateCollector(projectId: string, userId: number, data: Partial<Pick<ProjectCollector, 'name' | 'email' | 'cedula' | 'is_active'>>): Observable<void> {
+    return this.http.patch<void>(`${this.apiUrl}/${projectId}/collectors/${userId}`, data);
+  }
+
+  removeCollector(projectId: string, userId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${projectId}/collectors/${userId}`);
+  }
+
+  assignCollectorForms(projectId: string, userIds: number[], formIds: string[]): Observable<{ assigned: number }> {
+    return this.http.post<{ assigned: number }>(`${this.apiUrl}/${projectId}/collectors/assign-forms`, { user_ids: userIds, form_ids: formIds });
+  }
+
   createProject(data: ProjectPayload): Observable<Project> {
     return this.http.post<Project>(this.apiUrl, data);
   }
@@ -138,18 +217,23 @@ export class ProjectService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  // Ficha técnica vinculada a cada formulario.
+  // Ficha técnica única del proyecto (desde un formulario solo se consulta la de su proyecto).
+  getProjectTechnicalSheet(projectId: string): Observable<ProjectTechnicalSheet> {
+    return this.http.get<ProjectTechnicalSheet>(`${this.apiUrl}/${projectId}/technical-sheet`);
+  }
+
+  saveProjectTechnicalSheet(projectId: string, data: Partial<ProjectTechnicalSheet>): Observable<ProjectTechnicalSheet> {
+    return this.http.post<ProjectTechnicalSheet>(`${this.apiUrl}/${projectId}/technical-sheet`, data);
+  }
+
+  validateProjectTechnicalSheet(projectId: string): Observable<ProjectTechnicalSheet> {
+    return this.http.post<ProjectTechnicalSheet>(`${this.apiUrl}/${projectId}/technical-sheet/validate`, {});
+  }
+
   getFormTechnicalSheet(formId: string): Observable<ProjectTechnicalSheet> {
     return this.http.get<ProjectTechnicalSheet>(`${environment.apiUrl}/forms/${formId}/technical-sheet`);
   }
 
-  saveFormTechnicalSheet(formId: string, data: Partial<ProjectTechnicalSheet>): Observable<ProjectTechnicalSheet> {
-    return this.http.post<ProjectTechnicalSheet>(`${environment.apiUrl}/forms/${formId}/technical-sheet`, data);
-  }
-
-  validateFormTechnicalSheet(formId: string): Observable<ProjectTechnicalSheet> {
-    return this.http.post<ProjectTechnicalSheet>(`${environment.apiUrl}/forms/${formId}/technical-sheet/validate`, {});
-  }
 
   // Zonas de Levantamiento
   getProjectZones(projectId: string, formId?: string): Observable<ProjectZone[]> {
@@ -174,19 +258,124 @@ export class ProjectService {
     return this.http.post<ProjectZone[]>(`${this.apiUrl}/${projectId}/zones/bulk-assign`, { assignments });
   }
 
-  randomAssignZones(projectId: string, formId: string, userIds: number[], seed: string | null, dryRun: boolean): Observable<{ seed: string; dry_run: boolean; assignments: Record<string, number[]> }> {
-    return this.http.post<{ seed: string; dry_run: boolean; assignments: Record<string, number[]> }>(`${this.apiUrl}/${projectId}/zones/random-assign`, {
-      form_id: formId, user_ids: userIds, seed, dry_run: dryRun,
+  /**
+   * Sorteo de encuestadores: se indica la cantidad y el servidor elige al azar entre el equipo activo
+   * del proyecto y los reparte en las zonas. Al confirmar se envían los elegidos en la vista previa.
+   */
+  randomAssignZones(projectId: string, formId: string, count: number, seed: string | null, dryRun: boolean, expectedUserIds?: number[]): Observable<RandomAssignment> {
+    return this.http.post<RandomAssignment>(`${this.apiUrl}/${projectId}/zones/random-assign`, {
+      form_id: formId, count, seed, dry_run: dryRun,
+      ...(expectedUserIds ? { expected_user_ids: expectedUserIds } : {}),
     });
   }
 
-  getMonitor(projectId: string, formId: string): Observable<FieldMonitor> {
-    return this.http.get<FieldMonitor>(`${this.apiUrl}/${projectId}/monitor`, { params: { form_id: formId } });
+  /** Encuestadores del proyecto con su actividad (pestaña Supervisión). */
+  getSupervisionCollectors(projectId: string, options: { formId?: string | null; q?: string; page?: number; perPage?: number } = {}): Observable<SupervisionCollectorPage> {
+    const params: Record<string, string | number> = { page: options.page ?? 1, per_page: options.perPage ?? 25, q: options.q ?? '' };
+    if (options.formId) params['form_id'] = options.formId;
+    return this.http.get<SupervisionCollectorPage>(`${this.apiUrl}/${projectId}/supervision/collectors`, { params });
+  }
+
+  /** Recorrido GPS de un encuestador en un día: trazado de cada encuesta y verificación de zona. */
+  getCollectorRoute(projectId: string, userId: number, options: { formId?: string | null; date?: string | null } = {}): Observable<CollectorRoute> {
+    const params: Record<string, string> = {};
+    if (options.formId) params['form_id'] = options.formId;
+    if (options.date) params['date'] = options.date;
+    return this.http.get<CollectorRoute>(`${this.apiUrl}/${projectId}/supervision/collectors/${userId}`, { params });
   }
 }
 
-export interface FieldMonitor {
+export interface RandomAssignment {
+  seed: string;
+  dry_run: boolean;
+  pool_size: number;
+  capacity: number | null;
+  assignments: Record<string, number[]>;
+  users: { id: number; name: string; email: string }[];
+}
+
+export interface SupervisionCollector {
+  id: number;
+  name: string;
+  email: string;
+  cedula?: string | null;
+  zones: string[];
+  responses: number;
+  traced: number;
+  today: number;
+  outside: number;
+  last_activity: string | null;
+}
+
+export interface SupervisionCollectorPage {
+  data: SupervisionCollector[];
+  pagination: { current_page: number; last_page: number; per_page: number; total: number };
+}
+
+export interface RouteZone {
+  id: string;
+  name: string;
   form_id: string;
-  zones: Array<{ id: string; name: string; geofence_type: string; target_lat: number | null; target_lng: number | null; radius_meters: number; geometry_json: unknown; assigned_user_ids: number[] }>;
-  collectors: Array<{ id: number; name: string; active: boolean; last_position: { latitude: number; longitude: number; accuracy_meters: number | null; recorded_at: string; zone_id: string } | null }>;
+  geofence_type: string;
+  target_lat: number | null;
+  target_lng: number | null;
+  radius_meters: number;
+  geometry_json: unknown;
+}
+
+/** Momento de la encuesta en que la app tomó el punto GPS. */
+export type RouteEvent = 'inicio' | 'reanudar' | 'fin';
+
+/** [latitud, longitud, precisión, hora ISO, dentro de la zona (null = sin zona), lectura confiable, evento] */
+export type RoutePoint = [number, number, number | null, string, boolean | null, boolean, RouteEvent | null];
+
+export interface RouteAlert {
+  code: 'sin_trazado' | 'excepcion_zona' | 'fuera_de_zona' | 'salio_de_zona' | 'duracion_corta' | 'desplazamiento' | 'gps_impreciso';
+  message: string;
+}
+
+export interface RouteSurvey {
+  id: string;
+  form_id: string;
+  form_title: string | null;
+  zone: { id: string; name: string } | null;
+  started_at: string;
+  ended_at: string | null;
+  received_at: string;
+  has_trace: boolean;
+  declared_outside: boolean;
+  justification: string | null;
+  /** Veces que se retomó el borrador. */
+  resumed: number;
+  summary: {
+    points: number;
+    distance_meters: number;
+    duration_seconds: number | null;
+    inside_ratio: number | null;
+    start_inside: boolean | null;
+    end_inside: boolean | null;
+    average_accuracy: number | null;
+  };
+  alerts: RouteAlert[];
+  path: RoutePoint[];
+}
+
+export interface CollectorRoute {
+  collector: { id: number; name: string; email: string; cedula?: string | null };
+  date: string;
+  days: { date: string; surveys: number }[];
+  forms: { id: string; title: string }[];
+  zones: RouteZone[];
+  summary: {
+    surveys: number;
+    with_trace: number;
+    first_start: string | null;
+    last_end: string | null;
+    distance_meters: number;
+    surveying_seconds: number;
+    inside_ratio: number | null;
+    alerts: number;
+    outside_surveys: number;
+  };
+  surveys: RouteSurvey[];
 }

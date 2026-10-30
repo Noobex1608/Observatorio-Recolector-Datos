@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { A11yModule } from '@angular/cdk/a11y';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,16 +14,25 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '@core/services/auth.service';
-import { FormService } from '@core/services/form.service';
-import { FieldMonitor, Project, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
-import { GpsResultsMapComponent } from '../forms/responses/gps-results-map.component';
+import { Form, FormService } from '@core/services/form.service';
+import { CollectorCandidate, CollectorImportRow, Project, RandomAssignment, ProjectCollector, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
+import { SupervisionCollectorsComponent } from './supervision/supervision-collectors.component';
 import { MapGeofenceSelectorComponent, GeofenceSelectionEvent } from '@shared/components/map-geofence-selector/map-geofence-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+
+/** La fecha de fin no puede ser anterior a la de inicio (mismo criterio que after_or_equal en el backend). */
+function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null {
+  const start = group.get('start_date')?.value;
+  const end = group.get('end_date')?.value;
+  // Las fechas llegan como 'YYYY-MM-DD', así que la comparación de texto respeta el orden cronológico.
+  return start && end && end < start ? { endBeforeStart: true } : null;
+}
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
   imports: [
+    A11yModule,
     CommonModule,
     ReactiveFormsModule,
     RouterLink,
@@ -37,7 +47,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     MatTabsModule,
     MatChipsModule,
     MapGeofenceSelectorComponent,
-    GpsResultsMapComponent,
+    SupervisionCollectorsComponent,
     TranslateModule,
   ],
   template: `
@@ -180,7 +190,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
               <mat-card-content class="panel-content">
                 <mat-tab-group animationDuration="200ms" [(selectedIndex)]="selectedTabIndex">
-                  <!-- PESTAÑA 1: FICHA TÉCNICA POR FORMULARIO -->
+                  <!-- PESTAÑA 1: FICHA TÉCNICA DEL PROYECTO (una por proyecto) -->
                   <mat-tab>
                     <ng-template mat-tab-label>
                       <mat-icon class="tab-icon">assignment_turned_in</mat-icon>
@@ -188,20 +198,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                     </ng-template>
 
                     <div class="tab-body">
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Formulario de esta ficha técnica</mat-label>
-                        <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
-                          @for (form of project.forms ?? []; track form.id) {
-                            <mat-option [value]="form.id">{{ form.title }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                      @if (canCreateFormsInProject(project)) {
-                        <button mat-stroked-button type="button" (click)="openNewFormModal(project)">
-                          <mat-icon>add_circle</mat-icon> Iniciar ficha de una nueva encuesta
-                        </button>
-                      }
-                      @if (selectedFormId()) {
+                      <p class="muted">Una sola ficha para todo el proyecto. Al validarla se habilitan las preguntas, las zonas y la publicación de todos sus formularios; cada formulario define sus fechas dentro de este periodo.</p>
                       <form [formGroup]="technicalSheetForm" (ngSubmit)="saveTechnicalSheet()" class="sheet-form">
                         <div class="sheet-banner" [class.validated]="technicalSheet()?.status === 'VALIDATED'">
                           <mat-icon>{{ technicalSheet()?.status === 'VALIDATED' ? 'verified_user' : 'info' }}</mat-icon>
@@ -236,7 +233,10 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
                             <mat-form-field appearance="outline">
                               <mat-label>{{ 'projects.technicalSheet.endDate' | translate }}</mat-label>
-                              <input matInput type="date" formControlName="end_date" />
+                              <input matInput type="date" formControlName="end_date" [min]="technicalSheetForm.value.start_date || null" />
+                              @if (technicalSheetForm.hasError('endBeforeStart')) {
+                                <mat-hint class="sheet-date-error" style="color: var(--mat-sys-error, #b3261e)">{{ 'projects.technicalSheet.endBeforeStart' | translate }}</mat-hint>
+                              }
                             </mat-form-field>
 
                             <mat-form-field appearance="outline">
@@ -257,7 +257,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                             {{ 'projects.technicalSheet.saveDraft' | translate }}
                           </button> }
 
-                          @if (!editingSheet() && selectedForm()?.state !== 'DEPLOYED' && canEditSelectedProject()) {
+                          @if (!editingSheet() && canEditSelectedProject()) {
                             <button mat-stroked-button type="button" (click)="editingSheet.set(true)">
                               <mat-icon>edit</mat-icon> Editar ficha
                             </button>
@@ -275,12 +275,66 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                               {{ 'projects.technicalSheet.validateButton' | translate }}
                             </button>
                           }
-                          @if (technicalSheet()?.status === 'VALIDATED') {
-                            <a mat-flat-button color="primary" [routerLink]="['/admin/forms', selectedFormId(), 'edit']">Continuar al formulario</a>
+                        </div>
+                        @if (editingSheet() && technicalSheet()?.status === 'VALIDATED') {
+                          <p class="muted">Al guardar cambios la ficha vuelve a borrador: los formularios en borrador no podrán editarse ni publicarse hasta que el líder la valide de nuevo. Los formularios ya publicados siguen recibiendo encuestas.</p>
+                        }
+                      </form>
+
+                      <!-- Fechas propias de cada formulario, dentro del periodo del proyecto -->
+                      <section class="panel-section form-periods">
+                        <div class="section-title">
+                          <h2>Periodo de cada formulario</h2>
+                          @if (canCreateFormsInProject(project)) {
+                            <button mat-stroked-button type="button" (click)="openNewFormModal(project)">
+                              <mat-icon>add_circle</mat-icon> {{ 'projects.newForm' | translate }}
+                            </button>
                           }
                         </div>
-                      </form>
-                      } @else { <p>Inicia una encuesta para completar su ficha técnica.</p> }
+                        <p class="muted">
+                          Deben estar dentro del periodo del proyecto
+                          @if (technicalSheet()?.start_date && technicalSheet()?.end_date) {
+                            ({{ technicalSheet()?.start_date | date:'dd/MM/yyyy' }} al {{ technicalSheet()?.end_date | date:'dd/MM/yyyy' }})
+                          }. Un formulario sin fechas propias toma el periodo del proyecto al publicarse.
+                        </p>
+                        @for (form of project.forms ?? []; track form.id) {
+                          <div class="form-period-row">
+                            <div class="form-period-title">
+                              <strong>{{ form.title }}</strong>
+                              <small [class]="'form-state-badge ' + form.state.toLowerCase()">{{ formStateLabel(form.state) }}</small>
+                            </div>
+                            <mat-form-field appearance="outline">
+                              <mat-label>Inicio</mat-label>
+                              <input matInput type="date"
+                                [value]="formPeriodValue(form, 'start_date')"
+                                (change)="setFormPeriod(form, 'start_date', $event)"
+                                [min]="technicalSheet()?.start_date || null"
+                                [max]="technicalSheet()?.end_date || null"
+                                [disabled]="form.state === 'DEPLOYED' || !canEditSelectedProject()" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline">
+                              <mat-label>Fin</mat-label>
+                              <input matInput type="date"
+                                [value]="formPeriodValue(form, 'end_date')"
+                                (change)="setFormPeriod(form, 'end_date', $event)"
+                                [min]="formPeriodValue(form, 'start_date') || technicalSheet()?.start_date || null"
+                                [max]="technicalSheet()?.end_date || null"
+                                [disabled]="form.state === 'DEPLOYED' || !canEditSelectedProject()" />
+                            </mat-form-field>
+                            @if (form.state === 'DEPLOYED') {
+                              <small class="muted">Publicado: archívalo para cambiar sus fechas.</small>
+                            } @else if (canEditSelectedProject()) {
+                              <button mat-stroked-button type="button"
+                                [disabled]="!formPeriodDirty(form) || savingFormPeriodId() === form.id"
+                                (click)="saveFormPeriod(form)">
+                                <mat-icon>save</mat-icon> Guardar fechas
+                              </button>
+                            }
+                          </div>
+                        } @empty {
+                          <p class="muted">Este proyecto aún no tiene formularios.</p>
+                        }
+                      </section>
                     </div>
                   </mat-tab>
 
@@ -305,7 +359,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                       @if ((project.forms ?? []).length > 0) {
                         <div class="form-list">
                           @for (form of project.forms; track form.id) {
-                            <a class="form-item" [routerLink]="form.technical_sheet?.status === 'VALIDATED' || form.state === 'DEPLOYED' ? ['/admin/forms', form.id, 'edit'] : null" (click)="form.technical_sheet?.status !== 'VALIDATED' && form.state !== 'DEPLOYED' ? selectFormAndSheet(form.id) : null">
+                            <a class="form-item" [routerLink]="technicalSheet()?.status === 'VALIDATED' || form.state === 'DEPLOYED' ? ['/admin/forms', form.id, 'edit'] : null" (click)="technicalSheet()?.status !== 'VALIDATED' && form.state !== 'DEPLOYED' ? selectFormAndSheet(form.id) : null">
                               <div class="form-item-info">
                                 <strong>{{ form.title }}</strong>
                                 @if (form.start_date || form.end_date) {
@@ -331,6 +385,114 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                         <h2>{{ 'common.labels.members' | translate }}</h2>
                         <span>{{ 'projects.membersCount' | translate: { count: project.members?.length ?? 0 } }}</span>
                       </div>
+
+                      @if (canAssignMembers()) {
+                        <div class="collector-panel">
+                          <h3>Encuestadores del proyecto</h3>
+                          <div class="collector-actions">
+                            <button mat-stroked-button type="button" (click)="downloadCollectorTemplate()">Descargar plantilla Excel</button>
+                            <label class="collector-upload">Importar Excel (.xlsx)
+                              <input type="file" accept=".xlsx" (change)="chooseCollectorFile($event)" />
+                            </label>
+                          </div>
+                          @if (collectorPreview().length) {
+                            <div class="collector-preview">
+                              <strong>Vista previa: {{ collectorPreview().length }} fila(s)</strong>
+                              @for (row of collectorPreview(); track row.row) {
+                                <div class="collector-row" [class.collector-invalid]="row.errors.length">
+                                  <span>{{ row.row }}. {{ row.name }} · {{ row.cedula }} · {{ row.email }} ({{ row.status }})</span>
+                                  @if (row.errors.length) { <small>{{ row.errors.join(' ') }}</small> }
+                                </div>
+                              }
+                              <button mat-flat-button type="button" [disabled]="!collectorPreviewValid() || collectorBusy()" (click)="confirmCollectorImport()">Confirmar importación</button>
+                            </div>
+                          }
+                          @if (collectorCredentials().length) {
+                            <div class="collector-preview">
+                              <strong>{{ collectorCredentials().length }} cuenta(s) nueva(s). Descarga las claves temporales ahora; no se volverán a mostrar.</strong>
+                              <button mat-flat-button type="button" (click)="downloadCollectorCredentials()">Descargar credenciales CSV</button>
+                            </div>
+                          }
+                          <!-- Agregar usuarios encuestadores que ya tienen cuenta -->
+                          <div class="collector-toolbar">
+                            <button mat-stroked-button type="button" (click)="toggleAddExisting()">
+                              <mat-icon>person_add</mat-icon> {{ showAddExisting() ? 'Cerrar' : 'Agregar usuarios existentes' }}
+                            </button>
+                          </div>
+                          @if (showAddExisting()) {
+                            <div class="collector-preview">
+                              <strong>Agregar encuestadores que ya tienen cuenta</strong>
+                              <input class="collector-search" type="search" placeholder="Buscar por nombre, correo o cédula..."
+                                [value]="candidateSearch()" (input)="onCandidateSearch($event)" aria-label="Buscar usuarios existentes" />
+                              @for (candidate of candidates(); track candidate.id) {
+                                <label class="collector-form">
+                                  <input type="checkbox" [checked]="selectedCandidateIds().includes(candidate.id)" (change)="toggleCandidate(candidate.id)" />
+                                  {{ candidate.name }} · {{ candidate.cedula || 'sin cédula' }} · {{ candidate.email }}
+                                </label>
+                              } @empty {
+                                <small class="muted">{{ candidateSearch() ? 'No hay encuestadores fuera del proyecto con esa búsqueda.' : 'No hay más encuestadores activos fuera del proyecto.' }}</small>
+                              }
+                              <button mat-flat-button type="button" [disabled]="!selectedCandidateIds().length || collectorBusy()" (click)="addExistingCollectors()">
+                                Agregar {{ selectedCandidateIds().length || '' }} al proyecto
+                              </button>
+                            </div>
+                          }
+
+                          <!-- Búsqueda, selección masiva y paginación del equipo -->
+                          <div class="collector-toolbar">
+                            <input class="collector-search" type="search" placeholder="Buscar en el equipo por nombre, correo o cédula..."
+                              [value]="collectorSearch()" (input)="onCollectorSearch($event)" aria-label="Buscar encuestadores del proyecto" />
+                            <button mat-stroked-button type="button" [disabled]="collectorBusy()" (click)="selectAllCollectors()">
+                              <mat-icon>select_all</mat-icon> Seleccionar todos{{ collectorSearch() ? ' (búsqueda)' : '' }}
+                            </button>
+                            <button mat-stroked-button type="button" (click)="selectCollectorPage()">Seleccionar página</button>
+                            @if (selectedCollectorIds().length) {
+                              <button mat-stroked-button type="button" (click)="selectedCollectorIds.set([])">
+                                <mat-icon>deselect</mat-icon> Quitar selección ({{ selectedCollectorIds().length }})
+                              </button>
+                            }
+                          </div>
+                          @for (collector of collectorPageItems(); track collector.id) {
+                            <div class="collector-row">
+                              <label><input type="checkbox" [checked]="selectedCollectorIds().includes(collector.id)" [disabled]="!collector.is_active" (change)="toggleCollectorSelection(collector.id)" /></label>
+                              @if (editingCollectorId() === collector.id) {
+                                <input #collectorName [value]="collector.name" aria-label="Nombre del encuestador" />
+                                <input #collectorEmail [value]="collector.email" aria-label="Correo del encuestador" />
+                                <input #collectorCedula [value]="collector.cedula" aria-label="Cédula del encuestador" />
+                                <button type="button" (click)="saveCollector(collector, collectorName.value, collectorEmail.value, collectorCedula.value)">Guardar</button>
+                                <button type="button" (click)="editingCollectorId.set(null)">Cancelar</button>
+                              } @else {
+                                <span><strong>{{ collector.name }}</strong> · {{ collector.cedula }} · {{ collector.email }}<br /><small>{{ collector.is_active ? 'Activo' : 'Inactivo' }} · {{ collector.form_ids.length }} formulario(s)</small></span>
+                                <button type="button" (click)="editingCollectorId.set(collector.id)">Editar</button>
+                                <button type="button" (click)="setCollectorActive(collector, !collector.is_active)">{{ collector.is_active ? 'Desactivar' : 'Activar' }}</button>
+                                <button type="button" (click)="removeCollector(collector)">Quitar</button>
+                              }
+                            </div>
+                          } @empty {
+                            <p class="muted">{{ collectorSearch() ? 'Ningún encuestador del proyecto coincide con la búsqueda.' : 'Este proyecto aún no tiene encuestadores. Impórtalos con la plantilla o agrega usuarios existentes.' }}</p>
+                          }
+                          @if (collectorPagination(); as pagination) {
+                            @if (pagination.last_page > 1) {
+                              <div class="collector-pager">
+                                <button mat-stroked-button type="button" [disabled]="pagination.current_page <= 1" (click)="goToCollectorPage(pagination.current_page - 1)">Anterior</button>
+                                <span>Página {{ pagination.current_page }} de {{ pagination.last_page }} · {{ pagination.total }} encuestadores</span>
+                                <button mat-stroked-button type="button" [disabled]="pagination.current_page >= pagination.last_page" (click)="goToCollectorPage(pagination.current_page + 1)">Siguiente</button>
+                              </div>
+                            } @else {
+                              <small class="muted">{{ pagination.total }} encuestador(es)</small>
+                            }
+                          }
+                          @if (collectors().length && (project.forms ?? []).length) {
+                            <div class="collector-preview">
+                              <strong>Repartir formularios a los encuestadores seleccionados</strong>
+                              @for (form of project.forms ?? []; track form.id) {
+                                <label class="collector-form"><input type="checkbox" [checked]="selectedCollectorFormIds().includes(form.id)" (change)="toggleCollectorFormSelection(form.id)" />{{ form.title }}</label>
+                              }
+                              <button mat-flat-button type="button" [disabled]="!selectedCollectorIds().length || !selectedCollectorFormIds().length || collectorBusy()" (click)="assignCollectorForms()">Asignar formularios</button>
+                            </div>
+                          }
+                        </div>
+                      }
 
                       @if ((project.members ?? []).length > 0) {
                         <div class="members-table">
@@ -369,7 +531,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                       </mat-form-field>
                       @if (selectedFormId() && technicalSheet()?.status !== 'VALIDATED') {
                         <div class="zone-prerequisite">
-                          <p>La ficha técnica de este formulario debe estar validada antes de delimitar zonas.</p>
+                          <p>La ficha técnica del proyecto debe estar validada antes de delimitar zonas.</p>
                           @if (canLeadSelectedProject()) {
                             <button mat-stroked-button type="button" (click)="selectedTabIndex = 0">
                               <mat-icon>assignment_turned_in</mat-icon>
@@ -444,7 +606,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                                 <div class="picker-header">
                                   <h4>
                                     <mat-icon>person_add</mat-icon>
-                                    Asignar Encuestadores Especificos ({{ selectedEnumeratorIds().length }} seleccionados de {{ allEnumerators().length }})
+                                    Asignar Encuestadores Especificos ({{ selectedEnumeratorIds().length }}{{ zoneForm.value.assigned_count ? ' / cuota ' + zoneForm.value.assigned_count : '' }} seleccionados de {{ allEnumerators().length }} del proyecto)
                                   </h4>
                                   <div class="picker-actions">
                                     <button mat-stroked-button type="button" (click)="selectAllEnumerators()">
@@ -462,7 +624,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                                     <input matInput [value]="enumeratorSearchQuery()" (input)="onSearchEnumerator($event)" placeholder="Ej. Steven, recolector..." />
                                     <mat-icon matPrefix>search</mat-icon>
                                     @if (enumeratorSearchQuery()) {
-                                      <button mat-icon-button matSuffix (click)="enumeratorSearchQuery.set('')" type="button">
+                                      <button mat-icon-button matSuffix (click)="enumeratorSearchQuery.set('')" type="button" aria-label="Limpiar búsqueda">
                                         <mat-icon>close</mat-icon>
                                       </button>
                                     }
@@ -475,12 +637,16 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                                       <input
                                         type="checkbox"
                                         [checked]="isEnumeratorSelected(enumUser.id)"
-                                        (change)="toggleEnumeratorSelection(enumUser.id)"
+                                        (change)="toggleEnumeratorSelection(enumUser.id, $event)"
                                       />
                                       <span>{{ enumUser.name }} <small class="muted">({{ enumUser.email }})</small></span>
                                     </label>
                                   } @empty {
-                                    <p class="muted">No se encontraron encuestadores con la búsqueda realizada.</p>
+                                    @if (allEnumerators().length === 0) {
+                                      <p class="muted">Este proyecto aún no tiene encuestadores activos. Impórtalos desde la pestaña Encuestadores.</p>
+                                    } @else {
+                                      <p class="muted">No se encontraron encuestadores con la búsqueda realizada.</p>
+                                    }
                                   }
                                 </div>
                               </div>
@@ -496,6 +662,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                                   [targetLat]="zoneForm.value.target_lat || null"
                                   [targetLng]="zoneForm.value.target_lng || null"
                                   [radiusMeters]="zoneForm.value.radius_meters || 500"
+                                  [initialManzanas]="zoneManzanaCodes()"
                                   (geofenceChange)="onGeofenceChange($event)"
                                 ></app-map-geofence-selector>
                               </div>
@@ -528,7 +695,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                               <div class="zone-details">
                                 <span class="badge" [class.polygon]="zone.geofence_type === 'manzana_polygon'">
                                   <mat-icon>{{ zone.geofence_type === 'manzana_polygon' ? 'polyline' : 'radar' }}</mat-icon>
-                                  {{ zone.geofence_type === 'manzana_polygon' ? 'Polígono INEC' : ('Radio GPS (' + zone.radius_meters + 'm)') }}
+                                  {{ zone.geofence_type === 'manzana_polygon' ? ('Polígono INEC' + (manzanaCount(zone) > 1 ? ' (' + manzanaCount(zone) + ' manzanas)' : '')) : ('Radio GPS (' + zone.radius_meters + 'm)') }}
                                 </span>
 
                                 @if (zone.target_responses) {
@@ -580,21 +747,34 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                         <mat-card class="zone-builder-card">
                           <mat-card-content>
                             <h3>Designación aleatoria de encuestadores</h3>
-                            <p>La delimitación está lista. Seleccione el equipo y revise la distribución antes de confirmarla.</p>
-                            <mat-form-field appearance="outline" class="full-width">
-                              <mat-label>Encuestadores</mat-label>
-                              <mat-select multiple [value]="randomCandidateIds()" (selectionChange)="randomCandidateIds.set($event.value)">
-                                @for (user of allEnumerators(); track user.id) {
-                                  <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option>
-                                }
-                              </mat-select>
-                            </mat-form-field>
-                            <button mat-stroked-button type="button" [disabled]="randomCandidateIds().length === 0" (click)="previewRandomAssignment()">Previsualizar distribución</button>
-                            @if (randomPreview(); as preview) {
-                              @for (zone of zones(); track zone.id) {
-                                <p><strong>{{ zone.name }}:</strong> {{ preview.assignments[zone.id!]?.length ?? 0 }} encuestadores</p>
+                            @if (zonesHaveAssignments()) {
+                              <p class="random-note">Las zonas de este formulario ya tienen encuestadores. El sorteo solo se usa con zonas vacías; ajusta las asignaciones desde cada zona.</p>
+                            } @else {
+                              <p>Indica cuántos encuestadores necesitas. El sistema los elige al azar entre los
+                                <strong>{{ activeTeamCount() }}</strong> encuestadores activos del proyecto y los reparte entre las {{ zones().length }} zonas.</p>
+                              <div class="random-row">
+                                <mat-form-field appearance="outline">
+                                  <mat-label>Cantidad de encuestadores</mat-label>
+                                  <input matInput type="number" min="1" [max]="randomMax()" [value]="randomCount()"
+                                         (input)="setRandomCount($any($event.target).value)" />
+                                  <mat-hint>Máximo {{ randomMax() }}@if (zoneCapacity() !== null) { · las zonas admiten {{ zoneCapacity() }} }</mat-hint>
+                                </mat-form-field>
+                                <button mat-stroked-button type="button" [disabled]="!randomCountValid()" (click)="previewRandomAssignment()">
+                                  <mat-icon aria-hidden="true">casino</mat-icon> {{ randomPreview() ? 'Volver a sortear' : 'Sortear' }}
+                                </button>
+                              </div>
+                              @if (randomPreview(); as preview) {
+                                <div class="random-preview" aria-live="polite">
+                                  <p class="random-note">Vista previa: {{ preview.users.length }} de {{ preview.pool_size }} encuestadores activos. Nada se guarda hasta confirmar.</p>
+                                  @for (zone of zones(); track zone.id) {
+                                    <div class="random-zone">
+                                      <strong>{{ zone.name }}</strong>
+                                      <span>{{ randomNames(preview, zone.id!) || 'Sin encuestadores' }}</span>
+                                    </div>
+                                  }
+                                  <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
+                                </div>
                               }
-                              <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
                             }
                           </mat-card-content>
                         </mat-card>
@@ -608,25 +788,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                     <mat-tab>
                       <ng-template mat-tab-label><mat-icon class="tab-icon">track_changes</mat-icon> Supervisión</ng-template>
                       <div class="tab-body">
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>Encuesta a supervisar</mat-label>
-                          <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
-                            @for (form of project.forms ?? []; track form.id) { <mat-option [value]="form.id">{{ form.title }}</mat-option> }
-                          </mat-select>
-                        </mat-form-field>
-                        <button mat-stroked-button type="button" (click)="loadMonitor()">Actualizar posiciones</button>
-                        @if (monitor(); as data) {
-                          <p>Se muestran la última ubicación reportada y la hora de cada encuestador. Una posición antigua no indica presencia actual.</p>
-                          <app-gps-results-map [points]="monitorPoints()" [zones]="monitorZones()" />
-                          @for (collector of data.collectors; track collector.id) {
-                            <p><strong>{{ collector.name }}</strong> — {{ collector.active ? 'Jornada activa' : 'Jornada inactiva' }} ·
-                              @if (collector.last_position) {
-                                X: {{ collector.last_position.longitude }} · Y: {{ collector.last_position.latitude }} ·
-                                {{ collector.last_position.recorded_at | date:'dd/MM/yyyy HH:mm:ss' }}
-                              } @else { Sin posición reportada }
-                            </p>
-                          }
-                        }
+                        <app-supervision-collectors [projectId]="project.id" [forms]="project.forms ?? []" [initialFormId]="selectedFormId()" />
                       </div>
                     </mat-tab>
                   }
@@ -659,17 +821,17 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       @if (showNewFormModal()) {
-        <div class="modal-backdrop" (click)="closeNewFormModal()">
-          <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-backdrop" (click)="closeNewFormModal()" (keydown.escape)="closeNewFormModal()">
+          <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="new-form-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
             <header class="modal-header">
               <div class="modal-header-icon">
                 <mat-icon>assignment_add</mat-icon>
               </div>
               <div class="modal-header-text">
-                <h3>Nuevo Formulario de Recolección</h3>
+                <h3 id="new-form-title">Nuevo Formulario de Recolección</h3>
                 <p>Proyecto: <strong>{{ newFormProjectName() }}</strong></p>
               </div>
-              <button type="button" class="close-icon-btn" (click)="closeNewFormModal()">
+              <button type="button" class="close-icon-btn" aria-label="Cerrar" (click)="closeNewFormModal()">
                 <mat-icon>close</mat-icon>
               </button>
             </header>
@@ -690,7 +852,20 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                 <mat-icon matPrefix>description</mat-icon>
               </mat-form-field>
 
-              <p>El formulario se creará en borrador. Primero completarás la ficha técnica; el líder deberá validarla antes de editar preguntas.</p>
+              <div class="date-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Fecha de inicio (opcional)</mat-label>
+                  <input matInput type="date" formControlName="start_date"
+                    [min]="technicalSheet()?.start_date || null" [max]="technicalSheet()?.end_date || null" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Fecha de fin (opcional)</mat-label>
+                  <input matInput type="date" formControlName="end_date"
+                    [min]="newFormForm.value.start_date || technicalSheet()?.start_date || null" [max]="technicalSheet()?.end_date || null" />
+                </mat-form-field>
+              </div>
+
+              <p>El formulario se creará en borrador. Sus fechas deben estar dentro del periodo de la ficha técnica del proyecto; si las dejas vacías, usará ese periodo al publicarse. Las preguntas se habilitan cuando el líder valida la ficha del proyecto.</p>
 
               <footer class="modal-actions">
                 <button mat-button type="button" (click)="closeNewFormModal()" [disabled]="savingNewForm()">
@@ -698,7 +873,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
                 </button>
                 <button mat-flat-button color="primary" type="submit" [disabled]="savingNewForm() || newFormForm.invalid">
                   <mat-icon>arrow_forward</mat-icon>
-                  <span>{{ savingNewForm() ? 'Creando formulario...' : 'Continuar a Ficha Técnica' }}</span>
+                  <span>{{ savingNewForm() ? 'Creando formulario...' : 'Crear formulario' }}</span>
                 </button>
               </footer>
             </form>
@@ -741,7 +916,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       .eyebrow {
-        color: var(--primary-600);
+        color: var(--primary-text-600);
         font-size: 0.75rem;
         font-weight: 800;
         letter-spacing: 0.08em;
@@ -769,7 +944,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .page-kpis mat-icon {
         grid-row: span 2;
-        color: var(--primary-600);
+        color: var(--primary-text-600);
         font-size: 20px;
         width: 20px;
         height: 20px;
@@ -828,7 +1003,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         height: 42px;
         border-radius: var(--radius-lg);
         background: var(--primary-50);
-        color: var(--primary-700);
+        color: var(--primary-text-700);
         border: 1px solid var(--primary-100);
       }
 
@@ -980,7 +1155,11 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .status-badge.validated {
         background: rgba(16, 185, 129, 0.15);
-        color: #059669;
+        color: #047857;
+      }
+
+      :host-context(.dark) .status-badge.validated {
+        color: #34d399;
       }
 
       .panel-content {
@@ -1030,7 +1209,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
 
       .sheet-banner mat-icon {
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .sheet-fields {
@@ -1041,6 +1220,24 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       .full-width {
         width: 100%;
       }
+
+      .collector-panel { margin: 1rem 0; padding: 1rem; border: 1px solid var(--card-border); border-radius: var(--radius-md); }
+      .collector-panel h3 { margin: 0 0 .75rem; }
+      .collector-actions, .collector-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+      .collector-row { padding: .6rem 0; border-bottom: 1px solid var(--card-border); }
+      .collector-toolbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: .75rem 0; }
+      .collector-search { flex: 1; min-width: 220px; padding: .55rem .7rem; border: 1px solid var(--card-border); border-radius: 6px; background: transparent; color: inherit; }
+      .collector-pager { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: center; margin-top: .75rem; }
+      .collector-row span { flex: 1; min-width: 200px; }
+      .collector-row small { color: var(--text-secondary); }
+      .collector-row button { border: 0; background: transparent; color: var(--primary-text-600); cursor: pointer; }
+      .collector-row input:not([type=checkbox]) { max-width: 200px; padding: .4rem; border: 1px solid var(--card-border); border-radius: 4px; }
+      .collector-invalid { color: #b91c1c; }
+      .collector-upload { cursor: pointer; border: 1px solid var(--card-border); padding: .5rem .8rem; border-radius: 5px; }
+      .collector-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .collector-preview { display: grid; gap: .6rem; margin: .8rem 0; padding: .75rem; background: var(--bg-secondary); border-radius: var(--radius-md); }
+      .collector-preview button { justify-self: start; }
+      .collector-form { display: flex; gap: .5rem; align-items: center; }
 
       .date-row {
         display: grid;
@@ -1094,7 +1291,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
       .kpi-card mat-icon {
         grid-row: span 2;
-        color: var(--primary-600);
+        color: var(--primary-text-600);
       }
 
       .kpi-card span {
@@ -1122,6 +1319,14 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         font-size: 1.05rem;
       }
 
+      .random-row { display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+      .random-row mat-form-field { flex: 0 1 260px; }
+      .random-row button { margin-top: 0.6rem; }
+      .random-note { color: var(--text-secondary); font-size: 0.88rem; }
+      .random-preview { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
+      .random-zone { display: grid; gap: 0.15rem; padding: 0.6rem 0.8rem; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--bg-secondary); }
+      .random-zone span { color: var(--text-secondary); font-size: 0.88rem; }
+      .random-preview > button { justify-self: start; }
       .zone-builder-card {
         min-width: 0;
         border: 1px solid var(--primary-300);
@@ -1653,6 +1858,31 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         gap: 0.25rem;
       }
 
+      .form-period-row {
+        display: grid;
+        grid-template-columns: minmax(180px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+
+      .form-period-row mat-form-field {
+        margin-bottom: -1.25em;
+      }
+
+      .form-period-title {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      @media (max-width: 760px) {
+        .form-period-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
       .form-item-dates {
         display: inline-flex;
         align-items: center;
@@ -1702,7 +1932,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     `,
   ],
 })
-export class ProjectListComponent implements OnInit, OnDestroy {
+export class ProjectListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -1729,25 +1959,49 @@ export class ProjectListComponent implements OnInit, OnDestroy {
 
   projects = signal<Project[]>([]);
   projectLeaders = signal<Array<{ id: number; name: string; email: string }>>([]);
-  allEnumerators = signal<Array<{ id: number; name: string; email: string; rol: string }>>([]);
+  /**
+   * Encuestadores que se pueden asignar a zonas: el equipo activo del proyecto (pestaña Encuestadores).
+   * Al editar una zona se añaden quienes ya estaban en ella aunque no sean del equipo, para no perderlos.
+   */
+  allEnumerators = computed<Array<{ id: number; name: string; email: string; rol: string }>>(() => {
+    const team = this.collectors()
+      .filter((collector) => collector.is_active)
+      .map((collector) => ({ id: collector.id, name: collector.name, email: collector.email, rol: 'RECOLECTOR' }));
+    const teamIds = new Set(team.map((user) => user.id));
+    const legacy = (this.editingZone()?.assigned_users ?? [])
+      .filter((user) => !teamIds.has(user.id))
+      .map((user) => ({ id: user.id, name: user.name, email: user.email, rol: 'Fuera del equipo del proyecto' }));
+    return [...team, ...legacy];
+  });
   assignableUsers = signal<Array<{ id: number; name: string; email: string; rol: string }>>([]);
   selectedProject = signal<Project | null>(null);
+  collectors = signal<ProjectCollector[]>([]);
+  collectorFile = signal<File | null>(null);
+  collectorPreview = signal<CollectorImportRow[]>([]);
+  collectorPreviewValid = signal(false);
+  collectorCredentials = signal<Array<{ name: string; email: string; password: string }>>([]);
+  collectorBusy = signal(false);
+  editingCollectorId = signal<number | null>(null);
+  selectedCollectorIds = signal<number[]>([]);
+  selectedCollectorFormIds = signal<string[]>([]);
   technicalSheet = signal<ProjectTechnicalSheet | null>(null);
   selectedFormId = signal<string | null>(null);
   selectedForm = computed(() => this.selectedProject()?.forms?.find((form) => form.id === this.selectedFormId()) ?? null);
-  randomCandidateIds = signal<number[]>([]);
-  randomPreview = signal<{ seed: string; assignments: Record<string, number[]> } | null>(null);
-  monitor = signal<FieldMonitor | null>(null);
-  private monitorTimer: ReturnType<typeof setInterval> | null = null;
-  monitorPoints = computed(() => (this.monitor()?.collectors ?? []).flatMap((collector) => collector.last_position ? [{
-    responseId: String(collector.id), question: collector.name,
-    latitude: collector.last_position.latitude, longitude: collector.last_position.longitude,
-    accuracy: collector.last_position.accuracy_meters,
-  }] : []));
-  monitorZones = computed(() => (this.monitor()?.zones ?? []).map((zone) => ({
-    id: zone.id, name: zone.name, target_lat: zone.target_lat, target_lng: zone.target_lng,
-    radius_meters: zone.radius_meters, geometry_json: zone.geometry_json,
-  })));
+  randomCount = signal<number | null>(null);
+  randomPreview = signal<RandomAssignment | null>(null);
+  activeTeamCount = computed(() => this.collectors().filter((collector) => collector.is_active).length);
+  /** Suma de cupos de las zonas; null si alguna zona no tiene cupo definido. */
+  zoneCapacity = computed(() => {
+    const zones = this.zones();
+    return zones.length && zones.every((zone) => !!zone.assigned_count)
+      ? zones.reduce((total, zone) => total + (zone.assigned_count ?? 0), 0) : null;
+  });
+  randomMax = computed(() => Math.min(this.activeTeamCount(), this.zoneCapacity() ?? Number.MAX_SAFE_INTEGER));
+  randomCountValid = computed(() => {
+    const count = this.randomCount();
+    return count !== null && Number.isInteger(count) && count >= 1 && count <= this.randomMax();
+  });
+  zonesHaveAssignments = computed(() => this.zones().some((zone) => (zone.assigned_users?.length ?? 0) > 0));
   editingSheet = signal(false);
   zones = signal<ProjectZone[]>([]);
 
@@ -1822,7 +2076,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     start_date: [''],
     end_date: [''],
     target_sample_size: [null as number | null],
-  });
+  }, { validators: [endDateNotBeforeStart] });
 
   zoneForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(255)]],
@@ -1840,16 +2094,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.selectedFormId.set(this.route.snapshot.queryParamMap.get('form'));
     this.selectedTabIndex = this.authService.isSupervisor() ? 3
-      : this.route.snapshot.queryParamMap.get('tab') === 'zones' ? 2 : 0;
-    this.monitorTimer = setInterval(() => { if (this.selectedTabIndex === 3) this.loadMonitor(); }, 15000);
+      : this.route.snapshot.queryParamMap.get('tab') === 'zones' ? 2
+      : this.route.snapshot.queryParamMap.get('tab') === 'supervision' ? 3 : 0;
     this.loadProjects();
     if (this.canManageProjects()) {
       this.loadProjectLeaders();
     }
-  }
-
-  ngOnDestroy(): void {
-    if (this.monitorTimer) clearInterval(this.monitorTimer);
   }
 
   loadProjects(): void {
@@ -1882,20 +2132,269 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.projectService.getAssignableUsers(projectId).subscribe({
       next: (users) => {
         this.assignableUsers.set(users);
-        this.allEnumerators.set(users.filter((user) => user.rol === 'RECOLECTOR'));
       },
-      error: () => { this.assignableUsers.set([]); this.allEnumerators.set([]); },
+      error: () => { this.assignableUsers.set([]); },
+    });
+  }
+
+  private loadCollectors(projectId: string): void {
+    // Lista completa: la usa el selector de encuestadores de las zonas.
+    this.projectService.getCollectors(projectId).subscribe({
+      next: (collectors) => this.collectors.set(collectors),
+      error: () => this.snackBar.open('No se pudieron cargar los encuestadores', 'Cerrar', { duration: 3500 }),
+    });
+    this.loadCollectorPage(projectId);
+  }
+
+  // --- Equipo de encuestadores: página visible, búsqueda y selección masiva ---
+  collectorPageItems = signal<ProjectCollector[]>([]);
+  collectorPagination = signal<{ current_page: number; last_page: number; per_page: number; total: number } | null>(null);
+  collectorSearch = signal('');
+  private collectorPageNumber = 1;
+  private collectorSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private loadCollectorPage(projectId: string): void {
+    this.projectService.getCollectorPage(projectId, this.collectorPageNumber, this.collectorSearch()).subscribe({
+      next: (page) => {
+        // Si la página quedó vacía (por ejemplo tras quitar al último), volver a la anterior.
+        if (!page.data.length && page.pagination.current_page > 1) {
+          this.collectorPageNumber = page.pagination.last_page;
+          this.loadCollectorPage(projectId);
+          return;
+        }
+        this.collectorPageItems.set(page.data);
+        this.collectorPagination.set(page.pagination);
+      },
+      error: () => this.snackBar.open('No se pudieron cargar los encuestadores', 'Cerrar', { duration: 3500 }),
+    });
+  }
+
+  goToCollectorPage(page: number): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.collectorPageNumber = page;
+    this.loadCollectorPage(project.id);
+  }
+
+  onCollectorSearch(event: Event): void {
+    this.collectorSearch.set((event.target as HTMLInputElement).value);
+    if (this.collectorSearchTimer) clearTimeout(this.collectorSearchTimer);
+    this.collectorSearchTimer = setTimeout(() => this.goToCollectorPage(1), 300);
+  }
+
+  /** Selecciona a todos los encuestadores activos (todas las páginas), respetando la búsqueda. */
+  selectAllCollectors(): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.collectorBusy.set(true);
+    this.projectService.getCollectorIds(project.id, this.collectorSearch()).subscribe({
+      next: (ids) => {
+        this.collectorBusy.set(false);
+        this.selectedCollectorIds.set(ids);
+        this.snackBar.open(`${ids.length} encuestador(es) activo(s) seleccionados`, 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.collectorBusy.set(false);
+        this.snackBar.open('No se pudo seleccionar a todos', 'Cerrar', { duration: 3500 });
+      },
+    });
+  }
+
+  selectCollectorPage(): void {
+    const pageIds = this.collectorPageItems().filter((c) => c.is_active).map((c) => c.id);
+    this.selectedCollectorIds.update((ids) => [...new Set([...ids, ...pageIds])]);
+  }
+
+  // --- Agregar usuarios existentes al equipo ---
+  showAddExisting = signal(false);
+  candidates = signal<CollectorCandidate[]>([]);
+  candidateSearch = signal('');
+  selectedCandidateIds = signal<number[]>([]);
+  private candidateSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  toggleAddExisting(): void {
+    this.showAddExisting.update((open) => !open);
+    if (this.showAddExisting()) this.loadCandidates();
+  }
+
+  private loadCandidates(): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.projectService.getCollectorCandidates(project.id, this.candidateSearch()).subscribe({
+      next: (users) => this.candidates.set(users),
+      error: () => this.snackBar.open('No se pudieron buscar usuarios', 'Cerrar', { duration: 3500 }),
+    });
+  }
+
+  onCandidateSearch(event: Event): void {
+    this.candidateSearch.set((event.target as HTMLInputElement).value);
+    if (this.candidateSearchTimer) clearTimeout(this.candidateSearchTimer);
+    this.candidateSearchTimer = setTimeout(() => this.loadCandidates(), 300);
+  }
+
+  toggleCandidate(id: number): void {
+    this.selectedCandidateIds.update((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+  }
+
+  addExistingCollectors(): void {
+    const project = this.selectedProject();
+    const ids = this.selectedCandidateIds();
+    if (!project || !ids.length) return;
+    this.collectorBusy.set(true);
+    this.projectService.attachCollectors(project.id, ids).subscribe({
+      next: (result) => {
+        this.collectorBusy.set(false);
+        this.selectedCandidateIds.set([]);
+        this.loadCandidates();
+        this.loadCollectors(project.id);
+        this.snackBar.open(`${result.added} encuestador(es) agregados al proyecto`, 'Cerrar', { duration: 3000 });
+      },
+      error: (error) => {
+        this.collectorBusy.set(false);
+        this.snackBar.open(error?.error?.message || 'No se pudieron agregar los encuestadores', 'Cerrar', { duration: 4000 });
+      },
+    });
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  downloadCollectorTemplate(): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.projectService.getCollectorTemplate(project.id).subscribe({
+      next: (blob) => this.downloadBlob(blob, 'plantilla-encuestadores.xlsx'),
+      error: () => this.snackBar.open('No se pudo descargar la plantilla', 'Cerrar', { duration: 3500 }),
+    });
+  }
+
+  chooseCollectorFile(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    const project = this.selectedProject();
+    if (!file || !project) return;
+    this.collectorFile.set(file);
+    this.collectorPreview.set([]);
+    this.collectorCredentials.set([]);
+    this.collectorBusy.set(true);
+    this.projectService.importCollectors(project.id, file, true).subscribe({
+      next: (result) => {
+        this.collectorPreview.set(result.rows ?? []);
+        this.collectorPreviewValid.set(!!result.valid);
+        this.collectorBusy.set(false);
+      },
+      error: (error) => {
+        this.collectorBusy.set(false);
+        this.snackBar.open(error?.error?.message || 'No se pudo leer el archivo', 'Cerrar', { duration: 5000 });
+      },
+    });
+    (event.target as HTMLInputElement).value = '';
+  }
+
+  confirmCollectorImport(): void {
+    const project = this.selectedProject();
+    const file = this.collectorFile();
+    if (!project || !file || !this.collectorPreviewValid()) return;
+    this.collectorBusy.set(true);
+    this.projectService.importCollectors(project.id, file, false).subscribe({
+      next: (result) => {
+        this.collectorBusy.set(false);
+        this.collectorCredentials.set(result.credentials ?? []);
+        this.collectorPreview.set([]);
+        this.collectorFile.set(null);
+        this.loadCollectors(project.id);
+        this.loadAllEnumerators(project.id);
+        this.snackBar.open(`${result.imported} encuestador(es) importados`, 'Cerrar', { duration: 3500 });
+      },
+      error: (error) => {
+        this.collectorBusy.set(false);
+        this.snackBar.open(error?.error?.message || 'No se pudo importar', 'Cerrar', { duration: 5000 });
+      },
+    });
+  }
+
+  downloadCollectorCredentials(): void {
+    const rows = [['Nombre', 'Correo', 'Contrasena temporal'], ...this.collectorCredentials().map((item) => [item.name, item.email, item.password])];
+    const csv = '\uFEFF' + rows.map((row) => row.map((value) => {
+      const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+      return `"${safe.replaceAll('"', '""')}"`;
+    }).join(',')).join('\r\n');
+    this.downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'credenciales-encuestadores.csv');
+    this.collectorCredentials.set([]);
+  }
+
+  toggleCollectorSelection(id: number): void {
+    this.selectedCollectorIds.update((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+  }
+
+  toggleCollectorFormSelection(id: string): void {
+    this.selectedCollectorFormIds.update((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+  }
+
+  saveCollector(collector: ProjectCollector, name: string, email: string, cedula: string): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.projectService.updateCollector(project.id, collector.id, { name: name.trim(), email: email.trim(), cedula: cedula.trim() }).subscribe({
+      next: () => { this.editingCollectorId.set(null); this.loadCollectors(project.id); this.snackBar.open('Encuestador actualizado', 'Cerrar', { duration: 3000 }); },
+      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo actualizar', 'Cerrar', { duration: 4000 }),
+    });
+  }
+
+  setCollectorActive(collector: ProjectCollector, active: boolean): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.projectService.updateCollector(project.id, collector.id, { is_active: active }).subscribe({
+      next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); },
+      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo cambiar el estado', 'Cerrar', { duration: 4000 }),
+    });
+  }
+
+  removeCollector(collector: ProjectCollector): void {
+    const project = this.selectedProject();
+    if (!project || !confirm(`¿Quitar a ${collector.name} de este proyecto?`)) return;
+    this.projectService.removeCollector(project.id, collector.id).subscribe({
+      next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); this.selectProject(project); },
+      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo quitar', 'Cerrar', { duration: 4000 }),
+    });
+  }
+
+  assignCollectorForms(): void {
+    const project = this.selectedProject();
+    if (!project) return;
+    this.collectorBusy.set(true);
+    this.projectService.assignCollectorForms(project.id, this.selectedCollectorIds(), this.selectedCollectorFormIds()).subscribe({
+      next: (result) => { this.collectorBusy.set(false); this.loadCollectors(project.id); this.selectProject(project); this.snackBar.open(`${result.assigned} asignación(es) nuevas`, 'Cerrar', { duration: 3500 }); },
+      error: (error) => { this.collectorBusy.set(false); this.snackBar.open(error?.error?.message || 'No se pudieron asignar formularios', 'Cerrar', { duration: 4000 }); },
     });
   }
 
   selectProject(project: Project): void {
+    const changedProject = this.selectedProject()?.id !== project.id;
+    this.collectorFile.set(null);
+    this.collectorPreview.set([]);
+    if (changedProject) this.collectorCredentials.set([]);
+    this.selectedCollectorIds.set([]);
+    this.selectedCollectorFormIds.set([]);
+    if (changedProject) {
+      this.collectorPageNumber = 1;
+      this.collectorSearch.set('');
+      this.showAddExisting.set(false);
+      this.selectedCandidateIds.set([]);
+    }
     this.projectService.getProject(project.id).subscribe({
       next: (detail) => {
         this.selectedProject.set(detail);
+        if (this.canAssignMembers()) this.loadCollectors(detail.id);
+        else this.collectors.set([]);
         this.loadAllEnumerators(detail.id);
+        this.loadTechnicalSheet(detail.id);
         const firstForm = detail.forms?.find((form) => form.id === this.selectedFormId()) ?? detail.forms?.[0];
         this.selectForm(firstForm?.id ?? null);
-        if (this.selectedTabIndex === 3) this.loadMonitor();
       },
       error: () => this.snackBar.open(this.translate.instant('projects.errors.loadProject'), this.translate.instant('common.buttons.close'), { duration: 3000 }),
     });
@@ -1904,33 +2403,33 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   selectForm(formId: string | null): void {
     this.selectedFormId.set(formId);
     this.randomPreview.set(null);
-    this.technicalSheet.set(null);
     this.zones.set([]);
     if (!formId) return;
-    this.loadTechnicalSheet(formId);
     const project = this.selectedProject();
     if (project) this.loadZones(project.id);
-    if (this.selectedTabIndex === 3) this.loadMonitor();
-  }
-
-  loadMonitor(): void {
-    const project = this.selectedProject();
-    const formId = this.selectedFormId();
-    if (!project || !formId) return;
-    this.projectService.getMonitor(project.id, formId).subscribe({
-      next: (data) => this.monitor.set(data),
-      error: () => this.monitor.set(null),
-    });
   }
 
   previewRandomAssignment(): void {
     const project = this.selectedProject();
     const formId = this.selectedFormId();
     if (!project || !formId) return;
-    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), null, true).subscribe({
+    const count = this.randomCount();
+    if (count === null) return;
+    this.projectService.randomAssignZones(project.id, formId, count, null, true).subscribe({
       next: (result) => this.randomPreview.set(result),
       error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo previsualizar la designación', 'Cerrar', { duration: 3500 }),
     });
+  }
+
+  setRandomCount(value: string): void {
+    const count = value === '' ? null : Number(value);
+    this.randomCount.set(count !== null && Number.isFinite(count) ? Math.trunc(count) : null);
+    this.randomPreview.set(null);
+  }
+
+  randomNames(preview: RandomAssignment, zoneId: string): string {
+    const names = new Map(preview.users.map((user) => [user.id, user.name]));
+    return (preview.assignments[zoneId] ?? []).map((id) => names.get(id) ?? `#${id}`).join(', ');
   }
 
   confirmRandomAssignment(): void {
@@ -1938,9 +2437,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     const formId = this.selectedFormId();
     const preview = this.randomPreview();
     if (!project || !formId || !preview) return;
-    this.projectService.randomAssignZones(project.id, formId, this.randomCandidateIds(), preview.seed, false).subscribe({
-      next: () => { this.randomPreview.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
-      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 3500 }),
+    this.projectService.randomAssignZones(project.id, formId, preview.users.length, preview.seed, false, preview.users.map((user) => user.id)).subscribe({
+      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
+      error: (err) => {
+        if (err?.status === 409) this.randomPreview.set(null);
+        this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 4000 });
+      },
     });
   }
 
@@ -1959,8 +2461,9 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.selectedTabIndex = 0;
   }
 
-  loadTechnicalSheet(formId: string): void {
-    this.projectService.getFormTechnicalSheet(formId).subscribe({
+  /** Ficha técnica única del proyecto. */
+  loadTechnicalSheet(projectId: string): void {
+    this.projectService.getProjectTechnicalSheet(projectId).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.editingSheet.set(!sheet.id);
@@ -2032,8 +2535,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   saveTechnicalSheet(): void {
-    const formId = this.selectedFormId();
-    if (!formId || this.savingSheet() || !this.editingSheet()) return;
+    const projectId = this.selectedProject()?.id;
+    if (!projectId || this.savingSheet() || !this.editingSheet()) return;
+    if (this.technicalSheetForm.invalid) {
+      this.technicalSheetForm.markAllAsTouched();
+      return;
+    }
 
     this.savingSheet.set(true);
     const payload = {
@@ -2043,7 +2550,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       target_sample_size: this.technicalSheetForm.value.target_sample_size ?? null,
     };
 
-    this.projectService.saveFormTechnicalSheet(formId, payload).subscribe({
+    this.projectService.saveProjectTechnicalSheet(projectId, payload).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.editingSheet.set(false);
@@ -2058,11 +2565,11 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   validateTechnicalSheet(): void {
-    const formId = this.selectedFormId();
-    if (!formId || this.validatingSheet() || this.editingSheet()) return;
+    const projectId = this.selectedProject()?.id;
+    if (!projectId || this.validatingSheet() || this.editingSheet()) return;
 
     this.validatingSheet.set(true);
-    this.projectService.validateFormTechnicalSheet(formId).subscribe({
+    this.projectService.validateProjectTechnicalSheet(projectId).subscribe({
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.validatingSheet.set(false);
@@ -2071,6 +2578,53 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.validatingSheet.set(false);
         this.snackBar.open(err?.error?.message || 'Debe definir fechas de inicio y fin para validar', this.translate.instant('common.buttons.close'), { duration: 3500 });
+      },
+    });
+  }
+
+  /** Fechas en edición por formulario (aún sin guardar). */
+  formPeriodDrafts = signal<Record<string, { start_date: string; end_date: string }>>({});
+  savingFormPeriodId = signal<string | null>(null);
+
+  private savedFormPeriod(form: Form): { start_date: string; end_date: string } {
+    return { start_date: (form.start_date ?? '').slice(0, 10), end_date: (form.end_date ?? '').slice(0, 10) };
+  }
+
+  formPeriodValue(form: Form, field: 'start_date' | 'end_date'): string {
+    return (this.formPeriodDrafts()[form.id] ?? this.savedFormPeriod(form))[field];
+  }
+
+  setFormPeriod(form: Form, field: 'start_date' | 'end_date', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    const current = this.formPeriodDrafts()[form.id] ?? this.savedFormPeriod(form);
+    this.formPeriodDrafts.update((drafts) => ({ ...drafts, [form.id]: { ...current, [field]: value } }));
+  }
+
+  formPeriodDirty(form: Form): boolean {
+    const draft = this.formPeriodDrafts()[form.id];
+    const saved = this.savedFormPeriod(form);
+    return !!draft && (draft.start_date !== saved.start_date || draft.end_date !== saved.end_date);
+  }
+
+  saveFormPeriod(form: Form): void {
+    const draft = this.formPeriodDrafts()[form.id];
+    const project = this.selectedProject();
+    if (!draft || !project || this.savingFormPeriodId()) return;
+    if (draft.start_date && draft.end_date && draft.end_date < draft.start_date) {
+      this.snackBar.open('La fecha de fin no puede ser anterior a la fecha de inicio.', this.translate.instant('common.buttons.close'), { duration: 3500 });
+      return;
+    }
+    this.savingFormPeriodId.set(form.id);
+    this.formService.updateForm(form.id, { start_date: draft.start_date || null, end_date: draft.end_date || null }).subscribe({
+      next: () => {
+        this.savingFormPeriodId.set(null);
+        this.formPeriodDrafts.update(({ [form.id]: _saved, ...rest }) => rest);
+        this.snackBar.open(`Fechas de «${form.title}» guardadas.`, this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.selectProject(project);
+      },
+      error: (err) => {
+        this.savingFormPeriodId.set(null);
+        this.snackBar.open(err?.error?.message || 'No se pudieron guardar las fechas.', this.translate.instant('common.buttons.close'), { duration: 4000 });
       },
     });
   }
@@ -2123,9 +2677,26 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     this.enumeratorSearchQuery.set('');
   }
 
+  /** Cuota de encuestadores escrita en la zona (null = sin límite). */
+  private zoneEnumeratorQuota(): number | null {
+    const quota = Number(this.zoneForm.value.assigned_count);
+    return Number.isFinite(quota) && quota > 0 ? Math.floor(quota) : null;
+  }
+
+  /** Marca los encuestadores visibles (respeta la búsqueda) sin pasar de la cuota de la zona. */
   selectAllEnumerators(): void {
-    const allIds = this.allEnumerators().map((u) => u.id);
-    this.selectedEnumeratorIds.set(allIds);
+    const current = this.selectedEnumeratorIds();
+    const visible = this.filteredEnumerators().map((u) => u.id).filter((id) => !current.includes(id));
+    const quota = this.zoneEnumeratorQuota();
+    const room = quota === null ? visible.length : Math.max(0, quota - current.length);
+    this.selectedEnumeratorIds.set([...current, ...visible.slice(0, room)]);
+    if (visible.length > room) {
+      this.snackBar.open(
+        `Se seleccionaron ${current.length + room} encuestadores: es la cuota de la zona. Aumenta la cuota para incluir más.`,
+        this.translate.instant('common.buttons.close'),
+        { duration: 4000 },
+      );
+    }
   }
 
   clearSelectedEnumerators(): void {
@@ -2141,13 +2712,38 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     return this.selectedEnumeratorIds().includes(userId);
   }
 
-  toggleEnumeratorSelection(userId: number): void {
+  toggleEnumeratorSelection(userId: number, event?: Event): void {
     const current = this.selectedEnumeratorIds();
     if (current.includes(userId)) {
       this.selectedEnumeratorIds.set(current.filter((id) => id !== userId));
-    } else {
-      this.selectedEnumeratorIds.set([...current, userId]);
+      return;
     }
+    const quota = this.zoneEnumeratorQuota();
+    if (quota !== null && current.length >= quota) {
+      // Deshacer la marca del checkbox: la selección no cambió.
+      if (event?.target instanceof HTMLInputElement) event.target.checked = false;
+      this.snackBar.open(
+        `La zona ya tiene su cuota de ${quota} encuestadores. Aumenta la cuota o quita a alguien.`,
+        this.translate.instant('common.buttons.close'),
+        { duration: 4000 },
+      );
+      return;
+    }
+    this.selectedEnumeratorIds.set([...current, userId]);
+  }
+
+  /** Manzanas de la zona en edición (zonas antiguas guardaban solo `manzana`). */
+  zoneManzanaCodes(): string[] {
+    const hierarchy = this.zoneForm.value.hierarchy_json as { manzana?: string; manzanas?: string[] } | null | undefined;
+    if (this.zoneForm.value.geofence_type !== 'manzana_polygon' || !hierarchy) return [];
+    if (Array.isArray(hierarchy.manzanas) && hierarchy.manzanas.length) return hierarchy.manzanas;
+    return hierarchy.manzana ? [hierarchy.manzana] : [];
+  }
+
+  manzanaCount(zone: { hierarchy_json?: { manzana?: string; manzanas?: string[] } | null }): number {
+    const hierarchy = zone.hierarchy_json;
+    if (Array.isArray(hierarchy?.manzanas) && hierarchy.manzanas.length) return hierarchy.manzanas.length;
+    return hierarchy?.manzana ? 1 : 0;
   }
 
   onGeofenceChange(event: GeofenceSelectionEvent): void {
@@ -2290,8 +2886,8 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         description: (raw.description || '').trim() || undefined,
         project_id: projectId,
         step_by_step: true,
-        start_date: null,
-        end_date: null,
+        start_date: raw.start_date || null,
+        end_date: raw.end_date || null,
         require_consent: true,
         consent_text: (raw.consent_text || '').trim(),
       })
@@ -2299,7 +2895,13 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         next: (createdForm) => {
           this.savingNewForm.set(false);
           this.showNewFormModal.set(false);
-          this.snackBar.open('Formulario guardado en borrador. Complete su ficha técnica.', this.translate.instant('common.buttons.close'), { duration: 3000 });
+          this.snackBar.open(
+            this.technicalSheet()?.status === 'VALIDATED'
+              ? 'Formulario creado en borrador.'
+              : 'Formulario creado en borrador. Complete y valide la ficha técnica del proyecto para editar sus preguntas.',
+            this.translate.instant('common.buttons.close'),
+            { duration: 3500 },
+          );
           this.selectedFormId.set(createdForm.id);
           this.selectedTabIndex = 0;
           const project = this.selectedProject();

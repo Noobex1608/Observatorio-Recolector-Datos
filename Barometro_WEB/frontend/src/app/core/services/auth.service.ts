@@ -37,6 +37,15 @@ export class AuthService {
     );
   }
 
+  changePassword(currentPassword: string, password: string): Observable<unknown> {
+    return this.api.post('/change-password', {
+      current_password: currentPassword, password, password_confirmation: password,
+    }).pipe(tap(() => {
+      const current = this.userSignal();
+      if (current) this.updateUser({ ...current, must_change_password: false });
+    }));
+  }
+
   logout(): Observable<unknown> {
     return this.api.post('/logout', {}).pipe(
       tap(() => this.clearAuth()),
@@ -108,7 +117,7 @@ export class AuthService {
 
   private clearAuth(): void {
     this.clearAuthSilent();
-    this.router.navigate(['/auth/login']);
+    void this.router.navigate(['/auth/login']);
   }
 
   private getStoredToken(): string | null {

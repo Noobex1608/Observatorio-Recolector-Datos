@@ -20,7 +20,11 @@ export class BorradoresComponent implements OnInit {
   borradores: SavedResponse[] = [];
   cargando = true;
 
-  async ngOnInit() {
+  ngOnInit(): void {
+    void this.inicializar();
+  }
+
+  private async inicializar(): Promise<void> {
     this.borradores = await this.db.responses
       .where('estado')
       .equals('borrador')
@@ -30,7 +34,7 @@ export class BorradoresComponent implements OnInit {
   }
 
   continuar(form: SavedResponse) {
-    this.router.navigate(['/llenar', form.formId], { queryParams: { continue: 'true' } });
+    void this.router.navigate(['/llenar', form.formId], { queryParams: { continue: 'true' } });
   }
 
   async eliminar(id: number | undefined) {
@@ -48,6 +52,6 @@ export class BorradoresComponent implements OnInit {
   }
 
   volver() {
-    this.router.navigate(['/']);
+    void this.router.navigate(['/']);
   }
 }

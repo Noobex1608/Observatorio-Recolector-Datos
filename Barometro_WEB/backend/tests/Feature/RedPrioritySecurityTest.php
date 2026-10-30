@@ -150,7 +150,7 @@ class RedPrioritySecurityTest extends TestCase
     {
         [$form, $owner, , , $q] = $this->campaign();
         $form->update(['state' => 'DRAFT', 'instrument_locked' => false, 'link_uuid' => null]);
-        $form->technicalSheet()->create(['status' => 'VALIDATED', 'created_by' => $owner->id, 'validated_by' => $owner->id]);
+        $form->project->technicalSheet()->create(['status' => 'VALIDATED', 'created_by' => $owner->id, 'validated_by' => $owner->id]);
         Sanctum::actingAs($owner);
         $payload = ['title' => 'Nuevo título', 'step_by_step' => true, 'consent_text' => $form->consent_text,
             'expected_revision' => 0, 'questions' => [

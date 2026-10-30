@@ -1,3 +1,4 @@
+import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
@@ -18,6 +19,7 @@ import { qrDataUrl } from '@core/utils/qr-code';
   selector: 'app-form-responses',
   standalone: true,
   imports: [
+    A11yModule,
     CommonModule,
     RouterLink,
     MatButtonModule,

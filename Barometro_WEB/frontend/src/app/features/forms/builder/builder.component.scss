@@ -21,7 +21,7 @@
 
 .eyebrow {
   margin: 0 0 0.25rem;
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -183,6 +183,7 @@
 
 input[type='text'],
 input[type='number'],
+input[type='date'],
 textarea,
 .option-row input,
 select {
@@ -309,7 +310,7 @@ textarea {
   text-align: left;
 
   .material-icons {
-    color: var(--primary-600);
+    color: var(--primary-text-600);
   }
 
   small {
@@ -320,6 +321,23 @@ textarea {
   &:hover:not(:disabled) {
     background: var(--primary-50);
   }
+}
+
+.question-menu-group {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.65rem 0.15rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-hint {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .empty-state {
@@ -519,7 +537,7 @@ textarea {
   gap: 0.25rem;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   font-weight: 700;
   padding: 0.35rem 0.55rem;
 
@@ -684,7 +702,7 @@ textarea {
 .status-pill {
   border-radius: var(--radius-full);
   background: rgba(200, 16, 46, 0.12);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   font-size: 0.72rem;
   font-weight: 800;
   padding: 0.3rem 0.6rem;
@@ -712,8 +730,7 @@ textarea {
 
   p {
     margin: 0.4rem 0 0;
-    color: rgba(255, 255, 255, 0.86);
-    opacity: 0.88;
+    color: #e6f0fa;
   }
 }
 
@@ -783,7 +800,7 @@ textarea {
     place-items: center;
     border-radius: var(--radius-md);
     background: var(--card-bg);
-    color: var(--primary-600);
+    color: var(--primary-text-600);
     font-size: 1.1rem;
   }
 
@@ -813,7 +830,7 @@ textarea {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
   cursor: pointer;
   font-weight: 800;
 
@@ -911,7 +928,7 @@ textarea {
 
     &.active {
       background: var(--card-bg);
-      color: var(--primary-600);
+      color: var(--primary-text-600);
       box-shadow: var(--shadow-sm);
     }
   }
@@ -1027,7 +1044,7 @@ textarea {
   font-size: 0.82rem;
 
   strong {
-    color: var(--primary-600);
+    color: var(--primary-text-600);
   }
 }
 
@@ -1668,7 +1685,7 @@ textarea {
   font-size: 0.7rem !important;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--primary-600) !important;
+  color: var(--primary-text-600) !important;
   letter-spacing: 0.03em;
 }
 
@@ -1711,7 +1728,7 @@ textarea {
 
 .role-recolector {
   background: rgba(200, 16, 46, 0.1);
-  color: var(--primary-600);
+  color: var(--primary-text-600);
 }
 
 /* ---- Responsive Modal ---- */

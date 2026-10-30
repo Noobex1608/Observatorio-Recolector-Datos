@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import Dexie from 'dexie';
+import Dexie from 'dexie';
+import { trimTrailingSlashes } from './utils/url';
 
 export const ACCOUNT_SCOPE_KEY = 'kobo_account_scope';
 
 export function accountScope(userId: number, servidor: string): string {
-  const normalizedServer = new URL(servidor).toString().replace(/\/+$/, '');
+  const normalizedServer = trimTrailingSlashes(new URL(servidor).toString());
   return `${encodeURIComponent(normalizedServer)}:${userId}`;
 }
 
@@ -30,6 +31,10 @@ export interface ProjectZoneInfo {
   radius_meters: number;
   hierarchy_json?: any;
   geometry_json?: any;
+  /** Meta de encuestas de la zona (null = sin meta). */
+  target_responses?: number | null;
+  /** Encuestas que el servidor ya recibió para la zona, al último dato descargado. */
+  responses_count?: number;
 }
 
 export interface FormDefinition {
@@ -71,6 +76,7 @@ export type QuestionType =
 
 export interface FormQuestionProperties {
   help_text?: string;
+  text_format?: 'email' | 'cedula_ec' | 'telefono_ec' | null;
   capture_accuracy?: boolean;
   allow_manual_fallback?: boolean;
   target_lat?: number | null;
@@ -130,14 +136,6 @@ export interface SavedResponse {
   duration: string;
 }
 
-export interface PendingFieldTracking {
-  id?: number;
-  kind: 'report' | 'stop';
-  formId: string;
-  payload?: { form_id: string; zone_id: string; latitude: number; longitude: number; accuracy_meters: number; recorded_at: string };
-  createdAt: string;
-}
-
 export interface FormInfo {
   id: string;
   title: string;
@@ -153,7 +151,6 @@ export class DbService extends Dexie {
   responses!: Dexie.Table<SavedResponse, number>;
   formList!: Dexie.Table<FormInfo, string>;
   mediaBlobs!: Dexie.Table<MediaBlob, number>;
-  pendingFieldTracking!: Dexie.Table<PendingFieldTracking, number>;
 
   constructor() {
     super(databaseName());
@@ -170,6 +167,8 @@ export class DbService extends Dexie {
       mediaBlobs: '++id, blobId, responseId, questionId',
       pendingFieldTracking: '++id, formId, kind, createdAt'
     });
+    // La jornada en vivo se reemplazó por el trazado dentro de cada respuesta.
+    this.version(6).stores({ pendingFieldTracking: null });
     this.responses.hook('creating', (_key, response) => {
       response.clientSubmissionId ??= crypto.randomUUID();
     });

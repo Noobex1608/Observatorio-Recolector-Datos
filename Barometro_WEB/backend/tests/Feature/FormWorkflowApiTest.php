@@ -38,16 +38,16 @@ class FormWorkflowApiTest extends TestCase
         $this->putJson("/api/projects/{$project->id}", [
             'name' => 'Edificaciones de Manta',
         ])->assertOk()->assertJsonPath('name', 'Edificaciones de Manta');
-        $this->postJson("/api/forms/{$formId}/technical-sheet", [
+        $this->postJson("/api/projects/{$project->id}/technical-sheet", [
             'description' => 'Levantamiento en edificios existentes',
             'start_date' => today('America/Guayaquil')->format('Y-m-d'),
             'end_date' => today('America/Guayaquil')->addMonth()->format('Y-m-d'),
             'target_sample_size' => 100,
         ])->assertOk()->assertJsonPath('status', 'DRAFT');
-        $this->postJson("/api/forms/{$formId}/technical-sheet/validate")->assertForbidden();
+        $this->postJson("/api/projects/{$project->id}/technical-sheet/validate")->assertForbidden();
 
         Sanctum::actingAs($leader);
-        $this->postJson("/api/forms/{$formId}/technical-sheet/validate")
+        $this->postJson("/api/projects/{$project->id}/technical-sheet/validate")
             ->assertOk()->assertJsonPath('status', 'VALIDATED');
         $this->postJson("/api/projects/{$project->id}/zones", [
             'form_id' => $formId,
@@ -63,6 +63,8 @@ class FormWorkflowApiTest extends TestCase
             'type' => 'TEXT', 'label' => 'Estado del edificio', 'required' => true, 'order' => 1,
         ])->assertCreated();
         $this->postJson("/api/forms/{$formId}/deploy")->assertOk()->assertJsonPath('state', 'DEPLOYED');
+        // Sin fecha de fin propia, el formulario toma la del periodo del proyecto al publicarse.
+        $this->assertSame(today('America/Guayaquil')->addMonth()->format('Y-m-d'), Form::findOrFail($formId)->end_date->format('Y-m-d'));
         $link = Form::findOrFail($formId)->link_uuid;
 
         $this->postJson("/api/forms/submit/{$link}", [
@@ -84,23 +86,28 @@ class FormWorkflowApiTest extends TestCase
 
         $this->postJson("/api/forms/{$formId}/archive")->assertOk();
         $expiredDate = now('America/Guayaquil')->subDay()->toDateString();
-        $form = Form::findOrFail($formId);
-        $form->update(['start_date' => $expiredDate, 'end_date' => $expiredDate]);
-        $form->technicalSheet()->update(['start_date' => $expiredDate, 'end_date' => $expiredDate]);
+        $project->technicalSheet()->update(['start_date' => now('America/Guayaquil')->subDays(10)->toDateString()]);
+        Form::findOrFail($formId)->update(['start_date' => $expiredDate, 'end_date' => $expiredDate]);
         $this->postJson("/api/forms/{$formId}/deploy")
-            ->assertStatus(422)->assertJsonPath('message', 'La fecha de fin del formulario ya pasó. Actualice y valide la ficha técnica antes de publicar.');
+            ->assertStatus(422)->assertJsonPath('message', 'La fecha de fin del formulario ya pasó. Actualice sus fechas (dentro del periodo del proyecto) antes de publicar.');
 
-        $newEndDate = now('America/Guayaquil')->addMonth()->toDateString();
-        $this->postJson("/api/forms/{$formId}/technical-sheet", [
+        // Las fechas propias del formulario no pueden salir del periodo del proyecto.
+        $this->putJson("/api/forms/{$formId}", ['end_date' => now('America/Guayaquil')->addMonths(3)->toDateString()])
+            ->assertStatus(422);
+        $newEndDate = now('America/Guayaquil')->addWeek()->toDateString();
+        $this->putJson("/api/forms/{$formId}", ['end_date' => $newEndDate])->assertOk();
+
+        // Editar la ficha del proyecto la devuelve a borrador y frena la publicación hasta validarla.
+        $this->postJson("/api/projects/{$project->id}/technical-sheet", [
             'description' => 'Renovación del levantamiento territorial',
-            'start_date' => now('America/Guayaquil')->toDateString(),
-            'end_date' => $newEndDate,
+            'start_date' => now('America/Guayaquil')->subDays(10)->toDateString(),
+            'end_date' => now('America/Guayaquil')->addMonth()->toDateString(),
         ])->assertOk()->assertJsonPath('status', 'DRAFT');
         $this->postJson("/api/forms/{$formId}/deploy")->assertStatus(422);
-        $this->postJson("/api/forms/{$formId}/technical-sheet/validate")
+        $this->postJson("/api/projects/{$project->id}/technical-sheet/validate")
             ->assertOk()->assertJsonPath('status', 'VALIDATED');
-        $this->assertSame($newEndDate, Form::findOrFail($formId)->end_date->format('Y-m-d'));
         $this->postJson("/api/forms/{$formId}/deploy")
             ->assertOk()->assertJsonPath('state', 'DEPLOYED');
+        $this->assertSame($newEndDate, Form::findOrFail($formId)->end_date->format('Y-m-d'));
     }
 }

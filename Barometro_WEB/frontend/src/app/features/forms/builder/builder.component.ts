@@ -1,3 +1,4 @@
+import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
@@ -10,6 +11,7 @@ import { User } from '@core/models/user/user.interface';
 import { FormBuilderViewModel, FormQuestionDraft } from '@presentation/viewmodels/form-builder.viewmodel';
 import { ProjectService } from '@core/services/project.service';
 import { TranslateModule } from '@ngx-translate/core';
+import { TEXT_FORMATS, textFormatInput } from '@core/utils/text-format';
 
 type PreviewMode = 'mobile' | 'web';
 type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
@@ -17,7 +19,7 @@ type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
 @Component({
   selector: 'app-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslateModule],
+  imports: [A11yModule, CommonModule, FormsModule, RouterLink, TranslateModule],
   templateUrl: './builder.component.html',
   styleUrl: './builder.component.scss',
   providers: [FormBuilderViewModel],
@@ -59,6 +61,9 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
     return this.toPreviewQuestions(visibleQuestions);
   });
+
+  readonly textFormats = TEXT_FORMATS;
+  readonly textFormatInput = textFormatInput;
 
   readonly questionTypes: Array<{
     value: FormQuestion['type'];

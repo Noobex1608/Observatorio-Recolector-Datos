@@ -3,6 +3,7 @@ import { Form, FormQuestion, FormQuestionBranchRule, FormQuestionProperties, For
 import { Project, ProjectService } from '@core/services/project.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
+import { TEXT_FORMATS, TextFormat } from '@core/utils/text-format';
 
 export interface FormSectionDraft {
   tempId: string;
@@ -272,6 +273,17 @@ export class FormBuilderViewModel {
     };
 
     this.questions.update((questions) => [...questions, newQuestion]);
+  }
+
+  /** Atajo del menú: pregunta de texto con formato validado (correo, cédula o teléfono). */
+  addTextQuestion(format: TextFormat): void {
+    if (!this.canEditQuestions()) return;
+    const label = TEXT_FORMATS.find((item) => item.value === format)?.defaultLabel ?? '';
+    this.addQuestion('TEXT');
+    const created = this.questions()[this.questions().length - 1];
+    this.questions.update((questions) => questions.map((question) => question.tempId === created.tempId
+      ? { ...question, label, properties: { ...question.properties, text_format: format } }
+      : question));
   }
 
   addSubquestion(parentTempId: string): void {
@@ -1032,7 +1044,8 @@ export class FormBuilderViewModel {
   }
 
   private createTempId(): string {
-    return `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const [a, b] = crypto.getRandomValues(new Uint32Array(2));
+    return `tmp-${Date.now()}-${a.toString(36)}${b.toString(36)}`;
   }
 
   private clearMessages(): void {

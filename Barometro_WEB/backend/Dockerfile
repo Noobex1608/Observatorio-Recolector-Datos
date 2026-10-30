@@ -84,6 +84,9 @@ RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
 
 # Configurar PHP para producción
+# No anunciar la versión de PHP en las respuestas (X-Powered-By).
+RUN echo "expose_php=Off" > /usr/local/etc/php/conf.d/security.ini
+
 RUN echo "upload_max_filesize=50M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size=50M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/uploads.ini \

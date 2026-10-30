@@ -1,4 +1,5 @@
-﻿import { CommonModule } from '@angular/common';
+﻿import { A11yModule } from '@angular/cdk/a11y';
+import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +15,7 @@ import { TranslateModule } from '@ngx-translate/core';
   selector: 'app-forms-dashboard',
   standalone: true,
   imports: [
+    A11yModule,
     CommonModule,
     FormsModule,
     RouterLink,

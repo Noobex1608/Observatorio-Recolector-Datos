@@ -14,6 +14,8 @@ use App\Presentation\Http\Resources\Auth\AuthResource;
 use App\Presentation\Http\Resources\Auth\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use OpenApi\Attributes as OA;
 
 #[OA\Tag(name: 'Auth', description: 'Endpoints de autenticacion')]
@@ -82,5 +84,18 @@ class AuthController extends Controller
         $user = $this->getCurrentUserUseCase->execute($request->user());
 
         return response()->json(new UserResource($user));
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()],
+        ]);
+        $user = $request->user();
+        abort_unless(Hash::check($data['current_password'], $user->password), 422, 'La contraseña actual es incorrecta.');
+        abort_if(Hash::check($data['password'], $user->password), 422, 'La contraseña nueva debe ser diferente.');
+        $user->update(['password' => $data['password'], 'must_change_password' => false]);
+        return response()->json(['message' => 'Contraseña actualizada.']);
     }
 }

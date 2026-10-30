@@ -15,6 +15,15 @@
         <p>Inicia sesión para continuar con tus encuestas.</p>
       </header>
 
+      @if (requiereCambio()) {
+        <form (ngSubmit)="cambiarClaveTemporal()" class="login-form">
+          <p>Debes cambiar tu contraseña temporal antes de continuar.</p>
+          <div class="campo"><label for="nuevaClave">NUEVA CONTRASEÑA</label><input id="nuevaClave" name="nuevaClave" type="password" [(ngModel)]="nuevaClave" autocomplete="new-password" required /></div>
+          <div class="campo"><label for="confirmarClave">CONFIRMAR CONTRASEÑA</label><input id="confirmarClave" name="confirmarClave" type="password" [(ngModel)]="confirmarClave" autocomplete="new-password" required /></div>
+          @if (errorLogin()) { <p class="error-msg" role="alert">{{ errorLogin() }}</p> }
+          <button type="submit" class="btn-acceder" [disabled]="cargando()">GUARDAR CONTRASEÑA</button>
+        </form>
+      } @else {
       <form (ngSubmit)="iniciarSesion()" class="login-form">
         <div class="campo">
           <label for="usuario">CORREO ELECTRÓNICO</label>
@@ -65,6 +74,7 @@
           {{ cargando() ? 'VERIFICANDO...' : 'INICIAR SESIÓN' }}
         </button>
       </form>
+      }
 
       <p class="access-note">¿No tienes una cuenta? <span>Solicita acceso a tu administrador.</span></p>
     </div>
