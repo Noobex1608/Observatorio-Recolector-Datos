@@ -3,6 +3,10 @@
   base = "Barometro_WEB/frontend"
   command = "bun install --frozen-lockfile && bun run build"
   publish = "dist/frontend/browser"
+  # Cada despliegue a producción cuesta 15 créditos. Solo se construye si cambió la web
+  # (o este archivo); las ramas de Dependabot nunca se construyen aquí.
+  # Netlify omite la construcción cuando este comando termina con código 0.
+  ignore = "case \"$HEAD\" in dependabot/*) exit 0;; esac; git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ../../netlify.toml"
 
 # Only application routes should fall back to the Angular entry point.
 # Missing JS/CSS chunks must return 404 instead of HTML with a 200 status.
