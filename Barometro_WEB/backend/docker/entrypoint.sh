@@ -18,13 +18,6 @@ mkdir -p /var/www/html/storage/app/public/avatars
 mkdir -p /var/www/html/storage/api-docs
 mkdir -p /var/www/html/bootstrap/cache
 
-# Establecer permisos ANTES de cualquier comando artisan
-echo "Estableciendo permisos..."
-chown -R www:www /var/www/html/storage
-chown -R www:www /var/www/html/bootstrap/cache
-chmod -R 775 /var/www/html/storage
-chmod -R 775 /var/www/html/bootstrap/cache
-
 # Adaptar puerto de Nginx si Render o el entorno define $PORT
 if [ -n "$PORT" ] && [ "$PORT" != "8000" ]; then
     echo "Configurando Nginx para escuchar en el puerto asignado por Render: $PORT..."
@@ -60,24 +53,10 @@ if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:" ]; then
     exit 1
 fi
 
-# Limpiar cachés antiguos primero
-echo "Limpiando cachés antiguos..."
-php artisan config:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
-
-# Cachear configuración para producción
+# Rutas, vistas y Swagger ya vienen cacheados en la imagen (ver Dockerfile).
+# Solo la configuración se cachea aquí, porque depende de las variables del entorno.
 echo "Cacheando configuración..."
 php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# Re-establecer permisos después de cachear (los archivos de caché se crean como root)
-echo "Re-estableciendo permisos después de cache..."
-chown -R www:www /var/www/html/storage
-chown -R www:www /var/www/html/bootstrap/cache
-chmod -R 775 /var/www/html/storage
-chmod -R 775 /var/www/html/bootstrap/cache
 
 # Migraciones: se aplican en cada arranque para que la base nunca quede atrás del código.
 # Si fallan, el contenedor no arranca y Render mantiene en línea la versión anterior.
@@ -88,12 +67,7 @@ if [ "${RUN_MIGRATIONS:-true}" != "false" ]; then
         echo "Error: las migraciones fallaron; se detiene el arranque."
         exit 1
     fi
-    php artisan migrate:status --no-interaction 2>/dev/null | tail -n 5 || true
 fi
-
-# Generar documentación Swagger
-echo "Generando documentación Swagger..."
-php artisan swagger:generate || true
 
 # Crear enlace de storage si no existe
 if [ ! -L "/var/www/html/public/storage" ]; then
