@@ -16,11 +16,11 @@ return new class extends Migration
         if (Schema::hasTable('form_user_shares')) {
             DB::table('form_user_shares')->where('role', 'LECTOR')->update(['role' => 'RECOLECTOR']);
             DB::statement('ALTER TABLE form_user_shares DROP CONSTRAINT IF EXISTS form_user_shares_role_check');
-            DB::statement("ALTER TABLE form_user_shares ALTER COLUMN role TYPE VARCHAR(32)");
+            DB::statement('ALTER TABLE form_user_shares ALTER COLUMN role TYPE VARCHAR(32)');
             DB::statement("ALTER TABLE form_user_shares ADD CONSTRAINT form_user_shares_role_check CHECK (role IN ('EDITOR', 'RECOLECTOR'))");
         }
 
-        if (Schema::hasTable('forms') && !Schema::hasColumn('forms', 'project_id')) {
+        if (Schema::hasTable('forms') && ! Schema::hasColumn('forms', 'project_id')) {
             Schema::table('forms', function (Blueprint $table) {
                 $table->uuid('project_id')->nullable()->after('user_id');
                 $table->foreign('project_id')->references('id')->on('projects')->nullOnDelete();

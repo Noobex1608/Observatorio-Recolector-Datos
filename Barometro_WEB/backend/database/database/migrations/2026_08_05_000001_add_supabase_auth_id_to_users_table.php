@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'supabase_auth_id')) {
+            if (! Schema::hasColumn('users', 'supabase_auth_id')) {
                 $table->string('supabase_auth_id')->nullable()->unique()->after('email');
             }
         });

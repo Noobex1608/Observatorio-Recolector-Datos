@@ -18,7 +18,7 @@ return new class extends Migration
             $table->enum('state', ['DRAFT', 'DEPLOYED', 'ARCHIVED'])->default('DRAFT');
             $table->uuid('link_uuid')->nullable()->unique();
             $table->timestamps();
-            
+
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('project_id')->references('id')->on('projects')->restrictOnDelete();
         });

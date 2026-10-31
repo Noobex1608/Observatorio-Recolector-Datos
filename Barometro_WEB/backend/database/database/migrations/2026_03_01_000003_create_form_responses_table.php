@@ -14,7 +14,7 @@ return new class extends Migration
             // Stores the key-value pair of question_id => answer
             $table->jsonb('data');
             $table->timestamps();
-            
+
             $table->foreign('form_id')->references('id')->on('forms')->onDelete('cascade');
         });
     }

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('form_questions', function (Blueprint $table) {
-            if (!Schema::hasColumn('form_questions', 'parent_question_id')) {
+            if (! Schema::hasColumn('form_questions', 'parent_question_id')) {
                 $table->uuid('parent_question_id')->nullable()->after('section_name');
                 $table->foreign('parent_question_id')
                     ->references('id')
@@ -29,4 +29,3 @@ return new class extends Migration
         });
     }
 };
-

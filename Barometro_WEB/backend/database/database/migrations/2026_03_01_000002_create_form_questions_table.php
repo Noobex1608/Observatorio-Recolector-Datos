@@ -19,7 +19,7 @@ return new class extends Migration
             $table->integer('order')->default(0);
             $table->string('section_name')->nullable();
             $table->timestamps();
-            
+
             $table->foreign('form_id')->references('id')->on('forms')->onDelete('cascade');
         });
     }
