@@ -857,6 +857,23 @@ class FormController extends Controller
     }
 
     #[OA\Get(path: '/forms/{id}/export', summary: 'Exportar respuestas CSV/XLSX', security: [['sanctum' => []]], tags: ['Forms'])]
+    /** Descarga el cuestionario (no las respuestas): plantilla simple, o XLSForm con ?formato=xlsform. */
+    public function exportInstrument(Request $request, string $id): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $form = $this->findViewableForm($id, $request->user());
+        $questions = $form->questions()->orderBy('order')->get();
+        $kobo = $request->query('formato') === 'xlsform';
+        $fileName = (Str::slug($form->title) ?: 'formulario').($kobo ? '-xlsform' : '').'.xlsx';
+
+        return response()->streamDownload(function () use ($form, $questions, $kobo) {
+            $book = $kobo
+                ? (new \App\Domain\Forms\Services\XlsForm\XlsFormExporter)->export($form->title, $questions)
+                : (new \App\Domain\Forms\Services\XlsForm\SimpleFormExporter)->export($questions);
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save('php://output');
+            $book->disconnectWorksheets();
+        }, $fileName, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
     public function exportResponses(Request $request, string $id)
     {
         $form = $this->findResponsesReadableForm($id, $request->user());
@@ -1005,8 +1022,10 @@ class FormController extends Controller
             }
             $this->formSchemaValidator->validateForPublication($form->questions()->get());
             $this->enqueueFormSchemaSync->enqueue($form);
+
             return $form->fresh(['questions']);
         });
+
         return response()->json($form);
     }
 
@@ -1015,6 +1034,7 @@ class FormController extends Controller
         $form = Form::findOrFail($id);
         abort_unless(app(\App\Policies\FormPolicy::class)->viewResponses($user, $form), 403,
             'No tienes permisos para consultar o exportar las respuestas de este formulario.');
+
         return $form;
     }
 
@@ -1432,7 +1452,7 @@ class FormController extends Controller
      * Encuestas recibidas por zona (la zona viaja en data._project_geofence.zone_id), en una consulta.
      *
      * @param  array<int, string>  $formIds
-     * @return array<string, int>  zone_id => total
+     * @return array<string, int> zone_id => total
      */
     private function zoneResponseCounts(array $formIds): array
     {

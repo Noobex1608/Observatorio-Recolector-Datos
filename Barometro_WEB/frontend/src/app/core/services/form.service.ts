@@ -47,6 +47,37 @@ export type QuestionType =
   | 'BARCODE'
   | 'CALCULATE';
 
+/** Pregunta convertida desde Excel; los ids son temporales y se enlazan entre sí. */
+export interface XlsFormImportedQuestion {
+  temp_id: string;
+  row: number;
+  name: string;
+  type: FormQuestion['type'];
+  label: string;
+  required: boolean;
+  options: string[] | { rows: string[]; columns: string[] } | null;
+  properties: FormQuestionProperties;
+  section_name: string | null;
+  parent_temp_id: string | null;
+  branch_rules: { option_index: number; action: 'CONTINUE' | 'GO_TO' | 'END_FORM'; next_temp_id: string | null }[];
+}
+
+export interface XlsFormImportIssue {
+  row: number;
+  sheet: string;
+  message: string;
+}
+
+export interface XlsFormImportPreview {
+  title: string | null;
+  sections: string[];
+  questions: XlsFormImportedQuestion[];
+  errors: XlsFormImportIssue[];
+  warnings: XlsFormImportIssue[];
+  summary: { sections: number; questions: number };
+  valid: boolean;
+}
+
 export interface FormQuestionProperties {
   help_text?: string;
   text_format?: 'email' | 'cedula_ec' | 'telefono_ec' | null;
@@ -150,6 +181,23 @@ export class FormService {
 
   saveDraft(id: string, data: Omit<Partial<Form>, 'questions'> & { expected_revision: number; questions: Partial<FormQuestion>[] }): Observable<Form> {
     return this.http.put<Form>(`${this.apiUrl}/${id}/draft`, data);
+  }
+
+  /** Plantilla de Excel para importar un cuestionario: simple (en español) o XLSForm (Kobo). */
+  downloadImportTemplate(format: 'simple' | 'xlsform' = 'simple'): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/import/template`, { responseType: 'blob', params: { formato: format } });
+  }
+
+  /** Revisa un Excel XLSForm y devuelve las preguntas convertidas; no guarda nada. */
+  previewImport(file: File): Observable<XlsFormImportPreview> {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<XlsFormImportPreview>(`${this.apiUrl}/import/preview`, body);
+  }
+
+  /** Cuestionario del formulario en Excel: simple (en español) o XLSForm (Kobo). */
+  exportInstrument(id: string, format: 'simple' | 'xlsform' = 'simple'): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${id}/instrument.xlsx`, { responseType: 'blob', params: { formato: format } });
   }
 
   deleteForm(id: string): Observable<void> {

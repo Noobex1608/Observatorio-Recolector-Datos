@@ -141,7 +141,7 @@
               placeholder="Texto del consentimiento informado a presentar al inicio de la encuesta..."></textarea>
           </label>
 
-          <div class="date-fields-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+          <div class="date-fields-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 1rem; margin-top: 0.5rem;">
             <label class="field">
               <span>Fecha de inicio de recolección</span>
               <input
@@ -164,68 +164,162 @@
           </div>
         </section>
 
-        <section class="question-palette" [attr.aria-label]="'forms.builder.editMenu' | translate">
+        <section class="question-palette" aria-labelledby="palette-title">
           <div class="ribbon-summary">
             <div>
-              <h2>{{ 'forms.builder.editMenu' | translate }}</h2>
-              <p>{{ 'forms.builder.questionCount' | translate: { count: vm.questionsCount() } }}</p>
+              <h2 id="palette-title">{{ 'forms.builder.editMenu' | translate }}</h2>
+              <p>
+                {{ 'forms.builder.questionCount' | translate: { count: vm.questionsCount() } }}
+                @if (vm.incompleteQuestionIds().size > 0) {
+                  · <span class="incomplete-text">{{ vm.incompleteQuestionIds().size }} incompleta(s)</span>
+                }
+              </p>
             </div>
 
-            <details class="add-question-menu">
-              <summary
-                class="btn btn-primary"
-                [class.disabled]="vm.isSaving() || !vm.canEditQuestions()"
-              >
-                <span class="material-icons" aria-hidden="true">add</span>
-                {{ 'forms.builder.addQuestion' | translate }}
-                <span class="material-icons" aria-hidden="true">expand_more</span>
-              </summary>
-
-              <div class="question-menu-panel">
-                @for (type of questionTypes; track type.value) {
-                  <button
-                    class="question-menu-item"
-                    type="button"
-                    (click)="vm.addQuestion(type.value)"
+            <div class="palette-actions">
+              @if (vm.sections().length > 0) {
+                <label class="palette-target">
+                  <span>Agregar en</span>
+                  <select
+                    [ngModel]="paletteTargetSection()"
+                    (ngModelChange)="paletteSection.set($event)"
                     [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                   >
-                    <span class="material-icons" aria-hidden="true">{{ type.icon }}</span>
-                    <span>
-                      <strong>{{ type.labelKey | translate }}</strong>
-                      <small>{{ type.hintKey | translate }}</small>
-                    </span>
-                  </button>
+                    @for (section of vm.sections(); track section.tempId; let i = $index) {
+                      <option [ngValue]="section.tempId">{{ i + 1 }}. {{ section.title || ('forms.builder.untitledSection' | translate) }}</option>
+                    }
+                    <option [ngValue]="noSection">{{ 'forms.builder.unassignedSection' | translate }}</option>
+                  </select>
+                </label>
+              }
+              <div class="add-menu-anchor">
+                <button
+                  id="add-trigger-palette"
+                  class="btn btn-primary"
+                  type="button"
+                  aria-haspopup="true"
+                  [attr.aria-expanded]="openAddMenu() === 'palette'"
+                  aria-controls="add-menu-palette"
+                  (click)="toggleAddMenu('palette')"
+                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">add</span>
+                  {{ 'forms.builder.addQuestion' | translate }}
+                  <span class="material-icons" aria-hidden="true">expand_more</span>
+                </button>
+                @if (openAddMenu() === 'palette') {
+                  <ng-container *ngTemplateOutlet="addMenu; context: { $implicit: 'palette' }"></ng-container>
                 }
-                <p class="question-menu-group">Datos con validación</p>
-                @for (format of textFormats; track format.value) {
-                  <button
-                    class="question-menu-item"
-                    type="button"
-                    (click)="vm.addTextQuestion(format.value)"
-                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                  >
-                    <span class="material-icons" aria-hidden="true">{{ format.icon }}</span>
-                    <span>
-                      <strong>{{ format.defaultLabel }}</strong>
-                      <small>{{ format.hint }}</small>
-                    </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="excel-actions" role="group" aria-label="Cuestionario en Excel">
+            <input
+              #importFile
+              class="visually-hidden"
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              tabindex="-1"
+              aria-hidden="true"
+              aria-label="Archivo de Excel a importar"
+              (change)="onImportFile($event)"
+            />
+            <button
+              id="import-excel-button"
+              class="text-button"
+              type="button"
+              (click)="chooseImportFile(importFile)"
+              [disabled]="importBusy() || vm.isSaving() || !vm.canEditQuestions()"
+            >
+              <span class="material-icons" aria-hidden="true">upload_file</span>
+              {{ importBusy() ? 'Revisando archivo…' : 'Importar desde Excel' }}
+            </button>
+            <button class="text-button" type="button" (click)="downloadTemplate()" [disabled]="excelBusy()">
+              <span class="material-icons" aria-hidden="true">description</span>
+              Descargar plantilla
+            </button>
+            @if (vm.formId()) {
+              <button class="text-button" type="button" (click)="exportInstrument()" [disabled]="excelBusy() || vm.isDirty()"
+                [attr.aria-describedby]="vm.isDirty() ? 'export-dirty-hint' : null">
+                <span class="material-icons" aria-hidden="true">download</span>
+                Exportar a Excel
+              </button>
+            }
+            <details class="kobo-menu">
+              <summary class="text-button">
+                <span class="material-icons" aria-hidden="true">swap_horiz</span>
+                Formato Kobo (XLSForm)
+              </summary>
+              <div class="kobo-menu-panel">
+                <p class="field-hint">Para quien ya trabaja con KoboToolbox u ODK. «Importar desde Excel» reconoce ambos formatos.</p>
+                <button class="text-button" type="button" (click)="downloadTemplate('xlsform')" [disabled]="excelBusy()">
+                  <span class="material-icons" aria-hidden="true">description</span>
+                  Plantilla XLSForm
+                </button>
+                @if (vm.formId()) {
+                  <button class="text-button" type="button" (click)="exportInstrument('xlsform')" [disabled]="excelBusy() || vm.isDirty()">
+                    <span class="material-icons" aria-hidden="true">download</span>
+                    Exportar como XLSForm
                   </button>
                 }
               </div>
             </details>
+            @if (vm.formId() && vm.isDirty()) {
+              <span id="export-dirty-hint" class="field-hint-inline">Guarda los cambios para exportar la versión actual.</span>
+            }
           </div>
 
+          @if (vm.questions().length > 0 || vm.sections().length > 0) {
+            <div class="palette-tools">
+              <nav class="section-index" aria-label="Ir a una sección">
+                <ol>
+                  @for (section of vm.sections(); track section.tempId; let i = $index) {
+                    <li>
+                      <button type="button" class="index-chip" (click)="goToSection(section.tempId)">
+                        <span class="index-number">{{ i + 1 }}</span>
+                        <span class="index-title">{{ section.title || ('forms.builder.untitledSection' | translate) }}</span>
+                        <span class="index-count">{{ vm.getSectionQuestionCount(section.tempId) }}<span class="visually-hidden"> preguntas</span></span>
+                        @if (sectionIncompleteCount(section.tempId) > 0) {
+                          <span class="material-icons index-warning" aria-hidden="true">error</span>
+                          <span class="visually-hidden">, {{ sectionIncompleteCount(section.tempId) }} incompleta(s)</span>
+                        }
+                      </button>
+                    </li>
+                  }
+                  @if (vm.getQuestionsForSection(null).length > 0) {
+                    <li>
+                      <button type="button" class="index-chip index-chip--unassigned" (click)="goToSection(null)">
+                        <span class="index-title">{{ 'forms.builder.unassignedSection' | translate }}</span>
+                        <span class="index-count">{{ vm.getSectionQuestionCount(null) }}<span class="visually-hidden"> preguntas</span></span>
+                      </button>
+                    </li>
+                  }
+                </ol>
+              </nav>
+              <div class="view-actions">
+                <button class="text-button" type="button" (click)="expandAll()">
+                  <span class="material-icons" aria-hidden="true">unfold_more</span>
+                  Abrir todas
+                </button>
+                <button class="text-button" type="button" (click)="collapseAll()">
+                  <span class="material-icons" aria-hidden="true">unfold_less</span>
+                  Contraer todas
+                </button>
+              </div>
+            </div>
+          }
         </section>
 
-        <section class="questions-section">
+        <section class="questions-section" aria-label="Preguntas del formulario">
           <div class="section-actions">
             <button
               class="text-button"
               type="button"
-              (click)="vm.addSection()"
+              (click)="addSection()"
               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
             >
-              <span class="material-icons" aria-hidden="true">folder_open</span>
+              <span class="material-icons" aria-hidden="true">create_new_folder</span>
               {{ 'forms.builder.addSection' | translate }}
             </button>
           </div>
@@ -237,14 +331,27 @@
             </div>
           }
 
-          @for (section of vm.sections(); track section.tempId) {
-            <section class="section-card">
+          @for (section of vm.sections(); track section.tempId; let sectionIndex = $index; let firstSection = $first; let lastSection = $last) {
+            <section class="section-card" [attr.aria-labelledby]="'section-toggle-' + section.tempId">
               <div class="section-card-header">
+                <button
+                  class="collapse-toggle"
+                  type="button"
+                  [id]="'section-toggle-' + section.tempId"
+                  [attr.aria-expanded]="!isSectionCollapsed(section.tempId)"
+                  [attr.aria-controls]="'section-body-' + section.tempId"
+                  (click)="toggleSection(section.tempId)"
+                >
+                  <span class="material-icons chevron" aria-hidden="true">expand_more</span>
+                  <span class="section-index-label">Sección {{ sectionIndex + 1 }}</span>
+                  <span class="visually-hidden">: {{ section.title || ('forms.builder.untitledSection' | translate) }}</span>
+                </button>
                 <div class="section-title-block">
                   <input
                     class="section-title-input"
                     type="text"
-                    [attr.aria-label]="'forms.builder.sectionPlaceholder' | translate"
+                    [id]="'section-title-' + section.tempId"
+                    [attr.aria-label]="'Título de la sección ' + (sectionIndex + 1)"
                     [ngModel]="section.title"
                     (ngModelChange)="vm.updateSectionTitle(section.tempId, $event)"
                     [disabled]="vm.isSaving() || !vm.canEditQuestions()"
@@ -252,853 +359,816 @@
                   />
                   <span class="section-count">
                     {{ vm.getSectionQuestionCount(section.tempId) }} {{ 'forms.builder.sectionQuestionCount' | translate: { count: vm.getSectionQuestionCount(section.tempId) } }}
+                    @if (sectionIncompleteCount(section.tempId) > 0) {
+                      · <span class="incomplete-text">{{ sectionIncompleteCount(section.tempId) }} incompleta(s)</span>
+                    }
                   </span>
                 </div>
-                <button
-                  class="icon-button danger"
-                  type="button"
-                  [title]="'forms.builder.deleteSection' | translate"
-                  (click)="vm.removeSection(section.tempId)"
-                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                >
-                  <span class="material-icons" aria-hidden="true">delete</span>
-                </button>
+                <div class="section-header-actions">
+                  <button
+                    class="icon-button"
+                    type="button"
+                    [id]="'section-move-up-' + section.tempId"
+                    [attr.aria-label]="'Subir la sección ' + (sectionIndex + 1)"
+                    title="Subir sección"
+                    (click)="moveSection(section.tempId, -1)"
+                    [disabled]="firstSection || vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    <span class="material-icons" aria-hidden="true">arrow_upward</span>
+                  </button>
+                  <button
+                    class="icon-button"
+                    type="button"
+                    [id]="'section-move-down-' + section.tempId"
+                    [attr.aria-label]="'Bajar la sección ' + (sectionIndex + 1)"
+                    title="Bajar sección"
+                    (click)="moveSection(section.tempId, 1)"
+                    [disabled]="lastSection || vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    <span class="material-icons" aria-hidden="true">arrow_downward</span>
+                  </button>
+                  <button
+                    class="icon-button danger"
+                    type="button"
+                    [attr.aria-label]="'Eliminar la sección ' + (sectionIndex + 1) + '; sus preguntas pasan a Sin sección'"
+                    [title]="'forms.builder.deleteSection' | translate"
+                    (click)="removeSection(section.tempId)"
+                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    <span class="material-icons" aria-hidden="true">delete</span>
+                  </button>
+                </div>
               </div>
 
-              @if (vm.getQuestionsForSection(section.tempId).length === 0) {
-                <div class="section-empty-state">{{ 'forms.builder.sectionEmpty' | translate }}</div>
-              }
-
-              @for (entry of vm.getQuestionTreeForSection(section.tempId); track entry.question.tempId) {
-                @let question = entry.question;
-                <article
-                  class="question-card"
-                  [class.question-card--dragging]="vm.canEditQuestions() && draggedQuestionTempId() === entry.question.tempId"
-                  [class.question-card--drop-before]="isDropTarget(entry.question.tempId, 'before')"
-                  [class.question-card--drop-after]="isDropTarget(entry.question.tempId, 'after')"
-                  (dragover)="onDragOver($event, entry.question.tempId)"
-                  (drop)="onDrop($event, entry.question.tempId)"
-                  [style.margin-left.px]="entry.level * 20"
-                >
-                  <div class="question-card-header">
-                    <div class="question-title-row">
-                      <span class="question-number">{{ entry.displayNumber }}</span>
-                      <div>
-                        <strong>{{ vm.getTypeLabel(entry.question.type) | translate }}</strong>
-                        <small>{{ 'forms.builder.order' | translate: { order: entry.displayNumber } }}</small>
-                      </div>
-                    </div>
-
-                    <div class="question-actions">
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.addSubquestion' | translate"
-                        (click)="vm.addSubquestion(question.tempId)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">subdirectory_arrow_right</span>
-                      </button>
-                      <button
-                        class="icon-button drag-handle"
-                        type="button"
-                        [title]="'forms.builder.dragToReorder' | translate"
-                        draggable="true"
-                        (dragstart)="onDragStart($event, entry.question.tempId)"
-                        (dragend)="onDragEnd()"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">drag_indicator</span>
-                      </button>
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.moveUp' | translate"
-                        (click)="vm.moveQuestion(question.tempId, -1)"
-                        [disabled]="entry.index === 0 || vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
-                      </button>
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.moveDown' | translate"
-                        (click)="vm.moveQuestion(entry.question.tempId, 1)"
-                        [disabled]="entry.index === entry.siblingCount - 1 || vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">keyboard_arrow_down</span>
-                      </button>
-                      <button
-                        class="icon-button danger"
-                        type="button"
-                        [title]="'forms.builder.deleteQuestion' | translate"
-                        (click)="vm.removeQuestion(question.tempId)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">delete</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <label class="field">
-                    <span>{{ 'forms.builder.sectionLabel' | translate }}</span>
-                    <select
-                      [ngModel]="question.sectionTempId"
-                      (ngModelChange)="vm.assignQuestionToSection(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    >
-                      <option [ngValue]="null">{{ 'forms.builder.sectionNone' | translate }}</option>
-                      @for (targetSection of vm.sections(); track targetSection.tempId) {
-                        <option [ngValue]="targetSection.tempId">{{ targetSection.title || ('forms.builder.untitledSection' | translate) }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>{{ 'forms.builder.typeLabel' | translate }}</span>
-                    <select
-                      [ngModel]="question.type"
-                      (ngModelChange)="vm.updateQuestionType(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    >
-                      @for (type of questionTypes; track type.value) {
-                        <option [ngValue]="type.value">{{ type.labelKey | translate }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>
-                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : (question.type === 'NOTE' ? 'Texto de la nota / Encabezado' : 'forms.builder.questionLabel')) | translate }}
-                    </span>
-                    <input
-                      type="text"
-                      [ngModel]="question.label"
-                      (ngModelChange)="vm.updateQuestionLabel(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : (question.type === 'NOTE' ? 'Escribe el texto principal o aviso de la nota...' : 'forms.builder.questionPlaceholder')) | translate"
-                    />
-                  </label>
-
-                  @if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'].includes(question.type)) {
-                    <div class="options-block">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.optionsLabel' | translate }}</span>
-                        <button
-                          class="text-button"
-                          type="button"
-                          (click)="vm.addOption(question.tempId)"
-                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                        >
-                          <span class="material-icons" aria-hidden="true">add</span>
-                          {{ 'forms.builder.addOption' | translate }}
-                        </button>
-                      </div>
-
-                      <div class="options-list">
-                        @for (option of question.options; track $index; let optionIndex = $index) {
-                          <div class="option-row">
-                            <input
-                              type="text"
-                              [ngModel]="option"
-                              (ngModelChange)="vm.updateOption(question.tempId, optionIndex, $event)"
-                              [attr.aria-label]="('forms.builder.optionPlaceholder' | translate) + ' ' + (optionIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.optionPlaceholder' | translate"
-                            />
-                            <button
-                              class="icon-button danger"
-                              type="button"
-                              [title]="'forms.builder.deleteOption' | translate"
-                              (click)="vm.removeOption(question.tempId, optionIndex)"
-                              [disabled]="question.options.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                        }
-                      </div>
-                    </div>
+              @if (!isSectionCollapsed(section.tempId)) {
+                <div class="section-body" [id]="'section-body-' + section.tempId">
+                  @if (vm.getQuestionsForSection(section.tempId).length === 0) {
+                    <div class="section-empty-state">{{ 'forms.builder.sectionEmpty' | translate }}</div>
                   }
-
-                  @if (vm.canConfigureBranching(question.type)) {
-                    <div class="branch-builder">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.branchingTitle' | translate }}</span>
-                        <small>{{ 'forms.builder.branchingHelp' | translate }}</small>
-                      </div>
-
-                      @if (!vm.stepByStep()) {
-                        <p class="branch-warning">
-                          {{ 'forms.builder.branchingStepHint' | translate }}
-                        </p>
-                      }
-
-                      <div class="branch-list">
-                        @for (option of question.options; track $index; let optionIndex = $index) {
-                          <label class="branch-row">
-                            <span>
-                              {{ option || ('forms.builder.emptyOption' | translate) }}
-                            </span>
-                            <div class="branch-controls">
-                              <select
-                                [ngModel]="vm.getBranchRuleAction(question, optionIndex)"
-                                (ngModelChange)="vm.updateBranchAction(question.tempId, optionIndex, $event)"
-                                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              >
-                                <option value="CONTINUE">{{ 'forms.builder.branch.actions.CONTINUE' | translate }}</option>
-                                <option value="GO_TO">{{ 'forms.builder.branch.actions.GO_TO' | translate }}</option>
-                                <option value="END_FORM">{{ 'forms.builder.branch.actions.END_FORM' | translate }}</option>
-                              </select>
-
-                              @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
-                                <select
-                                  aria-label="Pregunta de destino"
-                                  [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
-                                  (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
-                                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                                >
-                                  @for (target of vm.getBranchTargetOptions(question.tempId); track target.value ?? 'end') {
-                                    <option [ngValue]="target.value">{{ target.label }}</option>
-                                  }
-                                </select>
-                              }
-                            </div>
-                          </label>
-                        }
-                      </div>
-                    </div>
+                  @for (entry of vm.getQuestionTreeForSection(section.tempId); track entry.question.tempId) {
+                    <ng-container *ngTemplateOutlet="questionCard; context: { $implicit: entry }"></ng-container>
                   }
-
-                  @if (question.type === 'LIKERT') {
-                    <div class="likert-builder">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.likert.matrixLabel' | translate }}</span>
-                        <div class="likert-actions">
-                          <button
-                            class="text-button"
-                            type="button"
-                            (click)="vm.addLikertRow(question.tempId)"
-                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                          >
-                            <span class="material-icons" aria-hidden="true">add</span>
-                            {{ 'forms.builder.likert.addRow' | translate }}
-                          </button>
-                          <button
-                            class="text-button"
-                            type="button"
-                            (click)="vm.addLikertColumn(question.tempId)"
-                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                          >
-                            <span class="material-icons" aria-hidden="true">add</span>
-                            {{ 'forms.builder.likert.addColumn' | translate }}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div
-                        class="likert-matrix-editor"
-                        [style.grid-template-columns]="'minmax(220px, 1.35fr) repeat(' + question.likertColumns.length + ', minmax(150px, 1fr))'"
-                      >
-                        <div class="likert-corner">{{ 'forms.builder.likert.rowsLabel' | translate }}</div>
-                        @for (column of question.likertColumns; track $index; let columnIndex = $index) {
-                          <div class="likert-column-editor">
-                            <input
-                              type="text"
-                              [ngModel]="column"
-                              (ngModelChange)="vm.updateLikertColumn(question.tempId, columnIndex, $event)"
-                              [attr.aria-label]="('forms.builder.likert.columnPlaceholder' | translate) + ' ' + (columnIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.likert.columnPlaceholder' | translate"
-                            />
-                            <button
-                              class="mini-remove"
-                              type="button"
-                              [title]="'forms.builder.likert.deleteColumn' | translate"
-                              (click)="vm.removeLikertColumn(question.tempId, columnIndex)"
-                              [disabled]="question.likertColumns.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                        }
-
-                        @for (row of question.likertRows; track $index; let rowIndex = $index) {
-                          <div class="likert-row-editor">
-                            <input
-                              type="text"
-                              [ngModel]="row"
-                              (ngModelChange)="vm.updateLikertRow(question.tempId, rowIndex, $event)"
-                              [attr.aria-label]="('forms.builder.likert.rowPlaceholder' | translate) + ' ' + (rowIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.likert.rowPlaceholder' | translate"
-                            />
-                            <button
-                              class="mini-remove"
-                              type="button"
-                              [title]="'forms.builder.likert.deleteRow' | translate"
-                              (click)="vm.removeLikertRow(question.tempId, rowIndex)"
-                              [disabled]="question.likertRows.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                          @for (column of question.likertColumns; track $index) {
-                            <div class="likert-radio-preview">
-                              <span></span>
-                            </div>
-                          }
-                        }
-                      </div>
-                    </div>
-                  }
-
-                  @if (question.type === 'TEXT') {
-                    <div class="properties-panel">
-                      <label class="field">
-                        <span>Formato de la respuesta</span>
-                        <select
-                          [ngModel]="question.properties.text_format ?? ''"
-                          (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'text_format', $event || null)"
-                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                        >
-                          <option value="">Texto libre (sin validación)</option>
-                          @for (format of textFormats; track format.value) {
-                            <option [value]="format.value">{{ format.label }}</option>
-                          }
-                        </select>
-                      </label>
-                      @if (question.properties.text_format) {
-                        <p class="field-hint">Se valida en la app, en el enlace público y al guardar en el servidor.</p>
-                      }
-                    </div>
-                  }
-
-                  @if (['NOTE', 'DATE', 'TIME', 'DATETIME', 'GPS', 'MULTIMEDIA', 'SIGNATURE', 'RATING', 'BARCODE', 'CALCULATE'].includes(question.type)) {
-                    <div class="properties-panel">
-                      @if (question.type === 'NOTE') {
-                        <label class="field">
-                          <span>Texto orientativo / ayuda (Help Text)</span>
-                          <textarea
-                            rows="2"
-                            [ngModel]="question.properties.help_text"
-                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'help_text', $event)"
-                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            placeholder="Escribe aclaraciones o notas para el encuestador..."
-                          ></textarea>
-                        </label>
-                      }
-
-                      @if (['DATE', 'TIME', 'DATETIME'].includes(question.type)) {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Límite Mínimo (Opcional)</span>
-                            <input
-                              type="text"
-                              [ngModel]="question.properties.min_date"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'min_date', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              placeholder="Ej. 2026-01-01"
-                            />
-                          </label>
-                          <label class="field">
-                            <span>Límite Máximo (Opcional)</span>
-                            <input
-                              type="text"
-                              [ngModel]="question.properties.max_date"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_date', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              placeholder="Ej. 2026-12-31"
-                            />
-                          </label>
-                          <label class="toggle-row">
-                            <input
-                              type="checkbox"
-                              [checked]="question.properties.default_now"
-                              (change)="vm.updateQuestionProperty(question.tempId, 'default_now', $any($event.target).checked)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                            <span>Establecer valor actual por defecto</span>
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'GPS') {
-                        <div class="properties-grid">
-                          <label class="toggle-row">
-                            <input
-                              type="checkbox"
-                              [checked]="question.properties.capture_accuracy"
-                              (change)="vm.updateQuestionProperty(question.tempId, 'capture_accuracy', $any($event.target).checked)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                            <span>Requerir alta precisión de satélite (GPS)</span>
-                          </label>
-                          <label class="toggle-row">
-                            <input
-                              type="checkbox"
-                              [checked]="question.properties.allow_manual_fallback"
-                              (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_fallback', $any($event.target).checked)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                            <span>Permitir ingreso manual si falla la ubicación</span>
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'MULTIMEDIA') {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Archivos permitidos</span>
-                            <select
-                              [ngModel]="question.properties.allowed_media || 'all'"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_media', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <option value="all">Todos (Fotos, Audio y Video)</option>
-                              <option value="both">Fotos y Audio</option>
-                              <option value="image">Solo Fotos</option>
-                              <option value="audio">Solo Audio</option>
-                              <option value="video">Solo Video</option>
-                            </select>
-                          </label>
-                          <label class="field">
-                            <span>Tamaño máximo (MB)</span>
-                            <input
-                              type="number"
-                              [ngModel]="question.properties.max_file_size_mb || 10"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_file_size_mb', +$event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              min="1"
-                              max="100"
-                            />
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'SIGNATURE') {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Color de pluma (Tinta)</span>
-                            <input
-                              type="color"
-                              [ngModel]="question.properties.pen_color || '#000000'"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'pen_color', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                          </label>
-                          <label class="field">
-                            <span>Color de lienzo</span>
-                            <input
-                              type="color"
-                              [ngModel]="question.properties.background_color || '#ffffff'"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'background_color', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'RATING') {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Escala máxima (3 a 10)</span>
-                            <select
-                              [ngModel]="question.properties.max_rating || 5"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_rating', +$event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <option [ngValue]="3">3 niveles</option>
-                              <option [ngValue]="5">5 niveles (Estándar)</option>
-                              <option [ngValue]="7">7 niveles</option>
-                              <option [ngValue]="10">10 niveles</option>
-                            </select>
-                          </label>
-                          <label class="field">
-                            <span>Tipo de indicador</span>
-                            <select
-                              [ngModel]="question.properties.icon_type || 'star'"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'icon_type', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <option value="star">Estrellas (★ ★ ★ ★ ★)</option>
-                              <option value="number">Números (1, 2, 3...)</option>
-                            </select>
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'BARCODE') {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Formatos de escáner</span>
-                            <select
-                              [ngModel]="question.properties.allowed_formats || 'ALL'"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_formats', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <option value="ALL">Todos (QR y Códigos de Barras)</option>
-                              <option value="QR">Solo Código QR</option>
-                              <option value="BARCODE">Solo Códigos 1D (EAN/UPC)</option>
-                            </select>
-                          </label>
-                          <label class="toggle-row">
-                            <input
-                              type="checkbox"
-                              [checked]="question.properties.allow_manual_input"
-                              (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_input', $any($event.target).checked)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            />
-                            <span>Permitir ingreso manual si la cámara falla</span>
-                          </label>
-                        </div>
-                      }
-
-                      @if (question.type === 'CALCULATE') {
-                        <div class="properties-grid">
-                          <label class="field">
-                            <span>Fórmula relacional (Expresión)</span>
-                            <input
-                              type="text"
-                              [ngModel]="question.properties.expression"
-                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'expression', $event)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              placeholder="Ej. ${q1} + ${q2}"
-                            />
-                            <small class="help-text">Sintaxis: ${{ '${id_pregunta}' }} para operar variables de preguntas anteriores.</small>
-                          </label>
-                        </div>
-                      }
-                    </div>
-                  }
-
-                  @if (question.type !== 'NOTE') {
-                    <label class="toggle-row">
-                      <input
-                        type="checkbox"
-                        [checked]="question.required"
-                        (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      />
-                      <span>{{ 'forms.builder.required' | translate }}</span>
-                    </label>
-                  }
-                </article>
+                  <ng-container *ngTemplateOutlet="sectionFooter; context: { $implicit: 'section:' + section.tempId }"></ng-container>
+                </div>
               }
             </section>
           }
 
           @if (vm.getQuestionsForSection(null).length > 0) {
-            <section class="section-card section-card--unassigned">
+            <section class="section-card section-card--unassigned" [attr.aria-labelledby]="'section-toggle-' + noSection">
               <div class="section-card-header">
+                <button
+                  class="collapse-toggle"
+                  type="button"
+                  [id]="'section-toggle-' + noSection"
+                  [attr.aria-expanded]="!isSectionCollapsed(null)"
+                  [attr.aria-controls]="'section-body-' + noSection"
+                  (click)="toggleSection(null)"
+                >
+                  <span class="material-icons chevron" aria-hidden="true">expand_more</span>
+                  <span class="section-index-label">{{ 'forms.builder.unassignedSection' | translate }}</span>
+                </button>
                 <div class="section-title-block">
-                  <strong>{{ 'forms.builder.unassignedSection' | translate }}</strong>
                   <span class="section-count">
                     {{ vm.getSectionQuestionCount(null) }} {{ 'forms.builder.sectionQuestionCount' | translate: { count: vm.getSectionQuestionCount(null) } }}
+                    @if (sectionIncompleteCount(null) > 0) {
+                      · <span class="incomplete-text">{{ sectionIncompleteCount(null) }} incompleta(s)</span>
+                    }
                   </span>
                 </div>
               </div>
 
-              @for (entry of vm.getQuestionTreeForSection(null); track entry.question.tempId) {
-                @let question = entry.question;
-                <article
-                  class="question-card"
-                  [class.question-card--dragging]="vm.canEditQuestions() && draggedQuestionTempId() === question.tempId"
-                  [class.question-card--drop-before]="isDropTarget(question.tempId, 'before')"
-                  [class.question-card--drop-after]="isDropTarget(question.tempId, 'after')"
-                  (dragover)="onDragOver($event, question.tempId)"
-                  (drop)="onDrop($event, question.tempId)"
-                  [style.margin-left.px]="entry.level * 20"
-                >
-                  <div class="question-card-header">
-                    <div class="question-title-row">
-                      <span class="question-number">{{ entry.displayNumber }}</span>
-                      <div>
-                        <strong>{{ vm.getTypeLabel(question.type) | translate }}</strong>
-                        <small>{{ 'forms.builder.order' | translate: { order: entry.displayNumber } }}</small>
-                      </div>
-                    </div>
-
-                    <div class="question-actions">
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.addSubquestion' | translate"
-                        (click)="vm.addSubquestion(question.tempId)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">subdirectory_arrow_right</span>
-                      </button>
-                      <button
-                        class="icon-button drag-handle"
-                        type="button"
-                        [title]="'forms.builder.dragToReorder' | translate"
-                        draggable="true"
-                        (dragstart)="onDragStart($event, question.tempId)"
-                        (dragend)="onDragEnd()"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">drag_indicator</span>
-                      </button>
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.moveUp' | translate"
-                        (click)="vm.moveQuestion(question.tempId, -1)"
-                        [disabled]="entry.index === 0 || vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
-                      </button>
-                      <button
-                        class="icon-button"
-                        type="button"
-                        [title]="'forms.builder.moveDown' | translate"
-                        (click)="vm.moveQuestion(question.tempId, 1)"
-                        [disabled]="entry.index === entry.siblingCount - 1 || vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">keyboard_arrow_down</span>
-                      </button>
-                      <button
-                        class="icon-button danger"
-                        type="button"
-                        [title]="'forms.builder.deleteQuestion' | translate"
-                        (click)="vm.removeQuestion(question.tempId)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      >
-                        <span class="material-icons" aria-hidden="true">delete</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <label class="field">
-                    <span>{{ 'forms.builder.sectionLabel' | translate }}</span>
-                    <select
-                      [ngModel]="question.sectionTempId"
-                      (ngModelChange)="vm.assignQuestionToSection(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    >
-                      <option [ngValue]="null">{{ 'forms.builder.sectionNone' | translate }}</option>
-                      @for (targetSection of vm.sections(); track targetSection.tempId) {
-                        <option [ngValue]="targetSection.tempId">{{ targetSection.title || ('forms.builder.untitledSection' | translate) }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>{{ 'forms.builder.typeLabel' | translate }}</span>
-                    <select
-                      [ngModel]="question.type"
-                      (ngModelChange)="vm.updateQuestionType(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                    >
-                      @for (type of questionTypes; track type.value) {
-                        <option [ngValue]="type.value">{{ type.labelKey | translate }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label class="field">
-                    <span>
-                      {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : (question.type === 'NOTE' ? 'Texto de la nota / Encabezado' : 'forms.builder.questionLabel')) | translate }}
-                    </span>
-                    <input
-                      type="text"
-                      [ngModel]="question.label"
-                      (ngModelChange)="vm.updateQuestionLabel(question.tempId, $event)"
-                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : (question.type === 'NOTE' ? 'Escribe el texto principal o aviso de la nota...' : 'forms.builder.questionPlaceholder')) | translate"
-                    />
-                  </label>
-
-                  @if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE'].includes(question.type)) {
-                    <div class="options-block">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.optionsLabel' | translate }}</span>
-                        <button
-                          class="text-button"
-                          type="button"
-                          (click)="vm.addOption(question.tempId)"
-                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                        >
-                          <span class="material-icons" aria-hidden="true">add</span>
-                          {{ 'forms.builder.addOption' | translate }}
-                        </button>
-                      </div>
-
-                      <div class="options-list">
-                        @for (option of question.options; track $index; let optionIndex = $index) {
-                          <div class="option-row">
-                            <input
-                              type="text"
-                              [ngModel]="option"
-                              (ngModelChange)="vm.updateOption(question.tempId, optionIndex, $event)"
-                              [attr.aria-label]="('forms.builder.optionPlaceholder' | translate) + ' ' + (optionIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.optionPlaceholder' | translate"
-                            />
-                            <button
-                              class="icon-button danger"
-                              type="button"
-                              [title]="'forms.builder.deleteOption' | translate"
-                              (click)="vm.removeOption(question.tempId, optionIndex)"
-                              [disabled]="question.options.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                        }
-                      </div>
-                    </div>
+              @if (!isSectionCollapsed(null)) {
+                <div class="section-body" [id]="'section-body-' + noSection">
+                  @for (entry of vm.getQuestionTreeForSection(null); track entry.question.tempId) {
+                    <ng-container *ngTemplateOutlet="questionCard; context: { $implicit: entry }"></ng-container>
                   }
-
-                  @if (vm.canConfigureBranching(question.type)) {
-                    <div class="branch-builder">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.branchingTitle' | translate }}</span>
-                        <small>{{ 'forms.builder.branchingHelp' | translate }}</small>
-                      </div>
-
-                      @if (!vm.stepByStep()) {
-                        <p class="branch-warning">
-                          {{ 'forms.builder.branchingStepHint' | translate }}
-                        </p>
-                      }
-
-                      <div class="branch-list">
-                        @for (option of question.options; track $index; let optionIndex = $index) {
-                          <label class="branch-row">
-                            <span>
-                              {{ option || ('forms.builder.emptyOption' | translate) }}
-                            </span>
-                            <div class="branch-controls">
-                              <select
-                                [ngModel]="vm.getBranchRuleAction(question, optionIndex)"
-                                (ngModelChange)="vm.updateBranchAction(question.tempId, optionIndex, $event)"
-                                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              >
-                                <option value="CONTINUE">{{ 'forms.builder.branch.actions.CONTINUE' | translate }}</option>
-                                <option value="GO_TO">{{ 'forms.builder.branch.actions.GO_TO' | translate }}</option>
-                                <option value="END_FORM">{{ 'forms.builder.branch.actions.END_FORM' | translate }}</option>
-                              </select>
-
-                              @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
-                                <select
-                                  aria-label="Pregunta de destino"
-                                  [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
-                                  (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
-                                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                                >
-                                  @for (target of vm.getBranchTargetOptions(question.tempId); track target.value ?? 'end') {
-                                    <option [ngValue]="target.value">{{ target.label }}</option>
-                                  }
-                                </select>
-                              }
-                            </div>
-                          </label>
-                        }
-                      </div>
-                    </div>
-                  }
-
-                  @if (question.type === 'LIKERT') {
-                    <div class="likert-builder">
-                      <div class="options-header">
-                        <span>{{ 'forms.builder.likert.matrixLabel' | translate }}</span>
-                        <div class="likert-actions">
-                          <button
-                            class="text-button"
-                            type="button"
-                            (click)="vm.addLikertRow(question.tempId)"
-                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                          >
-                            <span class="material-icons" aria-hidden="true">add</span>
-                            {{ 'forms.builder.likert.addRow' | translate }}
-                          </button>
-                          <button
-                            class="text-button"
-                            type="button"
-                            (click)="vm.addLikertColumn(question.tempId)"
-                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                          >
-                            <span class="material-icons" aria-hidden="true">add</span>
-                            {{ 'forms.builder.likert.addColumn' | translate }}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div
-                        class="likert-matrix-editor"
-                        [style.grid-template-columns]="'minmax(220px, 1.35fr) repeat(' + question.likertColumns.length + ', minmax(150px, 1fr))'"
-                      >
-                        <div class="likert-corner">{{ 'forms.builder.likert.rowsLabel' | translate }}</div>
-                        @for (column of question.likertColumns; track $index; let columnIndex = $index) {
-                          <div class="likert-column-editor">
-                            <input
-                              type="text"
-                              [ngModel]="column"
-                              (ngModelChange)="vm.updateLikertColumn(question.tempId, columnIndex, $event)"
-                              [attr.aria-label]="('forms.builder.likert.columnPlaceholder' | translate) + ' ' + (columnIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.likert.columnPlaceholder' | translate"
-                            />
-                            <button
-                              class="mini-remove"
-                              type="button"
-                              [title]="'forms.builder.likert.deleteColumn' | translate"
-                              (click)="vm.removeLikertColumn(question.tempId, columnIndex)"
-                              [disabled]="question.likertColumns.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                        }
-
-                        @for (row of question.likertRows; track $index; let rowIndex = $index) {
-                          <div class="likert-row-editor">
-                            <input
-                              type="text"
-                              [ngModel]="row"
-                              (ngModelChange)="vm.updateLikertRow(question.tempId, rowIndex, $event)"
-                              [attr.aria-label]="('forms.builder.likert.rowPlaceholder' | translate) + ' ' + (rowIndex + 1)"
-                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                              [placeholder]="'forms.builder.likert.rowPlaceholder' | translate"
-                            />
-                            <button
-                              class="mini-remove"
-                              type="button"
-                              [title]="'forms.builder.likert.deleteRow' | translate"
-                              (click)="vm.removeLikertRow(question.tempId, rowIndex)"
-                              [disabled]="question.likertRows.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
-                            >
-                              <span class="material-icons" aria-hidden="true">close</span>
-                            </button>
-                          </div>
-                          @for (column of question.likertColumns; track $index) {
-                            <div class="likert-radio-preview">
-                              <span></span>
-                            </div>
-                          }
-                        }
-                      </div>
-                    </div>
-                  }
-
-                  @if (question.type !== 'NOTE') {
-                    <label class="toggle-row">
-                      <input
-                        type="checkbox"
-                        [checked]="question.required"
-                        (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
-                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                      />
-                      <span>{{ 'forms.builder.required' | translate }}</span>
-                    </label>
-                  }
-                </article>
+                  <ng-container *ngTemplateOutlet="sectionFooter; context: { $implicit: 'section:' + noSection }"></ng-container>
+                </div>
               }
             </section>
           }
         </section>
+
+        <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+        @if (vm.undoState(); as undoState) {
+          <div class="undo-bar" role="status">
+            <span class="material-icons" aria-hidden="true">delete_sweep</span>
+            <span class="undo-message">{{ undoState.message }}</span>
+            <button id="undo-button" class="btn btn-secondary" type="button" (click)="undo()">
+              <span class="material-icons" aria-hidden="true">undo</span>
+              Deshacer
+            </button>
+            <button class="icon-button" type="button" aria-label="Cerrar aviso" (click)="vm.dismissUndo()">
+              <span class="material-icons" aria-hidden="true">close</span>
+            </button>
+          </div>
+        }
+
+        <!-- Plantillas reutilizadas por todas las secciones -->
+        <ng-template #sectionFooter let-key>
+          <div class="section-footer add-menu-anchor">
+            <button
+              class="text-button add-here-button"
+              type="button"
+              [id]="'add-trigger-' + key"
+              aria-haspopup="true"
+              [attr.aria-expanded]="openAddMenu() === key"
+              [attr.aria-controls]="'add-menu-' + key"
+              (click)="toggleAddMenu(key)"
+              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+            >
+              <span class="material-icons" aria-hidden="true">add_circle_outline</span>
+              Agregar pregunta en esta sección
+            </button>
+            @if (openAddMenu() === key) {
+              <ng-container *ngTemplateOutlet="addMenu; context: { $implicit: key }"></ng-container>
+            }
+          </div>
+        </ng-template>
+
+        <ng-template #addMenu let-key>
+          <div
+            class="question-menu-panel"
+            role="group"
+            [id]="'add-menu-' + key"
+            aria-label="Tipos de pregunta"
+            (keydown.escape)="closeAddMenu()"
+          >
+            @for (type of questionTypes; track type.value; let first = $first) {
+              <button
+                class="question-menu-item"
+                type="button"
+                [attr.id]="first ? 'add-menu-' + key + '-first' : null"
+                (click)="addFromMenu(type.value)"
+                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+              >
+                <span class="material-icons" aria-hidden="true">{{ type.icon }}</span>
+                <span>
+                  <strong>{{ type.labelKey | translate }}</strong>
+                  <small>{{ type.hintKey | translate }}</small>
+                </span>
+              </button>
+            }
+            <p class="question-menu-group">Datos con validación</p>
+            @for (format of textFormats; track format.value) {
+              <button
+                class="question-menu-item"
+                type="button"
+                (click)="addFromMenu('TEXT', format.value)"
+                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+              >
+                <span class="material-icons" aria-hidden="true">{{ format.icon }}</span>
+                <span>
+                  <strong>{{ format.defaultLabel }}</strong>
+                  <small>{{ format.hint }}</small>
+                </span>
+              </button>
+            }
+            <button class="question-menu-close text-button" type="button" (click)="closeAddMenu()">
+              <span class="material-icons" aria-hidden="true">close</span>
+              Cerrar
+            </button>
+          </div>
+        </ng-template>
+
+        <ng-template #pastePanel let-question let-kind="kind">
+          <div class="paste-panel">
+            <label class="field">
+              <span>{{ kind === 'options' ? 'Pega las opciones, una por línea' : 'Pega las afirmaciones, una por línea' }}</span>
+              <textarea
+                rows="6"
+                [id]="'paste-' + question.tempId"
+                [(ngModel)]="pasteText"
+                [attr.aria-describedby]="'paste-help-' + question.tempId"
+                (keydown.escape)="cancelPaste()"
+              ></textarea>
+            </label>
+            <p class="field-hint" [id]="'paste-help-' + question.tempId">
+              Reemplaza {{ kind === 'options' ? 'las opciones actuales' : 'las filas actuales' }}. Se ignoran las líneas vacías y las viñetas o numeración al inicio (-, •, 1., 1)).
+            </p>
+            <div class="paste-actions">
+              <button class="btn btn-primary" type="button" (click)="applyPaste()">
+                <span class="material-icons" aria-hidden="true">check</span>
+                Reemplazar
+              </button>
+              <button class="btn btn-secondary" type="button" (click)="cancelPaste()">Cancelar</button>
+            </div>
+          </div>
+        </ng-template>
+
+        <ng-template #questionCard let-entry>
+          @let question = entry.question;
+          @let expanded = isExpanded(question.tempId);
+          @let issue = vm.questionIssue(question);
+          <article
+            class="question-card"
+            [class.question-card--collapsed]="!expanded"
+            [class.question-card--incomplete]="issue"
+            [class.question-card--dragging]="vm.canEditQuestions() && draggedQuestionTempId() === question.tempId"
+            [class.question-card--drop-before]="isDropTarget(question.tempId, 'before')"
+            [class.question-card--drop-after]="isDropTarget(question.tempId, 'after')"
+            (dragover)="onDragOver($event, question.tempId)"
+            (drop)="onDrop($event, question.tempId)"
+            [style.margin-left.px]="entry.level * 20"
+            [attr.aria-labelledby]="'q-toggle-' + question.tempId"
+          >
+            <div class="question-card-header">
+              <button
+                class="collapse-toggle question-toggle"
+                type="button"
+                [id]="'q-toggle-' + question.tempId"
+                [attr.aria-expanded]="expanded"
+                [attr.aria-controls]="'q-body-' + question.tempId"
+                (click)="toggleQuestion(question.tempId)"
+              >
+                <span class="material-icons chevron" aria-hidden="true">expand_more</span>
+                <span class="question-number">{{ entry.displayNumber }}</span>
+                <span class="question-summary">
+                  <strong>{{ question.label.trim() || ('forms.builder.untitledQuestion' | translate) }}</strong>
+                  <small>
+                    {{ vm.getTypeLabel(question.type) | translate }}@if (questionSummary(entry)) { · {{ questionSummary(entry) }} }
+                  </small>
+                </span>
+                @if (issue) {
+                  <span class="issue-badge">
+                    <span class="material-icons" aria-hidden="true">error</span>
+                    {{ issue }}
+                  </span>
+                }
+              </button>
+
+              <div class="question-actions" role="group" [attr.aria-label]="'Acciones de la pregunta ' + entry.displayNumber">
+                <button
+                  class="icon-button"
+                  type="button"
+                  [id]="'add-trigger-after:' + question.tempId"
+                  aria-haspopup="true"
+                  [attr.aria-expanded]="openAddMenu() === 'after:' + question.tempId"
+                  [attr.aria-controls]="'add-menu-after:' + question.tempId"
+                  [attr.aria-label]="'Insertar una pregunta debajo de la ' + entry.displayNumber"
+                  title="Insertar pregunta debajo"
+                  (click)="toggleAddMenu('after:' + question.tempId)"
+                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">playlist_add</span>
+                </button>
+                <button
+                  class="icon-button"
+                  type="button"
+                  [attr.aria-label]="'Duplicar la pregunta ' + entry.displayNumber"
+                  title="Duplicar pregunta"
+                  (click)="duplicateQuestion(question.tempId)"
+                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">content_copy</span>
+                </button>
+                <button
+                  class="icon-button"
+                  type="button"
+                  [attr.aria-label]="'Agregar una subpregunta a la ' + entry.displayNumber"
+                  [title]="'forms.builder.addSubquestion' | translate"
+                  (click)="addSubquestion(question.tempId)"
+                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">subdirectory_arrow_right</span>
+                </button>
+                <span
+                  class="icon-button drag-handle"
+                  aria-hidden="true"
+                  [title]="'forms.builder.dragToReorder' | translate"
+                  [attr.draggable]="vm.canEditQuestions() && !vm.isSaving()"
+                  (dragstart)="onDragStart($event, question.tempId)"
+                  (dragend)="onDragEnd()"
+                >
+                  <span class="material-icons" aria-hidden="true">drag_indicator</span>
+                </span>
+                <button
+                  class="icon-button"
+                  type="button"
+                  [id]="'q-move-up-' + question.tempId"
+                  [attr.aria-label]="'Subir la pregunta ' + entry.displayNumber"
+                  [title]="'forms.builder.moveUp' | translate"
+                  (click)="moveQuestion(entry, -1)"
+                  [disabled]="entry.index === 0 || vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
+                </button>
+                <button
+                  class="icon-button"
+                  type="button"
+                  [id]="'q-move-down-' + question.tempId"
+                  [attr.aria-label]="'Bajar la pregunta ' + entry.displayNumber"
+                  [title]="'forms.builder.moveDown' | translate"
+                  (click)="moveQuestion(entry, 1)"
+                  [disabled]="entry.index === entry.siblingCount - 1 || vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">keyboard_arrow_down</span>
+                </button>
+                <button
+                  class="icon-button danger"
+                  type="button"
+                  [attr.aria-label]="'Eliminar la pregunta ' + entry.displayNumber"
+                  [title]="'forms.builder.deleteQuestion' | translate"
+                  (click)="removeQuestion(question.tempId)"
+                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                >
+                  <span class="material-icons" aria-hidden="true">delete</span>
+                </button>
+              </div>
+            </div>
+
+            @if (openAddMenu() === 'after:' + question.tempId) {
+              <div class="add-menu-anchor add-menu-anchor--inline">
+                <ng-container *ngTemplateOutlet="addMenu; context: { $implicit: 'after:' + question.tempId }"></ng-container>
+              </div>
+            }
+
+            @if (expanded) {
+              <div class="question-card-body" [id]="'q-body-' + question.tempId">
+                <label class="field">
+                  <span>{{ 'forms.builder.sectionLabel' | translate }} <small class="field-hint-inline">(al cambiarla, la pregunta pasa al final de esa sección)</small></span>
+                  <select
+                    [ngModel]="question.sectionTempId"
+                    (ngModelChange)="vm.assignQuestionToSection(question.tempId, $event)"
+                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    <option [ngValue]="null">{{ 'forms.builder.sectionNone' | translate }}</option>
+                    @for (targetSection of vm.sections(); track targetSection.tempId) {
+                      <option [ngValue]="targetSection.tempId">{{ targetSection.title || ('forms.builder.untitledSection' | translate) }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>{{ 'forms.builder.typeLabel' | translate }}</span>
+                  <select
+                    [ngModel]="question.type"
+                    (ngModelChange)="vm.updateQuestionType(question.tempId, $event)"
+                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                  >
+                    @for (type of questionTypes; track type.value) {
+                      <option [ngValue]="type.value">{{ type.labelKey | translate }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>
+                    {{ (question.type === 'LIKERT' ? 'forms.builder.likert.titleLabel' : (question.type === 'NOTE' ? 'Texto de la nota / Encabezado' : 'forms.builder.questionLabel')) | translate }}
+                  </span>
+                  <input
+                    type="text"
+                    [id]="'q-label-' + question.tempId"
+                [ngModel]="question.label"
+                    (ngModelChange)="vm.updateQuestionLabel(question.tempId, $event)"
+                    [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                    [placeholder]="(question.type === 'LIKERT' ? 'forms.builder.likert.titlePlaceholder' : (question.type === 'NOTE' ? 'Escribe el texto principal o aviso de la nota...' : 'forms.builder.questionPlaceholder')) | translate"
+                  />
+                </label>
+
+                @if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'].includes(question.type)) {
+                  <div class="options-block">
+                    <div class="options-header">
+                      <span>{{ 'forms.builder.optionsLabel' | translate }}</span>
+                      <button
+                        class="text-button"
+                        type="button"
+                        [id]="'paste-trigger-options-' + question.tempId"
+                        (click)="openPaste(question.tempId, 'options')"
+                        [attr.aria-expanded]="pasteTarget()?.tempId === question.tempId && pasteTarget()?.kind === 'options'"
+                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                      >
+                        <span class="material-icons" aria-hidden="true">content_paste</span>
+                        Pegar lista
+                      </button>
+                      <button
+                        class="text-button"
+                        type="button"
+                        (click)="vm.addOption(question.tempId)"
+                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                      >
+                        <span class="material-icons" aria-hidden="true">add</span>
+                        {{ 'forms.builder.addOption' | translate }}
+                      </button>
+                    </div>
+
+                    @if (pasteTarget()?.tempId === question.tempId && pasteTarget()?.kind === 'options') {
+
+                      <ng-container *ngTemplateOutlet="pastePanel; context: { $implicit: question, kind: 'options' }"></ng-container>
+
+                    }
+
+                    <div class="options-list">
+                      @for (option of question.options; track $index; let optionIndex = $index) {
+                        <div class="option-row">
+                          <input
+                            type="text"
+                            [ngModel]="option"
+                            (ngModelChange)="vm.updateOption(question.tempId, optionIndex, $event)"
+                            [attr.aria-label]="('forms.builder.optionPlaceholder' | translate) + ' ' + (optionIndex + 1)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            [placeholder]="'forms.builder.optionPlaceholder' | translate"
+                          />
+                          <button
+                            class="icon-button danger"
+                            type="button"
+                            [title]="'forms.builder.deleteOption' | translate"
+                            (click)="vm.removeOption(question.tempId, optionIndex)"
+                            [disabled]="question.options.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <span class="material-icons" aria-hidden="true">close</span>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (vm.canConfigureBranching(question.type)) {
+                  <div class="branch-builder">
+                    <div class="options-header">
+                      <span>{{ 'forms.builder.branchingTitle' | translate }}</span>
+                      <small>{{ 'forms.builder.branchingHelp' | translate }}</small>
+                    </div>
+
+                    @if (!vm.stepByStep()) {
+                      <p class="branch-warning">
+                        {{ 'forms.builder.branchingStepHint' | translate }}
+                      </p>
+                    }
+
+                    <div class="branch-list">
+                      @for (option of question.options; track $index; let optionIndex = $index) {
+                        <label class="branch-row">
+                          <span>
+                            {{ option || ('forms.builder.emptyOption' | translate) }}
+                          </span>
+                          <div class="branch-controls">
+                            <select
+                              [ngModel]="vm.getBranchRuleAction(question, optionIndex)"
+                              (ngModelChange)="vm.updateBranchAction(question.tempId, optionIndex, $event)"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            >
+                              <option value="CONTINUE">{{ 'forms.builder.branch.actions.CONTINUE' | translate }}</option>
+                              <option value="GO_TO">{{ 'forms.builder.branch.actions.GO_TO' | translate }}</option>
+                              <option value="END_FORM">{{ 'forms.builder.branch.actions.END_FORM' | translate }}</option>
+                            </select>
+
+                            @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
+                              <select
+                                aria-label="Pregunta de destino"
+                                [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
+                                (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
+                                [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              >
+                                @for (target of vm.getBranchTargetOptions(question.tempId); track target.value ?? 'end') {
+                                  <option [ngValue]="target.value">{{ target.label }}</option>
+                                }
+                              </select>
+                            }
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (question.type === 'LIKERT') {
+                  <div class="likert-builder">
+                    <div class="options-header">
+                      <span>{{ 'forms.builder.likert.matrixLabel' | translate }}</span>
+                      <div class="likert-actions">
+                        <button
+                          class="text-button"
+                          type="button"
+                          [id]="'paste-trigger-rows-' + question.tempId"
+                          (click)="openPaste(question.tempId, 'rows')"
+                          [attr.aria-expanded]="pasteTarget()?.tempId === question.tempId && pasteTarget()?.kind === 'rows'"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                        >
+                          <span class="material-icons" aria-hidden="true">content_paste</span>
+                          Pegar filas
+                        </button>
+                        <button
+                          class="text-button"
+                          type="button"
+                          (click)="vm.addLikertRow(question.tempId)"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                        >
+                          <span class="material-icons" aria-hidden="true">add</span>
+                          {{ 'forms.builder.likert.addRow' | translate }}
+                        </button>
+                        <button
+                          class="text-button"
+                          type="button"
+                          (click)="vm.addLikertColumn(question.tempId)"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                        >
+                          <span class="material-icons" aria-hidden="true">add</span>
+                          {{ 'forms.builder.likert.addColumn' | translate }}
+                        </button>
+                      </div>
+                    </div>
+
+                    @if (pasteTarget()?.tempId === question.tempId && pasteTarget()?.kind === 'rows') {
+
+                      <ng-container *ngTemplateOutlet="pastePanel; context: { $implicit: question, kind: 'rows' }"></ng-container>
+
+                    }
+
+                    <div
+                      class="likert-matrix-editor"
+                      [style.grid-template-columns]="'minmax(220px, 1.35fr) repeat(' + question.likertColumns.length + ', minmax(150px, 1fr))'"
+                    >
+                      <div class="likert-corner">{{ 'forms.builder.likert.rowsLabel' | translate }}</div>
+                      @for (column of question.likertColumns; track $index; let columnIndex = $index) {
+                        <div class="likert-column-editor">
+                          <input
+                            type="text"
+                            [ngModel]="column"
+                            (ngModelChange)="vm.updateLikertColumn(question.tempId, columnIndex, $event)"
+                            [attr.aria-label]="('forms.builder.likert.columnPlaceholder' | translate) + ' ' + (columnIndex + 1)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            [placeholder]="'forms.builder.likert.columnPlaceholder' | translate"
+                          />
+                          <button
+                            class="mini-remove"
+                            type="button"
+                            [title]="'forms.builder.likert.deleteColumn' | translate"
+                            (click)="vm.removeLikertColumn(question.tempId, columnIndex)"
+                            [disabled]="question.likertColumns.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <span class="material-icons" aria-hidden="true">close</span>
+                          </button>
+                        </div>
+                      }
+
+                      @for (row of question.likertRows; track $index; let rowIndex = $index) {
+                        <div class="likert-row-editor">
+                          <input
+                            type="text"
+                            [ngModel]="row"
+                            (ngModelChange)="vm.updateLikertRow(question.tempId, rowIndex, $event)"
+                            [attr.aria-label]="('forms.builder.likert.rowPlaceholder' | translate) + ' ' + (rowIndex + 1)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            [placeholder]="'forms.builder.likert.rowPlaceholder' | translate"
+                          />
+                          <button
+                            class="mini-remove"
+                            type="button"
+                            [title]="'forms.builder.likert.deleteRow' | translate"
+                            (click)="vm.removeLikertRow(question.tempId, rowIndex)"
+                            [disabled]="question.likertRows.length <= 1 || vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <span class="material-icons" aria-hidden="true">close</span>
+                          </button>
+                        </div>
+                        @for (column of question.likertColumns; track $index) {
+                          <div class="likert-radio-preview">
+                            <span></span>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (question.type === 'TEXT') {
+                  <div class="properties-panel">
+                    <label class="field">
+                      <span>Formato de la respuesta</span>
+                      <select
+                        [ngModel]="question.properties.text_format ?? ''"
+                        (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'text_format', $event || null)"
+                        [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                      >
+                        <option value="">Texto libre (sin validación)</option>
+                        @for (format of textFormats; track format.value) {
+                          <option [value]="format.value">{{ format.label }}</option>
+                        }
+                      </select>
+                    </label>
+                    @if (question.properties.text_format) {
+                      <p class="field-hint">Se valida en la app, en el enlace público y al guardar en el servidor.</p>
+                    }
+                  </div>
+                }
+
+                @if (['NOTE', 'DATE', 'TIME', 'DATETIME', 'GPS', 'MULTIMEDIA', 'SIGNATURE', 'RATING', 'BARCODE', 'CALCULATE'].includes(question.type)) {
+                  <div class="properties-panel">
+                    @if (question.type === 'NOTE') {
+                      <label class="field">
+                        <span>Texto orientativo / ayuda (Help Text)</span>
+                        <textarea
+                          rows="2"
+                          [ngModel]="question.properties.help_text"
+                          (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'help_text', $event)"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          placeholder="Escribe aclaraciones o notas para el encuestador..."
+                        ></textarea>
+                      </label>
+                    }
+
+                    @if (['DATE', 'TIME', 'DATETIME'].includes(question.type)) {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Límite Mínimo (Opcional)</span>
+                          <input
+                            type="text"
+                            [ngModel]="question.properties.min_date"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'min_date', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            placeholder="Ej. 2026-01-01"
+                          />
+                        </label>
+                        <label class="field">
+                          <span>Límite Máximo (Opcional)</span>
+                          <input
+                            type="text"
+                            [ngModel]="question.properties.max_date"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_date', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            placeholder="Ej. 2026-12-31"
+                          />
+                        </label>
+                        <label class="toggle-row">
+                          <input
+                            type="checkbox"
+                            [checked]="question.properties.default_now"
+                            (change)="vm.updateQuestionProperty(question.tempId, 'default_now', $any($event.target).checked)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                          <span>Establecer valor actual por defecto</span>
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'GPS') {
+                      <div class="properties-grid">
+                        <label class="toggle-row">
+                          <input
+                            type="checkbox"
+                            [checked]="question.properties.capture_accuracy"
+                            (change)="vm.updateQuestionProperty(question.tempId, 'capture_accuracy', $any($event.target).checked)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                          <span>Requerir alta precisión de satélite (GPS)</span>
+                        </label>
+                        <label class="toggle-row">
+                          <input
+                            type="checkbox"
+                            [checked]="question.properties.allow_manual_fallback"
+                            (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_fallback', $any($event.target).checked)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                          <span>Permitir ingreso manual si falla la ubicación</span>
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'MULTIMEDIA') {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Archivos permitidos</span>
+                          <select
+                            [ngModel]="question.properties.allowed_media || 'all'"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_media', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <option value="all">Todos (Fotos, Audio y Video)</option>
+                            <option value="both">Fotos y Audio</option>
+                            <option value="image">Solo Fotos</option>
+                            <option value="audio">Solo Audio</option>
+                            <option value="video">Solo Video</option>
+                          </select>
+                        </label>
+                        <label class="field">
+                          <span>Tamaño máximo (MB)</span>
+                          <input
+                            type="number"
+                            [ngModel]="question.properties.max_file_size_mb || 10"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_file_size_mb', +$event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            min="1"
+                            max="100"
+                          />
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'SIGNATURE') {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Color de pluma (Tinta)</span>
+                          <input
+                            type="color"
+                            [ngModel]="question.properties.pen_color || '#000000'"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'pen_color', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                        </label>
+                        <label class="field">
+                          <span>Color de lienzo</span>
+                          <input
+                            type="color"
+                            [ngModel]="question.properties.background_color || '#ffffff'"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'background_color', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'RATING') {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Escala máxima (3 a 10)</span>
+                          <select
+                            [ngModel]="question.properties.max_rating || 5"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_rating', +$event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <option [ngValue]="3">3 niveles</option>
+                            <option [ngValue]="5">5 niveles (Estándar)</option>
+                            <option [ngValue]="7">7 niveles</option>
+                            <option [ngValue]="10">10 niveles</option>
+                          </select>
+                        </label>
+                        <label class="field">
+                          <span>Tipo de indicador</span>
+                          <select
+                            [ngModel]="question.properties.icon_type || 'star'"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'icon_type', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <option value="star">Estrellas (★ ★ ★ ★ ★)</option>
+                            <option value="number">Números (1, 2, 3...)</option>
+                          </select>
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'BARCODE') {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Formatos de escáner</span>
+                          <select
+                            [ngModel]="question.properties.allowed_formats || 'ALL'"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_formats', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          >
+                            <option value="ALL">Todos (QR y Códigos de Barras)</option>
+                            <option value="QR">Solo Código QR</option>
+                            <option value="BARCODE">Solo Códigos 1D (EAN/UPC)</option>
+                          </select>
+                        </label>
+                        <label class="toggle-row">
+                          <input
+                            type="checkbox"
+                            [checked]="question.properties.allow_manual_input"
+                            (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_input', $any($event.target).checked)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                          />
+                          <span>Permitir ingreso manual si la cámara falla</span>
+                        </label>
+                      </div>
+                    }
+
+                    @if (question.type === 'CALCULATE') {
+                      <div class="properties-grid">
+                        <label class="field">
+                          <span>Fórmula relacional (Expresión)</span>
+                          <input
+                            type="text"
+                            [ngModel]="question.properties.expression"
+                            (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'expression', $event)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                            placeholder="Ej. ${q1} + ${q2}"
+                          />
+                          <small class="help-text">Sintaxis: ${{ '${id_pregunta}' }} para operar variables de preguntas anteriores.</small>
+                        </label>
+                      </div>
+                    }
+                  </div>
+                }
+
+                @if (question.type !== 'NOTE') {
+                  <label class="toggle-row">
+                    <input
+                      type="checkbox"
+                      [checked]="question.required"
+                      (change)="vm.updateQuestionRequired(question.tempId, $any($event.target).checked)"
+                      [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                    />
+                    <span>{{ 'forms.builder.required' | translate }}</span>
+                  </label>
+                }
+              </div>
+            }
+          </article>
+        </ng-template>
       </article>
 
       <aside class="preview-panel">
@@ -1304,6 +1374,94 @@
   </div>
 }
 
+@if (importPreview(); as preview) {
+  <div class="modal-backdrop" (click)="closeImport()" (keydown.escape)="closeImport()">
+    <div
+      class="modal-dialog import-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="import-title"
+      aria-describedby="import-summary"
+      cdkTrapFocus
+      [cdkTrapFocusAutoCapture]="true"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h3 id="import-title">Importar desde Excel</h3>
+        <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeImport()">&times;</button>
+      </div>
+
+      <div class="modal-body import-body">
+        <p id="import-summary" class="import-summary">
+          <span class="material-icons" aria-hidden="true">{{ preview.valid ? 'task_alt' : 'error' }}</span>
+          <span>
+            <strong>{{ importFileName() }}</strong><br />
+            @if (preview.valid) {
+              Listo para cargar: {{ preview.summary.questions }} pregunta(s) en {{ preview.summary.sections }} sección(es).
+            } @else {
+              Hay {{ preview.errors.length }} error(es) que corregir en el archivo antes de importar.
+            }
+          </span>
+        </p>
+
+        @if (preview.errors.length > 0) {
+          <section class="import-issues import-issues--error" aria-labelledby="import-errors-title">
+            <h4 id="import-errors-title">Errores (impiden importar)</h4>
+            <ul>
+              @for (issue of preview.errors; track $index) {
+                <li><strong>{{ issueLocation(issue) }}:</strong> {{ issue.message }}</li>
+              }
+            </ul>
+          </section>
+        }
+
+        @if (preview.warnings.length > 0) {
+          <details class="import-issues import-issues--warning" [open]="preview.warnings.length <= 5">
+            <summary>Avisos: {{ preview.warnings.length }} elemento(s) no se convirtieron por completo</summary>
+            <ul>
+              @for (issue of preview.warnings; track $index) {
+                <li><strong>{{ issueLocation(issue) }}:</strong> {{ issue.message }}</li>
+              }
+            </ul>
+          </details>
+        }
+
+        @if (preview.valid) {
+          @if (preview.sections.length > 0) {
+            <p class="import-sections"><strong>Secciones:</strong> {{ preview.sections.join(' · ') }}</p>
+          }
+          @if (vm.questions().length > 0) {
+            <fieldset class="import-mode">
+              <legend>¿Qué hacer con las {{ vm.questions().length }} pregunta(s) actuales?</legend>
+              <label class="toggle-row">
+                <input type="radio" name="import-mode" value="append" [checked]="importMode() === 'append'" (change)="importMode.set('append')" />
+                <span>Conservarlas y agregar las del Excel al final</span>
+              </label>
+              <label class="toggle-row">
+                <input type="radio" name="import-mode" value="replace" [checked]="importMode() === 'replace'" (change)="importMode.set('replace')" />
+                <span>Reemplazarlas por las del Excel (se puede deshacer)</span>
+              </label>
+            </fieldset>
+          }
+          <p class="field-hint">Las preguntas se cargan en el constructor sin guardarse: revísalas y luego pulsa «Guardar».</p>
+        }
+
+        <div class="paste-actions import-actions">
+          @if (preview.valid) {
+            <button class="btn btn-primary" type="button" (click)="applyImport()">
+              <span class="material-icons" aria-hidden="true">playlist_add_check</span>
+              Cargar {{ preview.summary.questions }} pregunta(s)
+            </button>
+          }
+          <button class="btn btn-secondary" type="button" (click)="closeImport()">
+            {{ preview.valid ? 'Cancelar' : 'Cerrar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
 @if (shareModalOpen) {
   <div class="modal-backdrop" (click)="closeShareModal()" (keydown.escape)="closeShareModal()">
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="builder-share-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
@@ -1450,3 +1608,4 @@
     </div>
   </div>
 }
+

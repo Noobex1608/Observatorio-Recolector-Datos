@@ -3,6 +3,7 @@ import { AuthService } from '@core/services/auth.service';
 import { Form, FormService, FormShare } from '@core/services/form.service';
 import { User } from '@core/models/user/user.interface';
 import { UserService } from '@core/services/user.service';
+import { NotificationService } from '@core/services/notification.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -29,6 +30,7 @@ export class FormDashboardViewModel {
   private formService = inject(FormService);
   private authService = inject(AuthService);
   private userService = inject(UserService);
+  private notify = inject(NotificationService);
   private translate = inject(TranslateService);
 
   activeTab = signal<FormTab>('DRAFT');
@@ -223,9 +225,12 @@ export class FormDashboardViewModel {
   }
 
   async deleteForm(form: Form): Promise<void> {
-    const confirmed = typeof window === 'undefined'
-      ? true
-      : window.confirm(this.translate.instant('forms.dashboard.deletePermanentWarning', { title: form.title }));
+    const confirmed = await this.notify.confirm({
+      title: 'Eliminar formulario',
+      message: this.translate.instant('forms.dashboard.deletePermanentWarning', { title: form.title }),
+      confirmText: 'Eliminar definitivamente',
+      tone: 'danger',
+    });
 
     if (!confirmed) {
       return;

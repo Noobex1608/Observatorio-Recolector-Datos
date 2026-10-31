@@ -115,7 +115,7 @@ class MobileSubmitTest extends TestCase
             'order' => 11,
         ]);
 
-        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,
@@ -203,7 +203,7 @@ class MobileSubmitTest extends TestCase
             'options' => ['1', '2', '3', '4', '5'],
         ]);
 
-        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,
@@ -252,7 +252,7 @@ class MobileSubmitTest extends TestCase
             'order' => 2,
         ]);
 
-        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'form_id' => $form->id,
             'data' => [
                 '_consentimiento_aceptado' => true,

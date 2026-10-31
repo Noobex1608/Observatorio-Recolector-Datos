@@ -15,8 +15,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectCollectorController extends Controller
@@ -25,14 +25,16 @@ class ProjectCollectorController extends Controller
     {
         $project = Project::findOrFail($id);
         abort_unless($request->user()->canManageProjects() || $request->user()->leadsProject($id), 403);
+
         return $project;
     }
 
     public function template(Request $request, string $id): StreamedResponse
     {
         $this->managedProject($request, $id);
+
         return response()->streamDownload(function () {
-            $sheet = new Spreadsheet();
+            $sheet = new Spreadsheet;
             $sheet->getActiveSheet()->fromArray(['Cédula', 'Nombres', 'Apellidos', 'Correo electrónico'], null, 'A1');
             $sheet->getActiveSheet()->getStyle('A1:D1')->getFont()->setBold(true);
             $sheet->getActiveSheet()->getStyle('A2:A501')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
@@ -180,17 +182,29 @@ class ProjectCollectorController extends Controller
         $seenEmails = [];
         $seenCedulas = [];
         foreach (array_slice($rows, 1, null, true) as $index => $row) {
-            if (count(array_filter(array_slice($row, 0, 4), fn ($v) => trim((string) $v) !== '')) === 0) continue;
+            if (count(array_filter(array_slice($row, 0, 4), fn ($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
             $cedula = trim((string) ($row[0] ?? ''));
             $nombres = trim((string) ($row[1] ?? ''));
             $apellidos = trim((string) ($row[2] ?? ''));
             $email = Str::lower(trim((string) ($row[3] ?? '')));
             $errors = [];
-            if (! preg_match('/^[0-9]{10}$/', $cedula)) $errors[] = 'Cédula: deben ser 10 dígitos.';
-            if ($nombres === '' || $apellidos === '' || mb_strlen($nombres.' '.$apellidos) > 255) $errors[] = 'Nombres y apellidos obligatorios (máximo 255 caracteres).';
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255) $errors[] = 'Correo electrónico inválido.';
-            if (isset($seenEmails[$email])) $errors[] = 'Correo duplicado en el archivo.';
-            if (isset($seenCedulas[$cedula])) $errors[] = 'Cédula duplicada en el archivo.';
+            if (! preg_match('/^[0-9]{10}$/', $cedula)) {
+                $errors[] = 'Cédula: deben ser 10 dígitos.';
+            }
+            if ($nombres === '' || $apellidos === '' || mb_strlen($nombres.' '.$apellidos) > 255) {
+                $errors[] = 'Nombres y apellidos obligatorios (máximo 255 caracteres).';
+            }
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255) {
+                $errors[] = 'Correo electrónico inválido.';
+            }
+            if (isset($seenEmails[$email])) {
+                $errors[] = 'Correo duplicado en el archivo.';
+            }
+            if (isset($seenCedulas[$cedula])) {
+                $errors[] = 'Cédula duplicada en el archivo.';
+            }
             $seenEmails[$email] = true;
             $seenCedulas[$cedula] = true;
             $existingByEmail = User::withTrashed()->whereRaw('LOWER(email) = ?', [$email])->first();
@@ -212,7 +226,9 @@ class ProjectCollectorController extends Controller
         }
         abort_if(count($preview) === 0, 422, 'La plantilla no contiene encuestadores.');
         $hasErrors = collect($preview)->contains(fn ($row) => count($row['errors']) > 0);
-        if ($request->boolean('preview')) return response()->json(['rows' => $preview, 'valid' => ! $hasErrors]);
+        if ($request->boolean('preview')) {
+            return response()->json(['rows' => $preview, 'valid' => ! $hasErrors]);
+        }
         abort_if($hasErrors, 422, 'Corrige las filas señaladas antes de importar.');
 
         $credentials = [];
@@ -235,6 +251,7 @@ class ProjectCollectorController extends Controller
             AuditLogService::log($request->user(), 'IMPORT_COLLECTORS', 'proyectos',
                 'Importó encuestadores al proyecto.', ['project_id' => $project->id, 'count' => count($preview)]);
         });
+
         return response()->json(['imported' => count($preview), 'credentials' => $credentials], 201)
             ->header('Cache-Control', 'no-store');
     }
@@ -253,11 +270,14 @@ class ProjectCollectorController extends Controller
             $user->fill(array_intersect_key($data, array_flip(['name', 'email', 'cedula'])))->save();
             if (array_key_exists('is_active', $data)) {
                 $project->collectors()->updateExistingPivot($user->id, ['is_active' => $data['is_active']]);
-                if (! $data['is_active']) $this->removeAssignments($project, $user->id);
+                if (! $data['is_active']) {
+                    $this->removeAssignments($project, $user->id);
+                }
             }
             AuditLogService::log($request->user(), 'UPDATE_COLLECTOR', 'proyectos', 'Actualizó encuestador del proyecto.',
                 ['project_id' => $project->id, 'user_id' => $user->id]);
         });
+
         return response()->json(['message' => 'Encuestador actualizado.']);
     }
 
@@ -271,6 +291,7 @@ class ProjectCollectorController extends Controller
             AuditLogService::log($request->user(), 'REMOVE_COLLECTOR', 'proyectos', 'Quitó encuestador del proyecto.',
                 ['project_id' => $project->id, 'user_id' => $userId]);
         });
+
         return response()->json(null, 204);
     }
 
@@ -287,13 +308,18 @@ class ProjectCollectorController extends Controller
             'Selecciona solo encuestadores activos y formularios de este proyecto.');
         $created = 0;
         DB::transaction(function () use ($members, $forms, &$created, $request, $project) {
-            foreach ($forms as $formId) foreach ($members as $userId) {
-                $share = app(FormShareAccess::class)->grant($formId, (int) $userId);
-                if ($share->wasRecentlyCreated) $created++;
+            foreach ($forms as $formId) {
+                foreach ($members as $userId) {
+                    $share = app(FormShareAccess::class)->grant($formId, (int) $userId);
+                    if ($share->wasRecentlyCreated) {
+                        $created++;
+                    }
+                }
             }
             AuditLogService::log($request->user(), 'ASSIGN_COLLECTORS', 'permisos', 'Asignó formularios a encuestadores.',
                 ['project_id' => $project->id, 'created' => $created]);
         });
+
         return response()->json(['assigned' => $created]);
     }
 

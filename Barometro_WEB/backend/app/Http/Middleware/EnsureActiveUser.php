@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -17,6 +18,7 @@ class EnsureActiveUser
             abort_unless($user->isActive(), 403, 'La cuenta está desactivada.');
             $request->setUserResolver(fn () => $user);
         }
+
         return $next($request);
     }
 }

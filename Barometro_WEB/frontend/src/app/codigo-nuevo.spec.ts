@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpRequest } from '@angular/common/http
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { NotificationService } from '@core/services/notification.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, isObservable, Observable, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -146,40 +146,40 @@ describe('Login y cambio de contraseña', () => {
 describe('Formulario de usuario', () => {
   function form(params: Record<string, string>, userService: Record<string, unknown>) {
     const nav = router();
-    const snackBar = { open: vi.fn() };
+    const notify = { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() };
     const component = build(() => new UsuarioFormComponent(), [
       { provide: Router, useValue: nav },
       { provide: ActivatedRoute, useValue: { snapshot: { params } } },
       { provide: UserService, useValue: userService },
-      { provide: MatSnackBar, useValue: snackBar },
+      { provide: NotificationService, useValue: notify },
       { provide: TranslateService, useValue: translate },
     ]);
     component.ngOnInit();
-    return { component, nav, snackBar };
+    return { component, nav, notify };
   }
   const valid = { name: 'Ana', email: 'ana@uleam.edu.ec', password: 'secreta123', rol: 'RECOLECTOR', is_active: true, telefono: '', cargo: '', bio: '' };
 
   it('crea el usuario y vuelve a la lista', () => {
     const createUser = vi.fn(() => of({}));
-    const { component, nav, snackBar } = form({}, { createUser });
+    const { component, nav, notify } = form({}, { createUser });
     component.userForm.setValue(valid);
     component.onSubmit();
     expect(createUser).toHaveBeenCalled();
-    expect(snackBar.open).toHaveBeenCalledWith('users.messages.created', 'common.buttons.close', { duration: 3000 });
+    expect(notify.success).toHaveBeenCalledWith('users.messages.created');
     expect(nav.navigate).toHaveBeenCalledWith(['/admin/usuarios']);
   });
 
   it('muestra el error del servidor al crear', () => {
-    const { component, snackBar } = form({}, { createUser: () => throwError(() => ({ error: { message: 'Correo duplicado' } })) });
+    const { component, notify } = form({}, { createUser: () => throwError(() => ({ error: { message: 'Correo duplicado' } })) });
     component.userForm.setValue(valid);
     component.onSubmit();
-    expect(snackBar.open).toHaveBeenCalledWith('Correo duplicado', 'common.buttons.close', { duration: 3000 });
+    expect(notify.error).toHaveBeenCalledWith('Correo duplicado');
     expect(component.loading()).toBe(false);
   });
 
   it('edita un usuario existente y avisa si no se pudo cargar', () => {
     const updateUser = vi.fn(() => throwError(() => ({})));
-    const { component, nav, snackBar } = form({ id: '7' }, {
+    const { component, nav, notify } = form({ id: '7' }, {
       getUserById: () => throwError(() => new Error('404')),
       updateUser,
     });
@@ -189,7 +189,7 @@ describe('Formulario de usuario', () => {
     component.userForm.setValue(valid);
     component.onSubmit();
     expect(updateUser).toHaveBeenCalledWith(7, expect.objectContaining({ name: 'Ana' }));
-    expect(snackBar.open).toHaveBeenCalledWith('users.messages.updateError', 'common.buttons.close', { duration: 3000 });
+    expect(notify.error).toHaveBeenCalledWith('users.messages.updateError');
   });
 });
 

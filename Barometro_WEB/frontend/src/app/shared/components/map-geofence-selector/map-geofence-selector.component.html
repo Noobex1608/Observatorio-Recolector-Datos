@@ -66,7 +66,7 @@
         <label for="radiusInput">
           Radio (metros)
           @if (isManzanaGeofence()) {
-            <span class="mode-lock-badge">🔒 Bloqueado (Polígono Manzana)</span>
+            <span class="mode-lock-badge"><span class="material-icons gf-icon" aria-hidden="true">lock</span> Bloqueado (Polígono Manzana)</span>
           }
         </label>
         <div class="slider-row">
@@ -98,7 +98,7 @@
               (click)="clearManzanaSelection()"
               title="Borrar las manzanas elegidas y volver a Geocerca Circular"
             >
-              🔓 Usar Radio Circular
+              <span class="material-icons gf-icon" aria-hidden="true">lock_open</span> Usar Radio Circular
             </button>
           }
         </div>
@@ -112,7 +112,7 @@
           [disabled]="disabled()"
           title="Usar mi ubicación actual"
         >
-          📍 Mi Ubicación
+          <span class="material-icons gf-icon" aria-hidden="true">my_location</span> Mi Ubicación
         </button>
       </div>
     </div>
@@ -166,7 +166,7 @@
 
       @if (gisService.loading()) {
         <div class="gis-spinner">
-          <span class="spinner-icon">🔄</span> Cargando GeoJSON...
+          <span class="material-icons gf-icon spinner-icon" aria-hidden="true">autorenew</span> Cargando GeoJSON...
         </div>
       }
     </div>
@@ -175,16 +175,16 @@
     <div class="geofence-status-banner" [class.mode-manzana]="isManzanaGeofence()" [class.mode-rural]="isRuralZone()">
       <div class="banner-mode-tag">
         @if (isManzanaGeofence()) {
-          <span class="tag-polygon">🟢 GEOFENCE POLÍGONO: {{ selectedManzanas().length }} {{ selectedManzanas().length === 1 ? 'MANZANA' : 'MANZANAS' }} (Radio: 0m)</span>
+          <span class="tag-polygon"><span class="material-icons gf-icon" aria-hidden="true">polyline</span> GEOFENCE POLÍGONO: {{ selectedManzanas().length }} {{ selectedManzanas().length === 1 ? 'MANZANA' : 'MANZANAS' }} (Radio: 0m)</span>
         } @else {
-          <span class="tag-circular">🔵 GEOFENCE CIRCULAR (Radio: {{ localRadius() }}m)</span>
+          <span class="tag-circular"><span class="material-icons gf-icon" aria-hidden="true">radar</span> GEOFENCE CIRCULAR (Radio: {{ localRadius() }}m)</span>
         }
         @if (isRuralZone()) {
-          <span class="tag-rural-badge">🌾 ZONA RURAL DISPERSA (999)</span>
+          <span class="tag-rural-badge"><span class="material-icons gf-icon" aria-hidden="true">agriculture</span> ZONA RURAL DISPERSA (999)</span>
         }
       </div>
       <div class="banner-info">
-        <strong>{{ bannerStatusText() }}</strong>
+        <strong><span class="material-icons gf-icon" aria-hidden="true">{{ isManzanaGeofence() ? 'place' : 'gps_fixed' }}</span> {{ bannerStatusText() }}</strong>
       </div>
     </div>
   </div>
@@ -192,9 +192,9 @@
   <!-- Zoom Level & Layer Guide -->
   <div class="gis-zoom-indicator">
     <span>Zoom actual: <strong>{{ currentZoom() }}</strong></span>
-    <span class="zoom-pill" [class.active]="currentZoom() < 14">🟢 Parroquias (&lt;14)</span>
-    <span class="zoom-pill" [class.active]="currentZoom() >= 14 && currentZoom() < 16">🔵 Sectores (14-15)</span>
-    <span class="zoom-pill" [class.active]="currentZoom() >= 16">🟠 Manzanas (&ge;16 - Clic para agregar o quitar)</span>
+    <span class="zoom-pill" [class.active]="currentZoom() < 14"><span class="layer-dot dot-parroquia" aria-hidden="true"></span> Parroquias (&lt;14)</span>
+    <span class="zoom-pill" [class.active]="currentZoom() >= 14 && currentZoom() < 16"><span class="layer-dot dot-sector" aria-hidden="true"></span> Sectores (14-15)</span>
+    <span class="zoom-pill" [class.active]="currentZoom() >= 16"><span class="layer-dot dot-manzana" aria-hidden="true"></span> Manzanas (&ge;16 - Clic para agregar o quitar)</span>
   </div>
 
   <!-- Leaflet Map Container Canvas -->

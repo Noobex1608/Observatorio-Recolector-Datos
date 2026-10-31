@@ -31,10 +31,14 @@ export class AjustesComponent {
   }
 
   async cambiarServidor() {
-    const nuevoServidor = prompt(
-      this.theme.t('change_server') + ':',
-      this.auth.obtenerUrlServidor() || ''
-    );
+    const nuevoServidor = await this.toast.prompt({
+      title: this.theme.t('change_server'),
+      message: 'Escriba la dirección HTTPS del servidor, sin ruta ni parámetros.',
+      label: 'Dirección del servidor',
+      value: this.auth.obtenerUrlServidor() || '',
+      type: 'url',
+      confirmText: 'Continuar',
+    });
     if (!nuevoServidor?.trim()) return;
     let target: URL;
     try {
@@ -43,7 +47,7 @@ export class AjustesComponent {
       if (target.protocol !== 'https:' && !(localDevelopment && target.protocol === 'http:')) throw new Error();
       if (target.pathname !== '/' || target.search || target.hash) throw new Error();
     } catch {
-      this.toast.show('Ingrese el origen HTTPS del backend, sin ruta ni parámetros.');
+      this.toast.show('Ingrese el origen HTTPS del backend, sin ruta ni parámetros.', 'error');
       return;
     }
     const current = this.auth.obtenerUrlServidor();
@@ -52,10 +56,16 @@ export class AjustesComponent {
     } catch { /* El modo demo no tiene origen HTTP. */ }
     const unsent = await this.db.responses.where('estado').anyOf('borrador', 'listo-para-enviar').count();
     if (unsent > 0) {
-      this.toast.show(`Hay ${unsent} respuestas pendientes. Sincronícelas antes de cambiar el servidor.`);
+      this.toast.show(`Hay ${unsent} respuestas pendientes. Sincronícelas antes de cambiar el servidor.`, 'warning');
       return;
     }
-    if (!confirm('Se cerrará la sesión y se borrarán del dispositivo las encuestas y respuestas ya enviadas del servidor anterior. ¿Continuar?')) return;
+    const accepted = await this.toast.confirm({
+      title: 'Cambiar de servidor',
+      message: 'Se cerrará la sesión y se borrarán del dispositivo las encuestas y respuestas ya enviadas del servidor anterior.',
+      confirmText: 'Cambiar servidor',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     if (current && this.auth.obtenerToken() && !this.auth.esModoDemo() && navigator.onLine) {
       try { await this.api.logout(current); } catch { /* La sesión local se revoca aunque falle la red. */ }
     }
@@ -69,7 +79,13 @@ export class AjustesComponent {
   }
 
   async limpiarDatos() {
-    if (confirm(this.theme.t('delete_confirm'))) {
+    const accepted = await this.toast.confirm({
+      title: 'Borrar datos locales',
+      message: this.theme.t('delete_confirm'),
+      confirmText: 'Borrar',
+      tone: 'danger',
+    });
+    if (accepted) {
       await this.storage.limpiarFormularios();
       this.toast.show('Datos locales eliminados.');
     }

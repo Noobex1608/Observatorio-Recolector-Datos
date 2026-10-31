@@ -19,7 +19,7 @@ class SqlInjectionRegressionTest extends TestCase
     {
         User::factory()->create(['email' => 'zap@example.com', 'password' => bcrypt('clave-correcta-123')]);
         $answers = [];
-        foreach (["zap-password", "zap-password' AND '1'='1' -- ", "zap-password' AND '1'='2' -- "] as $password) {
+        foreach (['zap-password', "zap-password' AND '1'='1' -- ", "zap-password' AND '1'='2' -- "] as $password) {
             RateLimiter::clear('');
             $this->app['cache']->flush();
             $response = $this->postJson('/api/login', ['email' => 'zap@example.com', 'password' => $password]);

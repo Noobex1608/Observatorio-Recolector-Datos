@@ -1,7 +1,7 @@
 <?php
 
-use App\Presentation\Http\Controllers\Api\ProjectController;
 use App\Presentation\Http\Controllers\Api\ProjectCollectorController;
+use App\Presentation\Http\Controllers\Api\ProjectController;
 use App\Presentation\Http\Controllers\Api\ProjectSupervisionController;
 use App\Presentation\Http\Controllers\Api\ProjectTechnicalSheetController;
 use App\Presentation\Http\Controllers\Api\ProjectZoneController;

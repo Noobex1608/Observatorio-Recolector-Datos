@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { DbService, SavedResponse } from '../db.service';
 import { ThemeService } from '../theme.service';
 import { TranslatePipe } from '../translate.pipe';
+import { ToastService } from '../toast.service';
 
 @Component({
   selector: 'app-borradores',
@@ -16,6 +17,7 @@ export class BorradoresComponent implements OnInit {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   theme = inject(ThemeService);
+  private toast = inject(ToastService);
 
   borradores: SavedResponse[] = [];
   cargando = true;
@@ -39,7 +41,13 @@ export class BorradoresComponent implements OnInit {
 
   async eliminar(id: number | undefined) {
     if (id === undefined) return;
-    if (!confirm('¿Eliminar este borrador?')) return;
+    const accepted = await this.toast.confirm({
+      title: 'Eliminar borrador',
+      message: 'Se borrarán las respuestas y archivos de este borrador. No se puede deshacer.',
+      confirmText: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     await this.db.transaction('rw', this.db.responses, this.db.mediaBlobs, async () => {
       await this.db.responses.delete(id);
       await this.db.mediaBlobs.where('responseId').equals(id).delete();

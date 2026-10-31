@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { NotificationService } from '@core/services/notification.service';
 import { RouterLink } from '@angular/router';
 import { User } from '@core/models';
 import { AuthService } from '@core/services/auth.service';
@@ -31,7 +31,6 @@ import { environment } from '../../../environments/environment';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule,
     TranslateModule,
   ],
   templateUrl: './profile.component.html',
@@ -45,7 +44,7 @@ export class ProfileComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly profileService = inject(ProfileService);
   private readonly themeService = inject(ThemeService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notify = inject(NotificationService);
   private readonly translate = inject(TranslateService);
 
   user = signal<User | null>(null);
@@ -128,19 +127,11 @@ export class ProfileComponent implements OnInit {
       next: (user) => {
         this.user.set(user);
         this.authService.updateUser(user);
-        this.snackBar.open(
-          this.translate.instant('profile.messages.updateSuccess'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.success(this.translate.instant('profile.messages.updateSuccess'));
         this.saving.set(false);
       },
       error: () => {
-        this.snackBar.open(
-          this.translate.instant('profile.messages.updateError'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.error(this.translate.instant('profile.messages.updateError'));
         this.saving.set(false);
       },
     });
@@ -161,21 +152,13 @@ export class ProfileComponent implements OnInit {
     // Validar tipo de archivo
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      this.snackBar.open(
-        this.translate.instant('profile.messages.invalidFileType'),
-        this.translate.instant('common.buttons.close'),
-        { duration: 3000 }
-      );
+      this.notify.warning(this.translate.instant('profile.messages.invalidFileType'));
       return;
     }
 
     // Validar tamaño (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      this.snackBar.open(
-        this.translate.instant('profile.messages.fileTooLarge'),
-        this.translate.instant('common.buttons.close'),
-        { duration: 3000 }
-      );
+      this.notify.warning(this.translate.instant('profile.messages.fileTooLarge'));
       return;
     }
 
@@ -189,21 +172,13 @@ export class ProfileComponent implements OnInit {
       next: (user) => {
         this.user.set(user);
         this.authService.updateUser(user);
-        this.snackBar.open(
-          this.translate.instant('profile.messages.avatarUpdated'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.success(this.translate.instant('profile.messages.avatarUpdated'));
         this.uploadingAvatar.set(false);
         // Reset file input
         this.fileInput.nativeElement.value = '';
       },
       error: () => {
-        this.snackBar.open(
-          this.translate.instant('profile.messages.avatarError'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.error(this.translate.instant('profile.messages.avatarError'));
         this.uploadingAvatar.set(false);
       },
     });
@@ -220,19 +195,11 @@ export class ProfileComponent implements OnInit {
       next: (user) => {
         this.user.set(user);
         this.authService.updateUser(user);
-        this.snackBar.open(
-          this.translate.instant('profile.messages.avatarDeleted'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.success(this.translate.instant('profile.messages.avatarDeleted'));
         this.uploadingAvatar.set(false);
       },
       error: () => {
-        this.snackBar.open(
-          this.translate.instant('profile.messages.avatarError'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.error(this.translate.instant('profile.messages.avatarError'));
         this.uploadingAvatar.set(false);
       },
     });

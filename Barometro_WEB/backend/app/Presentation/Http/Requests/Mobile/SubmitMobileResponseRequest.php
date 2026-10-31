@@ -24,6 +24,7 @@ class SubmitMobileResponseRequest extends FormRequest
         if ($this->user()) {
             return app(\App\Policies\FormPolicy::class)->submit($this->user(), $form);
         }
+
         return $this->route('link_uuid') !== null;
     }
 
@@ -57,7 +58,9 @@ class SubmitMobileResponseRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $v) {
-            if ($v->errors()->isNotEmpty()) { return; }
+            if ($v->errors()->isNotEmpty()) {
+                return;
+            }
             $form = $this->getForm();
 
             if (! $form) {

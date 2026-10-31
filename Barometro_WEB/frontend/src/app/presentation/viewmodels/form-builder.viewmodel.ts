@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Form, FormQuestion, FormQuestionBranchRule, FormQuestionProperties, FormService } from '@core/services/form.service';
+import { Form, FormQuestion, FormQuestionBranchRule, FormQuestionProperties, FormService, XlsFormImportPreview } from '@core/services/form.service';
 import { Project, ProjectService } from '@core/services/project.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -35,6 +35,19 @@ export interface FormQuestionTreeEntry {
   displayNumber: string;
   index: number;
   siblingCount: number;
+}
+
+/** Dónde se crea una pregunta nueva: al final de una sección o justo debajo de otra pregunta. */
+export interface QuestionInsertTarget {
+  sectionTempId?: string | null;
+  afterTempId?: string;
+}
+
+export interface BuilderUndoState {
+  message: string;
+  questions: FormQuestionDraft[];
+  sections: FormSectionDraft[];
+  deletedQuestionIds: string[];
 }
 
 export interface FormQuestionBranchRuleDraft {
@@ -80,6 +93,43 @@ export class FormBuilderViewModel {
   successMessage = signal('');
   editingUnlocked = signal(true);
   instrumentLocked = signal(false);
+  /** Última eliminación, para poder deshacerla. */
+  undoState = signal<BuilderUndoState | null>(null);
+
+  /** Estado comparable del formulario: si cambia respecto a lo guardado, hay cambios sin guardar. */
+  private readonly snapshot = computed(() => JSON.stringify([
+    this.projectId(), this.title(), this.description(), this.stepByStep(), this.consentText(),
+    this.startDate(), this.endDate(),
+    this.sections().map((section) => [section.tempId, section.title]),
+    this.questions().map((q) => [
+      q.tempId, q.type, q.label, q.options, q.likertRows, q.likertColumns, q.branchRules,
+      q.properties, q.required, q.order, q.sectionTempId, q.parentTempId,
+    ]),
+  ]));
+  private readonly savedSnapshot = signal('');
+  readonly isDirty = computed(() => this.snapshot() !== this.savedSnapshot());
+
+  /** Árbol de preguntas por sección (clave null = sin sección), calculado una sola vez por cambio. */
+  readonly sectionTrees = computed(() => {
+    const trees = new Map<string | null, FormQuestionTreeEntry[]>();
+    for (const sectionTempId of [...this.sections().map((section) => section.tempId), null]) {
+      trees.set(sectionTempId, this.buildTree(sectionTempId));
+    }
+    return trees;
+  });
+
+  /** Preguntas con datos faltantes (impiden guardar). */
+  readonly incompleteQuestionIds = computed(() =>
+    new Set(this.questions().filter((question) => this.questionIssue(question) !== null).map((question) => question.tempId)),
+  );
+
+  constructor() {
+    this.markClean();
+  }
+
+  markClean(): void {
+    this.savedSnapshot.set(this.snapshot());
+  }
 
   isEditMode = computed(() => Boolean(this.formId()));
   questionsCount = computed(() => this.questions().length);
@@ -143,6 +193,8 @@ export class FormBuilderViewModel {
       this.questions.set(hydratedQuestions);
       this.sections.set(this.buildSectionsFromQuestions(hydratedQuestions));
       this.editingUnlocked.set(form.state !== 'DEPLOYED' && hydratedQuestions.length === 0);
+      this.undoState.set(null);
+      this.markClean();
     } catch (error: any) {
       this.errorMessage.set(error?.error?.message || error?.message || this.translate.instant('forms.builder.errors.load'));
     } finally {
@@ -159,8 +211,8 @@ export class FormBuilderViewModel {
     }
   }
 
-  addSection(title = ''): void {
-    if (!this.canEditQuestions()) return;
+  addSection(title = ''): string | null {
+    if (!this.canEditQuestions()) return null;
 
     const newSection: FormSectionDraft = {
       tempId: this.createTempId(),
@@ -169,6 +221,7 @@ export class FormBuilderViewModel {
     };
 
     this.sections.update((sections) => [...sections, newSection]);
+    return newSection.tempId;
   }
 
   updateSectionTitle(tempId: string, title: string): void {
@@ -187,28 +240,54 @@ export class FormBuilderViewModel {
     );
   }
 
+  /** Mueve la sección (con todas sus preguntas) una posición arriba o abajo. */
+  moveSection(tempId: string, direction: -1 | 1): boolean {
+    if (!this.canEditQuestions()) return false;
+
+    const sections = [...this.sections()];
+    const index = sections.findIndex((section) => section.tempId === tempId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= sections.length) return false;
+
+    [sections[index], sections[target]] = [sections[target], sections[index]];
+    this.sections.set(sections.map((section, order) => ({ ...section, order })));
+    this.commit(this.questions());
+    return true;
+  }
+
   removeSection(tempId: string): void {
     if (!this.canEditQuestions()) return;
+
+    const section = this.sections().find((item) => item.tempId === tempId);
+    this.remember(`Sección «${section?.title.trim() || 'Sin título'}» eliminada; sus preguntas pasaron a «Sin sección».`);
 
     this.sections.update((sections) =>
       sections.filter((section) => section.tempId !== tempId).map((section, index) => ({ ...section, order: index })),
     );
 
-    this.questions.update((questions) =>
-      questions.map((question) =>
+    this.commit(
+      this.questions().map((question) =>
         question.sectionTempId === tempId ? { ...question, sectionTempId: null, sectionName: null } : question,
       ),
     );
   }
 
+  /** Lleva la pregunta (y sus subpreguntas) al final de otra sección. */
   assignQuestionToSection(tempId: string, sectionTempId: string | null): void {
     if (!this.canEditQuestions()) return;
 
-    const sectionTitle = sectionTempId ? this.sections().find((section) => section.tempId === sectionTempId)?.title.trim() || null : null;
-
-    this.questions.update((questions) =>
-      questions.map((question) =>
-        question.tempId === tempId ? { ...question, sectionTempId, sectionName: sectionTitle } : question,
+    this.commit(
+      this.questions().map((question) =>
+        question.tempId === tempId
+          ? {
+              ...question,
+              sectionTempId,
+              sectionName: this.sectionTitle(sectionTempId),
+              parentTempId: null,
+              parentQuestionId: null,
+              order: this.questions().length + 1,
+            }
+          : question,
       ),
     );
   }
@@ -228,6 +307,10 @@ export class FormBuilderViewModel {
   }
 
   getQuestionTreeForSection(sectionTempId: string | null): FormQuestionTreeEntry[] {
+    return this.sectionTrees().get(sectionTempId) ?? this.buildTree(sectionTempId);
+  }
+
+  private buildTree(sectionTempId: string | null): FormQuestionTreeEntry[] {
     const entries: FormQuestionTreeEntry[] = [];
 
     const visit = (parentTempId: string | null, level: number, path: number[]): void => {
@@ -252,9 +335,14 @@ export class FormBuilderViewModel {
     return entries;
   }
 
-  addQuestion(type: FormQuestion['type']): void {
-    if (!this.canEditQuestions()) return;
+  /**
+   * Crea una pregunta y devuelve su id temporal.
+   * Sin destino se agrega al final de la última sección (o en «Sin sección» si no hay secciones).
+   */
+  addQuestion(type: FormQuestion['type'], target: QuestionInsertTarget = {}): string | null {
+    if (!this.canEditQuestions()) return null;
 
+    const placement = this.resolvePlacement(target);
     const newQuestion: FormQuestionDraft = {
       tempId: this.createTempId(),
       type,
@@ -265,32 +353,33 @@ export class FormBuilderViewModel {
       branchRules: this.getInitialBranchRules(type),
       properties: this.getDefaultProperties(type),
       required: type === 'NOTE' ? false : true,
-      order: this.getQuestionsForParent(null).length,
-      sectionName: null,
-      sectionTempId: null,
-      parentQuestionId: null,
-      parentTempId: null,
+      order: placement.order,
+      sectionName: this.sectionTitle(placement.sectionTempId),
+      sectionTempId: placement.sectionTempId,
+      parentQuestionId: placement.parentQuestionId,
+      parentTempId: placement.parentTempId,
     };
 
-    this.questions.update((questions) => [...questions, newQuestion]);
+    this.commit([...this.questions(), newQuestion]);
+    return newQuestion.tempId;
   }
 
   /** Atajo del menú: pregunta de texto con formato validado (correo, cédula o teléfono). */
-  addTextQuestion(format: TextFormat): void {
-    if (!this.canEditQuestions()) return;
+  addTextQuestion(format: TextFormat, target: QuestionInsertTarget = {}): string | null {
+    const tempId = this.addQuestion('TEXT', target);
+    if (!tempId) return null;
     const label = TEXT_FORMATS.find((item) => item.value === format)?.defaultLabel ?? '';
-    this.addQuestion('TEXT');
-    const created = this.questions()[this.questions().length - 1];
-    this.questions.update((questions) => questions.map((question) => question.tempId === created.tempId
+    this.questions.update((questions) => questions.map((question) => question.tempId === tempId
       ? { ...question, label, properties: { ...question.properties, text_format: format } }
       : question));
+    return tempId;
   }
 
-  addSubquestion(parentTempId: string): void {
-    if (!this.canEditQuestions()) return;
+  addSubquestion(parentTempId: string): string | null {
+    if (!this.canEditQuestions()) return null;
 
     const parent = this.questions().find((question) => question.tempId === parentTempId);
-    if (!parent) return;
+    if (!parent) return null;
 
     const childQuestion: FormQuestionDraft = {
       tempId: this.createTempId(),
@@ -302,67 +391,261 @@ export class FormBuilderViewModel {
       branchRules: [],
       properties: this.getDefaultProperties('TEXT'),
       required: true,
-      order: this.getQuestionsForParent(parentTempId).length,
+      order: this.questions().length + 1,
       sectionName: parent.sectionName,
       sectionTempId: parent.sectionTempId,
       parentQuestionId: parent.id ?? null,
       parentTempId,
     };
 
-    this.questions.update((questions) => [...questions, childQuestion]);
+    this.commit([...this.questions(), childQuestion]);
+    return childQuestion.tempId;
+  }
+
+  /** Copia la pregunta (con sus subpreguntas) justo debajo de la original. Devuelve el id de la copia. */
+  duplicateQuestion(tempId: string): string | null {
+    if (!this.canEditQuestions()) return null;
+
+    const source = this.questions().find((question) => question.tempId === tempId);
+    if (!source) return null;
+
+    const subtree = [source, ...this.getDescendantTempIds(tempId)
+      .map((id) => this.questions().find((question) => question.tempId === id))
+      .filter((question): question is FormQuestionDraft => Boolean(question))];
+    const newIds = new Map(subtree.map((question) => [question.tempId, this.createTempId()]));
+    const remap = (id: string | null): string | null => (id && newIds.get(id)) || id;
+
+    const copies = subtree.map((question): FormQuestionDraft => {
+      const properties: FormQuestionProperties = structuredClone(question.properties ?? {});
+      if (typeof properties.expression === 'string') {
+        for (const [oldId, newId] of newIds) {
+          properties.expression = properties.expression.split('${' + oldId + '}').join('${' + newId + '}');
+        }
+      }
+      return {
+        ...question,
+        id: undefined,
+        tempId: newIds.get(question.tempId)!,
+        options: [...question.options],
+        likertRows: [...question.likertRows],
+        likertColumns: [...question.likertColumns],
+        branchRules: question.branchRules.map((rule) => ({ ...rule, nextQuestionTempId: remap(rule.nextQuestionTempId) })),
+        properties,
+        order: question.tempId === tempId ? source.order + 0.5 : question.order,
+        parentTempId: question.tempId === tempId ? source.parentTempId : remap(question.parentTempId),
+        parentQuestionId: question.tempId === tempId ? source.parentQuestionId : null,
+      };
+    });
+
+    this.commit([...this.questions(), ...copies]);
+    return newIds.get(tempId) ?? null;
+  }
+
+  /** Reemplaza las opciones por las líneas pegadas (una por línea). Devuelve cuántas quedaron. */
+  setOptionsFromText(tempId: string, text: string): number {
+    if (!this.canEditQuestions()) return 0;
+    const lines = this.splitLines(text);
+    if (lines.length === 0) return 0;
+
+    this.questions.update((questions) => questions.map((question) => {
+      if (question.tempId !== tempId) return question;
+      return {
+        ...question,
+        options: lines,
+        branchRules: this.supportsBranching(question.type)
+          ? lines.map((_, optionIndex) => question.branchRules[optionIndex]
+            ? { ...question.branchRules[optionIndex], optionIndex }
+            : { optionIndex, action: 'CONTINUE' as const, nextQuestionTempId: null })
+          : question.branchRules,
+      };
+    }));
+    this.clearMessages();
+    return lines.length;
+  }
+
+  /** Reemplaza las filas (afirmaciones) de una matriz Likert por las líneas pegadas. */
+  setLikertRowsFromText(tempId: string, text: string): number {
+    if (!this.canEditQuestions()) return 0;
+    const lines = this.splitLines(text);
+    if (lines.length === 0) return 0;
+
+    this.patchQuestion(tempId, { likertRows: lines });
+    return lines.length;
+  }
+
+  /**
+   * Carga las preguntas de una importación desde Excel. «replace» reemplaza las actuales (se puede
+   * deshacer); «append» las agrega al final. Las secciones con el mismo título se reutilizan.
+   * Devuelve los ids temporales de las preguntas creadas.
+   */
+  importQuestions(preview: XlsFormImportPreview, mode: 'replace' | 'append'): string[] {
+    if (!this.canEditQuestions() || preview.questions.length === 0) return [];
+
+    if (mode === 'replace') {
+      this.remember(`Se reemplazaron ${this.questions().length} pregunta(s) por las del Excel.`);
+      const persisted = this.questions().filter((question) => question.id).map((question) => question.id as string);
+      this.deletedQuestionIds.update((ids) => [...ids, ...persisted]);
+    }
+
+    const baseSections = mode === 'replace' ? [] : this.sections();
+    const sections = [...baseSections];
+    const sectionIdByTitle = new Map(sections.map((section) => [section.title.trim(), section.tempId]));
+    for (const title of preview.sections) {
+      const clean = title.trim();
+      if (!clean || sectionIdByTitle.has(clean)) continue;
+      const section: FormSectionDraft = { tempId: this.createTempId(), title: clean, order: sections.length };
+      sections.push(section);
+      sectionIdByTitle.set(clean, section.tempId);
+    }
+    this.sections.set(sections);
+
+    const newIds = new Map(preview.questions.map((question) => [question.temp_id, this.createTempId()]));
+    const offset = mode === 'replace' ? 0 : this.questions().length + 1;
+    const imported = preview.questions.map((question, index): FormQuestionDraft => {
+      const sectionTempId = question.section_name ? sectionIdByTitle.get(question.section_name.trim()) ?? null : null;
+      const isLikert = question.type === 'LIKERT' && question.options && !Array.isArray(question.options);
+      const likert = isLikert ? question.options as { rows: string[]; columns: string[] } : null;
+      const options = Array.isArray(question.options) ? question.options.map(String) : [];
+      const properties: FormQuestionProperties = { ...this.getDefaultProperties(question.type), ...(question.properties ?? {}) };
+      if (typeof properties.expression === 'string') {
+        for (const [oldId, newId] of newIds) {
+          properties.expression = properties.expression.split('${' + oldId + '}').join('${' + newId + '}');
+        }
+      }
+      return {
+        tempId: newIds.get(question.temp_id)!,
+        type: question.type,
+        label: question.label,
+        options,
+        likertRows: likert ? [...likert.rows] : [],
+        likertColumns: likert ? [...likert.columns] : [],
+        branchRules: this.supportsBranching(question.type)
+          ? options.map((_, optionIndex) => {
+              const rule = question.branch_rules.find((item) => item.option_index === optionIndex);
+              return {
+                optionIndex,
+                action: rule?.action ?? 'CONTINUE',
+                nextQuestionTempId: rule?.next_temp_id ? newIds.get(rule.next_temp_id) ?? null : null,
+              };
+            })
+          : [],
+        properties,
+        required: question.type === 'NOTE' ? false : question.required,
+        order: offset + index,
+        sectionName: question.section_name?.trim() || null,
+        sectionTempId,
+        parentQuestionId: null,
+        parentTempId: question.parent_temp_id ? newIds.get(question.parent_temp_id) ?? null : null,
+      };
+    });
+
+    this.commit(mode === 'replace' ? imported : [...this.questions(), ...imported]);
+    if (mode === 'replace' && preview.title && !this.title().trim()) this.title.set(preview.title);
+    return imported.map((question) => question.tempId);
   }
 
   removeQuestion(tempId: string): void {
     if (!this.canEditQuestions()) return;
 
     const current = this.questions().find((question) => question.tempId === tempId);
-    if (current?.id) {
-      this.deletedQuestionIds.update((ids) => [...ids, current.id as string]);
+    if (!current) return;
+
+    const removedIds = new Set([tempId, ...this.getDescendantTempIds(tempId)]);
+    const label = current.label.trim() || this.translate.instant('forms.builder.untitledQuestion');
+    const extra = removedIds.size > 1 ? ` y ${removedIds.size - 1} subpregunta(s)` : '';
+    this.remember(`Pregunta «${label}»${extra} eliminada.`);
+
+    const persistedIds = this.questions()
+      .filter((question) => removedIds.has(question.tempId) && question.id)
+      .map((question) => question.id as string);
+    if (persistedIds.length > 0) {
+      this.deletedQuestionIds.update((ids) => [...ids, ...persistedIds]);
     }
 
-    this.questions.update((questions) =>
-      questions
-        .filter((question) => question.tempId !== tempId)
+    this.commit(
+      this.questions()
+        .filter((question) => !removedIds.has(question.tempId))
         .map((question) => ({
           ...question,
           branchRules: question.branchRules.map((rule) =>
-            rule.nextQuestionTempId === tempId ? { ...rule, nextQuestionTempId: null } : rule,
+            rule.nextQuestionTempId && removedIds.has(rule.nextQuestionTempId) ? { ...rule, nextQuestionTempId: null } : rule,
           ),
-        }))
-        .map((question, index) => ({ ...question, order: index })),
+        })),
     );
   }
 
-  moveQuestion(tempId: string, direction: -1 | 1): void {
-    if (!this.canEditQuestions()) return;
+  /** Deshace la última eliminación (pregunta o sección). */
+  undo(): void {
+    const state = this.undoState();
+    if (!state) return;
 
-    const questions = [...this.questions()];
-    const index = questions.findIndex((question) => question.tempId === tempId);
-    const target = index + direction;
-
-    if (index < 0 || target < 0 || target >= questions.length) return;
-
-    [questions[index], questions[target]] = [questions[target], questions[index]];
-    this.questions.set(questions.map((question, order) => ({ ...question, order })));
+    this.questions.set(state.questions);
+    this.sections.set(state.sections);
+    this.deletedQuestionIds.set(state.deletedQuestionIds);
+    this.undoState.set(null);
+    this.clearMessages();
   }
 
+  dismissUndo(): void {
+    this.undoState.set(null);
+  }
+
+  /** Mueve la pregunta una posición entre sus hermanas (misma sección y mismo padre). */
+  moveQuestion(tempId: string, direction: -1 | 1): boolean {
+    if (!this.canEditQuestions()) return false;
+
+    const question = this.questions().find((item) => item.tempId === tempId);
+    if (!question) return false;
+
+    const siblings = this.siblingsOf(question);
+    const index = siblings.findIndex((item) => item.tempId === tempId);
+    const neighbor = siblings[index + direction];
+    if (!neighbor) return false;
+
+    this.commit(this.questions().map((item) => {
+      if (item.tempId === tempId) return { ...item, order: neighbor.order };
+      if (item.tempId === neighbor.tempId) return { ...item, order: question.order };
+      return item;
+    }));
+    return true;
+  }
+
+  /** Arrastrar y soltar: la pregunta toma la sección y el nivel de la pregunta destino. */
   reorderQuestion(sourceTempId: string, targetTempId: string, position: 'before' | 'after' = 'after'): void {
     if (!this.canEditQuestions()) return;
 
-    const questions = [...this.questions()];
-    const sourceIndex = questions.findIndex((question) => question.tempId === sourceTempId);
-    const targetIndex = questions.findIndex((question) => question.tempId === targetTempId);
+    const source = this.questions().find((question) => question.tempId === sourceTempId);
+    const target = this.questions().find((question) => question.tempId === targetTempId);
+    if (!source || !target || sourceTempId === targetTempId) return;
+    if (this.getDescendantTempIds(sourceTempId).includes(targetTempId)) return;
 
-    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+    this.commit(this.questions().map((question) => question.tempId === sourceTempId
+      ? {
+          ...question,
+          sectionTempId: target.sectionTempId,
+          sectionName: this.sectionTitle(target.sectionTempId),
+          parentTempId: target.parentTempId,
+          parentQuestionId: target.parentQuestionId,
+          order: target.order + (position === 'before' ? -0.5 : 0.5),
+        }
+      : question));
+  }
 
-    const [movedQuestion] = questions.splice(sourceIndex, 1);
-
-    const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-    const insertIndex = position === 'before' ? adjustedTargetIndex : adjustedTargetIndex + 1;
-
-    questions.splice(insertIndex, 0, movedQuestion);
-
-    this.questions.set(questions.map((question, order) => ({ ...question, order })));
+  /** Motivo por el que la pregunta impide guardar, o null si está completa. */
+  questionIssue(question: FormQuestionDraft): string | null {
+    if (question.type === 'LIKERT') {
+      const rows = question.likertRows.filter((row) => row.trim().length > 0);
+      const columns = question.likertColumns.filter((column) => column.trim().length > 0);
+      return rows.length > 0 && columns.length > 0 ? null : 'Faltan filas o columnas';
+    }
+    if (question.label.trim().length === 0) return 'Falta el enunciado';
+    if (SELECT_TYPES.includes(question.type) && !question.options.some((option) => option.trim().length > 0)) {
+      return 'Faltan opciones';
+    }
+    if (BRANCHABLE_TYPES.includes(question.type) && question.branchRules.some((rule) => rule.action === 'GO_TO' && !rule.nextQuestionTempId)) {
+      return 'Falta el destino de un salto';
+    }
+    return null;
   }
 
   updateTitle(value: string): void {
@@ -675,8 +958,10 @@ export class FormBuilderViewModel {
       this.stepByStep.set(Boolean(savedForm.step_by_step));
       for (const [tempId, id] of ids) this.patchQuestion(tempId, { id, tempId: id });
       this.deletedQuestionIds.set([]);
+      this.undoState.set(null);
       this.successMessage.set(this.translate.instant('forms.builder.messages.saved'));
       this.editingUnlocked.set(false);
+      this.markClean();
     } catch (error: any) {
       this.errorMessage.set(error?.error?.message || this.translate.instant('forms.builder.errors.save'));
     } finally {
@@ -700,7 +985,9 @@ export class FormBuilderViewModel {
     this.questions.set([]);
     this.sections.set([]);
     this.deletedQuestionIds.set([]);
+    this.undoState.set(null);
     this.clearMessages();
+    this.markClean();
   }
 
   getTypeLabel(type: FormQuestion['type']): string {
@@ -1041,6 +1328,92 @@ export class FormBuilderViewModel {
     }
 
     return 'CONTINUE';
+  }
+
+  /** Guarda el arreglo de preguntas en el mismo orden en que se muestran (secciones, luego árbol). */
+  private commit(questions: FormQuestionDraft[]): void {
+    this.questions.set(this.normalize(questions));
+    this.clearMessages();
+  }
+
+  private normalize(questions: FormQuestionDraft[]): FormQuestionDraft[] {
+    const knownSections = new Set(this.sections().map((section) => section.tempId));
+    const ids = new Set(questions.map((question) => question.tempId));
+    const byOrder = (left: FormQuestionDraft, right: FormQuestionDraft) => left.order - right.order;
+    const isRoot = (question: FormQuestionDraft) => question.parentTempId === null || !ids.has(question.parentTempId);
+    const sectionOf = (question: FormQuestionDraft) =>
+      question.sectionTempId && knownSections.has(question.sectionTempId) ? question.sectionTempId : null;
+
+    const result: FormQuestionDraft[] = [];
+    const visited = new Set<string>();
+    const visit = (question: FormQuestionDraft, sectionTempId: string | null): void => {
+      if (visited.has(question.tempId)) return;
+      visited.add(question.tempId);
+      result.push({
+        ...question,
+        parentTempId: isRoot(question) ? null : question.parentTempId,
+        sectionTempId,
+        sectionName: this.sectionTitle(sectionTempId),
+      });
+      questions.filter((child) => child.parentTempId === question.tempId).sort(byOrder)
+        .forEach((child) => visit(child, sectionTempId));
+    };
+
+    for (const sectionTempId of [...this.sections().map((section) => section.tempId), null]) {
+      questions.filter((question) => isRoot(question) && sectionOf(question) === sectionTempId).sort(byOrder)
+        .forEach((question) => visit(question, sectionTempId));
+    }
+    questions.filter((question) => !visited.has(question.tempId)).sort(byOrder)
+      .forEach((question) => visit({ ...question, parentTempId: null }, sectionOf(question)));
+
+    return result.map((question, order) => ({ ...question, order }));
+  }
+
+  private resolvePlacement(target: QuestionInsertTarget): {
+    sectionTempId: string | null; parentTempId: string | null; parentQuestionId: string | null; order: number;
+  } {
+    const reference = target.afterTempId
+      ? this.questions().find((question) => question.tempId === target.afterTempId)
+      : undefined;
+    if (reference) {
+      return {
+        sectionTempId: reference.sectionTempId,
+        parentTempId: reference.parentTempId,
+        parentQuestionId: reference.parentQuestionId,
+        order: reference.order + 0.5,
+      };
+    }
+
+    const sections = this.sections();
+    const sectionTempId = target.sectionTempId !== undefined
+      ? target.sectionTempId
+      : (sections[sections.length - 1]?.tempId ?? null);
+    return { sectionTempId, parentTempId: null, parentQuestionId: null, order: this.questions().length + 1 };
+  }
+
+  private siblingsOf(question: FormQuestionDraft): FormQuestionDraft[] {
+    return this.questions()
+      .filter((item) => item.parentTempId === question.parentTempId
+        && (question.parentTempId !== null || item.sectionTempId === question.sectionTempId))
+      .sort((left, right) => left.order - right.order);
+  }
+
+  private sectionTitle(sectionTempId: string | null): string | null {
+    if (!sectionTempId) return null;
+    return this.sections().find((section) => section.tempId === sectionTempId)?.title.trim() || null;
+  }
+
+  private remember(message: string): void {
+    this.undoState.set({
+      message,
+      questions: this.questions(),
+      sections: this.sections(),
+      deletedQuestionIds: this.deletedQuestionIds(),
+    });
+  }
+
+  private splitLines(text: string): string[] {
+    return text.split(/\r?\n/).map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(Boolean);
   }
 
   private createTempId(): string {

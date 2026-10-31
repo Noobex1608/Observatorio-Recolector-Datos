@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Application\Responses\Services;
 
 use App\Domain\Responses\Services\LocationTraceSanitizer;
@@ -32,6 +33,7 @@ class StoreFormResponse
                 if ($existing) {
                     abort_unless($existing->user_id === $user?->id && hash_equals($existing->submission_hash, $hash),
                         409, 'El identificador de envío ya fue utilizado con otro contenido o cuenta.');
+
                     return $existing;
                 }
                 abort_unless($form->state === 'DEPLOYED', 422, 'El formulario no está publicado.');
@@ -79,6 +81,7 @@ class StoreFormResponse
                 ]);
                 $responseId = $response->id;
                 $this->sync->enqueue($response);
+
                 return $response;
             });
         } catch (Throwable $e) {
@@ -91,10 +94,15 @@ class StoreFormResponse
 
     private function canonical(array $value): array
     {
-        if (! array_is_list($value)) { ksort($value); }
-        foreach ($value as &$item) {
-            if (is_array($item)) { $item = $this->canonical($item); }
+        if (! array_is_list($value)) {
+            ksort($value);
         }
+        foreach ($value as &$item) {
+            if (is_array($item)) {
+                $item = $this->canonical($item);
+            }
+        }
+
         return $value;
     }
 }

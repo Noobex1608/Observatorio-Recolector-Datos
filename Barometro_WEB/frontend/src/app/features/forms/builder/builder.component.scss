@@ -641,6 +641,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
+  flex-wrap: wrap;
   margin-bottom: 0.9rem;
 
   h2,
@@ -1189,7 +1190,7 @@ textarea {
 
 @media (max-width: 1180px) {
   .builder-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .preview-panel {

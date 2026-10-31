@@ -1,6 +1,7 @@
 <?php
 
 use App\Presentation\Http\Controllers\Api\FormController;
+use App\Presentation\Http\Controllers\Api\FormInstrumentExcelController;
 use App\Presentation\Http\Controllers\Api\FormTechnicalSheetController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', \App\Http\Middleware\SerializeFormMutation::class])->group(function () {
     Route::get('/', [FormController::class, 'index']); // list forms
+    // Cuestionario en Excel (XLSForm): plantilla, vista previa de importación y exportación
+    Route::get('/import/template', [FormInstrumentExcelController::class, 'template']);
+    Route::post('/import/preview', [FormInstrumentExcelController::class, 'preview'])->middleware('throttle:30,1');
+    Route::get('/{id}/instrument.xlsx', [FormController::class, 'exportInstrument']);
     Route::post('/', [FormController::class, 'store']); // create form
     Route::get('/{id}', [FormController::class, 'show']); // view form details
     Route::put('/{id}', [FormController::class, 'update']); // update form (only if DRAFT/ARCHIVED)

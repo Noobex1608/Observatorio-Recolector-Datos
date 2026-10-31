@@ -11,7 +11,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { NotificationService } from '@core/services/notification.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
@@ -36,7 +36,6 @@ import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confir
     MatPaginatorModule,
     MatProgressSpinnerModule,
     MatSelectModule,
-    MatSnackBarModule,
     MatTableModule,
     MatTooltipModule,
     MatDivider,
@@ -47,7 +46,7 @@ import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confir
 })
 export class UsuarioListComponent implements OnInit {
   private readonly userService = inject(UserService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notify = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
   private readonly translate = inject(TranslateService);
 
@@ -77,11 +76,7 @@ export class UsuarioListComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.snackBar.open(
-          this.translate.instant('users.messages.loadError'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.error(this.translate.instant('users.messages.loadError'));
         this.loading.set(false);
       },
     });
@@ -109,19 +104,11 @@ export class UsuarioListComponent implements OnInit {
       if (confirmed) {
         this.userService.toggleUserStatus(user.id, newStatus).subscribe({
           next: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.statusUpdated'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.success(this.translate.instant('users.messages.statusUpdated'));
             this.loadUsers(this.currentPage());
           },
           error: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.statusError'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.error(this.translate.instant('users.messages.statusError'));
           },
         });
       }
@@ -144,19 +131,11 @@ export class UsuarioListComponent implements OnInit {
       if (confirmed) {
         this.userService.updateUserRole(user.id, { rol: newRole }).subscribe({
           next: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.roleUpdated'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.success(this.translate.instant('users.messages.roleUpdated'));
             this.loadUsers(this.currentPage());
           },
           error: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.roleError'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.error(this.translate.instant('users.messages.roleError'));
           },
         });
       }
@@ -178,19 +157,11 @@ export class UsuarioListComponent implements OnInit {
       if (confirmed) {
         this.userService.deleteUser(user.id).subscribe({
           next: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.deleted'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.success(this.translate.instant('users.messages.deleted'));
             this.loadUsers(this.currentPage());
           },
           error: () => {
-            this.snackBar.open(
-              this.translate.instant('users.messages.deleteError'),
-              this.translate.instant('common.buttons.close'),
-              { duration: 3000 }
-            );
+            this.notify.error(this.translate.instant('users.messages.deleteError'));
           },
         });
       }

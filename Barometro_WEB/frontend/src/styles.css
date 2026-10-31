@@ -1184,7 +1184,8 @@ a.mat-mdc-unelevated-button[color='primary'] .mdc-button__label {
 }
 
 .mat-mdc-card p,
-.mat-mdc-card span:not([class*='badge']):not([class*='chip']):not([class*='mdc-']):not([class*='mat-']):not([class*='avatar']) {
+/* Los íconos (.material-icons) quedan fuera: heredan el color de su botón o contenedor. */
+.mat-mdc-card span:not([class*='badge']):not([class*='chip']):not([class*='mdc-']):not([class*='mat-']):not([class*='avatar']):not(.material-icons) {
   color: var(--text-secondary);
 }
 

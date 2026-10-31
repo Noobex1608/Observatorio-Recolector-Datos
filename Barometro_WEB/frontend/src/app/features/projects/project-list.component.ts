@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { NotificationService } from '@core/services/notification.service';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '@core/services/auth.service';
@@ -43,7 +43,6 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
-    MatSnackBarModule,
     MatTabsModule,
     MatChipsModule,
     MapGeofenceSelectorComponent,
@@ -1938,7 +1937,7 @@ export class ProjectListComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly projectService = inject(ProjectService);
   private readonly formService = inject(FormService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notify = inject(NotificationService);
   private readonly translate = inject(TranslateService);
 
   showNewFormModal = signal(false);
@@ -2114,7 +2113,7 @@ export class ProjectListComponent implements OnInit {
         }
       },
       error: () => {
-        this.snackBar.open(this.translate.instant('projects.errors.load'), this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.error(this.translate.instant('projects.errors.load'));
         this.loading.set(false);
       },
     });
@@ -2141,7 +2140,7 @@ export class ProjectListComponent implements OnInit {
     // Lista completa: la usa el selector de encuestadores de las zonas.
     this.projectService.getCollectors(projectId).subscribe({
       next: (collectors) => this.collectors.set(collectors),
-      error: () => this.snackBar.open('No se pudieron cargar los encuestadores', 'Cerrar', { duration: 3500 }),
+      error: () => this.notify.error('No se pudieron cargar los encuestadores'),
     });
     this.loadCollectorPage(projectId);
   }
@@ -2165,7 +2164,7 @@ export class ProjectListComponent implements OnInit {
         this.collectorPageItems.set(page.data);
         this.collectorPagination.set(page.pagination);
       },
-      error: () => this.snackBar.open('No se pudieron cargar los encuestadores', 'Cerrar', { duration: 3500 }),
+      error: () => this.notify.error('No se pudieron cargar los encuestadores'),
     });
   }
 
@@ -2191,11 +2190,11 @@ export class ProjectListComponent implements OnInit {
       next: (ids) => {
         this.collectorBusy.set(false);
         this.selectedCollectorIds.set(ids);
-        this.snackBar.open(`${ids.length} encuestador(es) activo(s) seleccionados`, 'Cerrar', { duration: 3000 });
+        this.notify.success(`${ids.length} encuestador(es) activo(s) seleccionados`);
       },
       error: () => {
         this.collectorBusy.set(false);
-        this.snackBar.open('No se pudo seleccionar a todos', 'Cerrar', { duration: 3500 });
+        this.notify.error('No se pudo seleccionar a todos');
       },
     });
   }
@@ -2222,7 +2221,7 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.getCollectorCandidates(project.id, this.candidateSearch()).subscribe({
       next: (users) => this.candidates.set(users),
-      error: () => this.snackBar.open('No se pudieron buscar usuarios', 'Cerrar', { duration: 3500 }),
+      error: () => this.notify.error('No se pudieron buscar usuarios'),
     });
   }
 
@@ -2247,11 +2246,11 @@ export class ProjectListComponent implements OnInit {
         this.selectedCandidateIds.set([]);
         this.loadCandidates();
         this.loadCollectors(project.id);
-        this.snackBar.open(`${result.added} encuestador(es) agregados al proyecto`, 'Cerrar', { duration: 3000 });
+        this.notify.success(`${result.added} encuestador(es) agregados al proyecto`);
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.snackBar.open(error?.error?.message || 'No se pudieron agregar los encuestadores', 'Cerrar', { duration: 4000 });
+        this.notify.error(error?.error?.message || 'No se pudieron agregar los encuestadores');
       },
     });
   }
@@ -2270,7 +2269,7 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.getCollectorTemplate(project.id).subscribe({
       next: (blob) => this.downloadBlob(blob, 'plantilla-encuestadores.xlsx'),
-      error: () => this.snackBar.open('No se pudo descargar la plantilla', 'Cerrar', { duration: 3500 }),
+      error: () => this.notify.error('No se pudo descargar la plantilla'),
     });
   }
 
@@ -2290,7 +2289,7 @@ export class ProjectListComponent implements OnInit {
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.snackBar.open(error?.error?.message || 'No se pudo leer el archivo', 'Cerrar', { duration: 5000 });
+        this.notify.error(error?.error?.message || 'No se pudo leer el archivo');
       },
     });
     (event.target as HTMLInputElement).value = '';
@@ -2309,11 +2308,11 @@ export class ProjectListComponent implements OnInit {
         this.collectorFile.set(null);
         this.loadCollectors(project.id);
         this.loadAllEnumerators(project.id);
-        this.snackBar.open(`${result.imported} encuestador(es) importados`, 'Cerrar', { duration: 3500 });
+        this.notify.success(`${result.imported} encuestador(es) importados`);
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.snackBar.open(error?.error?.message || 'No se pudo importar', 'Cerrar', { duration: 5000 });
+        this.notify.error(error?.error?.message || 'No se pudo importar');
       },
     });
   }
@@ -2340,8 +2339,8 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!project) return;
     this.projectService.updateCollector(project.id, collector.id, { name: name.trim(), email: email.trim(), cedula: cedula.trim() }).subscribe({
-      next: () => { this.editingCollectorId.set(null); this.loadCollectors(project.id); this.snackBar.open('Encuestador actualizado', 'Cerrar', { duration: 3000 }); },
-      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo actualizar', 'Cerrar', { duration: 4000 }),
+      next: () => { this.editingCollectorId.set(null); this.loadCollectors(project.id); this.notify.success('Encuestador actualizado'); },
+      error: (error) => this.notify.error(error?.error?.message || 'No se pudo actualizar'),
     });
   }
 
@@ -2350,16 +2349,23 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.updateCollector(project.id, collector.id, { is_active: active }).subscribe({
       next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); },
-      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo cambiar el estado', 'Cerrar', { duration: 4000 }),
+      error: (error) => this.notify.error(error?.error?.message || 'No se pudo cambiar el estado'),
     });
   }
 
-  removeCollector(collector: ProjectCollector): void {
+  async removeCollector(collector: ProjectCollector): Promise<void> {
     const project = this.selectedProject();
-    if (!project || !confirm(`¿Quitar a ${collector.name} de este proyecto?`)) return;
+    if (!project) return;
+    const accepted = await this.notify.confirm({
+      title: 'Quitar encuestador',
+      message: `¿Quitar a ${collector.name} de este proyecto? Dejará de tener asignados sus formularios.`,
+      confirmText: 'Quitar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     this.projectService.removeCollector(project.id, collector.id).subscribe({
       next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); this.selectProject(project); },
-      error: (error) => this.snackBar.open(error?.error?.message || 'No se pudo quitar', 'Cerrar', { duration: 4000 }),
+      error: (error) => this.notify.error(error?.error?.message || 'No se pudo quitar'),
     });
   }
 
@@ -2368,8 +2374,8 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.collectorBusy.set(true);
     this.projectService.assignCollectorForms(project.id, this.selectedCollectorIds(), this.selectedCollectorFormIds()).subscribe({
-      next: (result) => { this.collectorBusy.set(false); this.loadCollectors(project.id); this.selectProject(project); this.snackBar.open(`${result.assigned} asignación(es) nuevas`, 'Cerrar', { duration: 3500 }); },
-      error: (error) => { this.collectorBusy.set(false); this.snackBar.open(error?.error?.message || 'No se pudieron asignar formularios', 'Cerrar', { duration: 4000 }); },
+      next: (result) => { this.collectorBusy.set(false); this.loadCollectors(project.id); this.selectProject(project); this.notify.success(`${result.assigned} asignación(es) nuevas`); },
+      error: (error) => { this.collectorBusy.set(false); this.notify.error(error?.error?.message || 'No se pudieron asignar formularios'); },
     });
   }
 
@@ -2396,7 +2402,7 @@ export class ProjectListComponent implements OnInit {
         const firstForm = detail.forms?.find((form) => form.id === this.selectedFormId()) ?? detail.forms?.[0];
         this.selectForm(firstForm?.id ?? null);
       },
-      error: () => this.snackBar.open(this.translate.instant('projects.errors.loadProject'), this.translate.instant('common.buttons.close'), { duration: 3000 }),
+      error: () => this.notify.error(this.translate.instant('projects.errors.loadProject')),
     });
   }
 
@@ -2417,7 +2423,7 @@ export class ProjectListComponent implements OnInit {
     if (count === null) return;
     this.projectService.randomAssignZones(project.id, formId, count, null, true).subscribe({
       next: (result) => this.randomPreview.set(result),
-      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo previsualizar la designación', 'Cerrar', { duration: 3500 }),
+      error: (err) => this.notify.error(err?.error?.message || 'No se pudo previsualizar la designación'),
     });
   }
 
@@ -2438,10 +2444,10 @@ export class ProjectListComponent implements OnInit {
     const preview = this.randomPreview();
     if (!project || !formId || !preview) return;
     this.projectService.randomAssignZones(project.id, formId, preview.users.length, preview.seed, false, preview.users.map((user) => user.id)).subscribe({
-      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.snackBar.open('Designación confirmada', 'Cerrar', { duration: 3000 }); },
+      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.notify.success('Designación confirmada'); },
       error: (err) => {
         if (err?.status === 409) this.randomPreview.set(null);
-        this.snackBar.open(err?.error?.message || 'No se pudo confirmar', 'Cerrar', { duration: 4000 });
+        this.notify.error(err?.error?.message || 'No se pudo confirmar');
       },
     });
   }
@@ -2451,8 +2457,8 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!formId || !project) return;
     this.formService.deployForm(formId).subscribe({
-      next: () => { this.snackBar.open('Encuesta publicada', 'Cerrar', { duration: 3000 }); this.selectProject(project); },
-      error: (err) => this.snackBar.open(err?.error?.message || 'No se pudo publicar', 'Cerrar', { duration: 4000 }),
+      next: () => { this.notify.success('Encuesta publicada'); this.selectProject(project); },
+      error: (err) => this.notify.error(err?.error?.message || 'No se pudo publicar'),
     });
   }
 
@@ -2517,18 +2523,14 @@ export class ProjectListComponent implements OnInit {
 
     request.subscribe({
       next: (project) => {
-        this.snackBar.open(this.translate.instant(current ? 'projects.messages.updated' : 'projects.messages.created'), this.translate.instant('common.buttons.close'), {
-          duration: 3000,
-        });
+        this.notify.success(this.translate.instant(current ? 'projects.messages.updated' : 'projects.messages.created'));
         this.cancelEdit();
         this.loadProjects();
         this.selectProject(project);
         this.saving.set(false);
       },
       error: (error) => {
-        this.snackBar.open(error?.error?.message || this.translate.instant('projects.errors.save'), this.translate.instant('common.buttons.close'), {
-          duration: 3000,
-        });
+        this.notify.error(error?.error?.message || this.translate.instant('projects.errors.save'));
         this.saving.set(false);
       },
     });
@@ -2555,11 +2557,11 @@ export class ProjectListComponent implements OnInit {
         this.technicalSheet.set(sheet);
         this.editingSheet.set(false);
         this.savingSheet.set(false);
-        this.snackBar.open('Ficha técnica guardada correctamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success('Ficha técnica guardada correctamente');
       },
       error: (err) => {
         this.savingSheet.set(false);
-        this.snackBar.open(err?.error?.message || 'Error al guardar ficha técnica', this.translate.instant('common.buttons.close'), { duration: 3500 });
+        this.notify.error(err?.error?.message || 'Error al guardar ficha técnica');
       },
     });
   }
@@ -2573,11 +2575,11 @@ export class ProjectListComponent implements OnInit {
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.validatingSheet.set(false);
-        this.snackBar.open('Ficha técnica validada exitosamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success('Ficha técnica validada exitosamente');
       },
       error: (err) => {
         this.validatingSheet.set(false);
-        this.snackBar.open(err?.error?.message || 'Debe definir fechas de inicio y fin para validar', this.translate.instant('common.buttons.close'), { duration: 3500 });
+        this.notify.error(err?.error?.message || 'Debe definir fechas de inicio y fin para validar');
       },
     });
   }
@@ -2611,7 +2613,7 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!draft || !project || this.savingFormPeriodId()) return;
     if (draft.start_date && draft.end_date && draft.end_date < draft.start_date) {
-      this.snackBar.open('La fecha de fin no puede ser anterior a la fecha de inicio.', this.translate.instant('common.buttons.close'), { duration: 3500 });
+      this.notify.warning('La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
     this.savingFormPeriodId.set(form.id);
@@ -2619,12 +2621,12 @@ export class ProjectListComponent implements OnInit {
       next: () => {
         this.savingFormPeriodId.set(null);
         this.formPeriodDrafts.update(({ [form.id]: _saved, ...rest }) => rest);
-        this.snackBar.open(`Fechas de «${form.title}» guardadas.`, this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success(`Fechas de «${form.title}» guardadas.`);
         this.selectProject(project);
       },
       error: (err) => {
         this.savingFormPeriodId.set(null);
-        this.snackBar.open(err?.error?.message || 'No se pudieron guardar las fechas.', this.translate.instant('common.buttons.close'), { duration: 4000 });
+        this.notify.error(err?.error?.message || 'No se pudieron guardar las fechas.');
       },
     });
   }
@@ -2691,11 +2693,7 @@ export class ProjectListComponent implements OnInit {
     const room = quota === null ? visible.length : Math.max(0, quota - current.length);
     this.selectedEnumeratorIds.set([...current, ...visible.slice(0, room)]);
     if (visible.length > room) {
-      this.snackBar.open(
-        `Se seleccionaron ${current.length + room} encuestadores: es la cuota de la zona. Aumenta la cuota para incluir más.`,
-        this.translate.instant('common.buttons.close'),
-        { duration: 4000 },
-      );
+      this.notify.info(`Se seleccionaron ${current.length + room} encuestadores: es la cuota de la zona. Aumenta la cuota para incluir más.`);
     }
   }
 
@@ -2722,11 +2720,7 @@ export class ProjectListComponent implements OnInit {
     if (quota !== null && current.length >= quota) {
       // Deshacer la marca del checkbox: la selección no cambió.
       if (event?.target instanceof HTMLInputElement) event.target.checked = false;
-      this.snackBar.open(
-        `La zona ya tiene su cuota de ${quota} encuestadores. Aumenta la cuota o quita a alguien.`,
-        this.translate.instant('common.buttons.close'),
-        { duration: 4000 },
-      );
+      this.notify.warning(`La zona ya tiene su cuota de ${quota} encuestadores. Aumenta la cuota o quita a alguien.`);
       return;
     }
     this.selectedEnumeratorIds.set([...current, userId]);
@@ -2788,31 +2782,36 @@ export class ProjectListComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.savingZone.set(false);
-        this.snackBar.open(currentZone ? 'Zona actualizada' : 'Zona creada exitosamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success(currentZone ? 'Zona actualizada' : 'Zona creada exitosamente');
         this.cancelZoneForm();
         this.loadZones(project.id);
       },
       error: (err) => {
         this.savingZone.set(false);
-        this.snackBar.open(err?.error?.message || 'Error al guardar zona', this.translate.instant('common.buttons.close'), { duration: 3500 });
+        this.notify.error(err?.error?.message || 'Error al guardar zona');
       },
     });
   }
 
-  deleteZone(zone: ProjectZone): void {
+  async deleteZone(zone: ProjectZone): Promise<void> {
     const project = this.selectedProject();
     if (!project || !zone.id) return;
 
-    const confirmed = window.confirm(`¿Estás seguro de eliminar la zona "${zone.name}"?`);
+    const confirmed = await this.notify.confirm({
+      title: 'Eliminar zona',
+      message: `¿Eliminar la zona «${zone.name}»? Se quitará su delimitación y las asignaciones de encuestadores.`,
+      confirmText: 'Eliminar zona',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     this.projectService.deleteProjectZone(project.id, zone.id).subscribe({
       next: () => {
-        this.snackBar.open('Zona eliminada correctamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success('Zona eliminada correctamente');
         this.loadZones(project.id);
       },
       error: (err) => {
-        this.snackBar.open(err?.error?.message || 'Error al eliminar zona', this.translate.instant('common.buttons.close'), { duration: 3500 });
+        this.notify.error(err?.error?.message || 'Error al eliminar zona');
       },
     });
   }
@@ -2875,7 +2874,7 @@ export class ProjectListComponent implements OnInit {
     const raw = this.newFormForm.getRawValue();
 
     if (raw.start_date && raw.end_date && raw.start_date > raw.end_date) {
-      this.snackBar.open('La fecha de fin no puede ser anterior a la fecha de inicio', this.translate.instant('common.buttons.close'), { duration: 3500 });
+      this.notify.warning('La fecha de fin no puede ser anterior a la fecha de inicio');
       return;
     }
 
@@ -2895,13 +2894,9 @@ export class ProjectListComponent implements OnInit {
         next: (createdForm) => {
           this.savingNewForm.set(false);
           this.showNewFormModal.set(false);
-          this.snackBar.open(
-            this.technicalSheet()?.status === 'VALIDATED'
+          this.notify.success(this.technicalSheet()?.status === 'VALIDATED'
               ? 'Formulario creado en borrador.'
-              : 'Formulario creado en borrador. Complete y valide la ficha técnica del proyecto para editar sus preguntas.',
-            this.translate.instant('common.buttons.close'),
-            { duration: 3500 },
-          );
+              : 'Formulario creado en borrador. Complete y valide la ficha técnica del proyecto para editar sus preguntas.');
           this.selectedFormId.set(createdForm.id);
           this.selectedTabIndex = 0;
           const project = this.selectedProject();
@@ -2909,24 +2904,29 @@ export class ProjectListComponent implements OnInit {
         },
         error: (err) => {
           this.savingNewForm.set(false);
-          this.snackBar.open(err?.error?.message || 'Error al crear el formulario', this.translate.instant('common.buttons.close'), { duration: 3500 });
+          this.notify.error(err?.error?.message || 'Error al crear el formulario');
         },
       });
   }
 
-  deleteProject(project: Project): void {
+  async deleteProject(project: Project): Promise<void> {
     if (!this.canDeleteProjects()) {
       return;
     }
 
-    const confirmed = window.confirm('Estas seguro que quieres eliminar el proyecto ?');
+    const confirmed = await this.notify.confirm({
+      title: 'Eliminar proyecto',
+      message: `¿Eliminar el proyecto «${project.name}»? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar proyecto',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }
 
     this.projectService.deleteProject(project.id).subscribe({
       next: () => {
-        this.snackBar.open('Proyecto eliminado exitosamente', this.translate.instant('common.buttons.close'), { duration: 3000 });
+        this.notify.success('Proyecto eliminado exitosamente');
 
         if (this.selectedProject()?.id === project.id) {
           this.selectedProject.set(null);
@@ -2936,9 +2936,7 @@ export class ProjectListComponent implements OnInit {
         this.loadProjects();
       },
       error: (error) => {
-        this.snackBar.open(error?.error?.message || 'No se pudo eliminar el proyecto', this.translate.instant('common.buttons.close'), {
-          duration: 3500,
-        });
+        this.notify.error(error?.error?.message || 'No se pudo eliminar el proyecto');
       },
     });
   }

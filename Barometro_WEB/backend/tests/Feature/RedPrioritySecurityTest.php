@@ -1,9 +1,14 @@
 <?php
+
 namespace Tests\Feature;
 
-use App\Models\{User, Project, Form, FormResponse, FormUserShare, ResponseSyncQueue};
+use App\Models\Form;
+use App\Models\FormResponse;
+use App\Models\Project;
+use App\Models\ResponseSyncQueue;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -25,6 +30,7 @@ class RedPrioritySecurityTest extends TestCase
         $form->shares()->create(['user_id' => $collector->id, 'role' => 'RECOLECTOR', 'target_responses' => 1]);
         $payload = ['form_id' => $form->id, 'client_submission_id' => (string) Str::uuid(),
             'data' => [$q->id => 'Dato de prueba', '_consentimiento_aceptado' => true]];
+
         return [$form, $owner, $collector, $payload, $q];
     }
 
@@ -81,14 +87,17 @@ class RedPrioritySecurityTest extends TestCase
         try {
             $this->postJson('/api/mobile/submit', $payload)->assertStatus(500);
             $this->assertDatabaseCount('form_responses', 0);
-        } finally { ResponseSyncQueue::flushEventListeners(); }
+        } finally {
+            ResponseSyncQueue::flushEventListeners();
+        }
     }
 
     public function test_public_qr_remains_anonymous_but_invalid_bearer_cannot_downgrade(): void
     {
         [$form, , , $payload] = $this->campaign();
         $this->withToken('invalid-token')->postJson('/api/forms/submit/'.$form->link_uuid, $payload)->assertUnauthorized();
-        $this->flushHeaders(); Auth::forgetGuards();
+        $this->flushHeaders();
+        Auth::forgetGuards();
         $id = $this->postJson('/api/forms/submit/'.$form->link_uuid, $payload)->assertCreated()->json('id');
         $this->assertNull(FormResponse::find($id)->user_id);
     }
@@ -129,7 +138,8 @@ class RedPrioritySecurityTest extends TestCase
         $this->assertSame(0, $user->tokens()->count());
         Auth::forgetGuards();
         $this->withToken($token)->getJson('/api/user')->assertUnauthorized();
-        $this->flushHeaders(); Auth::forgetGuards();
+        $this->flushHeaders();
+        Auth::forgetGuards();
         Sanctum::actingAs($admin);
         $user->update(['is_active' => true]);
         $user->createToken('second');

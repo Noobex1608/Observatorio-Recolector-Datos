@@ -1,0 +1,63 @@
+<div class="toast-stack">
+  <div class="toast-region" aria-live="assertive" aria-relevant="additions" aria-label="Errores y advertencias">
+    @for (item of urgent(); track item.id) {
+      <ng-container *ngTemplateOutlet="toast; context: { $implicit: item }"></ng-container>
+    }
+  </div>
+  <div class="toast-region" aria-live="polite" aria-relevant="additions" aria-label="Notificaciones">
+    @for (item of polite(); track item.id) {
+      <ng-container *ngTemplateOutlet="toast; context: { $implicit: item }"></ng-container>
+    }
+  </div>
+</div>
+
+<ng-template #toast let-item>
+  <div
+    [class]="'toast toast--' + item.kind"
+    (mouseenter)="pause(item)"
+    (mouseleave)="resume(item)"
+    (focusin)="pause(item)"
+    (focusout)="resume(item)"
+  >
+    <span class="material-icons toast-icon" aria-hidden="true">{{ iconOf(item) }}</span>
+    <div class="toast-text">
+      <strong>{{ titleOf(item) }}</strong>
+      <span>{{ item.message }}</span>
+    </div>
+    <button type="button" class="toast-close" aria-label="Cerrar notificación" (click)="notify.dismiss(item.id)">
+      <span class="material-icons" aria-hidden="true">close</span>
+    </button>
+    @if (item.duration > 0) {
+      <span class="toast-progress" aria-hidden="true" [style.animation-duration.ms]="item.duration"></span>
+    }
+  </div>
+</ng-template>
+
+@if (notify.confirmation(); as dialog) {
+  <div class="confirm-backdrop" (click)="answer(false)">
+    <div
+      class="confirm-dialog"
+      [class.confirm-dialog--danger]="dialog.tone === 'danger'"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="app-confirm-title"
+      aria-describedby="app-confirm-message"
+      cdkTrapFocus
+      [cdkTrapFocusAutoCapture]="true"
+      (click)="$event.stopPropagation()"
+      (keydown.escape)="answer(false)"
+    >
+      <span class="material-icons confirm-icon" aria-hidden="true">{{ dialog.tone === 'danger' ? 'delete_forever' : 'help' }}</span>
+      <h2 id="app-confirm-title">{{ dialog.title }}</h2>
+      <p id="app-confirm-message">{{ dialog.message }}</p>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn confirm-btn--secondary" cdkFocusInitial (click)="answer(false)">
+          {{ dialog.cancelText }}
+        </button>
+        <button type="button" class="confirm-btn confirm-btn--primary" (click)="answer(true)">
+          {{ dialog.confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

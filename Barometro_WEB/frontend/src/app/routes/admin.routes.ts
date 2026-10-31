@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, roleGuard } from '../core/guards/role.guard';
+import { unsavedChangesGuard } from '../features/forms/builder/unsaved-changes.guard';
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -24,12 +25,14 @@ export const ADMIN_ROUTES: Routes = [
     loadComponent: () =>
       import('../features/forms/builder/builder.component').then((m) => m.BuilderComponent),
     canActivate: [roleGuard('SUPER_ADMIN', 'ADMIN', 'PROJECT')],
+    canDeactivate: [unsavedChangesGuard],
     title: 'routes.newForm',
   },
   {
     path: 'forms/:id/edit',
     loadComponent: () =>
       import('../features/forms/builder/builder.component').then((m) => m.BuilderComponent),
+    canDeactivate: [unsavedChangesGuard],
     title: 'routes.editForm',
   },
   {

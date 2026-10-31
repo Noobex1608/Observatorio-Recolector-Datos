@@ -59,7 +59,7 @@ class PublicFormSubmissionTest extends TestCase
             'order' => 1,
         ]);
 
-        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(), 
+        $payload = ['client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'data' => [
                 '_consentimiento_aceptado' => true,
                 $question->id => 'Excelente servicio',

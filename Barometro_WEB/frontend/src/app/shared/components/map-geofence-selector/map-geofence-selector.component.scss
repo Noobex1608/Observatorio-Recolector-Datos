@@ -124,6 +124,7 @@
 
           .material-icons {
             font-size: 1rem;
+            color: #ffffff;
           }
         }
       }
@@ -494,3 +495,40 @@
 
 /* Resultado de búsqueda como botón real (teclado y lector de pantalla) */
 button.search-result-item { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+
+/* Iconos Material en lugar de emojis */
+.gf-icon {
+  font-size: 1.05em;
+  line-height: 1;
+  vertical-align: -0.15em;
+  margin-right: 0.15em;
+}
+
+.mode-lock-badge,
+.btn-unlock-radius,
+.btn-location,
+.tag-polygon,
+.tag-circular,
+.tag-rural-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  .gf-icon {
+    margin-right: 0;
+    vertical-align: 0;
+  }
+}
+
+.layer-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.2rem;
+  vertical-align: middle;
+
+  &.dot-parroquia { background: #10b981; }
+  &.dot-sector { background: #3b82f6; }
+  &.dot-manzana { background: #f97316; }
+}

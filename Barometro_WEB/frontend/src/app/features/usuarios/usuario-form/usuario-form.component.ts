@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { NotificationService } from '@core/services/notification.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { User } from '@core/models';
 import { UserService } from '@core/services/user.service';
@@ -33,7 +33,6 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
-    MatSnackBarModule,
     TranslateModule,
   ],
   templateUrl: './usuario-form.component.html',
@@ -44,7 +43,7 @@ export class UsuarioFormComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly userService = inject(UserService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notify = inject(NotificationService);
   private readonly translate = inject(TranslateService);
 
   isEditMode = signal(false);
@@ -95,11 +94,7 @@ export class UsuarioFormComponent implements OnInit {
         this.userForm.get('password')?.updateValueAndValidity();
       },
       error: () => {
-        this.snackBar.open(
-          this.translate.instant('users.messages.loadError'),
-          this.translate.instant('common.buttons.close'),
-          { duration: 3000 }
-        );
+        this.notify.error(this.translate.instant('users.messages.loadError'));
         void this.router.navigate(['/admin/usuarios']);
       },
     });
@@ -151,14 +146,13 @@ export class UsuarioFormComponent implements OnInit {
 
   /** Guarda el usuario, avisa el resultado y vuelve a la lista si salió bien. */
   private saveUser(request: Observable<unknown>, successKey: string, errorKey: string): void {
-    const close = this.translate.instant('common.buttons.close');
     request.subscribe({
       next: () => {
-        this.snackBar.open(this.translate.instant(successKey), close, { duration: 3000 });
+        this.notify.success(this.translate.instant(successKey));
         void this.router.navigate(['/admin/usuarios']);
       },
       error: (err) => {
-        this.snackBar.open(err.error?.message || this.translate.instant(errorKey), close, { duration: 3000 });
+        this.notify.error(err.error?.message || this.translate.instant(errorKey));
         this.loading.set(false);
       },
     });

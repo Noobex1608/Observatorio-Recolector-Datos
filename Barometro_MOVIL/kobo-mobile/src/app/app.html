@@ -5,10 +5,74 @@
   </main>
 </div>
 
-<div class="toast-container" role="status" aria-live="polite">
-  @for (t of toast.toasts(); track t.id) {
-    <div class="toast" [class]="'toast toast-' + t.type" (click)="toast.dismiss(t.id)">
-      {{ t.message }}
-    </div>
-  }
+<div class="toast-container">
+  <div class="toast-region" aria-live="assertive">
+    @for (t of toast.toasts(); track t.id) {
+      @if (t.type === 'error' || t.type === 'warning') {
+        <ng-container *ngTemplateOutlet="toastTpl; context: { $implicit: t }"></ng-container>
+      }
+    }
+  </div>
+  <div class="toast-region" aria-live="polite">
+    @for (t of toast.toasts(); track t.id) {
+      @if (t.type === 'success' || t.type === 'info') {
+        <ng-container *ngTemplateOutlet="toastTpl; context: { $implicit: t }"></ng-container>
+      }
+    }
+  </div>
 </div>
+
+<ng-template #toastTpl let-t>
+  <div [class]="'toast toast-' + t.type">
+    <span class="toast-icon" aria-hidden="true">
+      @switch (t.type) {
+        @case ('success') { <svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg> }
+        @case ('info') { <svg viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg> }
+        @default { <svg viewBox="0 0 24 24"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm1-5a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg> }
+      }
+    </span>
+    <span class="toast-message">{{ t.message }}</span>
+    <button type="button" class="toast-close" aria-label="Cerrar aviso" (click)="toast.dismiss(t.id)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+    </button>
+  </div>
+</ng-template>
+
+@if (toast.dialog(); as dialog) {
+  <div class="app-dialog-backdrop" (click)="answerDialog(false)">
+    <div
+      class="app-dialog"
+      [class.app-dialog-danger]="dialog.tone === 'danger'"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="app-dialog-title"
+      [attr.aria-describedby]="dialog.message ? 'app-dialog-message' : null"
+      (click)="$event.stopPropagation()"
+      (keydown)="onDialogKeydown($event)"
+    >
+      <h2 id="app-dialog-title">{{ dialog.title }}</h2>
+      @if (dialog.message) {
+        <p id="app-dialog-message">{{ dialog.message }}</p>
+      }
+      @if (dialog.kind === 'prompt') {
+        <label class="app-dialog-field" for="app-dialog-input">{{ dialog.inputLabel }}</label>
+        <input
+          id="app-dialog-input"
+          class="app-dialog-input"
+          [type]="dialog.inputType"
+          [(ngModel)]="dialogValue"
+          (keydown.enter)="answerDialog(true)"
+          autocomplete="off"
+        />
+      }
+      <div class="app-dialog-actions">
+        <button id="app-dialog-cancel" type="button" class="app-dialog-btn app-dialog-btn-secondary" (click)="answerDialog(false)">
+          {{ dialog.cancelText }}
+        </button>
+        <button type="button" class="app-dialog-btn app-dialog-btn-primary" (click)="answerDialog(true)">
+          {{ dialog.confirmText }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

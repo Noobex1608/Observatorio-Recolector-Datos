@@ -1,10 +1,12 @@
 <?php
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::table('forms', function (Blueprint $table) {
@@ -22,6 +24,7 @@ return new class extends Migration {
             $table->unique(['form_id', 'client_submission_id'], 'response_submission_unique');
         });
     }
+
     public function down(): void
     {
         Schema::table('form_responses', function (Blueprint $table) {

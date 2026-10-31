@@ -18,6 +18,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { GisService, GisSelection, DpaCanton, DpaParroquia } from '@core/services/gis.service';
+import { NotificationService } from '@core/services/notification.service';
 
 export interface GeofenceSelectionEvent {
   zone_name: string;
@@ -61,6 +62,7 @@ export interface NominatimSearchResult {
 export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly http = inject(HttpClient);
+  private readonly notify = inject(NotificationService);
   readonly gisService = inject(GisService);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
 
@@ -138,7 +140,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       const label = codes.length === 1
         ? `Manzana INEC: ${codes[0]}`
         : `${codes.length} manzanas INEC: ${codes.slice(0, 3).join(', ')}${codes.length > 3 ? ` y ${codes.length - 3} más` : ''}`;
-      return `📍 ${label} | ${locName}`;
+      return `${label} | ${locName}`;
     } else {
       const r = this.localRadius();
       const lat = this.localLat() !== null ? this.localLat() : '0';
@@ -150,7 +152,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       const cantName = cantObj ? cantObj.name : cantCode;
       const parStr = parName || 'Parroquia';
       const cantStr = cantName || 'Cantón';
-      return `🎯 Cobertura Circular: Radio ${r}m | Centroide: [${lat}, ${lng}] en ${parStr}, ${cantStr}`;
+      return `Cobertura Circular: Radio ${r}m | Centroide: [${lat}, ${lng}] en ${parStr}, ${cantStr}`;
     }
   });
 
@@ -1017,7 +1019,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
 
   useCurrentLocation(): void {
     if (!this.isBrowser || !('geolocation' in navigator)) {
-      alert('Geolocalización no disponible en este dispositivo.');
+      this.notify.error('La geolocalización no está disponible en este dispositivo.');
       return;
     }
 
@@ -1033,7 +1035,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
         }
       },
       (err) => {
-        alert('Error al obtener ubicación: ' + err.message);
+        this.notify.error(`No se pudo obtener la ubicación: ${err.message}`);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
