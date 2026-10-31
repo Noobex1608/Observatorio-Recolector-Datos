@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncFormResponseToSupabase;
 use App\Models\Form;
 use App\Models\FormResponse;
 use App\Models\Project;
@@ -9,6 +10,7 @@ use App\Models\ResponseSyncQueue;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -16,6 +18,14 @@ use Tests\TestCase;
 class RedPrioritySecurityTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // La cola de sincronización con Supabase debe existir sin depender del .env local.
+        config(['services.supabase.response_sync_enabled' => true]);
+        Bus::fake([SyncFormResponseToSupabase::class]);
+    }
 
     private function campaign(): array
     {

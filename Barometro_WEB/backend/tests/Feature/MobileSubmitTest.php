@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Application\Responses\Contracts\ResponseMediaStorage;
+use App\Jobs\SyncFormResponseToSupabase;
 use App\Models\Form;
 use App\Models\FormResponse;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\Fakes\InMemoryResponseMediaStorage;
@@ -21,6 +23,9 @@ class MobileSubmitTest extends TestCase
     {
         parent::setUp();
         $this->app->singleton(ResponseMediaStorage::class, InMemoryResponseMediaStorage::class);
+        // La cola de sincronización con Supabase debe existir sin depender del .env local.
+        config(['services.supabase.response_sync_enabled' => true]);
+        Bus::fake([SyncFormResponseToSupabase::class]);
     }
 
     public function test_successful_submission_with_all_nine_kobotoolbox_question_types(): void
