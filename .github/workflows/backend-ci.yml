@@ -37,10 +37,15 @@ jobs:
           extensions: mbstring, pdo, pdo_pgsql, bcmath, json, ctype, fileinfo, gd
           coverage: none
 
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        working-directory: Barometro_WEB/backend
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Composer Dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache
+          path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('Barometro_WEB/backend/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
@@ -58,7 +63,7 @@ jobs:
       - name: Code Style Verification (Laravel Pint)
         run: |
           cd Barometro_WEB/backend
-          vendor/bin/pint --test app bootstrap/app.php bootstrap/providers.php config routes database/migrations database/seeders database/factories tests
+          vendor/bin/pint --test
 
       - name: Execute Test Suite (PHPUnit)
         env:
