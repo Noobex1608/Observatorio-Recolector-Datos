@@ -18,7 +18,7 @@
         "@angular/ssr": "^21.2.27",
         "@netlify/angular-runtime": "^4.0.0",
         "@ngx-translate/core": "^17.0.0",
-        "@ngx-translate/http-loader": "^17.0.0",
+        "@ngx-translate/http-loader": "^18.1.0",
         "echarts": "^6.1.0",
         "express": "^5.3.0",
         "jspdf": "^4.2.1",
@@ -368,7 +368,7 @@
 
     "@ngx-translate/core": ["@ngx-translate/core@17.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=16", "@angular/core": ">=16" } }, "sha512-Rft2D5ns2pq4orLZjEtx1uhNuEBerUdpFUG1IcqtGuipj6SavgB8SkxtNQALNDA+EVlvsNCCjC2ewZVtUeN6rg=="],
 
-    "@ngx-translate/http-loader": ["@ngx-translate/http-loader@17.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=16", "@angular/core": ">=16" } }, "sha512-hgS8sa0ARjH9ll3PhkLTufeVXNI2DNR2uFKDhBgq13siUXzzVr/a31M6zgecrtwbA34iaBV01hsTMbMS8V7iIw=="],
+    "@ngx-translate/http-loader": ["@ngx-translate/http-loader@18.1.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=18", "@angular/core": ">=18", "@ngx-translate/core": ">=18.1.0" } }, "sha512-kr5aObQseH2fE02emSJpjKIXfkHBgUxuba88uFZkR3aN2JRAWcIosBW8SsU4Z4rqrglBW1ZiG/HzbOD/FyHdxQ=="],
 
     "@npmcli/agent": ["@npmcli/agent@4.0.2", "", { "dependencies": { "agent-base": "^7.1.0", "http-proxy-agent": "^7.0.0", "https-proxy-agent": "^7.0.1", "lru-cache": "^11.2.1", "socks-proxy-agent": "^8.0.3" } }, "sha512-EUEuWAxnL07Sp5/iC/1X6Xj+XThUvnbei9zfRWZdEXa7lss9RTHMhAHBeg+MZ5To9s/gGaSI+UwZTPdYMvKSeg=="],
 
