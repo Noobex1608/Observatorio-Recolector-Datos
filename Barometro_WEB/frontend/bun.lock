@@ -17,7 +17,7 @@
         "@angular/router": "^21.2.25",
         "@angular/ssr": "^21.2.27",
         "@netlify/angular-runtime": "^4.0.0",
-        "@ngx-translate/core": "^17.0.0",
+        "@ngx-translate/core": "^18.1.0",
         "@ngx-translate/http-loader": "^17.0.0",
         "echarts": "^6.1.0",
         "express": "^5.3.0",
@@ -366,7 +366,7 @@
 
     "@netlify/types": ["@netlify/types@2.8.0", "", {}, "sha512-8/g0Pt6y6wXj5Ia5eeYLiXhRfWeqZXGXpGFeCiiQdUOem+FPtXdA4+YdGxqzWc7D0AvptKSO01KGeeVWHSu8Kg=="],
 
-    "@ngx-translate/core": ["@ngx-translate/core@17.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=16", "@angular/core": ">=16" } }, "sha512-Rft2D5ns2pq4orLZjEtx1uhNuEBerUdpFUG1IcqtGuipj6SavgB8SkxtNQALNDA+EVlvsNCCjC2ewZVtUeN6rg=="],
+    "@ngx-translate/core": ["@ngx-translate/core@18.1.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=18", "@angular/core": ">=18", "rxjs": ">=7" } }, "sha512-UYbxYUmobUboO9aa8LO+rJBfvxbwRsIrbCI7+fC5lGzwwcVbQ0FiPysYFgZC+JWsGBw/+z7u1a6vciJZzqXrcQ=="],
 
     "@ngx-translate/http-loader": ["@ngx-translate/http-loader@17.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=16", "@angular/core": ">=16" } }, "sha512-hgS8sa0ARjH9ll3PhkLTufeVXNI2DNR2uFKDhBgq13siUXzzVr/a31M6zgecrtwbA34iaBV01hsTMbMS8V7iIw=="],
 
