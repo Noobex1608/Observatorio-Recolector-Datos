@@ -58,7 +58,7 @@ jobs:
       - name: Code Style Verification (Laravel Pint)
         run: |
           cd Barometro_WEB/backend
-          vendor/bin/pint --test app bootstrap config routes database/migrations database/seeders database/factories tests
+          vendor/bin/pint --test app bootstrap/app.php bootstrap/providers.php config routes database/migrations database/seeders database/factories tests
 
       - name: Execute Test Suite (PHPUnit)
         env:
