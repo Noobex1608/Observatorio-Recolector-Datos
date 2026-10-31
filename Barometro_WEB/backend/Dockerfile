@@ -106,6 +106,14 @@ COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY . .
 RUN composer check-platform-reqs --no-dev
 
+# Cachés que no dependen de las variables de entorno: se generan una sola vez al construir
+# la imagen, no en cada arranque (en el plan gratuito cada arranque en frío cuenta).
+# La configuración sí se cachea al arrancar porque lee las variables de Render.
+RUN mkdir -p storage/framework/views storage/framework/cache/data storage/api-docs bootstrap/cache \
+    && php artisan route:cache \
+    && php artisan view:cache \
+    && php artisan swagger:generate
+
 # Copiar configuración de nginx
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
