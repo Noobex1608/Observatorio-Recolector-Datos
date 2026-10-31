@@ -1,0 +1,51 @@
+# Actualizaciones automáticas de dependencias: Dependabot abre un pull request
+# semanal por proyecto, con el lockfile ya regenerado, y el CI lo valida.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /Barometro_WEB/backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 5
+    groups:
+      backend-menores:
+        update-types: [minor, patch]
+
+  - package-ecosystem: bun
+    directory: /Barometro_WEB/frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 5
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*"]
+      web-menores:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /Barometro_MOVIL/kobo-mobile
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Guayaquil
+    open-pull-requests-limit: 5
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*"]
+      pwa-menores:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      acciones:
+        patterns: ["*"]
