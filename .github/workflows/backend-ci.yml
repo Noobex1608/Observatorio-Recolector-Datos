@@ -2,9 +2,9 @@ name: Backend CI Pipeline
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, Desarrollo ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, Desarrollo ]
 
 jobs:
   backend-test:
