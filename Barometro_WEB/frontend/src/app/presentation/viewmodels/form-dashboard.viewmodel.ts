@@ -72,6 +72,7 @@ export class FormDashboardViewModel {
 
   linkModalOpen = signal(false);
   linkUrl = signal('');
+  linkAvailableFrom = signal<string | null>(null);
 
   private usersCache: User[] | null = null;
   private lookupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -422,6 +423,10 @@ export class FormDashboardViewModel {
 
   showPublicLink(form: Form): void {
     if (!form.link_uuid) return;
+    const today = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Guayaquil', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+    this.linkAvailableFrom.set(form.start_date && form.start_date.slice(0, 10) > today ? form.start_date.slice(0, 10) : null);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     this.linkUrl.set(`${origin}/collect/${form.link_uuid}`);
     this.linkModalOpen.set(true);
@@ -430,6 +435,7 @@ export class FormDashboardViewModel {
   closeLinkModal(): void {
     this.linkModalOpen.set(false);
     this.linkUrl.set('');
+    this.linkAvailableFrom.set(null);
   }
 
   getStateLabel(state: Form['state']): string {

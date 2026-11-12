@@ -9,6 +9,11 @@ updates:
       day: monday
       time: "08:00"
       timezone: America/Guayaquil
+    ignore:
+      # Solo cambios menores y parches: las versiones mayores rompen compatibilidad
+      # y se actualizan a mano, con tiempo para revisarlas.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
     groups:
       backend-menores:
@@ -21,6 +26,11 @@ updates:
       day: monday
       time: "08:00"
       timezone: America/Guayaquil
+    ignore:
+      # Solo cambios menores y parches: las versiones mayores rompen compatibilidad
+      # y se actualizan a mano, con tiempo para revisarlas.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
     groups:
       angular:
@@ -35,6 +45,11 @@ updates:
       day: monday
       time: "08:00"
       timezone: America/Guayaquil
+    ignore:
+      # Solo cambios menores y parches: las versiones mayores rompen compatibilidad
+      # y se actualizan a mano, con tiempo para revisarlas.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
     groups:
       angular:

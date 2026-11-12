@@ -710,7 +710,15 @@ class FormController extends Controller
             ->where('state', 'DEPLOYED')
             ->with(['questions' => fn ($q) => $q->orderBy('order')])
             ->firstOrFail();
-        abort_if($form->start_date && $form->start_date->isFuture(), 404);
+        if ($form->start_date && $form->start_date->format('Y-m-d') > now('America/Guayaquil')->toDateString()) {
+            return response()->json([
+                'id' => $form->id,
+                'title' => $form->title,
+                'state' => $form->state,
+                'start_date' => $form->start_date->format('Y-m-d'),
+                'availability' => 'SCHEDULED',
+            ]);
+        }
 
         $data = $form->toArray();
         $data['questions'] = $form->questions->map(fn ($q) => $this->formatMobileQuestion($q))->toArray();

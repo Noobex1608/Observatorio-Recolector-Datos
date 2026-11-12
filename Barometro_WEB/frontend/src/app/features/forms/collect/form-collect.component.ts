@@ -49,6 +49,12 @@ interface QuestionVisualMeta {
           <mat-icon>error_outline</mat-icon>
           <p>{{ error() }}</p>
         </div>
+      } @else if (form()?.availability === 'SCHEDULED') {
+        <div class="state-box">
+          <mat-icon>event</mat-icon>
+          <h1>{{ form()!.title }}</h1>
+          <p>Este formulario estará disponible a partir del {{ form()!.start_date | date:'dd/MM/yyyy' }}.</p>
+        </div>
       } @else if (submitted()) {
         <div class="state-box success">
           <mat-icon>check_circle</mat-icon>
@@ -850,6 +856,10 @@ export class FormCollectComponent implements OnInit {
     this.formService.fetchPublicForm(this.linkUuid).subscribe({
       next: (form) => {
         this.form.set({ ...form, questions: form.questions ?? [] });
+        if (form.availability === 'SCHEDULED') {
+          this.loading.set(false);
+          return;
+        }
         this.answers.set(Object.fromEntries((form.questions ?? [])
           .filter((question) => question.type === 'RANKING')
           .map((question) => [question.id, this.getChoiceOptions(question)])));

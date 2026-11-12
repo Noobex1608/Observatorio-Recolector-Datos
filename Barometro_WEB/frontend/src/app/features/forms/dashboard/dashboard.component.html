@@ -488,6 +488,9 @@
       <p class="modal-subtitle">
         {{ 'forms.dashboard.publicLinkSubtitle' | translate }}
       </p>
+      @if (vm.linkAvailableFrom(); as availableFrom) {
+        <p role="status">Este formulario está programado. El enlace mostrará la fecha de apertura y permitirá responder a partir del {{ availableFrom | date:'dd/MM/yyyy' }}.</p>
+      }
 
       <div class="link-box">
         <input type="text" readonly aria-label="Enlace público del formulario" [value]="vm.linkUrl()" />
