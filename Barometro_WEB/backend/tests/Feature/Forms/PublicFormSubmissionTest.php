@@ -36,6 +36,36 @@ class PublicFormSubmissionTest extends TestCase
             ->assertJsonPath('title', 'Encuesta Pública');
     }
 
+    public function test_scheduled_form_shows_opening_date_without_exposing_questions_or_accepting_responses(): void
+    {
+        $project = Project::create(['name' => 'Proyecto programado']);
+        $user = User::factory()->create();
+        $startDate = today('America/Guayaquil')->addDays(5)->format('Y-m-d');
+        $form = Form::create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'title' => 'Encuesta futura',
+            'state' => 'DEPLOYED',
+            'link_uuid' => (string) Str::uuid(),
+            'start_date' => $startDate,
+            'end_date' => today('America/Guayaquil')->addDays(6)->format('Y-m-d'),
+        ]);
+        FormQuestion::create([
+            'form_id' => $form->id, 'type' => 'TEXT', 'label' => 'Pregunta reservada',
+            'required' => false, 'order' => 1,
+        ]);
+
+        $this->getJson('/api/forms/fetch/'.$form->link_uuid)
+            ->assertOk()
+            ->assertJsonPath('availability', 'SCHEDULED')
+            ->assertJsonPath('start_date', $startDate)
+            ->assertJsonMissingPath('questions');
+        $this->postJson('/api/forms/submit/'.$form->link_uuid, [
+            'client_submission_id' => (string) Str::uuid(),
+            'data' => ['_consentimiento_aceptado' => true],
+        ])->assertUnprocessable()->assertJsonValidationErrors('form_id');
+    }
+
     public function test_public_form_submission_succeeds_without_auth_header(): void
     {
         $project = Project::create(['name' => 'Proyecto público']);

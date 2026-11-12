@@ -14,6 +14,7 @@ export interface Form {
   owner?: { id: string; name: string; email: string; rol?: string };
   state: 'DRAFT' | 'DEPLOYED' | 'ARCHIVED';
   link_uuid?: string;
+  availability?: 'SCHEDULED';
   step_by_step?: boolean;
   require_consent?: boolean;
   consent_text?: string | null;
