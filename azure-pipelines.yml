@@ -46,17 +46,33 @@ stages:
           - script: docker build -t udf-api-base DataField_WEB/backend
             displayName: Imagen base de la API
 
-          # Pruebas del backend (PHPUnit, SQLite en memoria según phpunit.xml) y estilo (Pint).
+          # Pruebas del backend (PHPUnit) y estilo (Pint) contra PostgreSQL 18.6, como el CI de GitHub:
+          # las migraciones usan SQL de PostgreSQL y no corren en SQLite.
           - script: |
               set -euo pipefail
-              docker run --rm -v "$(Build.SourcesDirectory)/DataField_WEB/backend:/src:ro" --entrypoint sh udf-api-base -c '
+              docker network create udf-pruebas
+              docker run -d --rm --name udf-pruebas-pg --network udf-pruebas \
+                -e POSTGRES_PASSWORD=pruebas -e POSTGRES_DB=observatorio_testing postgres:18.6
+              for i in $(seq 1 30); do docker exec udf-pruebas-pg pg_isready -U postgres -d observatorio_testing && break; sleep 2; done
+              docker run --rm --network udf-pruebas -v "$(Build.SourcesDirectory)/DataField_WEB/backend:/src:ro" \
+                -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+                -e DB_CONNECTION=pgsql -e DB_HOST=udf-pruebas-pg -e DB_PORT=5432 -e DB_DATABASE=observatorio_testing \
+                -e DB_USERNAME=postgres -e DB_PASSWORD=pruebas \
+                --entrypoint sh udf-api-base -c '
                 set -e
                 mkdir -p /tmp/app && cd /src && tar --exclude=./vendor --exclude=./node_modules -cf - . | tar -xf - -C /tmp/app
                 cd /tmp/app && rm -f .env
                 composer install --prefer-dist --no-progress --no-interaction -q
                 vendor/bin/pint --test
+                php artisan migrate:fresh --force -q
                 vendor/bin/phpunit'
             displayName: Pruebas backend (si fallan, no se publica)
+
+          - script: |
+              docker rm -f udf-pruebas-pg || true
+              docker network rm udf-pruebas || true
+            displayName: Limpiar PostgreSQL de pruebas
+            condition: always()
 
           - script: |
               set -euo pipefail
