@@ -1,0 +1,188 @@
+# Publicación de udf (ULEAM DataField) en el servidor OTM.
+# Contrato: Infra-OTM/docs/publicar-una-app.md §5. Modelo: ConteoRapidoVotos (commit 6ec0f0d).
+# Lo que llega a master llega a producción (environment otm-prod sin aprobación, decisión del usuario).
+#   Build (agente de Microsoft): pruebas → imágenes udf/api, udf/web y udf/pwa en crotm con la
+#   etiqueta $(Build.BuildNumber) → deploy/compose.yml como artefacto. Nada se compila en el servidor.
+#   Prod (agente otm-prod): secretos de Key Vault → .env temporal → otm-desplegar → comprobación por
+#   Traefik → logout y borrado del .env.
+# Volver atrás = volver a correr el pipeline de la versión anterior (su etiqueta sigue en crotm).
+trigger:
+  branches:
+    include: [master]
+pr: none
+
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+  proyecto: udf
+  entorno: prod
+  hostPublico: uleamdatafield.uleam.edu.ec
+  registro: crotm.azurecr.io
+  # SharePoint (Microsoft Graph), no secretas. Vacías hasta que infraestructura cree la app de Entra
+  # "OTM - DataField"; el código aún no las usa (primera versión sin adjuntos).
+  sharePointClientId: ""
+  sharePointTenantId: ""
+  sharePointSiteId: ""
+  sharePointDriveId: ""
+
+stages:
+  - stage: Build
+    displayName: Pruebas e imágenes
+    pool:
+      vmImage: ubuntu-24.04
+    jobs:
+      - job: Imagenes
+        displayName: Probar y publicar en crotm
+        timeoutInMinutes: 90
+        steps:
+          - script: |
+              df -h / | tail -1
+              sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+                /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/julia* /usr/share/swift
+              df -h / | tail -1
+            displayName: Liberar disco
+
+          # Imagen base del equipo externo (DataField_WEB/backend/Dockerfile), sin publicar.
+          - script: docker build -t udf-api-base DataField_WEB/backend
+            displayName: Imagen base de la API
+
+          # Pruebas del backend (PHPUnit, SQLite en memoria según phpunit.xml) y estilo (Pint).
+          - script: |
+              set -euo pipefail
+              docker run --rm -v "$(Build.SourcesDirectory)/DataField_WEB/backend:/src:ro" --entrypoint sh udf-api-base -c '
+                set -e
+                mkdir -p /tmp/app && cd /src && tar --exclude=./vendor --exclude=./node_modules -cf - . | tar -xf - -C /tmp/app
+                cd /tmp/app && rm -f .env
+                composer install --prefer-dist --no-progress --no-interaction -q
+                vendor/bin/pint --test
+                vendor/bin/phpunit'
+            displayName: Pruebas backend (si fallan, no se publica)
+
+          - script: |
+              set -euo pipefail
+              docker run --rm -v "$(Build.SourcesDirectory)/DataField_WEB/frontend:/src:ro" --entrypoint sh oven/bun:1.3.14 -c '
+                set -e
+                mkdir -p /tmp/app && cd /src && tar --exclude=./node_modules --exclude=./dist -cf - . | tar -xf - -C /tmp/app
+                cd /tmp/app && bun install --frozen-lockfile && bun run test --watch=false'
+            displayName: Pruebas web
+
+          - script: |
+              set -euo pipefail
+              docker run --rm -v "$(Build.SourcesDirectory)/DataField_MOVIL/kobo-mobile:/src:ro" --entrypoint sh node:24-alpine -c '
+                set -e
+                mkdir -p /tmp/app && cd /src && tar --exclude=./node_modules --exclude=./dist -cf - . | tar -xf - -C /tmp/app
+                cd /tmp/app && npm ci --no-audit --no-fund && npm test -- --watch=false'
+            displayName: Pruebas PWA
+
+          - task: Docker@2
+            displayName: Login a crotm
+            inputs:
+              command: login
+              containerRegistry: sc-otm-acr
+
+          - script: |
+              set -euo pipefail
+              export DOCKER_BUILDKIT=1
+              tag="$(Build.BuildNumber)"
+              docker build --build-arg BASE=udf-api-base -f deploy/api/Dockerfile -t "$(registro)/udf/api:$tag" .
+              docker build -f deploy/web/Dockerfile -t "$(registro)/udf/web:$tag" .
+              docker build -f deploy/pwa/Dockerfile -t "$(registro)/udf/pwa:$tag" .
+              for s in api web pwa; do docker push "$(registro)/udf/$s:$tag"; done
+            displayName: udf/api, udf/web y udf/pwa
+
+          - task: Docker@2
+            displayName: Logout
+            condition: always()
+            inputs:
+              command: logout
+              containerRegistry: sc-otm-acr
+
+          - publish: deploy/compose.yml
+            artifact: deploy
+            displayName: Publicar compose
+
+  - stage: Prod
+    displayName: Desplegar en otm-prod
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - deployment: Desplegar
+        displayName: otm-desplegar
+        environment: otm-prod
+        pool: otm-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: deploy
+
+                - task: AzureKeyVault@2
+                  displayName: Secretos de Key Vault
+                  inputs:
+                    azureSubscription: sc-otm-kv-udf
+                    KeyVaultName: kv-otm-uleam
+                    # Nombres exactos: la conexión solo puede leer estos secretos, no listar el vault.
+                    # udf-prod-sharepoint-cert se agrega cuando infraestructura lo cree.
+                    SecretsFilter: udf-prod-app-key,udf-prod-db-password
+                    RunAsPreJob: false
+
+                - script: |
+                    set -euo pipefail
+                    umask 077
+                    {
+                      printf 'APP_KEY=%s\n' "$APP_KEY"
+                      printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+                      printf 'SHAREPOINT_CLIENT_ID=%s\n' "$(sharePointClientId)"
+                      printf 'SHAREPOINT_TENANT_ID=%s\n' "$(sharePointTenantId)"
+                      printf 'SHAREPOINT_SITE_ID=%s\n' "$(sharePointSiteId)"
+                      printf 'SHAREPOINT_DRIVE_ID=%s\n' "$(sharePointDriveId)"
+                    } > "$(Agent.TempDirectory)/$(proyecto).env"
+                  displayName: Armar .env
+                  env:
+                    APP_KEY: $(udf-prod-app-key)
+                    DB_PASSWORD: $(udf-prod-db-password)
+
+                - task: Docker@2
+                  displayName: Login a crotm
+                  inputs:
+                    command: login
+                    containerRegistry: sc-otm-acr
+
+                - script: |
+                    set -euo pipefail
+                    sudo -n /usr/local/sbin/otm-desplegar "$(proyecto)" "$(entorno)" \
+                      "$(Pipeline.Workspace)/deploy/compose.yml" "$(Agent.TempDirectory)/$(proyecto).env" "$(Build.BuildNumber)"
+                  displayName: otm-desplegar
+
+                - script: |
+                    set -euo pipefail
+                    # Por Traefik local hasta que redes publique el DNS y el NAT del host.
+                    args=(-sS --max-time 10 --retry 10 --retry-delay 3 --retry-all-errors --resolve "$(hostPublico):443:127.0.0.1")
+                    curl "${args[@]}" -f -o /dev/null "https://$(hostPublico)/health" \
+                      && echo "OK  web /health" \
+                      || { echo "##vso[task.logissue type=error]La web no respondió /health por Traefik"; exit 1; }
+                    curl "${args[@]}" -f -o /dev/null "https://$(hostPublico)/m/" \
+                      && echo "OK  PWA /m/" \
+                      || { echo "##vso[task.logissue type=error]La PWA no respondió /m/ por Traefik"; exit 1; }
+                    # Sin sesión la API responde 401: confirma que /api llega a la API y no a la web.
+                    codigo=$(curl "${args[@]}" -o /dev/null -w '%{http_code}' -H 'Accept: application/json' "https://$(hostPublico)/api/user")
+                    [[ $codigo == 401 ]] \
+                      && echo "OK  API por /api ($codigo)" \
+                      || { echo "##vso[task.logissue type=error]/api/user respondió $codigo (se esperaba 401)"; exit 1; }
+                    codigo=$(curl "${args[@]}" -o /dev/null -w '%{http_code}' "https://$(hostPublico)/api/documentation")
+                    [[ $codigo == 404 ]] \
+                      && echo "OK  Swagger no público ($codigo)" \
+                      || { echo "##vso[task.logissue type=error]/api/documentation respondió $codigo (se esperaba 404)"; exit 1; }
+                  displayName: Comprobar por Traefik
+
+                - task: Docker@2
+                  displayName: Logout
+                  condition: always()
+                  inputs:
+                    command: logout
+                    containerRegistry: sc-otm-acr
+
+                - script: rm -f "$(Agent.TempDirectory)/$(proyecto).env"
+                  displayName: Borrar .env
+                  condition: always()
