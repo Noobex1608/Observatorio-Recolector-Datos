@@ -10,8 +10,8 @@ Plataforma de formularios dinamicos y recoleccion de datos para ULEAM, inspirada
 
 - `backend/`: Laravel 12 API (PHP 8.4).
 - `frontend/`: Angular 21 SPA web (Frontend activo). Paquete: Bun 1.2.18.
-- `Barometro_MOVIL/kobo-mobile/`: Angular 21 app movil PWA offline-first. Paquete: npm.
-- `scripts/`: wrappers de desarrollo para PowerShell, Bash y CMD (en la raiz de `Barometro_WEB/`).
+- `DataField_MOVIL/kobo-mobile/`: Angular 21 app movil PWA offline-first. Paquete: npm.
+- `scripts/`: wrappers de desarrollo para PowerShell, Bash y CMD (en la raiz de `DataField_WEB/`).
 - `docker-compose.yml`: PostgreSQL 16 (solo base de datos).
 
 **No confundir `src/` (legado, observatorio anterior) con `frontend/` (activo).**
@@ -101,7 +101,7 @@ El dashboard (`/admin/dashboard`) tambien muestra usuarios asignados por formula
 
 Las respuestas (`/admin/forms/:id/responses`) muestran contadores de progreso por usuario asignado.
 
-## Frontend (Movil PWA) — `Barometro_MOVIL/kobo-mobile/`
+## Frontend (Movil PWA) — `DataField_MOVIL/kobo-mobile/`
 
 - Angular 21 standalone components con signals.
 - Offline-first con Dexie.js (IndexedDB).
@@ -110,7 +110,7 @@ Las respuestas (`/admin/forms/:id/responses`) muestran contadores de progreso po
 - Sincronizacion con backend via `SyncService` + `ApiService`.
 - Al enviar respuesta, `responses_count` local se incrementa para mantener progreso preciso.
 - Perfil de usuario editable (`/perfil`).
-- Build: `npx ng build` desde `Barometro_MOVIL/kobo-mobile/`.
+- Build: `npx ng build` desde `DataField_MOVIL/kobo-mobile/`.
 
 ### Rutas moviles
 
@@ -175,5 +175,5 @@ Los estados en backend son `DRAFT`, `DEPLOYED`, `ARCHIVED`. El frontend usa los 
 .\scripts\backend.ps1 routes
 .\scripts\backend.ps1 migrate
 cd frontend && npx ng build
-cd ../Barometro_MOVIL/kobo-mobile && npx ng build
+cd ../DataField_MOVIL/kobo-mobile && npx ng build
 ```

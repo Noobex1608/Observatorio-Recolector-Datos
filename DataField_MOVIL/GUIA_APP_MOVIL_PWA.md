@@ -25,7 +25,7 @@ Para aprender a usar la app como recolector, consulta:
 | Almacenamiento offline | Dexie.js (IndexedDB) |
 | PWA | Service worker + instalable |
 | Idioma / tema | `ThemeService` (ES/EN, modo oscuro) |
-| Backend | Laravel API (`Barometro_WEB/backend`) |
+| Backend | Laravel API (`DataField_WEB/backend`) |
 
 ## Desarrollo
 

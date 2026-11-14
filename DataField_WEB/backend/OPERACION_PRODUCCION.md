@@ -14,7 +14,7 @@ El contrato `ResponseMediaStorage` permite sustituir Supabase por un adaptador d
 
 ## Liberación
 
-Si el CDN de Alpine no responde desde la red de construcción, compruebe primero DNS y HTTPS desde el host y un contenedor. El Dockerfile acepta una réplica HTTPS solo para ese build; por ejemplo, desde `Barometro_WEB/backend`:
+Si el CDN de Alpine no responde desde la red de construcción, compruebe primero DNS y HTTPS desde el host y un contenedor. El Dockerfile acepta una réplica HTTPS solo para ese build; por ejemplo, desde `DataField_WEB/backend`:
 
 ```bash
 docker build --build-arg ALPINE_MIRROR=https://mirrors.ibh.net/alpine -t observatorio-backend-audit -f Dockerfile .

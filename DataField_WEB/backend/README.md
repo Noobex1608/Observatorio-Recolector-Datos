@@ -1,6 +1,6 @@
 ﻿# Backend - Laravel API
 
-Este es el backend del proyecto `Barometro_WEB`. Aquí se documenta de forma clara cómo ejecutar la API Laravel.
+Este es el backend del proyecto `DataField_WEB`. Aquí se documenta de forma clara cómo ejecutar la API Laravel.
 
 ## ¿Qué hace este backend?
 
@@ -18,9 +18,9 @@ El backend expone la API REST para la plataforma de recolección de datos. Las f
 
 Los scripts disponibles son:
 
-- `Barometro_WEB/scripts/backend.sh` → para Bash / zsh.
-- `Barometro_WEB/scripts/backend.ps1` → para PowerShell en Windows.
-- `Barometro_WEB/scripts/docker.sh` / `Barometro_WEB/scripts/docker.ps1` → levantan PostgreSQL y redes Docker necesarias.
+- `DataField_WEB/scripts/backend.sh` → para Bash / zsh.
+- `DataField_WEB/scripts/backend.ps1` → para PowerShell en Windows.
+- `DataField_WEB/scripts/docker.sh` / `DataField_WEB/scripts/docker.ps1` → levantan PostgreSQL y redes Docker necesarias.
 
 Ambos `backend.sh` y `backend.ps1` ejecutan el backend dentro de un contenedor Docker y montan el código fuente para desarrollo.
 
@@ -41,14 +41,14 @@ Los avatares se guardan en el disco Laravel `public`, bajo `storage/app/public/a
 ### Bash / zsh
 
 ```bash
-cd /Vinculacion/Barometro_WEB
+cd /Vinculacion/DataField_WEB
 ./scripts/docker.sh up -d
 ```
 
 ### PowerShell
 
 ```powershell
-cd Vinculacion\Barometro_WEB
+cd Vinculacion\DataField_WEB
 .\scripts\docker.ps1 up -d
 ```
 
@@ -59,14 +59,14 @@ cd Vinculacion\Barometro_WEB
 ### Bash / zsh
 
 ```bash
-cd Vinculacion/Barometro_WEB
+cd Vinculacion/DataField_WEB
 ./scripts/backend.sh start
 ```
 
 ### PowerShell
 
 ```powershell
-cd Vinculacion\Barometro_WEB
+cd Vinculacion\DataField_WEB
 .\scripts\backend.ps1 start
 ```
 
@@ -277,7 +277,7 @@ El backend usa Docker para ejecutar Laravel, y al iniciar detecta si PostgreSQL 
 ### Bash / zsh
 
 ```bash
-cd Vinculacion/Barometro_WEB
+cd Vinculacion/DataField_WEB
 ./scripts/docker.sh up -d
 ./scripts/backend.sh install
 ./scripts/backend.sh migrate
@@ -289,7 +289,7 @@ cd Vinculacion/Barometro_WEB
 ### PowerShell
 
 ```powershell
-cd <ruta-del-checkout>\Barometro_WEB
+cd <ruta-del-checkout>\DataField_WEB
 .\scripts\docker.ps1 up -d
 .\scripts\backend.ps1 install
 .\scripts\backend.ps1 migrate

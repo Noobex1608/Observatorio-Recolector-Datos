@@ -1,6 +1,6 @@
 # Barometro Movil
 
-Version movil/PWA del Barometro ULEAM para recolectar respuestas desde campo. La app esta construida con Angular 21, usa IndexedDB por medio de Dexie.js y se conecta al backend Laravel de `Barometro_WEB`.
+Version movil/PWA del Barometro ULEAM para recolectar respuestas desde campo. La app esta construida con Angular 21, usa IndexedDB por medio de Dexie.js y se conecta al backend Laravel de `DataField_WEB`.
 
 ## Para que sirve
 
@@ -15,7 +15,7 @@ Version movil/PWA del Barometro ULEAM para recolectar respuestas desde campo. La
 ## Estructura principal
 
 ```text
-Barometro_MOVIL/
+DataField_MOVIL/
   kobo-mobile/
     src/app/
       login/              Inicio de sesion
@@ -37,14 +37,14 @@ Barometro_MOVIL/
 
 - Node.js 20 o superior.
 - npm 10 o superior.
-- Backend de `Barometro_WEB` disponible en `http://localhost:8000` para usar datos reales.
+- Backend de `DataField_WEB` disponible en `http://localhost:8000` para usar datos reales.
 
 ## Iniciar solo la app movil
 
 Desde la raiz del repositorio:
 
 ```powershell
-cd .\Barometro_MOVIL\kobo-mobile
+cd .\DataField_MOVIL\kobo-mobile
 npm install
 npm start
 ```
@@ -98,7 +98,7 @@ La app tambien incluye modo demo local. Este modo permite navegar y probar el fl
 ## Comandos utiles
 
 ```powershell
-cd .\Barometro_MOVIL\kobo-mobile
+cd .\DataField_MOVIL\kobo-mobile
 npm start       # Servidor de desarrollo
 npm run build   # Compilar version de produccion
 npm test        # Ejecutar pruebas

@@ -9,10 +9,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RootPath = Split-Path -Parent $PSScriptRoot
-$WebPath = Join-Path $RootPath 'Barometro_WEB'
+$WebPath = Join-Path $RootPath 'DataField_WEB'
 $WebScriptsPath = Join-Path $WebPath 'scripts'
 $WebFrontendPath = Join-Path $WebPath 'frontend'
-$MobilePath = Join-Path $RootPath 'Barometro_MOVIL\kobo-mobile'
+$MobilePath = Join-Path $RootPath 'DataField_MOVIL\kobo-mobile'
 
 function Assert-Command {
     param(

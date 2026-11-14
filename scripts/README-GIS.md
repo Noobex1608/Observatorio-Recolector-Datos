@@ -5,7 +5,7 @@ La fuente cruda se mantiene fuera de Git. Para reproducir las particiones, insta
 Desde la raíz del proyecto:
 
 ```sh
-python scripts/export-gis-partitioned.py --input resource/gis/MGN26_sirgas.gpkg --output Barometro_WEB/frontend/public/assets/gis --source-epsg 31992
+python scripts/export-gis-partitioned.py --input resource/gis/MGN26_sirgas.gpkg --output DataField_WEB/frontend/public/assets/gis --source-epsg 31992
 ```
 
 El comando genera `manifest.json` con SHA-256 de la fuente y de cada salida en EPSG:4326. Compare el manifiesto entre ejecuciones antes de desplegar y registre el nombre, licencia, fecha y versión del GeoPackage de origen. Una capa vacía o ausente en el navegador debe investigarse: el selector muestra errores de carga explícitos. El caché del navegador conserva como máximo ocho capas procesadas simultáneamente.
