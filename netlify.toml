@@ -1,6 +1,6 @@
-# Netlify configuration to run Bun build in Barometro_WEB/frontend
+# Netlify configuration to run Bun build in DataField_WEB/frontend
 [build]
-  base = "Barometro_WEB/frontend"
+  base = "DataField_WEB/frontend"
   command = "bun install --frozen-lockfile && bun run build"
   publish = "dist/frontend/browser"
   # Cada despliegue a producción cuesta 15 créditos. Solo se construye si cambió la web

@@ -1,0 +1,196 @@
+# Compose de producción de udf (ULEAM DataField) para el servidor OTM.
+# Contrato: Infra-OTM/docs/publicar-una-app.md §4. Lo despliega azure-pipelines.yml con otm-desplegar,
+# que define OTM_PROYECTO, OTM_ENTORNO, OTM_TAG y OTM_HOST; el resto llega en el .env del pipeline.
+# Un solo host: /api → api, /m → pwa, / → web. Las claves de Traefik van literales (compose no
+# reemplaza ${VAR} en las claves).
+# Primera versión sin Supabase: videos en almacenamiento local (volumen "storage"); los adjuntos de
+# respuestas quedan deshabilitados hasta implementar SharePoint (hallazgo H-09).
+
+x-api-entorno: &api-entorno
+  APP_NAME: ULEAM DataField
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: ${APP_KEY:?falta APP_KEY}
+  APP_URL: https://${OTM_HOST}
+  APP_LOCALE: es
+  APP_FALLBACK_LOCALE: es
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: info
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: udf
+  DB_USERNAME: postgres
+  DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+  SESSION_DRIVER: cookie
+  CACHE_STORE: file
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: local
+  MAIL_MAILER: log
+  CORS_ALLOWED_ORIGINS: https://${OTM_HOST}
+  L5_SWAGGER_CONST_HOST: https://${OTM_HOST}/api
+  # Sin Supabase (decisión del usuario): ninguna sincronización ni almacenamiento en Supabase.
+  SUPABASE_FORM_SCHEMA_SYNC_ENABLED: "false"
+  SUPABASE_RESPONSE_SYNC_ENABLED: "false"
+  VIDEO_STORAGE_DRIVER: local
+  # Hoy "supabase" es el único proveedor de adjuntos y el controlador de formularios lo resuelve
+  # siempre (otro valor rompe todos los formularios). Con URL y clave vacías, cada subida falla en
+  # assertConfigured() antes de hacer cualquier llamada de red. Se reemplaza por SharePoint (H-09).
+  RESPONSE_MEDIA_DRIVER: supabase
+  SUPABASE_URL: ""
+  SUPABASE_SERVICE_ROLE_KEY: ""
+  # SharePoint (Microsoft Graph): llegan en el .env; el código aún no las usa.
+  SHAREPOINT_CLIENT_ID: ${SHAREPOINT_CLIENT_ID:-}
+  SHAREPOINT_TENANT_ID: ${SHAREPOINT_TENANT_ID:-}
+  SHAREPOINT_SITE_ID: ${SHAREPOINT_SITE_ID:-}
+  SHAREPOINT_DRIVE_ID: ${SHAREPOINT_DRIVE_ID:-}
+  SHAREPOINT_CERT: ${SHAREPOINT_CERT:-}
+
+services:
+  db:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: udf
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+    volumes:
+      - datos:/var/lib/postgresql
+    networks: [interna]
+    labels:
+      otm.respaldo: postgres
+      otm.respaldo.base: udf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d udf"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 2G }
+
+  migraciones:
+    image: crotm.azurecr.io/udf/api:${OTM_TAG}
+    restart: "no"
+    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    depends_on:
+      db: { condition: service_healthy }
+    environment: *api-entorno
+    networks: [interna]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512M }
+
+  api:
+    image: crotm.azurecr.io/udf/api:${OTM_TAG}
+    restart: unless-stopped
+    depends_on:
+      migraciones: { condition: service_completed_successfully }
+    environment: *api-entorno
+    volumes:
+      - storage:/var/www/html/storage/app/public
+    networks: [interna, proxy]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.udf-prod-api.rule: Host(`${OTM_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/storage`) || Path(`/up`))
+      traefik.http.routers.udf-prod-api.priority: "100"
+      traefik.http.routers.udf-prod-api.entrypoints: websecure
+      traefik.http.routers.udf-prod-api.tls: "true"
+      traefik.http.services.udf-prod-api.loadbalancer.server.port: "8080"
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 1G }
+
+  worker:
+    image: crotm.azurecr.io/udf/api:${OTM_TAG}
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "database", "--sleep=2", "--tries=5", "--timeout=120", "--max-time=3600"]
+    depends_on:
+      migraciones: { condition: service_completed_successfully }
+    environment: *api-entorno
+    networks: [interna]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+
+  scheduler:
+    image: crotm.azurecr.io/udf/api:${OTM_TAG}
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work", "--no-interaction"]
+    depends_on:
+      migraciones: { condition: service_completed_successfully }
+    environment: *api-entorno
+    networks: [interna]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  web:
+    image: crotm.azurecr.io/udf/web:${OTM_TAG}
+    restart: unless-stopped
+    networks: [interna, proxy]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.udf-prod-web.rule: Host(`${OTM_HOST}`)
+      traefik.http.routers.udf-prod-web.priority: "1"
+      traefik.http.routers.udf-prod-web.entrypoints: websecure
+      traefik.http.routers.udf-prod-web.tls: "true"
+      traefik.http.services.udf-prod-web.loadbalancer.server.port: "8080"
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  pwa:
+    image: crotm.azurecr.io/udf/pwa:${OTM_TAG}
+    restart: unless-stopped
+    networks: [interna, proxy]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.udf-prod-pwa.rule: Host(`${OTM_HOST}`) && PathPrefix(`/m`)
+      traefik.http.routers.udf-prod-pwa.priority: "50"
+      traefik.http.routers.udf-prod-pwa.entrypoints: websecure
+      traefik.http.routers.udf-prod-pwa.tls: "true"
+      traefik.http.services.udf-prod-pwa.loadbalancer.server.port: "8080"
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+networks:
+  interna: {}
+  proxy:
+    external: true
+
+volumes:
+  datos: {}
+  storage: {}

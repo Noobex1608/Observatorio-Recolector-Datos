@@ -4,7 +4,7 @@ Plataforma de formularios dinámicos y recolección de datos para ULEAM — pane
 
 - **Web (administradores/gestores)**: https://barometro.netlify.app
 
-> Para la app de recolección en campo, consulta el manual de la parte móvil (`Barometro_MOVIL/kobo-mobile/MANUAL_DE_USO.md`).
+> Para la app de recolección en campo, consulta el manual de la parte móvil (`DataField_MOVIL/kobo-mobile/MANUAL_DE_USO.md`).
 
 ---
 

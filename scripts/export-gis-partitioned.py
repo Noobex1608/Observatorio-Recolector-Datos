@@ -15,7 +15,7 @@ def sha256_file(path: Path) -> str:
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description="Exporta capas GIS particionadas en EPSG:4326")
 parser.add_argument("--input", type=Path, default=ROOT / "resource/gis/MGN26_sirgas.gpkg")
-parser.add_argument("--output", type=Path, default=ROOT / "Barometro_WEB/frontend/public/assets/gis")
+parser.add_argument("--output", type=Path, default=ROOT / "DataField_WEB/frontend/public/assets/gis")
 parser.add_argument("--source-epsg", type=int, default=31992)
 args = parser.parse_args()
 GPKG_PATH = str(args.input.resolve())

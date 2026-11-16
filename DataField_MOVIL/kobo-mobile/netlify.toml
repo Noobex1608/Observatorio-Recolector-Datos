@@ -1,6 +1,6 @@
-# Netlify configuration to run build in Barometro_MOVIL/kobo-mobile
+# Netlify configuration to run build in DataField_MOVIL/kobo-mobile
 [build]
-  base = "Barometro_MOVIL/kobo-mobile"
+  base = "DataField_MOVIL/kobo-mobile"
   command = "npm ci && npm run build"
   publish = "dist/kobo-mobile/browser"
   # Cada despliegue a producción cuesta 15 créditos. Solo se construye si cambió la PWA;

@@ -42,7 +42,7 @@ El frontend que se ejecuta y despliega es siempre `frontend/`. La carpeta `docs/
 ### Estructura del proyecto
 
 ```text
-Barometro_WEB/
+DataField_WEB/
 ├── backend/
 ├── frontend/
 ├── scripts/
@@ -59,7 +59,7 @@ Barometro_WEB/
 #### En Bash / zsh
 
 ```bash
-cd Barometro_WEB
+cd DataField_WEB
 ./scripts/frontend.sh install
 ./scripts/frontend.sh start
 ```
@@ -67,7 +67,7 @@ cd Barometro_WEB
 #### En PowerShell
 
 ```powershell
-cd Barometro_WEB
+cd DataField_WEB
 .\scripts\frontend.ps1 install
 .\scripts\frontend.ps1 start
 ```
@@ -75,7 +75,7 @@ cd Barometro_WEB
 #### En CMD
 
 ```cmd
-cd Barometro_WEB
+cd DataField_WEB
 scripts\frontend.bat install
 scripts\frontend.bat start
 ```
@@ -85,7 +85,7 @@ scripts\frontend.bat start
 Si prefieres ejecutar directamente el frontend sin los scripts:
 
 ```bash
-cd Barometro_WEB/frontend
+cd DataField_WEB/frontend
 bun install --frozen-lockfile
 bun run start
 ```
@@ -101,7 +101,7 @@ bun run start
 ### 5.1 Usando los scripts en Bash / zsh
 
 ```bash
-cd Barometro_WEB
+cd DataField_WEB
 ./scripts/backend.sh install
 ./scripts/backend.sh migrate
 ./scripts/backend.sh seed
@@ -111,7 +111,7 @@ cd Barometro_WEB
 ### 5.2 Usando los scripts en PowerShell
 
 ```powershell
-cd Barometro_WEB
+cd DataField_WEB
 .\scripts\backend.ps1 install
 .\scripts\backend.ps1 migrate
 .\scripts\backend.ps1 seed
@@ -188,7 +188,7 @@ El backend corre dentro de Docker y se conecta a PostgreSQL. Antes de iniciar el
 Para comprobar que el frontend y el backend están listos:
 
 ```bash
-cd Barometro_WEB
+cd DataField_WEB
 ./scripts/frontend.sh build
 ./scripts/backend.sh routes
 ./scripts/backend.sh migrate

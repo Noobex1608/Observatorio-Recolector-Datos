@@ -21,7 +21,7 @@ Sistema inspirado en **KoboCollect + KoboToolbox** para la recolección de datos
 
 ```
 Vinculacion-main/
-├── Barometro_WEB/                 # Plataforma web completa
+├── DataField_WEB/                 # Plataforma web completa
 │   ├── backend/                   #   Laravel API + Dockerfile
 │   │   ├── app/Jobs/              #   Jobs de sincronizacion con Supabase
 │   │   ├── app/Models/ResponseSyncQueue.php  #   Cola local de respuestas por sincronizar
@@ -31,7 +31,7 @@ Vinculacion-main/
 │   ├── docker-compose.yml         #   PostgreSQL 16
 │   └── README.md                  #   Documentación detallada de la web
 │
-├── Barometro_MOVIL/
+├── DataField_MOVIL/
 │   └── kobo-mobile/               # App móvil Angular 21
 │       ├── src/app/
 │       │   ├── inicio/            #   Pantalla principal con menú
@@ -113,7 +113,7 @@ Vinculacion-main/
 ### Paso 1 — PostgreSQL
 
 ```bash
-cd Barometro_WEB
+cd DataField_WEB
 docker compose up -d
 ```
 
@@ -130,7 +130,7 @@ Esto crea:
 #### 2a. Configurar `.env`
 
 ```bash
-cd Barometro_WEB/backend
+cd DataField_WEB/backend
 cp .env.example .env
 ```
 
@@ -211,7 +211,7 @@ docker run -d --name observatorio-backend -p 8000:8000 \
 ### Paso 3 — Frontend Web (Angular 21)
 
 ```bash
-cd Barometro_WEB/frontend
+cd DataField_WEB/frontend
 bun install
 bun run start
 # Abre en: http://localhost:4200
@@ -224,7 +224,7 @@ bun run start
 ### Paso 4 — App Móvil (Angular 21 + PWA)
 
 ```bash
-cd Barometro_MOVIL/kobo-mobile
+cd DataField_MOVIL/kobo-mobile
 npm install
 npx ng serve
 # Abre en: http://localhost:4201
@@ -394,7 +394,7 @@ Si es la primera vez y necesitas instalar dependencias de la web y la app movil:
 .\iniciar-todo.ps1 -Install
 ```
 
-El script deja el backend en Docker y abre dos terminales de desarrollo: una para `Barometro_WEB/frontend` y otra para `Barometro_MOVIL/kobo-mobile`.
+El script deja el backend en Docker y abre dos terminales de desarrollo: una para `DataField_WEB/frontend` y otra para `DataField_MOVIL/kobo-mobile`.
 
 ---
 
@@ -427,8 +427,8 @@ El script deja el backend en Docker y abre dos terminales de desarrollo: una par
 
 ## Documentación relacionada
 
-- [`Barometro_WEB/README.md`](./Barometro_WEB/README.md) — Documentación completa del frontend web
-- [`Barometro_WEB/backend/README.md`](./Barometro_WEB/backend/README.md) — Backend: rutas, roles, Swagger
-- [`Barometro_WEB/backend/DOCKER.md`](./Barometro_WEB/backend/DOCKER.md) — Docker workflow detallado
-- [`Barometro_MOVIL/kobo-mobile/MANUAL_DE_USO.md`](./Barometro_MOVIL/kobo-mobile/MANUAL_DE_USO.md) — Manual de uso de la app móvil (para recolectores)
-- [`Barometro_WEB/docs/ESTADO_PROYECTO_KOBO.md`](./Barometro_WEB/docs/ESTADO_PROYECTO_KOBO.md) — Estado del proyecto
+- [`DataField_WEB/README.md`](./DataField_WEB/README.md) — Documentación completa del frontend web
+- [`DataField_WEB/backend/README.md`](./DataField_WEB/backend/README.md) — Backend: rutas, roles, Swagger
+- [`DataField_WEB/backend/DOCKER.md`](./DataField_WEB/backend/DOCKER.md) — Docker workflow detallado
+- [`DataField_MOVIL/kobo-mobile/MANUAL_DE_USO.md`](./DataField_MOVIL/kobo-mobile/MANUAL_DE_USO.md) — Manual de uso de la app móvil (para recolectores)
+- [`DataField_WEB/docs/ESTADO_PROYECTO_KOBO.md`](./DataField_WEB/docs/ESTADO_PROYECTO_KOBO.md) — Estado del proyecto

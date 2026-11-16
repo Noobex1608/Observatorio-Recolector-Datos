@@ -39,30 +39,30 @@ jobs:
 
       - name: Get Composer Cache Directory
         id: composer-cache
-        working-directory: Barometro_WEB/backend
+        working-directory: DataField_WEB/backend
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer Dependencies
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('Barometro_WEB/backend/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('DataField_WEB/backend/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
 
       - name: Install Dependencies
         run: |
-          cd Barometro_WEB/backend
+          cd DataField_WEB/backend
           composer install --prefer-dist --no-progress --no-interaction
 
       - name: Security Audit (Composer Audit)
         run: |
-          cd Barometro_WEB/backend
+          cd DataField_WEB/backend
           composer audit
 
       - name: Code Style Verification (Laravel Pint)
         run: |
-          cd Barometro_WEB/backend
+          cd DataField_WEB/backend
           vendor/bin/pint --test
 
       - name: Execute Test Suite (PHPUnit)
@@ -76,7 +76,7 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: secret123password
         run: |
-          cd Barometro_WEB/backend
+          cd DataField_WEB/backend
           php artisan migrate:fresh --force
           vendor/bin/phpunit
 
@@ -85,14 +85,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Barometro_MOVIL/kobo-mobile
+        working-directory: DataField_MOVIL/kobo-mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: Barometro_MOVIL/kobo-mobile/package-lock.json
+          cache-dependency-path: DataField_MOVIL/kobo-mobile/package-lock.json
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run build
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Barometro_WEB/frontend
+        working-directory: DataField_WEB/frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

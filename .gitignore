@@ -29,9 +29,9 @@ scratch_*.py
 build_localidades.py
 
 # Archivos GIS brutos monolíticos (>100MB no usados directamente por la app web)
-Barometro_WEB/frontend/public/assets/gis/manzanas.geojson
-Barometro_WEB/frontend/public/assets/gis/sectores.geojson
-Barometro_WEB/frontend/public/assets/gis/zonas.geojson
+DataField_WEB/frontend/public/assets/gis/manzanas.geojson
+DataField_WEB/frontend/public/assets/gis/sectores.geojson
+DataField_WEB/frontend/public/assets/gis/zonas.geojson
 
 # Análisis local de SonarQube
 !scripts/sonar/
