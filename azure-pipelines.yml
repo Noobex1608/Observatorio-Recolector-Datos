@@ -18,12 +18,7 @@ variables:
   entorno: prod
   hostPublico: uleamdatafield.uleam.edu.ec
   registro: crotm.azurecr.io
-  # SharePoint (Microsoft Graph), no secretas. Vacías hasta que infraestructura cree la app de Entra
-  # "OTM - DataField"; el código aún no las usa (primera versión sin adjuntos).
-  sharePointClientId: ""
-  sharePointTenantId: ""
-  sharePointSiteId: ""
-  sharePointDriveId: ""
+  # La configuración no secreta de Entra y SharePoint vive en deploy/compose.yml; aquí solo los secretos.
 
 stages:
   - stage: Build
@@ -139,8 +134,7 @@ stages:
                     azureSubscription: sc-otm-kv-udf
                     KeyVaultName: kv-otm-uleam
                     # Nombres exactos: la conexión solo puede leer estos secretos, no listar el vault.
-                    # udf-prod-sharepoint-cert se agrega cuando infraestructura lo cree.
-                    SecretsFilter: udf-prod-app-key,udf-prod-db-password
+                    SecretsFilter: udf-prod-app-key,udf-prod-db-password,udf-prod-entra-client-secret
                     RunAsPreJob: false
 
                 - script: |
@@ -149,15 +143,13 @@ stages:
                     {
                       printf 'APP_KEY=%s\n' "$APP_KEY"
                       printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
-                      printf 'SHAREPOINT_CLIENT_ID=%s\n' "$(sharePointClientId)"
-                      printf 'SHAREPOINT_TENANT_ID=%s\n' "$(sharePointTenantId)"
-                      printf 'SHAREPOINT_SITE_ID=%s\n' "$(sharePointSiteId)"
-                      printf 'SHAREPOINT_DRIVE_ID=%s\n' "$(sharePointDriveId)"
+                      printf 'MICROSOFT_CLIENT_SECRET=%s\n' "$MICROSOFT_CLIENT_SECRET"
                     } > "$(Agent.TempDirectory)/$(proyecto).env"
                   displayName: Armar .env
                   env:
                     APP_KEY: $(udf-prod-app-key)
                     DB_PASSWORD: $(udf-prod-db-password)
+                    MICROSOFT_CLIENT_SECRET: $(udf-prod-entra-client-secret)
 
                 - task: Docker@2
                   displayName: Login a crotm
