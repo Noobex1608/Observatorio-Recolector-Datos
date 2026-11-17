@@ -29,19 +29,41 @@
     </div>
 
     <div class="toolbar-right">
-      <div class="category-select">
-        <mat-icon>category</mat-icon>
-        <select
-          aria-label="Filtrar por proyecto"
-          [ngModel]="vm.selectedProjectCategory()"
-          (ngModelChange)="vm.selectedProjectCategory.set($event)"
+      <div class="project-filter" [class.is-active]="vm.selectedProjectCategory() !== 'ALL'">
+        <mat-icon aria-hidden="true">folder</mat-icon>
+        <mat-select
+          class="project-filter-select"
+          panelClass="project-filter-panel"
+          [attr.aria-label]="'forms.dashboard.projectFilter' | translate"
+          [value]="vm.selectedProjectCategory()"
+          (selectionChange)="vm.selectedProjectCategory.set($event.value)"
         >
-          <option value="ALL">Todas las Categorías / Proyectos</option>
+          <!-- El campo cerrado muestra solo el nombre, sin el contador de la opción. -->
+          <mat-select-trigger>
+            @switch (vm.selectedProjectCategory()) {
+              @case ('ALL') { {{ 'forms.dashboard.allProjects' | translate }} }
+              @case ('UNASSIGNED') { {{ 'forms.dashboard.noProject' | translate }} }
+              @default { {{ vm.selectedProjectLabel() }} }
+            }
+          </mat-select-trigger>
+          <mat-option value="ALL">{{ 'forms.dashboard.allProjects' | translate }}</mat-option>
           @for (cat of vm.projectCategories(); track cat.id) {
-            <option [value]="cat.id">📁 {{ cat.name }}</option>
+            <mat-option [value]="cat.id">
+              <span class="project-option">
+                <span class="project-option-name">{{ cat.name }}</span>
+                <span class="project-option-count" [attr.aria-label]="cat.count + ' formularios'">{{ cat.count }}</span>
+              </span>
+            </mat-option>
           }
-          <option value="UNASSIGNED">Sin Proyecto Categorizado</option>
-        </select>
+          @if (vm.unassignedCount() > 0) {
+            <mat-option value="UNASSIGNED">
+              <span class="project-option">
+                <span class="project-option-name">{{ 'forms.dashboard.noProject' | translate }}</span>
+                <span class="project-option-count" [attr.aria-label]="vm.unassignedCount() + ' formularios'">{{ vm.unassignedCount() }}</span>
+              </span>
+            </mat-option>
+          }
+        </mat-select>
       </div>
 
       <div class="search-box">

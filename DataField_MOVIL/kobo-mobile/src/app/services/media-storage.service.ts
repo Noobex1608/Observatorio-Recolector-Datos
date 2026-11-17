@@ -37,10 +37,14 @@ export class MediaStorageService {
     return new Blob([uInt8Array], { type: contentType });
   }
 
+  /**
+   * Data URL del archivo para el envío. El tipo va sin parámetros: lo grabado con MediaRecorder sale como
+   * "audio/webm;codecs=opus" y el servidor solo acepta "data:audio/webm;base64,...".
+   */
   blobToDataUrl(blob: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
+      reader.onloadend = () => resolve(String(reader.result).replace(/^data:([^;,]+)(?:;[^,]*?)?;base64,/, 'data:$1;base64,'));
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });

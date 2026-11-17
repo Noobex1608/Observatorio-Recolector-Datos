@@ -49,16 +49,27 @@ class User extends Authenticatable
         'password',
         'rol',
         'is_active',
+        'microsoft_oid',
+        'access_request_status',
+        'access_requested_at',
     ];
+
+    /** Solicitud de acceso de una cuenta ULEAM que entró con Microsoft sin estar registrada. */
+    public const ACCESS_PENDING = 'PENDING';
+
+    /** Solicitud de acceso rechazada por un administrador (la cuenta sigue sin acceso). */
+    public const ACCESS_REJECTED = 'REJECTED';
 
     protected $hidden = [
         'password',
         'remember_token',
+        'microsoft_oid',
     ];
 
     protected function casts(): array
     {
         return [
+            'access_requested_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
@@ -124,18 +135,29 @@ class User extends Authenticatable
         return $this->isProject();
     }
 
+    /** SUPER_ADMIN y ADMIN gestionan usuarios y aprueban solicitudes de acceso. */
     public function canManageUsers(): bool
     {
-        return $this->isSuperAdmin();
+        return $this->isSuperAdmin() || $this->isAdmin();
     }
 
+    /** El ADMIN gestiona roles operativos; solo el SUPER_ADMIN crea o modifica administradores. */
     public function canManageRole(string $role): bool
     {
         if ($this->isSuperAdmin()) {
             return in_array($role, self::ROLES, true);
         }
+        if ($this->isAdmin()) {
+            return in_array($role, [self::ROLE_PROJECT, self::ROLE_USER, self::ROLE_SUPERVISOR], true);
+        }
 
         return false;
+    }
+
+    /** Solicitud de acceso pendiente o rechazada: la cuenta no puede usar la plataforma. */
+    public function hasAccessRequest(): bool
+    {
+        return $this->access_request_status !== null;
     }
 
     public function canManageProjects(): bool

@@ -42,6 +42,9 @@ class ToggleUserStatusUseCase
             if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para activar o desactivar usuarios con ese rol');
             }
+            if ($user->hasAccessRequest()) {
+                throw new BadRequestHttpException('Esta cuenta es una solicitud de acceso: apruébala o recházala desde la bandeja de solicitudes.');
+            }
 
             app(ProtectAdministrator::class)->check($user, $adminId, $user->rol, $isActive ?? ! $user->is_active);
 

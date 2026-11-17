@@ -70,6 +70,11 @@ return [
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
         ],
 
+        // Envío con Microsoft Graph usando la aplicación registrada en Entra ID (ver config/services.php).
+        'microsoft-graph' => [
+            'transport' => 'microsoft-graph',
+        ],
+
         'log' => [
             'transport' => 'log',
             'channel' => env('MAIL_LOG_CHANNEL'),

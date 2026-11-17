@@ -1,3 +1,4 @@
+import { APP_INFO } from '../app-info';
 import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -170,9 +171,12 @@ export class InicioComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/perfil']);
   }
 
+  /** "Acerca de" vive en Ajustes: información fija y completa, no un aviso pasajero. */
   verAcercaDe() {
-    this.toast.show('ULEAM ' + this.theme.t('version'), 'info', 4000);
+    void this.router.navigate(['/ajustes'], { fragment: 'acerca-de' });
   }
+
+  readonly appInfo = APP_INFO;
 
   async iniciarDescarga() {
     if (this.descargandoSeleccion) return;

@@ -13,7 +13,11 @@ html {
       primary: mat.$blue-palette,
       tertiary: mat.$red-palette,
     ),
-    typography: Roboto,
+    // Inter en toda la interfaz (cargada en index.html); igual que --font-sans en styles.css.
+    typography: (
+      plain-family: (Inter, system-ui, sans-serif),
+      brand-family: (Inter, system-ui, sans-serif),
+    ),
     density: 0,
   ));
 }

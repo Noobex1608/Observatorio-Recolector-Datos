@@ -15,6 +15,55 @@
     </div>
   </div>
 
+  <!-- Solicitudes de acceso: personas de ULEAM que entraron con Microsoft 365 sin estar registradas -->
+  @if (pendingCount() > 0 || requestStatus() === 'REJECTED') {
+    <mat-card class="requests-card" aria-labelledby="requests-title">
+      <div class="requests-header">
+        <h2 id="requests-title">
+          <mat-icon aria-hidden="true">how_to_reg</mat-icon>
+          Solicitudes de acceso
+          @if (pendingCount() > 0) { <span class="requests-badge">{{ pendingCount() }}</span> }
+        </h2>
+        <div class="requests-tabs" role="group" aria-label="Estado de las solicitudes">
+          <button mat-button type="button" [class.active]="requestStatus() === 'PENDING'"
+            [attr.aria-pressed]="requestStatus() === 'PENDING'" (click)="loadAccessRequests('PENDING')">Pendientes</button>
+          <button mat-button type="button" [class.active]="requestStatus() === 'REJECTED'"
+            [attr.aria-pressed]="requestStatus() === 'REJECTED'" (click)="loadAccessRequests('REJECTED')">Rechazadas</button>
+        </div>
+      </div>
+      <p class="requests-help">Entraron con su cuenta de Microsoft de ULEAM. Elige el rol y aprueba para darles acceso.</p>
+
+      @for (request of accessRequests(); track request.id) {
+        <div class="request-row">
+          <div class="request-person">
+            <strong>{{ request.name }}</strong>
+            <span>{{ request.email }}</span>
+            @if (request.requested_at) { <small>Solicitó el {{ request.requested_at | date: 'dd/MM/yyyy HH:mm' }}</small> }
+          </div>
+          <label class="request-role">
+            <span>Rol</span>
+            <select [value]="requestRoles[request.id] ?? 'RECOLECTOR'" (change)="requestRoles[request.id] = $any($event.target).value"
+              [attr.aria-label]="'Rol para ' + request.name">
+              @for (role of requestableRoles(); track role) {
+                <option [value]="role" [selected]="(requestRoles[request.id] ?? 'RECOLECTOR') === role">{{ getRoleLabel(role) }}</option>
+              }
+            </select>
+          </label>
+          <div class="request-actions">
+            <button mat-flat-button color="primary" type="button" (click)="approveRequest(request)"
+              [disabled]="busyRequest() === request.id">Aprobar</button>
+            @if (request.status === 'PENDING') {
+              <button mat-stroked-button color="warn" type="button" (click)="rejectRequest(request)"
+                [disabled]="busyRequest() === request.id">Rechazar</button>
+            }
+          </div>
+        </div>
+      } @empty {
+        <p class="requests-empty">No hay solicitudes {{ requestStatus() === 'PENDING' ? 'pendientes' : 'rechazadas' }}.</p>
+      }
+    </mat-card>
+  }
+
   <!-- Content -->
   <mat-card class="users-card">
     @if (loading()) {
@@ -51,7 +100,18 @@
           <!-- Email Column -->
           <ng-container matColumnDef="email">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.columns.email' | translate }}</th>
-            <td mat-cell *matCellDef="let user">{{ user.email }}</td>
+            <td mat-cell *matCellDef="let user">
+              <div class="email-cell">
+                <span>{{ user.email }}</span>
+                @if (user.is_institutional) {
+                  <span class="account-badge account-badge--microsoft" title="Entra con su cuenta de Microsoft de ULEAM">Microsoft 365</span>
+                } @else if (user.invitation_pending) {
+                  <span class="account-badge account-badge--pending" title="Aún no confirma su correo desde la invitación">Pendiente de confirmar</span>
+                } @else {
+                  <span class="account-badge account-badge--external" title="Entra con correo y contraseña">Externo</span>
+                }
+              </div>
+            </td>
           </ng-container>
 
           <!-- Role Column -->
@@ -112,45 +172,22 @@
                   <mat-icon>admin_panel_settings</mat-icon>
                   <span>{{ 'users.actions.changeRole' | translate }}</span>
                 </button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item class="delete-action" (click)="deleteUser(user)">
-                  <mat-icon color="warn">delete</mat-icon>
-                  <span>{{ 'common.buttons.delete' | translate }}</span>
-                </button>
+                @if (isSuperAdmin()) {
+                  <mat-divider></mat-divider>
+                  <button mat-menu-item class="delete-action" (click)="deleteUser(user)">
+                    <mat-icon color="warn">delete</mat-icon>
+                    <span>{{ 'common.buttons.delete' | translate }}</span>
+                  </button>
+                }
               </mat-menu>
+              <!-- Solo los roles que quien administra puede asignar; un externo solo supervisor o recolector. -->
               <mat-menu #roleMenu="matMenu">
-                <button
-                  mat-menu-item
-                  (click)="changeRole(user, 'SUPER_ADMIN')"
-                  [disabled]="user.rol === 'SUPER_ADMIN'"
-                >
-                  <mat-icon>workspace_premium</mat-icon>
-                  <span>{{ getRoleLabel('SUPER_ADMIN') }}</span>
-                </button>
-                <button
-                  mat-menu-item
-                  (click)="changeRole(user, 'ADMIN')"
-                  [disabled]="user.rol === 'ADMIN'"
-                >
-                  <mat-icon>security</mat-icon>
-                  <span>{{ getRoleLabel('ADMIN') }}</span>
-                </button>
-                <button
-                  mat-menu-item
-                  (click)="changeRole(user, 'PROJECT')"
-                  [disabled]="user.rol === 'PROJECT'"
-                >
-                  <mat-icon>assignment_ind</mat-icon>
-                  <span>{{ getRoleLabel('PROJECT') }}</span>
-                </button>
-                <button
-                  mat-menu-item
-                  (click)="changeRole(user, 'RECOLECTOR')"
-                  [disabled]="user.rol === 'RECOLECTOR'"
-                >
-                  <mat-icon>person</mat-icon>
-                  <span>{{ getRoleLabel('RECOLECTOR') }}</span>
-                </button>
+                @for (role of rolesFor(user); track role) {
+                  <button mat-menu-item (click)="changeRole(user, role)" [disabled]="user.rol === role">
+                    <mat-icon>{{ roleIcons[role] }}</mat-icon>
+                    <span>{{ getRoleLabel(role) }}</span>
+                  </button>
+                }
               </mat-menu>
             </td>
           </ng-container>

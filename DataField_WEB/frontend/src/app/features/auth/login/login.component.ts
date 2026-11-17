@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
@@ -28,8 +29,38 @@ export class LoginComponent {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly hidePassword = signal(true);
+  /** Inicio con Microsoft 365 disponible (lo informa el servidor) y dominios institucionales. */
+  readonly microsoftEnabled = signal(false);
+  private readonly internalDomains = signal<string[]>([]);
+  private readonly typedEmail = toSignal(this.form.controls.email.valueChanges, { initialValue: '' });
+  /**
+   * Acceso de emergencia: el SUPER_ADMIN con correo institucional puede entrar con contraseña
+   * (el backend lo permite solo a ese rol). Se activa con el enlace bajo el aviso de Microsoft.
+   */
+  readonly usePasswordInstead = signal(false);
+  /** El correo escrito es institucional: esa cuenta entra con Microsoft, no con contraseña. */
+  readonly isInstitutionalEmail = computed(() => {
+    const domain = this.typedEmail().trim().toLowerCase().split('@')[1] ?? '';
+    return this.microsoftEnabled() && !!domain && this.internalDomains().includes(domain) && !this.usePasswordInstead();
+  });
+
+  constructor() {
+    this.authService.providers().subscribe((providers) => {
+      this.microsoftEnabled.set(providers.microsoft);
+      this.internalDomains.set(providers.internal_domains ?? []);
+    });
+  }
+
+  signInWithMicrosoft(): void {
+    this.loading.set(true);
+    this.authService.startMicrosoftLogin(this.form.controls.rememberMe.value);
+  }
 
   onSubmit(): void {
+    if (this.isInstitutionalEmail()) {
+      this.signInWithMicrosoft();
+      return;
+    }
     if (this.form.invalid || this.loading()) {
       this.form.markAllAsTouched();
       return;

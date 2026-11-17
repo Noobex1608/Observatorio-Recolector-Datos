@@ -99,6 +99,8 @@ export interface FormQuestionProperties {
   } | null;
   allowed_media?: 'image' | 'audio' | 'video' | 'both' | 'all';
   max_file_size_mb?: number;
+  /** Duración máxima de los videos, en segundos (5 a 120; 60 por defecto). */
+  max_video_seconds?: number;
   pen_color?: string;
   background_color?: string;
   max_rating?: number;

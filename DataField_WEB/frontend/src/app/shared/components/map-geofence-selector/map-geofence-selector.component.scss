@@ -64,9 +64,12 @@
       }
     }
 
+    // Fila propia a todo el ancho (debajo de nombre/radio): la lista de sugerencias tiene espacio
+    // y la línea de estado no desalinea los demás campos.
     .search-field {
       position: relative;
-      flex-basis: 280px;
+      order: 10;
+      flex: 1 1 100%;
       min-width: 0;
 
       .search-input-wrapper {
@@ -140,7 +143,7 @@
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
         margin-top: 4px;
-        max-height: 200px;
+        max-height: 320px;
         overflow-y: auto;
       }
 
@@ -495,6 +498,14 @@
 
 /* Resultado de búsqueda como botón real (teclado y lector de pantalla) */
 button.search-result-item { width: 100%; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.search-result-item.active, button.search-result-item:hover { background: #eff6ff; }
+.search-result-item .result-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.search-result-item .result-name { font-weight: 600; overflow-wrap: anywhere; }
+.search-result-item .result-detail { font-size: 0.72rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-item .result-source { font-size: 0.65rem; font-weight: 700; color: #475569; background: #f1f5f9; border-radius: 4px; padding: 1px 5px; flex: none; }
+.search-status { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #475569; }
+.search-status:empty { display: none; }.search-status .search-error-text { margin-top: 0; }
+.search-status .search-hint { color: #64748b; }
 
 /* Iconos Material en lugar de emojis */
 .gf-icon {

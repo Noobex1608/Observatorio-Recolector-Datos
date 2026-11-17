@@ -1,5 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { AuthService } from '@core/services/auth.service';
+import { AccessRequest } from '@core/services/user.service';
+import { assignableRoles, ROLE_LABELS } from '@core/utils/role-rules';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -61,8 +64,81 @@ export class UsuarioListComponent implements OnInit {
   pageSize = signal(15);
   lastPage = signal(1);
 
+  private readonly authService = inject(AuthService);
+  /** Rol de quien administra: SUPER_ADMIN asigna todo; ADMIN solo líder, supervisor y recolector. */
+  readonly actorRole = this.authService.userRole;
+  readonly isSuperAdmin = this.authService.isSuperAdmin;
+
+  // Solicitudes de acceso (personas de ULEAM que entraron con Microsoft sin estar registradas)
+  readonly accessRequests = signal<AccessRequest[]>([]);
+  readonly pendingCount = signal(0);
+  readonly requestStatus = signal<'PENDING' | 'REJECTED'>('PENDING');
+  readonly requestRoles: Partial<Record<number, UserRole>> = {};
+  readonly busyRequest = signal<number | null>(null);
+  readonly requestableRoles = computed(() => assignableRoles(this.actorRole(), true));
+
   ngOnInit(): void {
     this.loadUsers();
+    this.loadAccessRequests();
+  }
+
+  /** Roles que se pueden asignar a este usuario (según quien administra y si es externo). */
+  rolesFor(user: User): UserRole[] {
+    return assignableRoles(this.actorRole(), user.is_institutional ?? true);
+  }
+
+  loadAccessRequests(status: 'PENDING' | 'REJECTED' = this.requestStatus()): void {
+    this.requestStatus.set(status);
+    this.userService.getAccessRequests(status).subscribe({
+      next: (response) => {
+        this.accessRequests.set(response.data);
+        this.pendingCount.set(response.pending_count);
+      },
+      error: () => this.accessRequests.set([]),
+    });
+  }
+
+  approveRequest(request: AccessRequest): void {
+    const rol = this.requestRoles[request.id] ?? 'RECOLECTOR';
+    this.busyRequest.set(request.id);
+    this.userService.approveAccessRequest(request.id, rol).subscribe({
+      next: (response) => {
+        this.notify.success(response.message);
+        this.busyRequest.set(null);
+        this.loadAccessRequests();
+        this.loadUsers(this.currentPage());
+      },
+      error: (err) => {
+        this.notify.error(err.error?.message || 'No se pudo aprobar la solicitud.');
+        this.busyRequest.set(null);
+      },
+    });
+  }
+
+  rejectRequest(request: AccessRequest): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Rechazar solicitud',
+        message: `${request.name} (${request.email}) no tendrá acceso. Podrás aprobarla más tarde desde "Rechazadas".`,
+        confirmText: 'Rechazar',
+        cancelText: this.translate.instant('common.buttons.cancel'),
+        confirmColor: 'warn',
+      },
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.busyRequest.set(request.id);
+      this.userService.rejectAccessRequest(request.id).subscribe({
+        next: (response) => {
+          this.notify.success(response.message);
+          this.busyRequest.set(null);
+          this.loadAccessRequests();
+        },
+        error: (err) => {
+          this.notify.error(err.error?.message || 'No se pudo rechazar la solicitud.');
+          this.busyRequest.set(null);
+        },
+      });
+    });
   }
 
   loadUsers(page = 1): void {
@@ -171,19 +247,18 @@ export class UsuarioListComponent implements OnInit {
   getRoleBadgeClass(rol: string): string {
     if (rol === 'SUPER_ADMIN') return 'badge-super-admin';
     if (rol === 'ADMIN') return 'badge-admin';
+    if (rol === 'SUPERVISOR') return 'badge-supervisor';
     return rol === 'PROJECT' ? 'badge-project-leader' : 'badge-user';
   }
 
   getRoleLabel(rol: string): string {
-    const labels: Record<string, string> = {
-      SUPER_ADMIN: 'Super administrador',
-      ADMIN: 'Administrador',
-      PROJECT: 'Líder',
-      RECOLECTOR: 'Recolector',
-    };
-
-    return labels[rol] ?? rol;
+    return ROLE_LABELS[rol as UserRole] ?? rol;
   }
+
+  readonly roleIcons: Record<UserRole, string> = {
+    SUPER_ADMIN: 'workspace_premium', ADMIN: 'security', PROJECT: 'assignment_ind',
+    SUPERVISOR: 'supervisor_account', RECOLECTOR: 'person',
+  };
 
   getStatusBadgeClass(isActive: boolean): string {
     return isActive ? 'badge-active' : 'badge-inactive';

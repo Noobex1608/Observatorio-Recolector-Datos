@@ -3,9 +3,16 @@ import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, tap } from 'rxjs';
 import { AuthResponse, LoginRequest, User, UserRole } from '../models';
 import { ApiService } from './api.service';
+import { environment } from '../../../environments/environment';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+const MICROSOFT_REMEMBER_KEY = 'auth_microsoft_remember';
+
+export interface AuthProviders {
+  microsoft: boolean;
+  internal_domains: string[];
+}
 
 @Injectable({
   providedIn: 'root',
@@ -35,6 +42,39 @@ export class AuthService {
       tap((response) => this.handleAuthSuccess(response, rememberMe)),
       finalize(() => this.loadingSignal.set(false))
     );
+  }
+
+  /** Métodos de inicio de sesión del servidor (si Microsoft 365 está configurado y qué dominios son internos). */
+  providers(): Observable<AuthProviders> {
+    return this.api.get<AuthProviders>('/auth/providers').pipe(
+      catchError(() => of({ microsoft: false, internal_domains: [] })),
+    );
+  }
+
+  /** Abre el inicio de sesión de Microsoft 365; el servidor vuelve a /auth/microsoft con un código. */
+  startMicrosoftLogin(rememberMe = false): void {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem(MICROSOFT_REMEMBER_KEY, rememberMe ? '1' : '0');
+    const returnUrl = `${window.location.origin}/auth/microsoft`;
+    window.location.assign(`${environment.apiUrl}/auth/microsoft/redirect?return=${encodeURIComponent(returnUrl)}`);
+  }
+
+  /** Canjea el código de un solo uso que devolvió el servidor por la sesión. */
+  completeMicrosoftLogin(code: string): Observable<AuthResponse> {
+    const rememberMe = typeof window !== 'undefined' && sessionStorage.getItem(MICROSOFT_REMEMBER_KEY) === '1';
+    return this.api.post<AuthResponse>('/auth/microsoft/exchange', { code }).pipe(
+      tap((response) => {
+        sessionStorage.removeItem(MICROSOFT_REMEMBER_KEY);
+        this.handleAuthSuccess(response, rememberMe);
+      }),
+    );
+  }
+
+  /** Usuario externo: confirma su correo y crea su contraseña con el enlace de la invitación. */
+  activateAccount(email: string, token: string, password: string): Observable<{ message: string }> {
+    return this.api.post<{ message: string }>('/auth/activate', {
+      email, token, password, password_confirmation: password,
+    });
   }
 
   changePassword(currentPassword: string, password: string): Observable<unknown> {

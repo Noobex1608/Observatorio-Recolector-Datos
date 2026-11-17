@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\User\UseCases;
 
+use App\Application\Auth\Services\InstitutionalEmail;
 use App\Application\User\DTOs\UpdateUserDTO;
 use App\Models\User;
 use App\Services\AuditLogService;
@@ -40,6 +41,9 @@ class UpdateUserUseCase
             if (! $admin->canManageRole($user->rol)) {
                 throw new AccessDeniedHttpException('No tienes permisos para administrar usuarios con ese rol');
             }
+            if ($user->hasAccessRequest() && $dto->isActive) {
+                throw new AccessDeniedHttpException('Esta cuenta es una solicitud de acceso: apruébala desde la bandeja de solicitudes.');
+            }
             app(ProtectAdministrator::class)->check($user, $dto->adminId, $dto->rol ?? $user->rol, $dto->isActive ?? $user->is_active);
             $before = $user->only(['name', 'email', 'rol', 'is_active']);
 
@@ -58,6 +62,8 @@ class UpdateUserUseCase
 
             if ($dto->password !== null) {
                 $user->password = Hash::make($dto->password);
+                // Contraseña fijada por un administrador: el usuario externo debe cambiarla al entrar.
+                $user->must_change_password = ! InstitutionalEmail::isInternal($user->email);
             }
 
             if ($dto->rol !== null) {
@@ -72,6 +78,11 @@ class UpdateUserUseCase
 
             if ($dto->isActive !== null) {
                 $user->is_active = $dto->isActive;
+            }
+
+            // Un cambio de correo o de rol no puede dejar a un externo con un rol reservado a cuentas ULEAM.
+            if ($user->isDirty(['email', 'rol'])) {
+                InstitutionalEmail::assertRoleAllowed($user->email, $user->rol, $user->isDirty('rol') ? 'rol' : 'email');
             }
 
             $user->save();

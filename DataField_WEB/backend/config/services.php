@@ -35,6 +35,39 @@ return [
         ],
     ],
 
+    /*
+    | Inicio de sesión con Microsoft 365 / Entra ID (OpenID Connect) y envío de correo por Microsoft Graph.
+    | Los datos los entrega TI al registrar la aplicación en Entra ID. El secret solo vive en el .env del backend.
+    */
+    'microsoft' => [
+        'client_id' => env('MICROSOFT_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+        'tenant_id' => env('MICROSOFT_TENANT_ID'),
+        // URL de retorno registrada en Entra ID: <backend>/api/auth/microsoft/callback
+        'redirect_uri' => env('MICROSOFT_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost:8000'), '/').'/api/auth/microsoft/callback'),
+        // Buzón (compartido) desde el que la aplicación envía correos con Microsoft Graph.
+        'mail_sender' => env('MICROSOFT_MAIL_SENDER'),
+    ],
+
+    /*
+    | Biblioteca de SharePoint donde se guardan fotos, audios, videos y firmas de las respuestas
+    | (RESPONSE_MEDIA_DRIVER=sharepoint). Nombres de variable acordados con DIIT: su pipeline los
+    | reemplaza por los IDs de producción al publicar. El acceso usa la app de Microsoft 365 (arriba).
+    */
+    'sharepoint' => [
+        'site_id' => env('SharePoint__SiteId'),
+        'library_id' => env('SharePoint__LibraryId'),
+    ],
+
+    // Correos institucionales: entran con Microsoft y no reciben correo de confirmación.
+    'internal_email_domains' => array_values(array_filter(array_map(
+        fn ($domain) => strtolower(trim($domain)),
+        explode(',', (string) env('AUTH_INTERNAL_EMAIL_DOMAINS', 'uleam.edu.ec,live.uleam.edu.ec,dn.uleam.edu.ec'))
+    ))),
+
+    // Página del frontend web donde el usuario externo crea su contraseña (enlace del correo de invitación).
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:4200'), '/'),
+
     'supabase' => [
         'form_schema_sync_enabled' => (bool) env('SUPABASE_FORM_SCHEMA_SYNC_ENABLED', false),
         'response_sync_enabled' => (bool) env('SUPABASE_RESPONSE_SYNC_ENABLED', false),

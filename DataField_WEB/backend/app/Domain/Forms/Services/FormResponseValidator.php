@@ -203,10 +203,12 @@ class FormResponseValidator
         }
         $latitude = $value['latitude'] ?? $value['lat'] ?? null;
         $longitude = $value['longitude'] ?? $value['lng'] ?? null;
+        $accuracy = $value['accuracy'] ?? null;
 
         return is_numeric($latitude) && is_numeric($longitude)
             && (float) $latitude >= -90 && (float) $latitude <= 90
-            && (float) $longitude >= -180 && (float) $longitude <= 180;
+            && (float) $longitude >= -180 && (float) $longitude <= 180
+            && ($accuracy === null || (is_numeric($accuracy) && (float) $accuracy >= 0));
     }
 
     private function validMedia(mixed $value, array $properties, string $type): bool

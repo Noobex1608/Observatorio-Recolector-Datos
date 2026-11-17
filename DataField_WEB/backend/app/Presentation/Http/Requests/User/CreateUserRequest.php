@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Requests\User;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateUserRequest extends FormRequest
 {
@@ -17,8 +18,9 @@ class CreateUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            // Las cuentas eliminadas no bloquean el correo: el caso de uso las reutiliza.
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'password' => ['nullable', 'string', 'min:8'],
             'rol' => ['sometimes', 'string', 'in:SUPER_ADMIN,ADMIN,PROJECT,RECOLECTOR,SUPERVISOR'],
             'is_active' => ['sometimes', 'boolean'],
             'telefono' => ['nullable', 'string', 'max:20'],
@@ -35,7 +37,6 @@ class CreateUserRequest extends FormRequest
             'email.required' => 'El email es obligatorio',
             'email.email' => 'El email debe tener un formato válido',
             'email.unique' => 'Este email ya está registrado',
-            'password.required' => 'La contraseña es obligatoria',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres',
             'rol.in' => 'El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR',
             'is_active.boolean' => 'El campo is_active debe ser verdadero o falso',

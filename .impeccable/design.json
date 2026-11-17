@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T20:00:00-05:00",
+  "title": "Design System: ULEAM DataField",
+  "extensions": {
+    "colorMeta": {
+      "institutional-blue": {
+        "role": "primary",
+        "displayName": "Azul institucional",
+        "canonical": "#0059a8",
+        "tonalRamp": ["#082f59", "#004499", "#005689", "#0059a8", "#167cca", "#46a4ff", "#badcff", "#eef7ff"]
+      },
+      "uleam-red": {
+        "role": "secondary",
+        "displayName": "Rojo ULEAM",
+        "canonical": "#bc1421",
+        "tonalRamp": ["#4a080d", "#6d0c14", "#8f101a", "#bc1421", "#d83b47", "#ef4444", "#f9c9cd", "#fef2f2"]
+      },
+      "field-green": {
+        "role": "tertiary",
+        "displayName": "Verde de campo",
+        "canonical": "#16805c",
+        "tonalRamp": ["#0a3a2a", "#0e4f39", "#116344", "#16805c", "#22a474", "#5cc79b", "#b9ead4", "#ecf9f2"]
+      },
+      "amber-ochre": {
+        "role": "tertiary",
+        "displayName": "Ocre ámbar",
+        "canonical": "#a16207",
+        "tonalRamp": ["#422006", "#713f12", "#854d0e", "#a16207", "#d97706", "#f2b347", "#fde3a7", "#fffbeb"]
+      },
+      "paper-blue": {
+        "role": "neutral",
+        "displayName": "Papel azulado",
+        "canonical": "#f1f6fb",
+        "tonalRamp": ["#071527", "#172b44", "#4e6277", "#5b6f84", "#a9c3da", "#dce7f1", "#f1f6fb", "#f8fbff"]
+      },
+      "ink-navy": {
+        "role": "neutral",
+        "displayName": "Tinta azul marino",
+        "canonical": "#172b44"
+      },
+      "slate-ink": {
+        "role": "neutral",
+        "displayName": "Pizarra",
+        "canonical": "#4e6277"
+      },
+      "rule-line": {
+        "role": "neutral",
+        "displayName": "Regla",
+        "canonical": "#dce7f1"
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Suelo azul noche (tema oscuro)",
+        "canonical": "#071527"
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Título de página (Proyectos, Usuarios). 1.875rem en pantallas pequeñas." },
+      "title": { "displayName": "Title", "purpose": "Títulos de panel y tarjeta." },
+      "body": { "displayName": "Body", "purpose": "Párrafos y descripciones en pizarra." },
+      "body-compact": { "displayName": "Body compact", "purpose": "Ayudas de campo, filas de tabla, metadatos y correos." },
+      "label": { "displayName": "Label", "purpose": "Rótulos de indicadores y estados, en mayúsculas." },
+      "control": { "displayName": "Control", "purpose": "Botones, campos, pestañas y menús de Angular Material (Inter)." }
+    },
+    "shadows": [
+      { "name": "panel-destacado", "value": "0 12px 30px rgba(0, 68, 153, 0.09)", "purpose": "Editores y formularios principales que piden atención." },
+      { "name": "respuesta-accion", "value": "0 4px 12px rgba(0, 68, 153, 0.09)", "purpose": "Hover del botón principal, junto con translateY(-1px)." },
+      { "name": "linea-apoyo", "value": "0 1px 0 rgba(0, 68, 153, 0.09)", "purpose": "Hover de tarjetas." }
+    ],
+    "motion": [
+      { "name": "transition-fast", "value": "150ms ease", "purpose": "Hover y foco de controles." },
+      { "name": "transition-normal", "value": "300ms ease", "purpose": "Cambio de tema y de superficies." },
+      { "name": "scroll-to-editor", "value": "scrollIntoView smooth (auto con prefers-reduced-motion)", "purpose": "Llevar al usuario al panel que abre una acción." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "600px" },
+      { "name": "tablet", "value": "900px" },
+      { "name": "editor-stack", "value": "1100px" },
+      { "name": "list-detail-stack", "value": "1600px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botón principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Única acción principal de un grupo; azul institucional con icono.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/></svg>Guardar cambios</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px; border: 0; border-radius: 8px; background: #0059a8; color: #ffffff; font: 600 0.875rem/1 Inter, system-ui, sans-serif; letter-spacing: 0.01em; cursor: pointer; transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease; } .ds-btn-primary:hover { background: #005689; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 68, 153, 0.09); } .ds-btn-primary:focus-visible { outline: 3px solid #46a4ff; outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Botón secundario",
+      "kind": "button",
+      "refersTo": "button-stroked",
+      "description": "Cancelar y alternativas; blanco con borde de regla.",
+      "html": "<button class=\"ds-btn-stroked\">Cancelar</button>",
+      "css": ".ds-btn-stroked { height: 40px; padding: 0 16px; border: 1px solid #d5e1ec; border-radius: 8px; background: #ffffff; color: #172b44; font: 600 0.875rem/1 Inter, system-ui, sans-serif; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; } .ds-btn-stroked:hover { background: #eaf4ff; border-color: #a9c3da; } .ds-btn-stroked:focus-visible { outline: 3px solid #46a4ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Campo outline con etiqueta visible y fondo de lavado de campo.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Nombre del proyecto</span><input class=\"ds-field-input\" value=\"Levantamiento Manta 2026\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; max-width: 360px; font-family: Inter, system-ui, sans-serif; } .ds-field-label { font-size: 0.8rem; font-weight: 600; color: #4e6277; } .ds-field-input { height: 48px; padding: 0 14px; border: 1px solid #d5e1ec; border-radius: 8px; background: #f8fbff; color: #172b44; font: 400 1rem Inter, system-ui, sans-serif; } .ds-field-input:hover { border-color: #a9c3da; } .ds-field-input:focus-visible { outline: none; border-color: #167cca; box-shadow: 0 0 0 1px #167cca; }"
+    },
+    {
+      "name": "Tarjeta",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superficie plana blanca con borde de regla.",
+      "html": "<article class=\"ds-card\"><h3 class=\"ds-card-title\">Zona 1</h3><p class=\"ds-card-text\">Radio GPS (500 m) · Meta: 150 encuestas</p></article>",
+      "css": ".ds-card { max-width: 360px; padding: 16px; border: 1px solid #dce7f1; border-radius: 8px; background: #ffffff; font-family: Inter, system-ui, sans-serif; transition: box-shadow 300ms ease; } .ds-card:hover { box-shadow: 0 1px 0 rgba(0, 68, 153, 0.09); } .ds-card-title { margin: 0 0 4px; font-size: 1rem; font-weight: 700; color: #172b44; } .ds-card-text { margin: 0; font-size: 0.875rem; color: #4e6277; }"
+    },
+    {
+      "name": "Navegación lateral",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Ítems con icono; el activo en bruma azul con texto azul profundo.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" href=\"#\">Mis formularios</a><a class=\"ds-nav-item is-active\" href=\"#\" aria-current=\"page\">Proyectos</a><a class=\"ds-nav-item\" href=\"#\">Usuarios</a></nav>",
+      "css": ".ds-nav { display: grid; gap: 4px; width: 220px; font: 500 0.9rem Inter, system-ui, sans-serif; } .ds-nav-item { padding: 10px 12px; border-radius: 6px; color: #172b44; text-decoration: none; transition: background 150ms ease; } .ds-nav-item:hover { background: #eaf4ff; } .ds-nav-item.is-active { background: #eef7ff; color: #005689; font-weight: 600; } .ds-nav-item:focus-visible { outline: 3px solid #46a4ff; outline-offset: 1px; }"
+    },
+    {
+      "name": "Chips de estado",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Pastillas de estado de formulario: borrador, implementado y archivado.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-chip ds-chip-draft\">Borrador</span><span class=\"ds-chip ds-chip-live\">Implementado</span><span class=\"ds-chip ds-chip-archived\">Archivado</span></div>",
+      "css": ".ds-chips { display: flex; gap: 8px; flex-wrap: wrap; } .ds-chip { padding: 4px 10px; border-radius: 9999px; font: 700 0.75rem/1.3 Inter, system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.02em; } .ds-chip-draft { background: #fffbeb; color: #a16207; } .ds-chip-live { background: #ecf9f2; color: #16805c; } .ds-chip-archived { background: #e6f0f9; color: #4e6277; }"
+    },
+    {
+      "name": "Chip de persona",
+      "kind": "custom",
+      "refersTo": "person-chip",
+      "description": "Responsable asignado: inicial, nombre y correo completos, con botón para quitar.",
+      "html": "<span class=\"ds-person\"><span class=\"ds-person-initial\" aria-hidden=\"true\">M</span><span class=\"ds-person-text\"><span class=\"ds-person-name\">Magallanes Loor Steven Ernesto</span><span class=\"ds-person-email\">e1315176501@live.uleam.edu.ec</span></span><button class=\"ds-person-remove\" aria-label=\"Quitar\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button></span>",
+      "css": ".ds-person { display: inline-flex; align-items: center; gap: 9px; padding: 5px 4px 5px 6px; border: 1px solid #dceeff; border-radius: 12px; background: #eef7ff; font-family: Inter, system-ui, sans-serif; } .ds-person-initial { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #0059a8; color: #ffffff; font-size: 0.8rem; font-weight: 700; } .ds-person-text { display: grid; line-height: 1.25; } .ds-person-name { font-size: 0.85rem; font-weight: 600; color: #172b44; } .ds-person-email { font-size: 0.76rem; color: #4e6277; } .ds-person-remove { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: #4e6277; cursor: pointer; } .ds-person-remove:hover { background: #dceeff; color: #172b44; } .ds-person-remove:focus-visible { outline: 3px solid #46a4ff; outline-offset: 1px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La libreta de campo",
+    "overview": "DataField se ve y se comporta como la libreta de un equipo de levantamiento: papel azulado claro, tinta azul marino, reglas finas que ordenan la información y un solo color institucional para lo que se puede hacer. Es una herramienta de trabajo, no una vitrina. El dato, el territorio y el avance del equipo están siempre en primer plano, y la interfaz se retira para que se lean.\n\nLa densidad es alta en el panel web, porque los líderes gestionan proyectos, zonas, encuestadores y respuestas en una sola jornada. La app de campo (PWA) aplica el mismo vocabulario con más aire, controles más grandes y lectura a pleno sol. El azul institucional de la ULEAM manda; el rojo ULEAM es escaso y significativo: la marca y lo que no se puede deshacer. Las superficies son planas y se separan con bordes finos; la profundidad aparece solo cuando un panel pide atención o una acción responde al cursor.\n\nEl sistema funciona en claro y en oscuro con los mismos roles. En oscuro el papel se vuelve azul noche y el texto de marca se aclara para conservar el contraste AA.",
+    "keyCharacteristics": [
+      "Papel azulado claro y tinta azul marino; nunca gris neutro puro.",
+      "Un acento de acción: el azul institucional. El rojo ULEAM es escaso.",
+      "Plano con bordes finos; sombra suave solo en paneles destacados y al pasar sobre la acción principal.",
+      "Esquinas discretas (8px) en controles, tarjetas y campos; pastillas solo para estados.",
+      "Etiquetas visibles, estados de carga y error junto a la acción que los produce.",
+      "Mismos roles en tema claro y oscuro, con contraste WCAG 2.1 AA."
+    ],
+    "rules": [
+      { "name": "The Una Sola Tinta Rule", "body": "El azul institucional es el único color de acción. Si dos cosas compiten por ser \"la acción principal\", una de ellas no lo es.", "section": "colors" },
+      { "name": "The Rojo Que Cuesta Rule", "body": "El rojo ULEAM se usa solo para la marca, los errores y lo que no se puede deshacer (eliminar, rechazar). Un botón rojo debe significar \"cuidado\".", "section": "colors" },
+      { "name": "The Papel, No Gris Rule", "body": "Los fondos y textos neutros llevan un tinte azul (papel azulado, pizarra). No introducir grises neutros puros.", "section": "colors" },
+      { "name": "The Peso, No Fuente Rule", "body": "La jerarquía se construye con peso y tamaño dentro de la misma familia. No hay fuente de exhibición en la interfaz.", "section": "typography" },
+      { "name": "The Plano Por Defecto Rule", "body": "En reposo, todo es plano con borde. Una sombra debe responder a una pregunta: ¿este panel pide atención o esta acción responde al cursor?", "section": "elevation" },
+      { "name": "The Un Solo Borde Rule", "body": "Una superficie declara su elevación una sola vez: borde o sombra destacada, nunca un borde marcado bajo una sombra ancha.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar el azul institucional como único color de acción y de foco.",
+      "Do separar superficies con bordes de 1px y el cambio papel azulado / papel blanco antes que con sombras.",
+      "Do mantener esquinas de 8px en controles, campos y tarjetas, y pastillas solo para estados y contadores.",
+      "Do mostrar etiquetas visibles en todos los campos y el estado de carga o error junto a la acción que lo produce.",
+      "Do definir cada color nuevo en ambos temas, con contraste WCAG 2.1 AA (texto de marca aclarado en oscuro).",
+      "Do dar a la PWA objetivos táctiles de al menos 44px y textos legibles al sol.",
+      "Do llevar al usuario al panel que abre una acción (desplazamiento y foco) y devolverlo al cerrarlo."
+    ],
+    "donts": [
+      "Don't usar el rojo ULEAM en acciones normales, botones principales ni decoración.",
+      "Don't introducir grises neutros puros ni una segunda familia tipográfica de exhibición.",
+      "Don't anidar tarjetas dentro de tarjetas ni sumar sombra ancha a un borde marcado.",
+      "Don't truncar nombres y correos de personas en selectores: mostrarlos completos en dos líneas o como chips.",
+      "Don't mostrar el nombre \"Barómetro\" en la interfaz; el producto es ULEAM DataField."
+    ]
+  }
+}

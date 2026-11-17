@@ -150,3 +150,28 @@
     }
   }
 }
+
+/* Tipo de cuenta según el correo: Microsoft 365 (interna) o invitación por correo (externa). */
+.account-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: #eef6ff;
+  border: 1px solid #c7ddf3;
+  color: #0b4a7a;
+  font-size: 0.9rem;
+
+  mat-icon { flex: none; }
+}
+
+.account-note--pending {
+  background: #fff8e6;
+  border-color: #f3d58a;
+  color: #7a4b00;
+
+  span { flex: 1 1 auto; }
+}

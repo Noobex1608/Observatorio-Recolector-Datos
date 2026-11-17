@@ -1055,6 +1055,21 @@
                             max="100"
                           />
                         </label>
+                        @if (['all', 'video'].includes(question.properties.allowed_media || 'all')) {
+                          <label class="field">
+                            <span>Duración máxima del video (segundos)</span>
+                            <input
+                              type="number"
+                              [ngModel]="question.properties.max_video_seconds || 60"
+                              (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_video_seconds', clampVideoSeconds($event))"
+                              [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                              min="5"
+                              max="120"
+                              step="5"
+                            />
+                            <small class="field-hint">Entre 5 y 120 s. La app de recolección detiene la grabación al llegar al límite.</small>
+                          </label>
+                        }
                       </div>
                     }
 

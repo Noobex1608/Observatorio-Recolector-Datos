@@ -9,7 +9,7 @@ final readonly class CreateUserDTO
     public function __construct(
         public string $name,
         public string $email,
-        public string $password,
+        public ?string $password,
         public string $rol,
         public bool $isActive,
         public int $adminId,
@@ -23,7 +23,7 @@ final readonly class CreateUserDTO
         return new self(
             name: $data['name'],
             email: $data['email'],
-            password: $data['password'],
+            password: $data['password'] ?? null,
             rol: $data['rol'] ?? 'RECOLECTOR',
             isActive: $data['is_active'] ?? true,
             adminId: $adminId,

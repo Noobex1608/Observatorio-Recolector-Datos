@@ -26,12 +26,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(SupabaseFormSchemaWriter::class, HttpSupabaseFormSchemaWriter::class);
         $this->app->bind(SupabaseResponseWriter::class, HttpSupabaseResponseWriter::class);
-        $this->app->bind(ResponseMediaStorage::class, function () {
-            return match (config('services.response_media.driver', 'supabase')) {
-                'supabase' => $this->app->make(SupabaseResponseMediaStorage::class),
-                default => throw new \InvalidArgumentException('Proveedor de medios de respuestas no configurado.'),
-            };
-        });
+        // Destino de los archivos nuevos. Los ya guardados se leen con el destino que registró cada
+        // respuesta (storage_driver), así cambiar de Supabase a SharePoint no rompe los anteriores.
+        $this->app->bind(ResponseMediaStorage::class, fn () => $this->responseMediaStorage(
+            (string) config('services.response_media.driver', 'supabase')
+        ) ?? throw new \InvalidArgumentException('Proveedor de medios de respuestas no configurado.'));
+        $this->app->bind('response-media.storage-for', fn () => fn (string $driver) => $this->responseMediaStorage($driver));
 
         $this->app->bind(VideoStorageAdapter::class, function () {
             $driver = strtolower((string) config('services.video_storage.driver', 'supabase'));
@@ -45,11 +45,28 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
+    private function responseMediaStorage(string $driver): ?ResponseMediaStorage
+    {
+        return match ($driver) {
+            'supabase' => $this->app->make(SupabaseResponseMediaStorage::class),
+            'sharepoint' => $this->app->make(\App\Infrastructure\Storage\SharePointResponseMediaStorage::class),
+            default => null,
+        };
+    }
+
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
+        // MAIL_MAILER=microsoft-graph: correo saliente desde el buzón de la app en Microsoft 365.
+        \Illuminate\Support\Facades\Mail::extend('microsoft-graph', fn () => new \App\Infrastructure\Mail\MicrosoftGraphTransport(
+            (string) config('services.microsoft.tenant_id'),
+            (string) config('services.microsoft.client_id'),
+            (string) config('services.microsoft.client_secret'),
+            (string) (config('services.microsoft.mail_sender') ?: config('mail.from.address')),
+        ));
+
         RateLimiter::for('public-form-submit', function (Request $request) {
             $ip = $request->ip() ?? 'unknown';
             $form = (string) $request->route('link_uuid');

@@ -121,7 +121,10 @@ describe('Guards e interceptor: redirecciones', () => {
 describe('Login y cambio de contraseña', () => {
   it('el login lleva al panel o a cambiar la contraseña temporal', () => {
     const nav = router();
-    const auth = { login: vi.fn(() => of({ user: { must_change_password: false } })) };
+    const auth = {
+      login: vi.fn(() => of({ user: { must_change_password: false } })),
+      providers: vi.fn(() => of({ microsoft: false, internal_domains: ['uleam.edu.ec'] })),
+    };
     const login = build(() => new LoginComponent(), [
       { provide: Router, useValue: nav }, { provide: AuthService, useValue: auth }, { provide: TranslateService, useValue: translate },
     ]);
@@ -131,6 +134,26 @@ describe('Login y cambio de contraseña', () => {
 
     expect(auth.login).toHaveBeenCalledWith({ email: 'ana@uleam.edu.ec', password: 'secreta123' }, false);
     expect(nav.navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+  });
+
+  it('con Microsoft 365 activo, las cuentas de ULEAM van a Microsoft y no al login con contraseña', () => {
+    const auth = {
+      login: vi.fn(),
+      startMicrosoftLogin: vi.fn(),
+      providers: vi.fn(() => of({ microsoft: true, internal_domains: ['uleam.edu.ec', 'live.uleam.edu.ec'] })),
+    };
+    const login = build(() => new LoginComponent(), [
+      { provide: Router, useValue: router() }, { provide: AuthService, useValue: auth }, { provide: TranslateService, useValue: translate },
+    ]);
+
+    login.form.setValue({ email: 'estudiante@live.uleam.edu.ec', password: '', rememberMe: true });
+    expect(login.isInstitutionalEmail()).toBe(true);
+    login.onSubmit();
+    expect(auth.startMicrosoftLogin).toHaveBeenCalledWith(true);
+    expect(auth.login).not.toHaveBeenCalled();
+
+    login.form.controls.email.setValue('externo@gmail.com');
+    expect(login.isInstitutionalEmail()).toBe(false);
   });
 
   it('cambiar contraseña sin sesión vuelve al login', () => {

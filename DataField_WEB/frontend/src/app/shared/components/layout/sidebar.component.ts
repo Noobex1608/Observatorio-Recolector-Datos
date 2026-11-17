@@ -49,7 +49,7 @@ import { TranslateModule } from '@ngx-translate/core';
           <span class="nav-text">{{ 'layout.sidebar.projects' | translate }}</span>
         </a>
 
-        @if (isSuperAdmin()) {
+        @if (isAdmin()) {
           <a
             class="nav-item"
             routerLink="/admin/usuarios"
@@ -61,7 +61,9 @@ import { TranslateModule } from '@ngx-translate/core';
             </div>
             <span class="nav-text">{{ 'layout.sidebar.users' | translate }}</span>
           </a>
+        }
 
+        @if (isSuperAdmin()) {
           <a
             class="nav-item"
             routerLink="/admin/auditoria"
@@ -193,4 +195,6 @@ export class SidebarComponent {
 
   navigate = output<void>();
   isSuperAdmin = computed(() => this.authService.isSuperAdmin());
+  /** SUPER_ADMIN o ADMIN: gestionan usuarios y solicitudes de acceso. */
+  isAdmin = computed(() => this.authService.isAdmin());
 }

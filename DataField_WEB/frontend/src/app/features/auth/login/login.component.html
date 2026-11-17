@@ -36,6 +36,20 @@
         </div>
       }
 
+      @if (microsoftEnabled()) {
+        <div class="microsoft-block">
+          <button class="microsoft-button" type="button" (click)="signInWithMicrosoft()" [disabled]="loading()">
+            <svg viewBox="0 0 21 21" aria-hidden="true" width="20" height="20">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef" /><rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+            </svg>
+            Iniciar sesión con Microsoft
+          </button>
+          <p class="microsoft-hint">Docentes, personal y estudiantes de ULEAM (&#64;uleam.edu.ec, &#64;live.uleam.edu.ec, &#64;dn.uleam.edu.ec).</p>
+          <div class="divider" role="separator"><span>Usuarios externos: correo y contraseña</span></div>
+        </div>
+      }
+
       <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
         <div class="field">
           <label for="login-email">{{ 'auth.login.email' | translate }}</label>
@@ -50,6 +64,14 @@
           }
         </div>
 
+        @if (isInstitutionalEmail()) {
+          <div class="institutional-note" role="status">
+            <p>Es una cuenta institucional de ULEAM: ingresa con Microsoft, sin contraseña de DataField.</p>
+            <button type="button" class="emergency-link" (click)="usePasswordInstead.set(true)">
+              Soy super administrador: usar contraseña de emergencia
+            </button>
+          </div>
+        } @else {
         <div class="field">
           <label for="login-password">{{ 'auth.login.password' | translate }}</label>
           <div class="password-wrap">
@@ -75,6 +97,7 @@
             <span class="field-error" id="password-error">{{ 'common.validation.required' | translate }}</span>
           }
         </div>
+        }
 
         <div class="form-options">
           <label class="remember-control">
@@ -88,6 +111,8 @@
           @if (loading()) {
             <mat-spinner diameter="18" aria-hidden="true"></mat-spinner>
             {{ 'auth.login.submitting' | translate }}
+          } @else if (isInstitutionalEmail()) {
+            Continuar con Microsoft
           } @else {
             {{ 'auth.login.submit' | translate }}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>

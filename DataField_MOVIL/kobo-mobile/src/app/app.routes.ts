@@ -4,6 +4,7 @@ import { ListaEncuestasComponent } from './lista-encuestas/lista-encuestas.compo
 import { ListoParaEnviarComponent } from './listo-para-enviar/listo-para-enviar.component';
 import { LlenarEncuestaComponent } from './llenar-encuesta/llenar-encuesta.component';
 import { LoginComponent } from './login/login.component';
+import { MicrosoftCallbackComponent } from './login/microsoft-callback.component';
 import { AjustesComponent } from './ajustes/ajustes.component';
 import { PerfilComponent } from './perfil/perfil.component';
 import { BorradoresComponent } from './borradores/borradores.component';
@@ -12,6 +13,7 @@ import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'auth/microsoft', component: MicrosoftCallbackComponent },
   { path: '', component: InicioComponent, canActivate: [authGuard] },
   { path: 'inicio', redirectTo: '', pathMatch: 'full' },
   { path: 'lista', component: ListaEncuestasComponent, canActivate: [authGuard] },

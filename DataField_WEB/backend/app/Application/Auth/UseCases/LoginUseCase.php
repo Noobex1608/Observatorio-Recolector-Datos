@@ -6,19 +6,35 @@ namespace App\Application\Auth\UseCases;
 
 use App\Application\Auth\DTOs\AuthResponseDTO;
 use App\Application\Auth\DTOs\LoginDTO;
+use App\Application\Auth\Services\InstitutionalEmail;
+use App\Application\Auth\Services\MicrosoftOidc;
+use App\Application\Auth\Services\SessionIssuer;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class LoginUseCase
 {
+    public function __construct(
+        private readonly SessionIssuer $sessions,
+        private readonly MicrosoftOidc $microsoft,
+    ) {}
+
     public function execute(LoginDTO $dto): AuthResponseDTO
     {
-        $user = User::where('email', $dto->email)->first();
+        $user = User::whereRaw('LOWER(email) = ?', [strtolower(trim($dto->email))])->first();
 
         if (! $user || ! Hash::check($dto->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales proporcionadas son incorrectas.'],
+            ]);
+        }
+
+        // Con Microsoft 365 configurado, las cuentas institucionales entran solo con Microsoft.
+        // El SUPER_ADMIN conserva la contraseña como acceso de emergencia.
+        if ($this->microsoft->enabled() && InstitutionalEmail::isInternal($user->email) && ! $user->isSuperAdmin()) {
+            throw ValidationException::withMessages([
+                'email' => ['Las cuentas institucionales de ULEAM ingresan con «Iniciar sesión con Microsoft».'],
             ]);
         }
 
@@ -28,23 +44,6 @@ class LoginUseCase
             ]);
         }
 
-        // Limitar a máximo 10 tokens por usuario (eliminar los más viejos de forma compatible con PostgreSQL)
-        $tokenIdsToDelete = $user->tokens()
-            ->orderBy('created_at', 'desc')
-            ->skip(9)
-            ->take(100)
-            ->pluck('id');
-
-        if ($tokenIdsToDelete->isNotEmpty()) {
-            $user->tokens()->whereIn('id', $tokenIdsToDelete)->delete();
-        }
-
-        // Cargar relaciones necesarias
-        $user->load('perfil');
-
-        // Crear nuevo token
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        return AuthResponseDTO::fromUser($user, $token);
+        return $this->sessions->issue($user);
     }
 }

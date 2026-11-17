@@ -43,6 +43,8 @@ class UpdateUserRoleUseCase
                 throw new AccessDeniedHttpException('No tienes permisos para administrar ese rol');
             }
 
+            \App\Application\Auth\Services\InstitutionalEmail::assertRoleAllowed($user->email, $dto->rol);
+
             // Actualizar el rol (el modelo User permitirá esto porque el admin está autenticado)
             app(ProtectAdministrator::class)->check($user, $dto->adminId, $dto->rol, $user->is_active);
             $user->rol = $dto->rol;

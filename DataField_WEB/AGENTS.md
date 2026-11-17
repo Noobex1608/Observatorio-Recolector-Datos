@@ -143,11 +143,32 @@ Rutas activas orientadas a formularios:
 
 El registro publico esta deshabilitado. Los usuarios se crean desde el panel administrativo.
 
+### Archivos de las respuestas (fotos, audio, video, firmas)
+
+- `RESPONSE_MEDIA_DRIVER=sharepoint` guarda en la biblioteca de SharePoint de ULEAM (`SharePoint__SiteId`, `SharePoint__LibraryId`; nombres acordados con DIIT, que pone los IDs de produccion en su pipeline). Ruta: `responses/{form_id}/{uuid}.{ext}`.
+- Usa la app de Microsoft 365 con token de aplicacion (Graph). Hasta 4 MB se sube en una peticion; mas grande (videos) por sesion de carga en partes de 10 MiB. La vista de respuestas recibe un enlace de descarga temporal de Graph; el archivo no queda publico.
+- Cada respuesta guarda `storage_driver`: los archivos anteriores en Supabase se siguen leyendo de Supabase despues de cambiar a SharePoint.
+- Limites de tamaño: `RESPONSE_MEDIA_MAX_FILE_BYTES` (30 MB por archivo) y `RESPONSE_MEDIA_MAX_TOTAL_BYTES` (35 MB por respuesta); cada pregunta fija `max_file_size_mb` (tope 30).
+- Duracion de video: propiedad `max_video_seconds` de la pregunta MULTIMEDIA (5 a 120 s, 60 por defecto; validada en backend). La PWA graba dentro de la app (720p, ~1 Mbps: 120 s ≈ 16 MB) y se detiene sola al llegar al limite; los videos de la galeria (PWA y `/collect`) se rechazan si duran mas. El servidor no puede medir la duracion: el control es del cliente mas el limite de tamaño.
+
+### Autenticacion: internos (Microsoft 365) y externos (invitacion)
+
+- Internos: correos de `AUTH_INTERNAL_EMAIL_DOMAINS` (por defecto `uleam.edu.ec`, `live.uleam.edu.ec`, `dn.uleam.edu.ec`). Con `MICROSOFT_CLIENT_ID/SECRET/TENANT_ID` configurados entran solo con Microsoft 365 (OpenID Connect): sin contraseña local, sin correo de confirmacion ni cambio de contraseña. El `SUPER_ADMIN` conserva la contraseña como acceso de emergencia. La cuenta debe existir en el panel (no se crean cuentas al entrar).
+- Flujo: `GET /api/auth/microsoft/redirect?return=<frontend>/auth/microsoft` → Microsoft → `GET /api/auth/microsoft/callback` → el frontend recibe un codigo de un solo uso y lo canjea en `POST /api/auth/microsoft/exchange`. `return` solo se acepta si su origen esta en `CORS_ALLOWED_ORIGINS`. `GET /api/auth/providers` indica si Microsoft esta activo.
+- Externos: al crearlos (panel o importacion de recolectores) reciben un correo de confirmacion con enlace a `FRONTEND_URL/auth/activar` (72 h) para crear su contraseña (`POST /api/auth/activate`). Reenvio: `POST /api/users/{id}/invitation`. Si un administrador les fija una contraseña, deben cambiarla al entrar.
+- Correo saliente: `MAIL_MAILER=microsoft-graph` envia desde `MICROSOFT_MAIL_SENDER` (buzon propio de la app; permiso `Mail.Send` limitado a ese buzon con una Application Access Policy).
+- Mientras Microsoft no este configurado, los internos se crean con contraseña como antes.
+- Desarrollo local: sin `ADMIN_EMAIL`/`ADMIN_PASSWORD` en el `.env`, `AdminUserSeeder` crea `superadmin@datafield.test` (dominio de pruebas no institucional, entra con contraseña; la clave esta en el seeder). No usar un `@uleam.edu.ec` inexistente en Microsoft como superadmin de pruebas. Un `SUPER_ADMIN` con correo institucional puede entrar con contraseña desde el enlace de emergencia del login.
+- Solicitudes de acceso: si alguien de ULEAM entra con Microsoft sin estar registrado se crea una cuenta inactiva con `access_request_status=PENDING`. Un `SUPER_ADMIN` o `ADMIN` la aprueba asignando rol o la rechaza en `/admin/usuarios` (`GET /api/users/access-requests`, `POST /api/users/access-requests/{id}/approve|reject`). No aparecen en la lista de usuarios ni se activan con el interruptor de estado.
+- La cuenta se ata al `microsoft_oid` en el primer inicio con Microsoft: un correo reasignado a otra persona no hereda la cuenta (`error=account_mismatch`).
+- Roles: el `SUPER_ADMIN` asigna cualquiera; el `ADMIN` gestiona usuarios y solo asigna `PROJECT`, `SUPERVISOR` y `RECOLECTOR`; solo el `SUPER_ADMIN` borra usuarios. Los externos solo pueden ser `RECOLECTOR` o `SUPERVISOR` (validado en backend; reglas espejo en `frontend/src/app/core/utils/role-rules.ts`).
+
 Roles globales:
 
 - `SUPER_ADMIN`: control total de usuarios, proyectos, formularios, configuracion y datos.
-- `ADMIN`: gestiona proyectos, asigna lideres de proyecto y crea/gestiona formularios dentro de proyectos.
+- `ADMIN`: gestiona proyectos, asigna lideres de proyecto y crea/gestiona formularios dentro de proyectos. Gestiona usuarios con roles `PROJECT`, `SUPERVISOR` y `RECOLECTOR` y aprueba solicitudes de acceso.
 - `PROJECT`: gestiona formularios dentro de proyectos asignados.
+- `SUPERVISOR`: supervision de campo de los proyectos asignados.
 - `RECOLECTOR`: usuario movil de recoleccion; solo ve formularios asignados.
 
 Los permisos `PROJECT` y `RECOLECTOR` pertenecen a la comparticion de formularios, no sustituyen el rol global del usuario.

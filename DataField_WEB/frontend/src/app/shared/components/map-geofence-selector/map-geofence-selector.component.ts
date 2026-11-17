@@ -17,6 +17,7 @@ import {
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { GisService, GisSelection, DpaCanton, DpaParroquia } from '@core/services/gis.service';
 import { NotificationService } from '@core/services/notification.service';
 
@@ -49,6 +50,65 @@ export interface NominatimSearchResult {
   display_name: string;
   lat: string;
   lon: string;
+  type?: string;
+  addresstype?: string;
+}
+
+/** Sugerencia de la barra de búsqueda: coordenadas pegadas, capas locales INEC u OpenStreetMap. */
+export interface LocationSuggestion {
+  kind: 'coords' | 'parroquia' | 'localidad' | 'osm';
+  label: string;
+  detail: string;
+  lat?: number;
+  lng?: number;
+  code?: string;
+  icon?: string;
+  /** Mayor = más relevante (barrios y calles antes que comercios). */
+  rank?: number;
+}
+
+/** Resultado GeoJSON de Photon (OpenStreetMap), el buscador de komoot pensado para autocompletar. */
+interface PhotonFeature {
+  geometry: { coordinates: [number, number] };
+  properties: {
+    name?: string; street?: string; housenumber?: string; osm_key?: string; osm_value?: string;
+    district?: string; locality?: string; city?: string; county?: string; state?: string; countrycode?: string;
+  };
+}
+
+/** Tipo OSM → [etiqueta en español, ícono, relevancia]. */
+const OSM_PLACE_TYPES: Record<string, [string, string, number]> = {
+  neighbourhood: ['Barrio', 'holiday_village', 5], suburb: ['Barrio', 'holiday_village', 5],
+  quarter: ['Sector', 'holiday_village', 5], residential: ['Urbanización', 'cottage', 4],
+  city_block: ['Manzana', 'grid_view', 4], locality: ['Localidad', 'location_city', 4],
+  city: ['Ciudad', 'location_city', 4], town: ['Ciudad', 'location_city', 4],
+  village: ['Poblado', 'location_city', 4], hamlet: ['Caserío', 'location_city', 4],
+  isolated_dwelling: ['Caserío', 'location_city', 3], square: ['Plaza', 'park', 3], park: ['Parque', 'park', 3],
+  school: ['Escuela', 'school', 2], university: ['Universidad', 'school', 2], college: ['Colegio', 'school', 2],
+  hospital: ['Hospital', 'local_hospital', 2], clinic: ['Clínica', 'local_hospital', 2],
+  place_of_worship: ['Iglesia', 'church', 2], marketplace: ['Mercado', 'storefront', 2],
+  pharmacy: ['Farmacia', 'local_pharmacy', 1],
+};
+
+/** Palabras genéricas que la gente antepone al nombre ("barrio Altamira") y que OSM no guarda en el nombre. */
+const GENERIC_PLACE_WORDS =
+  /\b(barrio|bº|b°|bo\.|ciudadela|cdla\.?|cda\.?|urbanizaci[oó]n|urb\.?|lotizaci[oó]n|lot\.?|sector|cooperativa|coop\.?|recinto|comunidad|sitio|parroquia|cant[oó]n)\s+/gi;
+
+/** Intervalo mínimo entre peticiones a Nominatim (política de uso: máximo 1 por segundo). */
+const NOMINATIM_MIN_INTERVAL_MS = 1100;
+
+function normalizeText(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+/** Lee coordenadas pegadas como "-0.95, -80.74" (latitud, longitud) o en orden inverso si no cabe otra lectura. */
+export function parseCoordinates(text: string): { lat: number; lng: number } | null {
+  const match = /^\s*\(?\s*(-?\d{1,3}(?:[.]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.]\d+)?)\s*\)?\s*$/.exec(text);
+  if (!match) return null;
+  let lat = Number(match[1]);
+  let lng = Number(match[2]);
+  if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) [lat, lng] = [lng, lat];
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
 }
 
 @Component({
@@ -90,8 +150,19 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   // Search State
   readonly searchQuery = signal<string>('');
   readonly isSearching = signal<boolean>(false);
-  readonly searchResults = signal<NominatimSearchResult[]>([]);
+  readonly searchResults = signal<LocationSuggestion[]>([]);
   readonly searchError = signal<string | null>(null);
+  /** Texto de avance mientras se consulta OpenStreetMap (puede haber varios intentos). */
+  readonly searchStatus = signal<string>('');
+  /** Sugerencia resaltada con las flechas del teclado (-1 = ninguna). */
+  readonly activeSuggestion = signal<number>(-1);
+  /** Texto del último lugar elegido: mientras no cambie, no se muestra la pista de "sin sugerencias". */
+  readonly pickedLabel = signal<string | null>(null);
+  private suggestTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchSeq = 0;
+  private lastNominatimAt = 0;
+  private readonly nominatimCache = new Map<string, NominatimSearchResult[]>();
+  private readonly photonCache = new Map<string, LocationSuggestion[]>();
 
   // Cascade Dropdown Lists
   readonly provinciasList = signal<SelectOption[]>([]);
@@ -1041,54 +1112,345 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  // Búsqueda Semántica de Coordenadas (OpenStreetMap Nominatim)
-  searchLocation(): void {
+  // Búsqueda de lugares: coordenadas pegadas, capas locales INEC y OpenStreetMap (Nominatim).
+
+  /**
+   * Al escribir solo se sugieren coordenadas y nombres de las capas INEC ya cargadas (sin red).
+   * La política de Nominatim prohíbe el autocompletado contra su API: OSM se consulta con Enter o la lupa.
+   */
+  onSearchInput(value: string): void {
+    this.searchQuery.set(value);
+    this.searchError.set(null);
+    this.searchStatus.set('');
+    if (this.suggestTimer) clearTimeout(this.suggestTimer);
+    const seq = ++this.searchSeq;
+    this.isSearching.set(false);
+    const local = this.localSuggestions(value);
+    this.searchResults.set(local);
+    this.activeSuggestion.set(-1);
+    if (parseCoordinates(value) || this.cleanQuery(value).length < 3) return;
+
+    // Sugerencias de OpenStreetMap vía Photon (admite autocompletado; Nominatim no lo permite).
+    this.suggestTimer = setTimeout(async () => {
+      try {
+        const osm = await this.queryPhoton(value);
+        if (seq !== this.searchSeq) return;
+        this.searchResults.set(this.mergeSuggestions(local, osm));
+      } catch {
+        // Sin red o Photon no disponible: quedan las sugerencias INEC y la búsqueda con Enter.
+      }
+    }, 350);
+  }
+
+  private cleanQuery(query: string): string {
+    return query.replace(GENERIC_PLACE_WORDS, '').replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Orden final: coordenadas, lugares OSM dentro del área elegida, capas INEC, y lo demás de OSM.
+   * Dentro de cada grupo, barrios/calles antes que comercios.
+   */
+  private mergeSuggestions(local: LocationSuggestion[], osm: LocationSuggestion[]): LocationSuggestion[] {
+    const area = this.searchViewbox();
+    const inside = (s: LocationSuggestion) =>
+      s.lat !== undefined && this.isInsideViewbox({ lat: String(s.lat), lon: String(s.lng), display_name: '' }, area);
+    const byRank = (a: LocationSuggestion, b: LocationSuggestion) => (b.rank ?? 0) - (a.rank ?? 0);
+    // Distancia aproximada (grados) al centro del área: lo cercano va antes que lo lejano.
+    const [west, north, east, south] = (area ?? '').split(',').map(Number);
+    const centerLat = (north + south) / 2;
+    const centerLng = (west + east) / 2;
+    const distance = (s: LocationSuggestion) =>
+      area && s.lat !== undefined && s.lng !== undefined ? Math.hypot(s.lat - centerLat, s.lng - centerLng) : 0;
+    // ~15 km: el mismo cantón aunque el lugar caiga fuera del polígono de la parroquia elegida.
+    const isNear = (s: LocationSuggestion) => inside(s) || (!!area && distance(s) < 0.135);
+    const coords = local.filter((s) => s.kind === 'coords');
+    const inec = local.filter((s) => s.kind !== 'coords');
+    const near = osm.filter(isNear).sort((a, b) => Number(inside(b)) - Number(inside(a)) || byRank(a, b) || distance(a) - distance(b));
+    const far = osm.filter((s) => !isNear(s)).sort((a, b) => distance(a) - distance(b) || byRank(a, b));
+    return [...coords, ...near, ...inec, ...far].slice(0, 10);
+  }
+
+  /** Photon, sesgado al centro del área elegida y limitado a Ecuador. */
+  private async queryPhoton(query: string): Promise<LocationSuggestion[]> {
+    const q = this.cleanQuery(query) || query.trim();
+    const params = new URLSearchParams({ q, limit: '15' });
+    const viewbox = this.searchViewbox();
+    if (viewbox) {
+      const [west, north, east, south] = viewbox.split(',').map(Number);
+      params.set('lat', ((north + south) / 2).toFixed(5));
+      params.set('lon', ((west + east) / 2).toFixed(5));
+    } else {
+      // Ecuador continental.
+      params.set('bbox', '-81.2,-5.1,-75.1,1.7');
+    }
+    const url = `https://photon.komoot.io/api/?${params.toString()}`;
+    const cached = this.photonCache.get(url);
+    if (cached) return cached;
+
+    const response = await firstValueFrom(this.http.get<{ features?: PhotonFeature[] }>(url));
+    const seen = new Set<string>();
+    const suggestions: LocationSuggestion[] = [];
+    for (const feature of response?.features ?? []) {
+      const p = feature.properties ?? {};
+      if (p.countrycode && p.countrycode.toUpperCase() !== 'EC') continue;
+      const label = p.name || [p.street, p.housenumber].filter(Boolean).join(' ');
+      if (!label) continue;
+      const [type, icon, rank] = p.osm_key === 'highway'
+        ? ['Calle', 'signpost', 4] as [string, string, number]
+        : OSM_PLACE_TYPES[p.osm_value ?? ''] ?? ['Lugar', 'place', 1];
+      const area = [p.district || p.locality, p.city || p.county, p.state]
+        .filter((part, i, all): part is string => !!part && all.indexOf(part) === i && part !== label);
+      const key = normalizeText(`${label}|${type}|${area[0] ?? ''}`);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const [lng, lat] = feature.geometry.coordinates;
+      suggestions.push({ kind: 'osm', label, detail: [type, ...area].join(' · '), lat, lng, icon, rank });
+    }
+    this.photonCache.set(url, suggestions);
+    return suggestions;
+  }
+
+  onSearchKeydown(event: KeyboardEvent): void {
+    const total = this.searchResults().length;
+    switch (event.key) {
+      case 'ArrowDown':
+        if (!total) return;
+        event.preventDefault();
+        this.activeSuggestion.update((i) => (i + 1) % total);
+        break;
+      case 'ArrowUp':
+        if (!total) return;
+        event.preventDefault();
+        this.activeSuggestion.update((i) => (i <= 0 ? total - 1 : i - 1));
+        break;
+      case 'Enter': {
+        event.preventDefault();
+        const active = this.searchResults()[this.activeSuggestion()];
+        if (active) this.selectSuggestion(active);
+        else void this.searchLocation();
+        break;
+      }
+      case 'Escape':
+        this.searchResults.set([]);
+        this.activeSuggestion.set(-1);
+        break;
+    }
+  }
+
+  async searchLocation(): Promise<void> {
     const query = this.searchQuery().trim();
     if (!query) {
       this.clearSearch();
       return;
     }
+    if (this.suggestTimer) clearTimeout(this.suggestTimer);
 
+    const coords = parseCoordinates(query);
+    if (coords) {
+      this.selectSuggestion(this.coordinateSuggestion(coords));
+      return;
+    }
+
+    const seq = ++this.searchSeq;
+    const local = this.localSuggestions(query);
     this.isSearching.set(true);
     this.searchError.set(null);
-    this.searchResults.set([]);
+    this.searchResults.set(local);
+    this.activeSuggestion.set(-1);
 
-    // Contextual geocoding: Añadir contexto del Cantón y Ecuador si no están presentes
-    const cantCode = this.selectedCanton();
-    const cantObj = this.allCantones.find((c) => c.code === cantCode);
-    const cantName = cantObj ? cantObj.name.replace(/^\d+\s*-\s*/, '').trim() : 'Manta';
+    try {
+      const area = this.searchViewbox();
+      // Photon primero (tolera palabras incompletas); si ya hay algo dentro del área, basta.
+      this.searchStatus.set('Buscando lugares…');
+      const photon = await this.queryPhoton(query).catch(() => [] as LocationSuggestion[]);
+      if (seq !== this.searchSeq) return;
+      const photonNear = photon.some((s) =>
+        this.isInsideViewbox({ lat: String(s.lat), lon: String(s.lng), display_name: '' }, area));
+      if (photonNear || (!area && photon.length)) {
+        this.searchResults.set(this.mergeSuggestions(local, photon));
+        return;
+      }
 
-    let contextualQuery = query;
-    if (!/ecuador/i.test(contextualQuery)) {
-      if (cantName && !new RegExp(cantName, 'i').test(contextualQuery)) {
-        contextualQuery = `${contextualQuery}, ${cantName}, Ecuador`;
-      } else {
-        contextualQuery = `${contextualQuery}, Ecuador`;
+      const attempts = this.nominatimAttempts(query);
+      const insideArea = (r: NominatimSearchResult) => this.isInsideViewbox(r, area);
+      const found = new Map<string, NominatimSearchResult>();
+      for (const [index, attempt] of attempts.entries()) {
+        if (seq !== this.searchSeq) return;
+        this.searchStatus.set(index > 0
+          ? `Buscando en OpenStreetMap (intento ${index + 1} de ${attempts.length})…`
+          : 'Buscando en OpenStreetMap…');
+        for (const result of await this.queryNominatim(attempt)) {
+          found.set(`${result.lat},${result.lon}`, result);
+        }
+        // "viewbox" solo prioriza: un resultado fuera del área (ej. otro "Altamira" en Guayas) no detiene la búsqueda.
+        if (!area ? found.size > 0 : [...found.values()].some(insideArea)) break;
+      }
+      if (seq !== this.searchSeq) return;
+
+      const ranked = [...found.values()].sort((a, b) => Number(insideArea(b)) - Number(insideArea(a))).slice(0, 8);
+      const osm = ranked.map((result): LocationSuggestion => {
+        const [label, ...rest] = result.display_name.split(',');
+        return {
+          kind: 'osm', label: label.trim(), detail: rest.join(',').trim(),
+          lat: Number.parseFloat(result.lat), lng: Number.parseFloat(result.lon), rank: 3,
+        };
+      });
+      const merged = this.mergeSuggestions(local, [...osm, ...photon]);
+      this.searchResults.set(merged);
+      if (!merged.length) {
+        this.searchError.set('Sin resultados. Pruebe solo el nombre (ej. «Altamira»), una calle cercana o pegue coordenadas como «-0.95, -80.74».');
+      }
+    } catch (error) {
+      if (seq !== this.searchSeq) return;
+      const status = (error as { status?: number })?.status;
+      this.searchError.set(status === 429
+        ? 'OpenStreetMap está limitando las consultas. Espere unos segundos y vuelva a intentar.'
+        : status === 0 || !navigator.onLine
+          ? 'Sin conexión con OpenStreetMap. Revise la red; puede elegir parroquias o localidades INEC o pegar coordenadas.'
+          : 'Ocurrió un error al consultar OpenStreetMap. Intente de nuevo.');
+    } finally {
+      if (seq === this.searchSeq) {
+        this.isSearching.set(false);
+        this.searchStatus.set('');
       }
     }
+  }
 
-    let url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=ec&limit=5&q=${encodeURIComponent(contextualQuery)}`;
-
-    if (this.map) {
-      const bounds = this.map.getBounds();
-      const viewbox = `${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()},${bounds.getSouth()}`;
-      url += `&viewbox=${encodeURIComponent(viewbox)}&bounded=0`;
+  selectSuggestion(suggestion: LocationSuggestion): void {
+    this.searchResults.set([]);
+    this.activeSuggestion.set(-1);
+    this.searchError.set(null);
+    this.searchQuery.set(suggestion.label);
+    this.pickedLabel.set(suggestion.label);
+    if (suggestion.kind === 'parroquia' && suggestion.code) {
+      this.onParroquiaChange(suggestion.code);
+      return;
     }
+    if (suggestion.kind === 'localidad') {
+      this.onLocalidadChange(suggestion.label);
+      return;
+    }
+    if (suggestion.lat !== undefined && suggestion.lng !== undefined) {
+      this.selectSearchResult({ lat: String(suggestion.lat), lon: String(suggestion.lng), display_name: suggestion.label });
+    }
+  }
 
-    this.http.get<NominatimSearchResult[]>(url).subscribe({
-      next: (results) => {
-        this.isSearching.set(false);
-        if (results && results.length > 0) {
-          this.searchResults.set(results);
-        } else {
-          this.searchError.set('No se encontraron lugares o direcciones coincidentes.');
-        }
-      },
-      error: () => {
-        this.isSearching.set(false);
-        this.searchError.set('Ocurrió un error al consultar el servicio de búsqueda.');
-      },
+  private coordinateSuggestion(coords: { lat: number; lng: number }): LocationSuggestion {
+    return {
+      kind: 'coords', label: `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
+      detail: 'Coordenadas (latitud, longitud)', lat: coords.lat, lng: coords.lng,
+    };
+  }
+
+  /** Coincidencias en coordenadas, parroquias DPA y localidades INEC de la parroquia elegida. */
+  private localSuggestions(text: string): LocationSuggestion[] {
+    const coords = parseCoordinates(text);
+    if (coords) return [this.coordinateSuggestion(coords)];
+    const needle = normalizeText(text.replace(GENERIC_PLACE_WORDS, ''));
+    if (needle.length < 3) return [];
+
+    // Solo parroquias de la provincia elegida (si hay), las del cantón primero.
+    const canton = this.selectedCanton();
+    const provincia = this.selectedProvincia();
+    const outsideCanton = (code: string) => Number(!!canton && !code.startsWith(canton));
+    const parroquias = this.allParroquias
+      .filter((p) => (!provincia || p.code.startsWith(provincia)) && normalizeText(p.name).includes(needle))
+      .sort((a, b) => outsideCanton(a.code) - outsideCanton(b.code))
+      .slice(0, 3)
+      .map((p): LocationSuggestion => ({
+        kind: 'parroquia', label: p.name, code: p.code,
+        detail: `Parroquia INEC ${p.code} · ${this.cantonName(p.code.substring(0, 4))}`,
+      }));
+    const parroquiaName = this.gisService.getParroquiaName(this.selectedParroquia());
+    const localidades = this.localidadesList()
+      .filter((name) => normalizeText(name).includes(needle))
+      .slice(0, 4)
+      .map((name): LocationSuggestion => ({
+        kind: 'localidad', label: name, detail: `Localidad INEC${parroquiaName ? ` · ${parroquiaName}` : ''}`,
+      }));
+    return [...localidades, ...parroquias];
+  }
+
+  private cantonName(code: string): string {
+    const canton = this.allCantones.find((c) => c.code === code);
+    return canton ? canton.name.replace(/^\d+\s*-\s*/, '').trim() : '';
+  }
+
+  private provinciaName(code: string): string {
+    const provincia = this.provinciasList().find((p) => p.code === code);
+    return provincia ? provincia.name.replace(/^\d+\s*-\s*/, '').trim() : '';
+  }
+
+  /**
+   * Intentos en orden: el texto tal cual priorizando el área elegida (viewbox sin "bounded"), sin palabras
+   * genéricas, con cantón y provincia añadidos, y por último en todo Ecuador sin contexto.
+   */
+  private nominatimAttempts(query: string): Array<{ q: string; viewbox: string | null }> {
+    const viewbox = this.searchViewbox();
+    const cleaned = query.replace(GENERIC_PLACE_WORDS, '').replace(/\s+/g, ' ').trim() || query;
+    const canton = this.cantonName(this.selectedCanton());
+    const provincia = this.provinciaName(this.selectedProvincia());
+    const context = [canton, provincia].filter((part) => part && !normalizeText(cleaned).includes(normalizeText(part)));
+    const attempts = [
+      { q: query, viewbox },
+      { q: cleaned, viewbox },
+      { q: context.length ? `${cleaned}, ${context.join(', ')}` : cleaned, viewbox: null },
+      { q: cleaned, viewbox: null },
+    ];
+    const seen = new Set<string>();
+    return attempts.filter((a) => {
+      const key = `${normalizeText(a.q)}|${a.viewbox ?? ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
+  }
+
+  /** Recuadro de la parroquia elegida, o del cantón, o del mapa visible (left,top,right,bottom). */
+  private searchViewbox(): string | null {
+    const L = this.LInstance;
+    let bounds: any = null;
+    const parroquia = this.parroquiaLayersMap.get(this.selectedParroquia());
+    if (parroquia?.getBounds) {
+      bounds = parroquia.getBounds();
+    } else if (L && this.selectedCanton()) {
+      for (const [code, layer] of this.parroquiaLayersMap.entries()) {
+        if (!code.startsWith(this.selectedCanton()) || !layer?.getBounds) continue;
+        bounds = bounds ? bounds.extend(layer.getBounds()) : L.latLngBounds(layer.getBounds().getSouthWest(), layer.getBounds().getNorthEast());
+      }
+    }
+    if (!bounds && this.map) bounds = this.map.getBounds();
+    if (!bounds) return null;
+    // Margen para no dejar fuera barrios en el borde del polígono.
+    const padded = bounds.pad ? bounds.pad(0.2) : bounds;
+    return [padded.getWest(), padded.getNorth(), padded.getEast(), padded.getSouth()].map((n: number) => n.toFixed(5)).join(',');
+  }
+
+  private isInsideViewbox(result: NominatimSearchResult, viewbox: string | null): boolean {
+    if (!viewbox) return false;
+    const [west, north, east, south] = viewbox.split(',').map(Number);
+    const lat = Number.parseFloat(result.lat);
+    const lng = Number.parseFloat(result.lon);
+    return lat <= north && lat >= south && lng >= west && lng <= east;
+  }
+
+  /** Una consulta a Nominatim respetando el máximo de 1 petición por segundo, con caché por URL. */
+  private async queryNominatim(attempt: { q: string; viewbox: string | null }): Promise<NominatimSearchResult[]> {
+    const params = new URLSearchParams({
+      format: 'jsonv2', q: attempt.q, countrycodes: 'ec', limit: '8', addressdetails: '0', 'accept-language': 'es',
+    });
+    if (attempt.viewbox) params.set('viewbox', attempt.viewbox);
+    const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+    const cached = this.nominatimCache.get(url);
+    if (cached) return cached;
+
+    const wait = this.lastNominatimAt + NOMINATIM_MIN_INTERVAL_MS - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    this.lastNominatimAt = Date.now();
+    // El navegador no permite fijar User-Agent; Nominatim identifica a las apps web por el Referer que envía el navegador.
+    const results = (await firstValueFrom(this.http.get<NominatimSearchResult[]>(url))) ?? [];
+    this.nominatimCache.set(url, results);
+    return results;
   }
 
   selectSearchResult(result: NominatimSearchResult): void {
@@ -1122,9 +1484,14 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   }
 
   clearSearch(): void {
+    this.searchSeq++;
+    if (this.suggestTimer) clearTimeout(this.suggestTimer);
     this.searchQuery.set('');
     this.searchResults.set([]);
     this.searchError.set(null);
+    this.searchStatus.set('');
+    this.isSearching.set(false);
+    this.activeSuggestion.set(-1);
   }
 
   private updateMarkerAndCircle(recenter = false): void {

@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../auth.service';
 import { ApiService, LoginResponse } from '../api.service';
 import { trimTrailingSlashes } from '../utils/url';
+import { MICROSOFT_ERROR_KEY, MICROSOFT_SERVER_KEY } from './microsoft-callback.component';
 
 @Component({
   selector: 'app-login',
@@ -25,6 +26,53 @@ export class LoginComponent {
 
   readonly cargando = signal(false);
   readonly errorLogin = signal('');
+  /** El servidor elegido ofrece inicio con Microsoft 365 (cuentas institucionales de ULEAM). */
+  readonly microsoftDisponible = signal(false);
+  private dominiosInternos: string[] = [];
+
+  constructor() {
+    void this.consultarProveedores();
+    // Mensaje que dejó la pantalla de retorno de Microsoft si el inicio falló.
+    const error = sessionStorage.getItem(MICROSOFT_ERROR_KEY);
+    if (error) {
+      sessionStorage.removeItem(MICROSOFT_ERROR_KEY);
+      this.errorLogin.set(error);
+    }
+  }
+
+  /** Se consulta al abrir y cada vez que cambia la URL del servidor. */
+  async consultarProveedores(): Promise<void> {
+    const servidor = trimTrailingSlashes(this.urlServidor.trim());
+    if (!servidor) {
+      this.microsoftDisponible.set(false);
+      return;
+    }
+    try {
+      const proveedores = await this.api.microsoftEnabled(servidor);
+      this.microsoftDisponible.set(proveedores.microsoft);
+      this.dominiosInternos = proveedores.internal_domains ?? [];
+    } catch {
+      this.microsoftDisponible.set(false);
+    }
+  }
+
+  esCorreoInstitucional(): boolean {
+    const dominio = this.usuario.trim().toLowerCase().split('@')[1] ?? '';
+    return this.microsoftDisponible() && !!dominio && this.dominiosInternos.includes(dominio);
+  }
+
+  iniciarConMicrosoft(): void {
+    const servidor = trimTrailingSlashes(this.urlServidor.trim());
+    try {
+      const retorno = new URL('auth/microsoft', document.baseURI).href;
+      const url = this.api.microsoftLoginUrl(servidor, retorno);
+      sessionStorage.setItem(MICROSOFT_SERVER_KEY, servidor);
+      this.cargando.set(true);
+      window.location.assign(url);
+    } catch (error) {
+      this.errorLogin.set(error instanceof Error ? error.message : 'La URL del servidor no es válida.');
+    }
+  }
 
   private defaultServerUrl(): string {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -35,6 +83,10 @@ export class LoginComponent {
 
   async iniciarSesion() {
     this.errorLogin.set('');
+    if (this.esCorreoInstitucional()) {
+      this.iniciarConMicrosoft();
+      return;
+    }
 
     const urlLimpia = trimTrailingSlashes(this.urlServidor.trim());
     const usuarioLimpio = this.usuario.trim();
@@ -100,7 +152,8 @@ export class LoginComponent {
   private mensajeErrorLogin(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 422) {
-        return 'Correo o contraseña incorrectos.';
+        const mensaje = String(error.error?.message ?? '');
+        return mensaje.includes('Microsoft') ? mensaje : 'Correo o contraseña incorrectos.';
       }
       if (error.status === 0) {
         return 'No se pudo conectar con el servidor API. Verifica su URL y que esté en funcionamiento.';

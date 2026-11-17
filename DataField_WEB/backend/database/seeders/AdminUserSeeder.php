@@ -16,7 +16,10 @@ class AdminUserSeeder extends Seeder
 
         if (empty($adminEmail) || empty($adminPassword)) {
             if (app()->environment('local')) {
-                $adminEmail = 'admin@uleam.edu.ec';
+                // Cuenta solo para desarrollo local. Dominio .test (reservado, no institucional): entra con
+                // contraseña aunque Microsoft 365 esté configurado. No usar un correo @uleam.edu.ec que no
+                // exista en Microsoft, porque esas cuentas entran solo con Microsoft.
+                $adminEmail = 'superadmin@datafield.test';
                 $adminPassword = 'Admin123456!';
                 $adminName = 'Super Administrador';
             } else {

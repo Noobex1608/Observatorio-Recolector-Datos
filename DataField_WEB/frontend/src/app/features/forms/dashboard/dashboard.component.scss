@@ -926,6 +926,12 @@
   .search-box {
     min-width: 100%;
   }
+
+  .toolbar-right,
+  .project-filter {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .toolbar-right {
@@ -935,30 +941,46 @@
   flex-wrap: wrap;
 }
 
-.category-select {
+.project-filter {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 240px;
+  max-width: 360px;
   padding: 0.5rem 0.875rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: var(--card-bg);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+
+  &:hover { border-color: var(--border-hover); }
+  &:focus-within { border-color: var(--primary-500); box-shadow: 0 0 0 1px var(--primary-500); }
+
+  /* Filtro aplicado: se nota sin abrir el selector. */
+  &.is-active {
+    border-color: var(--primary-300);
+    background: var(--primary-50);
+
+    mat-icon { color: var(--primary-text-600); }
+  }
 
   mat-icon {
-    color: #f59e0b;
+    flex: none;
+    color: var(--text-tertiary);
     font-size: 20px;
     width: 20px;
     height: 20px;
   }
 
-  select {
-    border: none;
-    background: transparent;
-    outline: none;
+  .project-filter-select {
+    flex: 1;
+    min-width: 0;
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--text-primary);
-    cursor: pointer;
+    --mat-select-enabled-trigger-text-color: var(--text-primary);
+    --mat-select-enabled-arrow-color: var(--text-secondary);
+    --mat-select-trigger-text-size: 0.875rem;
+    --mat-select-trigger-text-weight: 600;
   }
 }
 

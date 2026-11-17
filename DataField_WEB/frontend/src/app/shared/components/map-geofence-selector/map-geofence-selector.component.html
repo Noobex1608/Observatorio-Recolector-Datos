@@ -16,16 +16,23 @@
       </div>
 
       <div class="input-field search-field">
-        <label for="searchLocationInput">Buscar Dirección / Lugar (OpenStreetMap)</label>
+        <label for="searchLocationInput">Buscar barrio, dirección o lugar</label>
         <div class="search-input-wrapper">
           <input
             id="searchLocationInput"
             type="text"
+            role="combobox"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="searchLocationList"
+            aria-describedby="searchLocationHelp"
+            [attr.aria-expanded]="searchResults().length > 0"
+            [attr.aria-activedescendant]="activeSuggestion() >= 0 ? 'searchLocationOption' + activeSuggestion() : null"
             [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
-            (keydown.enter)="searchLocation()"
-            [disabled]="disabled() || isSearching()"
-            placeholder="Buscar dirección (ej: Av. 24 y Calle 17, o Recinto Las Piñas)..."
+            (ngModelChange)="onSearchInput($event)"
+            (keydown)="onSearchKeydown($event)"
+            [disabled]="disabled()"
+            placeholder="Barrio, calle, lugar o coordenadas (-0.95, -80.74)"
           />
           @if (searchQuery()) {
             <button type="button" class="btn-clear-search" aria-label="Limpiar búsqueda" (click)="clearSearch()">
@@ -44,22 +51,42 @@
               <span class="material-icons" aria-hidden="true">search</span>
             }
           </button>
-        </div>
 
         @if (searchResults().length > 0) {
-          <div class="search-results-dropdown">
+          <div class="search-results-dropdown" id="searchLocationList" role="listbox" aria-label="Lugares encontrados">
             @for (result of searchResults(); track $index) {
-              <button type="button" class="search-result-item" (click)="selectSearchResult(result)">
-                <span class="material-icons result-icon" aria-hidden="true">place</span>
-                <span class="result-name">{{ result.display_name }}</span>
+              <button
+                type="button"
+                role="option"
+                tabindex="-1"
+                class="search-result-item"
+                [id]="'searchLocationOption' + $index"
+                [class.active]="$index === activeSuggestion()"
+                [attr.aria-selected]="$index === activeSuggestion()"
+                (mousedown)="$event.preventDefault()"
+                (click)="selectSuggestion(result)"
+              >
+                <span class="material-icons result-icon" aria-hidden="true">{{ result.icon || (result.kind === 'coords' ? 'my_location' : result.kind === 'osm' ? 'place' : 'map') }}</span>
+                <span class="result-text">
+                  <span class="result-name">{{ result.label }}</span>
+                  @if (result.detail) { <span class="result-detail">{{ result.detail }}</span> }
+                </span>
+                <span class="result-source">{{ result.kind === 'osm' ? 'OSM' : result.kind === 'coords' ? 'Coord.' : 'INEC' }}</span>
               </button>
             }
           </div>
         }
+        </div>
 
-        @if (searchError()) {
-          <div class="search-error-text">{{ searchError() }}</div>
-        }
+        <div id="searchLocationHelp" class="search-status" aria-live="polite">
+          @if (isSearching()) {
+            <span class="spinner-sm" aria-hidden="true"></span> {{ searchStatus() || 'Buscando…' }}
+          } @else if (searchError()) {
+            <span class="search-error-text" role="alert">{{ searchError() }}</span>
+          } @else if (searchQuery().trim().length >= 3 && !searchResults().length && searchQuery() !== pickedLabel()) {
+            <span class="search-hint">Sin sugerencias. Pulse Enter para una búsqueda más amplia.</span>
+          }
+        </div>
       </div>
 
       <div class="input-field radius-field" [class.disabled-field]="isManzanaGeofence()">

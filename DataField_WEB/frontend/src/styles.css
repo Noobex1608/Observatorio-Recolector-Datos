@@ -89,6 +89,56 @@
   --card-border: #dce7f1;
   --hover-bg: #eaf4ff;
 
+
+  /* Tipografía: Inter en toda la interfaz (cargada en index.html). Ver DESIGN.md. */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Angular Material: sus textos usan Inter en lugar de Roboto. */
+  --mat-badge-text-font: var(--font-sans);
+  --mat-bottom-sheet-container-text-font: var(--font-sans);
+  --mat-button-filled-label-text-font: var(--font-sans);
+  --mat-button-outlined-label-text-font: var(--font-sans);
+  --mat-button-protected-label-text-font: var(--font-sans);
+  --mat-button-text-label-text-font: var(--font-sans);
+  --mat-button-toggle-label-text-font: var(--font-sans);
+  --mat-button-toggle-legacy-label-text-font: var(--font-sans);
+  --mat-button-tonal-label-text-font: var(--font-sans);
+  --mat-card-subtitle-text-font: var(--font-sans);
+  --mat-card-title-text-font: var(--font-sans);
+  --mat-checkbox-label-text-font: var(--font-sans);
+  --mat-chip-label-text-font: var(--font-sans);
+  --mat-datepicker-calendar-text-font: var(--font-sans);
+  --mat-dialog-subhead-font: var(--font-sans);
+  --mat-dialog-supporting-text-font: var(--font-sans);
+  --mat-expansion-container-text-font: var(--font-sans);
+  --mat-expansion-header-text-font: var(--font-sans);
+  --mat-fab-extended-label-text-font: var(--font-sans);
+  --mat-form-field-container-text-font: var(--font-sans);
+  --mat-form-field-filled-label-text-font: var(--font-sans);
+  --mat-form-field-outlined-label-text-font: var(--font-sans);
+  --mat-form-field-subscript-text-font: var(--font-sans);
+  --mat-list-list-item-label-text-font: var(--font-sans);
+  --mat-list-list-item-supporting-text-font: var(--font-sans);
+  --mat-list-list-item-trailing-supporting-text-font: var(--font-sans);
+  --mat-menu-item-label-text-font: var(--font-sans);
+  --mat-optgroup-label-text-font: var(--font-sans);
+  --mat-option-label-text-font: var(--font-sans);
+  --mat-paginator-container-text-font: var(--font-sans);
+  --mat-radio-label-text-font: var(--font-sans);
+  --mat-select-trigger-text-font: var(--font-sans);
+  --mat-slide-toggle-label-text-font: var(--font-sans);
+  --mat-slider-label-label-text-font: var(--font-sans);
+  --mat-snack-bar-supporting-text-font: var(--font-sans);
+  --mat-stepper-container-text-font: var(--font-sans);
+  --mat-stepper-header-label-text-font: var(--font-sans);
+  --mat-tab-label-text-font: var(--font-sans);
+  --mat-table-footer-supporting-text-font: var(--font-sans);
+  --mat-table-header-headline-font: var(--font-sans);
+  --mat-table-row-item-label-text-font: var(--font-sans);
+  --mat-toolbar-title-text-font: var(--font-sans);
+  --mat-tooltip-supporting-text-font: var(--font-sans);
+  --mat-tree-node-text-font: var(--font-sans);
+
   /* Transiciones */
   --transition-fast: 150ms ease;
   --transition-normal: 300ms ease;
@@ -102,6 +152,11 @@
   --radius-2xl: 0.5rem;
   --radius-full: 9999px;
 }
+
+/* El tema prebuilt vuelve a fijar Roboto en estos componentes: también usan Inter. */
+.mat-mdc-standard-chip { --mat-chip-label-text-font: var(--font-sans); }
+html .mat-mdc-slide-toggle { --mat-slide-toggle-label-text-font: var(--font-sans); }
+.mat-mdc-tab-header { --mat-tab-label-text-font: var(--font-sans); }
 
 /* Tema oscuro */
 .dark {
@@ -275,14 +330,7 @@ html {
 body {
   height: 100%;
   margin: 0;
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition:
@@ -2081,4 +2129,72 @@ body.immersive-modal-open .layout-main {
 /* Respetar la preferencia de movimiento reducido (2.3.3) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Selector de responsables del editor de proyecto: nombre y correo en dos líneas, sin cortar. */
+.member-select-panel .mat-mdc-option {
+  min-height: 52px;
+}
+
+.member-select-panel .mat-mdc-option .mdc-list-item__primary-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.member-select-panel .person-option {
+  display: grid;
+  line-height: 1.3;
+  padding: 0.25rem 0;
+}
+
+.member-select-panel .person-option .person-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.member-select-panel .person-option .person-email {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Filtro de proyectos de "Mis formularios": nombre completo y cantidad de formularios. */
+.project-filter-panel {
+  min-width: min(320px, 92vw);
+}
+
+.project-filter-panel .mat-mdc-option .mdc-list-item__primary-text {
+  width: 100%;
+  white-space: normal;
+}
+
+.project-filter-panel .project-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.project-filter-panel .project-option-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.project-filter-panel .project-option-count {
+  flex: none;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.project-filter-panel .mat-mdc-option.mdc-list-item--selected .project-option-count {
+  background: var(--primary-100);
+  color: var(--primary-text-700);
 }

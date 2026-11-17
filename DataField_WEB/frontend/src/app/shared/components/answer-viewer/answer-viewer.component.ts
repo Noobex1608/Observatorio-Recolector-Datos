@@ -10,6 +10,7 @@ interface GpsCoords {
   lat: number;
   lng: number;
   accuracy?: number;
+  capturedAt?: string;
 }
 
 export interface GeofenceResult {
@@ -110,6 +111,9 @@ export interface GeofenceResult {
                     {{ gpsCoords.lat }}, {{ gpsCoords.lng }}
                     @if (gpsCoords.accuracy) {
                       <small class="accuracy">(&plusmn;{{ gpsCoords.accuracy }}m)</small>
+                    }
+                    @if (gpsCoords.capturedAt) {
+                      <small class="accuracy">· {{ gpsCoords.capturedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
                     }
                   </span>
                   <a
@@ -1231,6 +1235,7 @@ export class AnswerViewerComponent {
           lat,
           lng,
           accuracy: this.value.accuracy ? Math.round(Number.parseFloat(this.value.accuracy)) : undefined,
+          capturedAt: typeof this.value.timestamp === 'string' ? this.value.timestamp : undefined,
         };
       }
     }

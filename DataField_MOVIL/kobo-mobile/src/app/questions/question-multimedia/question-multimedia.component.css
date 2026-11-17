@@ -508,3 +508,92 @@
   }
 }
 
+
+/* Botón secundario (galería, cancelar) */
+.btn-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+button.btn-primary-action { border: 0; font: inherit; font-weight: 600; }
+button.btn-primary-action:disabled { opacity: 0.6; cursor: default; }
+.btn-primary-action:focus-visible,
+.btn-secondary-action:focus-within,
+.btn-secondary-action:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+
+.video-zone { gap: 0.75rem; }
+
+/* Grabador de video de la app */
+.video-recorder {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #0f172a;
+}
+
+.video-recorder.is-recording { border-color: #dc2626; }
+
+.video-recorder-preview {
+  width: 100%;
+  max-height: 55vh;
+  border-radius: 10px;
+  background: #000;
+  object-fit: cover;
+}
+
+.video-recorder-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #f8fafc;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: rec-blink 1s step-start infinite;
+}
+
+@keyframes rec-blink { 50% { opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+
+.video-recorder-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.2);
+  overflow: hidden;
+}
+
+.video-recorder-progress-fill {
+  height: 100%;
+  background: #ef4444;
+  transition: width 0.25s linear;
+}
+
+.video-recorder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-stop { background-color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); }

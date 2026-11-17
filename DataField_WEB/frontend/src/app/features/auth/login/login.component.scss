@@ -199,3 +199,75 @@ form { display: grid; gap: 23px; }
 @media (prefers-reduced-motion: reduce) {
   .field input, .submit-button { transition: none; }
 }
+
+/* Inicio de sesión con Microsoft 365 (cuentas institucionales ULEAM) */
+.microsoft-block {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.microsoft-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 52px;
+  border: 1px solid #8c8c8c;
+  border-radius: 11px;
+  background: #fff;
+  color: #1f1f1f;
+  font: inherit;
+  font-size: 0.93rem;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #f3f3f3; }
+  &:focus-visible { outline: 3px solid var(--primary-600); outline-offset: 2px; }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+.microsoft-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #5b6b7a;
+  text-align: center;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: #5b6b7a;
+
+  &::before, &::after { content: ''; flex: 1; border-top: 1px solid #d5dee7; }
+}
+
+.institutional-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #eef6ff;
+  border: 1px solid #c7ddf3;
+  color: #0b4a7a;
+  font-size: 0.85rem;
+}
+
+.institutional-note p { margin: 0; }
+
+/* Acceso de emergencia del SUPER_ADMIN con correo institucional (el backend solo lo admite para ese rol). */
+.emergency-link {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #0b4a7a;
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+}
