@@ -23,7 +23,9 @@ class GetUsersUseCase
             throw new AccessDeniedHttpException('Solo los administradores pueden ver la lista de usuarios');
         }
 
+        // Las solicitudes de acceso (pendientes o rechazadas) tienen su propia bandeja.
         $query = User::with('perfil')
+            ->whereNull('access_request_status')
             ->orderBy('created_at', 'desc');
 
         if ($admin->isAdmin()) {

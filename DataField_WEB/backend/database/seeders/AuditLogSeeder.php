@@ -28,7 +28,7 @@ class AuditLogSeeder extends Seeder
             [
                 'user_id' => $superAdmin?->id,
                 'user_name' => $superAdmin?->name ?? 'SuperAdmin ULEAM',
-                'user_email' => $superAdmin?->email ?? 'admin@uleam.edu.ec',
+                'user_email' => $superAdmin?->email ?? 'superadmin@datafield.test',
                 'user_role' => 'SUPER_ADMIN',
                 'action' => 'UPDATE_ROLE',
                 'module' => 'usuarios',
@@ -83,7 +83,7 @@ class AuditLogSeeder extends Seeder
             [
                 'user_id' => $superAdmin?->id,
                 'user_name' => $superAdmin?->name ?? 'SuperAdmin ULEAM',
-                'user_email' => $superAdmin?->email ?? 'admin@uleam.edu.ec',
+                'user_email' => $superAdmin?->email ?? 'superadmin@datafield.test',
                 'user_role' => 'SUPER_ADMIN',
                 'action' => 'PROJECT_CREATE',
                 'module' => 'proyectos',

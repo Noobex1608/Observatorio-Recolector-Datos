@@ -22,7 +22,7 @@ class LoginUseCaseTest extends TestCase
     {
         parent::setUp();
 
-        $this->useCase = new LoginUseCase;
+        $this->useCase = app(LoginUseCase::class);
     }
 
     public function test_login_successful_returns_user_and_token(): void

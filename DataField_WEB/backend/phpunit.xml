@@ -29,6 +29,13 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Las pruebas no deben heredar la app de Microsoft 365 del .env local: cada prueba la configura. -->
+        <env name="MICROSOFT_CLIENT_ID" value=""/>
+        <env name="MICROSOFT_CLIENT_SECRET" value=""/>
+        <env name="MICROSOFT_TENANT_ID" value=""/>
+        <env name="MICROSOFT_MAIL_SENDER" value=""/>
+        <env name="AUTH_INTERNAL_EMAIL_DOMAINS" value="uleam.edu.ec,live.uleam.edu.ec,dn.uleam.edu.ec"/>
+        <env name="FRONTEND_URL" value="http://localhost:4200"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

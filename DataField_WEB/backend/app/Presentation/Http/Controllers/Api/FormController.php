@@ -489,6 +489,8 @@ class FormController extends Controller
             'branch_rules' => 'nullable|array',
             'properties' => 'nullable|array',
             'properties.text_format' => 'nullable|in:email,cedula_ec,telefono_ec',
+            // Duración máxima de los videos de una pregunta multimedia (segundos).
+            'properties.max_video_seconds' => 'nullable|integer|min:5|max:120',
             'section_name' => 'nullable|string|max:255',
             'parent_question_id' => 'nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -536,6 +538,8 @@ class FormController extends Controller
             'branch_rules' => 'sometimes|nullable|array',
             'properties' => 'sometimes|nullable|array',
             'properties.text_format' => 'nullable|in:email,cedula_ec,telefono_ec',
+            // Duración máxima de los videos de una pregunta multimedia (segundos).
+            'properties.max_video_seconds' => 'nullable|integer|min:5|max:120',
             'section_name' => 'sometimes|nullable|string|max:255',
             'parent_question_id' => 'sometimes|nullable|uuid|exists:form_questions,id',
             'branch_rules.*.option_index' => 'required_with:branch_rules|integer|min:0',
@@ -984,7 +988,7 @@ class FormController extends Controller
             'questions.*.type' => 'required|in:MULTIPLE_CHOICE,SINGLE_CHOICE,LIKERT,TEXT,NUMBER,NOTE,DATE,TIME,DATETIME,GPS,MULTIMEDIA,SIGNATURE,RANKING,RATING,BARCODE,CALCULATE',
             'questions.*.label' => 'required|string', 'questions.*.order' => 'required|integer|min:0',
             'questions.*.required' => 'required|boolean', 'questions.*.options' => 'nullable|array',
-            'questions.*.properties' => 'nullable|array', 'questions.*.section_name' => 'nullable|string|max:255',
+            'questions.*.properties' => 'nullable|array', 'questions.*.properties.max_video_seconds' => 'nullable|integer|min:5|max:120', 'questions.*.section_name' => 'nullable|string|max:255',
             'questions.*.parent_question_id' => 'nullable|uuid', 'questions.*.branch_rules' => 'nullable|array',
             'questions.*.branch_rules.*.option_index' => 'required|integer|min:0',
             'questions.*.branch_rules.*.action' => 'required|in:CONTINUE,GO_TO,END_FORM',

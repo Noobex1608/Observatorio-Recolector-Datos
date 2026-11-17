@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,6 +26,23 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
   const end = group.get('end_date')?.value;
   // Las fechas llegan como 'YYYY-MM-DD', así que la comparación de texto respeta el orden cronológico.
   return start && end && end < start ? { endBeforeStart: true } : null;
+}
+
+/** Persona elegible en el editor de proyecto (líder, delegado o supervisor). */
+interface EditorPerson {
+  id: number;
+  name: string;
+  email: string;
+}
+
+/** Un bloque de responsables del editor de proyecto. */
+interface MemberSlot {
+  key: 'leader_ids' | 'delegate_ids' | 'supervisor_ids';
+  label: string;
+  noun: string;
+  help: string;
+  empty: string;
+  options: EditorPerson[];
 }
 
 @Component({
@@ -56,6 +73,13 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
           <span class="eyebrow">Gestión de proyectos</span>
           <h1>{{ 'projects.title' | translate }}</h1>
           <p>{{ 'projects.subtitle' | translate }}</p>
+          @if (canManageProjects()) {
+            <button mat-flat-button color="primary" type="button" class="new-project-btn"
+              (click)="openCreateProject()" [disabled]="creatingProject()">
+              <mat-icon>add</mat-icon>
+              Nuevo proyecto
+            </button>
+          }
         </div>
         <div class="page-kpis">
           <article>
@@ -76,69 +100,109 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
         </div>
       </header>
 
-      @if (canManageProjects() || editingProject()) {
-        <form class="project-form" [formGroup]="projectForm" (ngSubmit)="saveProject()">
-          <div class="project-form-heading">
-            <span class="form-icon">
-              <mat-icon>{{ editingProject() ? 'edit_note' : 'create_new_folder' }}</mat-icon>
-            </span>
-            <div>
-              <strong>{{ (editingProject() ? 'projects.editProject' : 'projects.create') | translate }}</strong>
-              <p>Define el alcance, descripción y responsables del proyecto.</p>
+      @if (editingProject() || creatingProject()) {
+        <!-- Crear o editar: el mismo panel, con el contexto del proyecto y los responsables legibles -->
+        <section #projectEditor class="project-editor" aria-labelledby="project-editor-title">
+          <header class="editor-head">
+            <div class="editor-title">
+              @if (editingProject(); as editing) {
+                <h2 id="project-editor-title">Editar proyecto</h2>
+                <p>{{ editing.name }}</p>
+              } @else {
+                <h2 id="project-editor-title">Nuevo proyecto</h2>
+                <p>Un proyecto agrupa los formularios, las zonas y el equipo de un levantamiento.</p>
+              }
             </div>
-          </div>
-
-          <div class="project-fields">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'projects.name' | translate }}</mat-label>
-              <input matInput formControlName="name" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'projects.description' | translate }}</mat-label>
-              <textarea matInput rows="2" formControlName="description"></textarea>
-            </mat-form-field>
-
-            @if (canManageProjects()) {
-              <mat-form-field appearance="outline">
-                <mat-label>{{ 'projects.leader' | translate }}</mat-label>
-                <mat-select formControlName="leader_ids" multiple>
-                  @for (leader of projectLeaders(); track leader.id) {
-                    <mat-option [value]="leader.id">{{ leader.name }} - {{ leader.email }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            }
-            @if (editingProject() && canAssignMembers()) {
-              <mat-form-field appearance="outline">
-                <mat-label>Delegados del proyecto</mat-label>
-                <mat-select formControlName="delegate_ids" multiple>
-                  @for (user of assignableUsers(); track user.id) {
-                    @if (user.rol === 'PROJECT') { <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option> }
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Supervisores del proyecto</mat-label>
-                <mat-select formControlName="supervisor_ids" multiple>
-                  @for (user of assignableUsers(); track user.id) {
-                    @if (user.rol === 'SUPERVISOR') { <mat-option [value]="user.id">{{ user.name }} — {{ user.email }}</mat-option> }
-                  }
-                </mat-select>
-              </mat-form-field>
-            }
-          </div>
-
-          <div class="form-actions">
-            @if (editingProject()) {
-              <button mat-stroked-button type="button" (click)="cancelEdit()">{{ 'common.buttons.cancel' | translate }}</button>
-            }
-            <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid || saving()">
-              <mat-icon>{{ editingProject() ? 'save' : 'add' }}</mat-icon>
-              {{ (editingProject() ? 'projects.save' : 'projects.create') | translate }}
+            <button mat-icon-button type="button" (click)="cancelEdit()"
+              [attr.aria-label]="editingProject() ? 'Cerrar sin guardar cambios' : 'Cerrar sin crear el proyecto'">
+              <mat-icon>close</mat-icon>
             </button>
-          </div>
-        </form>
+          </header>
+
+          <form class="editor-body" [formGroup]="projectForm" (ngSubmit)="saveProject()">
+            <fieldset class="editor-section">
+              <legend>Datos del proyecto</legend>
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'projects.name' | translate }}</mat-label>
+                <input #projectNameInput matInput formControlName="name" maxlength="255" required />
+                @if (projectForm.controls.name.hasError('required')) {
+                  <mat-error>El proyecto necesita un nombre.</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'projects.description' | translate }}</mat-label>
+                <textarea matInput rows="4" formControlName="description"
+                  placeholder="Objetivo, población o territorio que cubre el levantamiento"></textarea>
+              </mat-form-field>
+            </fieldset>
+
+            @if (memberSlots().length) {
+              <fieldset class="editor-section">
+                <legend>Responsables</legend>
+                @for (slot of memberSlots(); track slot.key) {
+                  <div class="member-slot">
+                    <div class="member-slot-head">
+                      <span class="member-slot-label" [id]="'slot-' + slot.key">{{ slot.label }}</span>
+                      <span class="member-slot-help">{{ slot.help }}</span>
+                    </div>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <mat-label>Agregar {{ slot.noun }}</mat-label>
+                      <mat-select [formControlName]="slot.key" multiple panelClass="member-select-panel"
+                        [attr.aria-describedby]="'slot-' + slot.key">
+                        <mat-select-trigger>{{ selectionSummary(slot.key) }}</mat-select-trigger>
+                        @for (person of slot.options; track person.id) {
+                          <mat-option [value]="person.id">
+                            <span class="person-option">
+                              <span class="person-name">{{ person.name }}</span>
+                              <span class="person-email">{{ person.email }}</span>
+                            </span>
+                          </mat-option>
+                        } @empty {
+                          <mat-option disabled>No hay usuarios con este rol todavía.</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    @let people = selectedPeople(slot.key, slot.options);
+                    @if (people.length) {
+                      <ul class="people-list" [attr.aria-label]="slot.label + ' asignados'">
+                        @for (person of people; track person.id) {
+                          <li class="person-chip">
+                            <span class="person-initial" aria-hidden="true">{{ person.name.charAt(0) }}</span>
+                            <span class="person-text">
+                              <span class="person-name">{{ person.name }}</span>
+                              <span class="person-email">{{ person.email }}</span>
+                            </span>
+                            <button mat-icon-button type="button" class="person-remove" (click)="removeMember(slot.key, person.id)"
+                              [attr.aria-label]="'Quitar a ' + person.name + ' de ' + slot.label">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    } @else {
+                      <p class="people-empty">{{ slot.empty }}</p>
+                    }
+                  </div>
+                }
+                @if (creatingProject() && canManageProjects()) {
+                  <p class="editor-note">
+                    <mat-icon aria-hidden="true">info</mat-icon>
+                    Los delegados y supervisores se asignan después, desde «Editar proyecto».
+                  </p>
+                }
+              </fieldset>
+            }
+
+            <footer class="editor-actions">
+              <button mat-stroked-button type="button" (click)="cancelEdit()">{{ 'common.buttons.cancel' | translate }}</button>
+              <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid || saving()">
+                <mat-icon>{{ editingProject() ? 'save' : 'add' }}</mat-icon>
+                @if (saving()) { {{ editingProject() ? 'Guardando…' : 'Creando…' }} }
+                @else { {{ editingProject() ? 'Guardar cambios' : 'Crear proyecto' }} }
+              </button>
+            </footer>
+          </form>
+        </section>
       }
 
       @if (loading()) {
@@ -165,6 +229,12 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
               <div class="empty-state">
                 <mat-icon>folder_open</mat-icon>
                 <p>{{ 'projects.noVisible' | translate }}</p>
+                @if (canManageProjects() && !creatingProject()) {
+                  <button mat-stroked-button type="button" (click)="openCreateProject()">
+                    <mat-icon>add</mat-icon>
+                    Crear el primer proyecto
+                  </button>
+                }
               </div>
             }
           </div>
@@ -961,62 +1031,213 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
         font-size: 1.1rem;
       }
 
-      .project-form {
-        display: grid;
-        grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.5fr) auto;
-        gap: 1rem;
-        align-items: center;
-        padding: 1rem 1.1rem;
+      .new-project-btn {
+        margin-top: 0.9rem;
+      }
+
+      .editor-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin: 0.25rem 0 1.1rem;
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        line-height: 1.4;
+      }
+
+      .editor-note mat-icon {
+        flex: none;
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+        color: var(--primary-text-600);
+      }
+
+      /* ---- Editor de proyecto ---- */
+      .project-editor {
+        /* Deja visible la barra superior al desplazarse hasta el editor. */
+        scroll-margin-top: 5.5rem;
         border: 1px solid var(--card-border);
         border-radius: var(--radius-lg);
         background: var(--card-bg);
         box-shadow: 0 12px 30px var(--shadow-color);
       }
 
-      .project-form-heading {
+      .editor-head {
         display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        min-width: 0;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem 1rem;
+        border-bottom: 1px solid var(--card-border);
       }
 
-      .project-form-heading strong {
-        display: block;
+      .editor-title { min-width: 0; }
+
+      .editor-title h2 {
+        margin: 0;
         color: var(--text-primary);
-        font-size: 1rem;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
 
-      .project-form-heading p {
-        margin: 0.2rem 0 0;
+      .editor-title p {
+        margin: 0.25rem 0 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        overflow-wrap: anywhere;
+      }
+
+      .editor-body {
+        display: grid;
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        gap: 0 2rem;
+        padding: 1.25rem 1.5rem 0;
+      }
+
+      .editor-section {
+        display: grid;
+        align-content: start;
+        gap: 0.35rem;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .editor-section legend {
+        float: left;
+        width: 100%;
+        margin-bottom: 0.85rem;
+        padding: 0;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .editor-section + .editor-section { border-left: 1px solid var(--card-border); padding-left: 2rem; }
+
+      .member-slot {
+        display: grid;
+        gap: 0.5rem;
+        min-width: 0;
+        padding-bottom: 1.1rem;
+      }
+
+      .member-slot + .member-slot {
+        padding-top: 1.1rem;
+        border-top: 1px dashed var(--card-border);
+      }
+
+      .member-slot-head {
+        display: grid;
+        gap: 0.15rem;
+      }
+
+      .member-slot-label {
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-weight: 650;
+      }
+
+      .member-slot-help {
         color: var(--text-secondary);
         font-size: 0.82rem;
-        line-height: 1.35;
+        line-height: 1.4;
       }
 
-      .form-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        width: 42px;
-        height: 42px;
-        border-radius: var(--radius-lg);
-        background: var(--primary-50);
-        color: var(--primary-text-700);
-        border: 1px solid var(--primary-100);
-      }
-
-      .project-fields {
-        display: grid;
-        grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1.1fr) minmax(220px, 1fr);
-        gap: 0.8rem;
-      }
-
-      .form-actions {
+      .people-list {
         display: flex;
+        flex-wrap: wrap;
         gap: 0.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .person-chip {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        max-width: 100%;
+        min-width: 0;
+        padding: 0.3rem 0.2rem 0.3rem 0.35rem;
+        border: 1px solid var(--primary-100);
+        border-radius: 12px;
+        background: var(--primary-50);
+      }
+
+      .person-initial {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 1.9rem;
+        height: 1.9rem;
+        border-radius: 50%;
+        background: var(--primary-600);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .person-text {
+        display: grid;
+        min-width: 0;
+        line-height: 1.25;
+      }
+
+      .person-text .person-name {
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+
+      .person-text .person-email {
+        color: var(--text-secondary);
+        font-size: 0.76rem;
+        overflow-wrap: anywhere;
+      }
+
+      .person-remove {
+        flex: none;
+        width: 32px;
+        height: 32px;
+        padding: 4px;
+        color: var(--text-secondary);
+      }
+
+      .person-remove mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+      .people-empty {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        font-style: italic;
+      }
+
+      .editor-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
         justify-content: flex-end;
-        padding-top: 0.35rem;
+        gap: 0.6rem;
+        margin: 0 -1.5rem;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--card-border);
+      }
+
+      @media (max-width: 1100px) {
+        .editor-body { grid-template-columns: minmax(0, 1fr); }
+        .editor-section + .editor-section { border-left: 0; padding-left: 0; padding-top: 0.5rem; }
+      }
+
+      @media (max-width: 600px) {
+        .editor-head, .editor-body { padding-left: 1rem; padding-right: 1rem; }
+        .editor-actions { margin: 0 -1rem; padding: 1rem; }
+        .editor-actions button { flex: 1 1 auto; }
       }
 
       .loading-state,
@@ -1589,7 +1810,6 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
       }
 
       @media (max-width: 1600px) {
-        .project-form,
         .projects-layout {
           grid-template-columns: minmax(0, 1fr);
         }
@@ -1610,8 +1830,6 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
       }
 
       @media (max-width: 900px) {
-        .project-form,
-        .project-fields,
         .form-item,
         .member-row {
           grid-template-columns: 1fr;
@@ -1627,8 +1845,8 @@ function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null 
           grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         }
 
-        .form-actions {
-          justify-content: flex-start;
+        .new-project-btn {
+          width: 100%;
         }
       }
 
@@ -2007,6 +2225,11 @@ export class ProjectListComponent implements OnInit {
   loading = signal(true);
   saving = signal(false);
   editingProject = signal<Project | null>(null);
+  /** Panel abierto en modo "Nuevo proyecto". */
+  creatingProject = signal(false);
+  readonly projectEditor = viewChild<ElementRef<HTMLElement>>('projectEditor');
+  readonly projectNameInput = viewChild<ElementRef<HTMLInputElement>>('projectNameInput');
+  private editTrigger: HTMLElement | null = null;
 
   selectedTabIndex = 0;
   savingSheet = signal(false);
@@ -2308,7 +2531,9 @@ export class ProjectListComponent implements OnInit {
         this.collectorFile.set(null);
         this.loadCollectors(project.id);
         this.loadAllEnumerators(project.id);
-        this.notify.success(`${result.imported} encuestador(es) importados`);
+        const invited = result.invited?.length ?? 0;
+        this.notify.success(`${result.imported} encuestador(es) importados`
+          + (invited ? `. ${invited} externo(s) recibirán un correo para confirmar su cuenta y crear su contraseña.` : ''));
       },
       error: (error) => {
         this.collectorBusy.set(false);
@@ -2816,19 +3041,42 @@ export class ProjectListComponent implements OnInit {
     });
   }
 
+  /** Abre el panel en modo creación (mismo panel que la edición). */
+  openCreateProject(): void {
+    this.editTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.editingProject.set(null);
+    this.creatingProject.set(true);
+    this.projectForm.reset({ name: '', description: '', leader_ids: [], delegate_ids: [], supervisor_ids: [] });
+    this.revealProjectEditor();
+  }
+
   editProject(project: Project): void {
+    // Se recuerda el botón que abrió la edición para devolverle el foco al cerrar.
+    this.editTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.creatingProject.set(false);
     this.editingProject.set(project);
-    this.projectForm.patchValue({
+    this.projectForm.reset({
       name: project.name,
       description: project.description ?? '',
       leader_ids: (project.leaders ?? []).map((leader) => leader.id),
       delegate_ids: (project.delegates ?? []).map((user) => user.id),
       supervisor_ids: (project.supervisors ?? []).map((user) => user.id),
     });
+    this.revealProjectEditor();
+  }
+
+  /** El panel está arriba de la página: se lleva al usuario hasta él y al campo Nombre. */
+  private revealProjectEditor(): void {
+    setTimeout(() => {
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      this.projectEditor()?.nativeElement.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      this.projectNameInput()?.nativeElement.focus({ preventScroll: true });
+    });
   }
 
   cancelEdit(): void {
     this.editingProject.set(null);
+    this.creatingProject.set(false);
     this.projectForm.reset({
       name: '',
       description: '',
@@ -2836,6 +3084,63 @@ export class ProjectListComponent implements OnInit {
       delegate_ids: [],
       supervisor_ids: [],
     });
+    // Vuelve al punto de la página desde donde se abrió la edición.
+    const trigger = this.editTrigger;
+    this.editTrigger = null;
+    if (trigger?.isConnected) setTimeout(() => trigger.focus());
+  }
+
+  /** Bloques de responsables del editor, según lo que puede asignar quien edita. */
+  readonly memberSlots = computed<MemberSlot[]>(() => {
+    const creating = this.creatingProject();
+    const project = this.editingProject() ?? (creating ? ({} as Partial<Project>) : null);
+    if (!project) return [];
+    const withCurrent = (options: EditorPerson[], current: EditorPerson[] | undefined) => {
+      const ids = new Set(options.map((person) => person.id));
+      return [...options, ...(current ?? []).filter((person) => !ids.has(person.id))];
+    };
+    const slots: MemberSlot[] = [];
+    if (this.canManageProjects()) {
+      slots.push({
+        key: 'leader_ids', label: 'Líder de proyecto', noun: 'líder',
+        help: 'Responsable del proyecto: gestiona formularios, zonas y encuestadores.',
+        empty: 'Sin líder asignado. Solo los administradores podrán gestionarlo.',
+        options: withCurrent(this.projectLeaders() as EditorPerson[], project.leaders as EditorPerson[] | undefined),
+      });
+    }
+    // Delegados y supervisores dependen de los usuarios asignables del proyecto: solo al editar.
+    if (!creating && this.canAssignMembers()) {
+      slots.push({
+        key: 'delegate_ids', label: 'Delegados', noun: 'delegado',
+        help: 'Ayudan al líder a crear y gestionar los formularios.',
+        empty: 'Sin delegados.',
+        options: withCurrent(this.assignableUsers().filter((user) => user.rol === 'PROJECT') as EditorPerson[], project.delegates as EditorPerson[] | undefined),
+      });
+      slots.push({
+        key: 'supervisor_ids', label: 'Supervisores', noun: 'supervisor',
+        help: 'Revisan el avance y el recorrido de los encuestadores en Supervisión.',
+        empty: 'Sin supervisores.',
+        options: withCurrent(this.assignableUsers().filter((user) => user.rol === 'SUPERVISOR') as EditorPerson[], project.supervisors as EditorPerson[] | undefined),
+      });
+    }
+    return slots;
+  });
+
+  /** Personas elegidas en un bloque, en el orden en que se seleccionaron. */
+  selectedPeople(key: MemberSlot['key'], options: EditorPerson[]): EditorPerson[] {
+    const ids: number[] = this.projectForm.controls[key].value ?? [];
+    return ids.map((id) => options.find((person) => person.id === id)).filter((person): person is EditorPerson => !!person);
+  }
+
+  selectionSummary(key: MemberSlot['key']): string {
+    const count = (this.projectForm.controls[key].value ?? []).length;
+    return count === 0 ? '' : count === 1 ? '1 seleccionado' : `${count} seleccionados`;
+  }
+
+  removeMember(key: MemberSlot['key'], id: number): void {
+    const control = this.projectForm.controls[key];
+    control.setValue((control.value ?? []).filter((value: number) => value !== id));
+    control.markAsDirty();
   }
 
   canCreateFormsInProject(project: Project): boolean {

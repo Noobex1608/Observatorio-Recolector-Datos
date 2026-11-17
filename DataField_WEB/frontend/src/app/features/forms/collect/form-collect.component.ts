@@ -8,6 +8,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Form, FormQuestion, FormService } from '@core/services/form.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { normalizeTextFormat, textFormatError, textFormatInput, textFormatOf } from '@core/utils/text-format';
+import { maxVideoSeconds, readVideoDuration } from '@core/utils/video-duration';
 
 /** Avance de una encuesta pública guardado en la pestaña para sobrevivir a una recarga. */
 interface SavedProgress {
@@ -284,6 +285,9 @@ interface QuestionVisualMeta {
                     @case ('MULTIMEDIA') {
                       <input class="text-input" type="file" accept="image/*,audio/*,video/*" [attr.aria-label]="question.label"
                         (change)="captureMedia(question, $event)" />
+                      @if (['all', 'video'].includes(question.properties?.allowed_media || 'all')) {
+                        <p class="question-help">Videos de hasta {{ maxVideoSeconds(question) }} segundos.</p>
+                      }
                     }
                     @case ('SIGNATURE') {
                       <input class="text-input" type="file" accept="image/*" capture="user"
@@ -293,11 +297,37 @@ interface QuestionVisualMeta {
                       <p class="question-help">Resultado calculado al enviar las respuestas.</p>
                     }
                     @case ('GPS') {
-                      <div class="gps-answer">
-                        <button mat-stroked-button type="button" (click)="captureGps(question.id)">Capturar ubicación GPS</button>
+                      <div class="gps-answer" role="group" [attr.aria-label]="question.label">
+                        @let gps = gpsState()[question.id];
                         @if (gpsAnswer(question.id); as point) {
-                          <p>X (longitud): {{ point.longitude }} · Y (latitud): {{ point.latitude }} · Precisión: ±{{ point.accuracy }} m</p>
+                          <div class="gps-point">
+                            <mat-icon aria-hidden="true">place</mat-icon>
+                            <div>
+                              <p class="gps-coords">Latitud {{ point.latitude }} · Longitud {{ point.longitude }}</p>
+                              <p class="gps-meta">
+                                <span class="gps-accuracy" [class.gps-accuracy--low]="point.accuracy > 30">Precisión ±{{ point.accuracy }} m</span>
+                                @if (point.capturedAt) { · capturada {{ point.capturedAt | date: 'short' }} }
+                              </p>
+                              @if (point.accuracy > 30) {
+                                <p class="gps-meta">Señal débil: si puede, acérquese a una ventana o al aire libre y vuelva a capturar.</p>
+                              }
+                            </div>
+                          </div>
                         }
+                        @if (gps?.state === 'locating') {
+                          <p class="gps-status" aria-live="polite">
+                            <mat-spinner diameter="18"></mat-spinner> {{ gps?.message }}
+                          </p>
+                        }
+                        <div class="gps-actions">
+                          <button mat-stroked-button type="button" [disabled]="gps?.state === 'locating'" (click)="captureGps(question.id)">
+                            <mat-icon>my_location</mat-icon>
+                            {{ gpsAnswer(question.id) ? 'Volver a capturar' : (gps?.state === 'error' ? 'Reintentar' : 'Capturar ubicación') }}
+                          </button>
+                          @if (gpsAnswer(question.id) && !question.required) {
+                            <button mat-button type="button" (click)="clearGps(question.id)">Quitar</button>
+                          }
+                        </div>
                       </div>
                     }
                   }
@@ -638,7 +668,16 @@ interface QuestionVisualMeta {
       .ranking-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
       .ranking-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
       .ranking-row button { min-width: 44px; min-height: 44px; }
-      .gps-answer p { overflow-wrap: anywhere; }
+      .gps-answer { display: grid; gap: 0.5rem; }
+      .gps-answer p { margin: 0; overflow-wrap: anywhere; }
+      .gps-point { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.625rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; }
+      .gps-point mat-icon { color: #b91c1c; flex: none; }
+      .gps-coords { font-weight: 600; font-variant-numeric: tabular-nums; }
+      .gps-meta { font-size: 0.85rem; color: #4b5563; }
+      .gps-accuracy--low { color: #b45309; font-weight: 600; }
+      .gps-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+      .gps-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      .gps-actions button { min-height: 44px; }
 
       @media (max-width: 600px) {
         .collect-page { padding: 0; }
@@ -882,30 +921,85 @@ export class FormCollectComponent implements OnInit {
     }));
   }
 
-  gpsAnswer(questionId: string): { latitude: number; longitude: number; accuracy: number } | null {
+  /** Estado de la captura GPS en curso por pregunta (la respuesta capturada vive en `answers`). */
+  readonly gpsState = signal<Record<string, { state: 'locating' | 'error'; message: string }>>({});
+
+  gpsAnswer(questionId: string): { latitude: number; longitude: number; accuracy: number; capturedAt: string | null } | null {
     const answer = this.answers()[questionId];
     if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return null;
     const point = answer as Record<string, unknown>;
     return typeof point['latitude'] === 'number' && typeof point['longitude'] === 'number'
-      ? { latitude: point['latitude'], longitude: point['longitude'], accuracy: Number(point['accuracy'] ?? 0) }
+      ? {
+          latitude: point['latitude'],
+          longitude: point['longitude'],
+          accuracy: Math.round(Number(point['accuracy'] ?? 0)),
+          capturedAt: typeof point['timestamp'] === 'string' ? point['timestamp'] : null,
+        }
       : null;
   }
 
-  captureGps(questionId: string): void {
+  /**
+   * Captura la ubicación del dispositivo. Primero pide alta precisión (satélite); si se agota el
+   * tiempo, reintenta solo con la red (Wi-Fi/antenas), que responde antes aunque sea menos precisa.
+   */
+  captureGps(questionId: string, highAccuracy = true): void {
+    const setState = (state: 'locating' | 'error' | null, message = '') =>
+      this.gpsState.update((current) => {
+        const next = { ...current };
+        if (state) next[questionId] = { state, message };
+        else delete next[questionId];
+        return next;
+      });
+    const fail = (message: string) => {
+      setState('error', message);
+      this.validationErrors.update((errors) => ({ ...errors, [questionId]: message }));
+    };
+
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      this.validationErrors.update((errors) => ({ ...errors, [questionId]: 'Este dispositivo no permite obtener GPS.' }));
+      fail('Este navegador no permite obtener la ubicación.');
       return;
     }
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      fail('La ubicación solo está disponible en páginas seguras (https).');
+      return;
+    }
+
+    this.clearQuestionError(questionId);
+    setState('locating', highAccuracy ? 'Buscando señal GPS…' : 'Sin señal satelital; probando con la red…');
     navigator.geolocation.getCurrentPosition(
-      (position) => this.setAnswer(questionId, {
-        latitude: Number(position.coords.latitude.toFixed(7)),
-        longitude: Number(position.coords.longitude.toFixed(7)),
-        accuracy: position.coords.accuracy,
-        timestamp: new Date(position.timestamp).toISOString(),
-      }),
-      () => this.validationErrors.update((errors) => ({ ...errors, [questionId]: 'No se pudo obtener la ubicación. Revise los permisos GPS.' })),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      (position) => {
+        setState(null);
+        this.setAnswer(questionId, {
+          latitude: Number(position.coords.latitude.toFixed(7)),
+          longitude: Number(position.coords.longitude.toFixed(7)),
+          accuracy: Number(position.coords.accuracy.toFixed(1)),
+          altitude: position.coords.altitude === null ? null : Number(position.coords.altitude.toFixed(2)),
+          timestamp: new Date(position.timestamp).toISOString(),
+        });
+      },
+      (error) => {
+        if (error.code === error.TIMEOUT && highAccuracy) {
+          this.captureGps(questionId, false);
+          return;
+        }
+        fail(
+          error.code === error.PERMISSION_DENIED
+            ? 'Permiso de ubicación denegado. Habilítelo en el candado de la barra de direcciones y pulse Reintentar.'
+            : error.code === error.POSITION_UNAVAILABLE
+              ? 'No hay señal de ubicación. Active el GPS o la ubicación del dispositivo y reintente.'
+              : 'Se agotó el tiempo para obtener la ubicación. Reintente en un lugar abierto.',
+        );
+      },
+      highAccuracy
+        ? { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        : { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 },
     );
+  }
+
+  clearGps(questionId: string): void {
+    const answers = { ...this.answers() };
+    delete answers[questionId];
+    this.answers.set(answers);
   }
 
   setAnswer(questionId: string, value: unknown): void {
@@ -936,14 +1030,32 @@ export class FormCollectComponent implements OnInit {
     this.setAnswer(question.id, options);
   }
 
-  captureMedia(question: FormQuestion, event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
+  /** Límite de duración de video de la pregunta (5–120 s). */
+  maxVideoSeconds(question: FormQuestion): number {
+    return maxVideoSeconds(question.properties);
+  }
+
+  async captureMedia(question: FormQuestion, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
     if (!file) return;
     const maxBytes = Math.min(30, Math.max(1, Number(question.properties?.max_file_size_mb ?? 10))) * 1024 * 1024;
     if (file.size > maxBytes || !/^(image|audio|video)\//.test(file.type)
       || (question.type === 'SIGNATURE' && !file.type.startsWith('image/'))) {
       this.validationErrors.update((errors) => ({ ...errors, [question.id]: 'Archivo no permitido o demasiado grande.' }));
+      input.value = '';
       return;
+    }
+    if (file.type.startsWith('video/')) {
+      const limit = this.maxVideoSeconds(question);
+      const duration = await readVideoDuration(file);
+      if (duration !== null && duration > limit + 0.5) {
+        this.validationErrors.update((errors) => ({
+          ...errors, [question.id]: `El video dura ${Math.round(duration)} s; el máximo para esta pregunta es ${limit} s.`,
+        }));
+        input.value = '';
+        return;
+      }
     }
     const reader = new FileReader();
     reader.onload = () => this.setAnswer(question.id, reader.result);
@@ -1365,6 +1477,10 @@ export class FormCollectComponent implements OnInit {
 
       const matrix = answer as Record<string, unknown>;
       return rows.every((row) => matrix[row] !== undefined && matrix[row] !== null && String(matrix[row]).trim() !== '');
+    }
+
+    if (question.type === 'GPS') {
+      return this.gpsAnswer(question.id) !== null;
     }
 
     return answer !== undefined && answer !== null && String(answer).trim() !== '';

@@ -24,6 +24,19 @@
           <button type="submit" class="btn-acceder" [disabled]="cargando()">GUARDAR CONTRASEÑA</button>
         </form>
       } @else {
+      @if (microsoftDisponible()) {
+        <div class="microsoft-bloque">
+          <button type="button" class="btn-microsoft" (click)="iniciarConMicrosoft()" [disabled]="cargando()">
+            <svg viewBox="0 0 21 21" width="20" height="20" aria-hidden="true">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef" /><rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+            </svg>
+            Iniciar sesión con Microsoft
+          </button>
+          <p class="microsoft-nota">Cuentas de ULEAM: &#64;uleam.edu.ec, &#64;live.uleam.edu.ec y &#64;dn.uleam.edu.ec.</p>
+          <p class="separador"><span>Usuarios externos: correo y contraseña</span></p>
+        </div>
+      }
       <form (ngSubmit)="iniciarSesion()" class="login-form">
         <div class="campo">
           <label for="usuario">CORREO ELECTRÓNICO</label>
@@ -39,6 +52,9 @@
             [disabled]="cargando()" />
         </div>
 
+        @if (esCorreoInstitucional()) {
+          <p class="microsoft-nota" role="status">Cuenta institucional de ULEAM: ingresa con Microsoft, sin contraseña de DataField.</p>
+        } @else {
         <div class="campo">
           <label for="clave">CONTRASEÑA</label>
           <input
@@ -51,6 +67,7 @@
             required
             [disabled]="cargando()" />
         </div>
+        }
 
         <div class="campo servidor-campo">
           <label for="urlServidor">SERVIDOR API</label>
@@ -63,6 +80,7 @@
             inputmode="url"
             spellcheck="false"
             required
+            (change)="consultarProveedores()"
             [disabled]="cargando()" />
         </div>
 
@@ -71,7 +89,7 @@
         }
 
         <button type="submit" class="btn-acceder" [disabled]="cargando()">
-          {{ cargando() ? 'VERIFICANDO...' : 'INICIAR SESIÓN' }}
+          {{ cargando() ? 'VERIFICANDO...' : (esCorreoInstitucional() ? 'CONTINUAR CON MICROSOFT' : 'INICIAR SESIÓN') }}
         </button>
       </form>
       }

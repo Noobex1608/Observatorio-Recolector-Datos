@@ -42,18 +42,27 @@ export class FormDashboardViewModel {
   errorMessage = signal('');
   actionLoading = signal<string | null>(null);
 
+  /** Proyectos de los formularios visibles, con cuántos formularios tiene cada uno (orden alfabético). */
   projectCategories = computed(() => {
     const all = [...this.myForms(), ...this.sharedForms()];
-    const map = new Map<string, string>();
+    const map = new Map<string, { id: string; name: string; count: number }>();
     for (const f of all) {
       const pId = f.project?.id || f.project_id || null;
-      const pName = f.project?.name || this.translate.instant('forms.dashboard.noProject');
-      if (pId) {
-        map.set(pId, pName);
-      }
+      if (!pId) continue;
+      const entry = map.get(pId) ?? { id: pId, name: f.project?.name || this.translate.instant('forms.dashboard.noProject'), count: 0 };
+      entry.count++;
+      map.set(pId, entry);
     }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   });
+
+  /** Nombre del proyecto elegido en el filtro (los textos "todos" y "sin proyecto" se traducen en la plantilla). */
+  selectedProjectLabel = computed(() =>
+    this.projectCategories().find((project) => project.id === this.selectedProjectCategory())?.name ?? '');
+
+  /** Formularios sin proyecto: la opción "Sin proyecto" solo aparece si hay alguno. */
+  unassignedCount = computed(() =>
+    [...this.myForms(), ...this.sharedForms()].filter((f) => !f.project_id && !f.project?.id).length);
 
   shareModalOpen = signal(false);
   shareFormId = signal<string | null>(null);

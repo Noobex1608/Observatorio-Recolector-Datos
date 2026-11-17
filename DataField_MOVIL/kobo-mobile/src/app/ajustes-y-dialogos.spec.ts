@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { AjustesComponent } from './ajustes/ajustes.component';
 import { ApiService } from './api.service';
@@ -92,7 +92,10 @@ describe('Ajustes y borradores usan el diálogo propio', () => {
       prompt: vi.fn(async () => dialog.prompt ?? null),
       confirm: vi.fn(async () => dialog.confirm ?? false),
     };
-    const auth = { obtenerUrlServidor: () => 'https://viejo.uleam.test', obtenerToken: () => 't', esModoDemo: () => false, logout: vi.fn() };
+    const auth = {
+      obtenerUrlServidor: () => 'https://viejo.uleam.test', obtenerToken: () => 't', esModoDemo: () => false, logout: vi.fn(),
+      obtenerUsuario: () => 'Ana Pérez', obtenerEmail: () => 'ana@gmail.com', obtenerRol: () => 'RECOLECTOR',
+    };
     const table = { clear: vi.fn(async () => undefined) };
     const db = {
       forms: table, formList: table, responses: { ...table, where: () => ({ anyOf: () => ({ count: async () => unsent }) }) }, mediaBlobs: table,
@@ -107,6 +110,7 @@ describe('Ajustes y borradores usan el diálogo propio', () => {
         { provide: ApiService, useValue: { logout: vi.fn(async () => undefined) } }, { provide: DbService, useValue: db },
         { provide: Router, useValue: router }, { provide: StorageService, useValue: storage },
         { provide: Location, useValue: { back: vi.fn() } }, { provide: ThemeService, useValue: { t: (k: string) => k } },
+        { provide: ActivatedRoute, useValue: { snapshot: { fragment: null } } },
       ],
     });
     return { component: TestBed.createComponent(AjustesComponent).componentInstance, toast, auth, router, storage };
@@ -151,8 +155,24 @@ describe('Ajustes y borradores usan el diálogo propio', () => {
     ctx = ajustes({ confirm: true });
     await ctx.component.limpiarDatos();
     expect(ctx.storage.limpiarFormularios).toHaveBeenCalled();
-    ctx.component.verAcercaDe();
     ctx.component.regresarAtras();
+  });
+
+  it('avisa cuántas respuestas sin enviar se perderían antes de borrar', async () => {
+    const ctx = ajustes({ confirm: false }, 3);
+    await ctx.component.limpiarDatos();
+    const pedido = ctx.toast.confirm.mock.calls[0] as unknown as [{ message: string; confirmText: string }];
+    expect(pedido[0].message).toContain('Hay 3 respuestas sin enviar que se perderán');
+    expect(pedido[0].confirmText).toBe('Borrar también las 3');
+    expect(ctx.storage.limpiarFormularios).not.toHaveBeenCalled();
+  });
+
+  it('muestra la cuenta con su correo y rol', () => {
+    const { component } = ajustes({});
+    expect(component.nombre).toBe('Ana Pérez');
+    expect(component.email).toBe('ana@gmail.com');
+    expect(component.rol).toBe('Recolector');
+    expect(component.servidor).toBe('viejo.uleam.test');
   });
 
   it('elimina un borrador tras confirmar', async () => {

@@ -525,6 +525,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   onGpsChange(qId: string, payload: any) {
     this.respuestas[qId] = payload;
     this.evaluarCalculosBackground();
+    // El punto se guarda en el borrador local (IndexedDB) al momento: no se pierde si la app se cierra sin red.
+    if (payload) this.autoGuardarBorrador();
   }
 
   onMultimediaChange(qId: string, payload: any) {

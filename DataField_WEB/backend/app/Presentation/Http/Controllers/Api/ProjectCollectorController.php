@@ -2,6 +2,7 @@
 
 namespace App\Presentation\Http\Controllers\Api;
 
+use App\Application\Auth\Services\AccountInvitation;
 use App\Application\Forms\Services\FormShareAccess;
 use App\Http\Controllers\Controller;
 use App\Models\FormUserShare;
@@ -232,17 +233,27 @@ class ProjectCollectorController extends Controller
         abort_if($hasErrors, 422, 'Corrige las filas señaladas antes de importar.');
 
         $credentials = [];
-        DB::transaction(function () use ($project, $preview, $request, &$credentials) {
+        $invited = [];
+        $invitations = app(AccountInvitation::class);
+        DB::transaction(function () use ($project, $preview, $request, $invitations, &$credentials, &$invited) {
             foreach ($preview as $row) {
                 $user = User::whereRaw('LOWER(email) = ?', [$row['email']])->first();
                 if (! $user) {
-                    $password = Str::random(24);
+                    // Externos: correo de confirmación para crear su contraseña. Internos: Microsoft 365.
+                    // Solo si Microsoft no está configurado, los internos reciben una contraseña temporal.
+                    $external = $invitations->needsInvitation($row['email']);
+                    $temporary = ! $external && ! $invitations->usesMicrosoft($row['email']);
+                    $password = $temporary ? Str::random(24) : $invitations->placeholderPassword();
                     $user = User::create([
                         'name' => $row['name'], 'email' => $row['email'], 'cedula' => $row['cedula'],
                         'password' => $password, 'rol' => User::ROLE_USER,
-                        'is_active' => true, 'must_change_password' => true,
+                        'is_active' => true, 'must_change_password' => $temporary,
                     ]);
-                    $credentials[] = ['name' => $row['name'], 'email' => $row['email'], 'password' => $password];
+                    if ($temporary) {
+                        $credentials[] = ['name' => $row['name'], 'email' => $row['email'], 'password' => $password];
+                    } elseif ($external) {
+                        $invited[] = $user;
+                    }
                 } elseif (! $user->cedula) {
                     $user->update(['cedula' => $row['cedula']]);
                 }
@@ -252,7 +263,19 @@ class ProjectCollectorController extends Controller
                 'Importó encuestadores al proyecto.', ['project_id' => $project->id, 'count' => count($preview)]);
         });
 
-        return response()->json(['imported' => count($preview), 'credentials' => $credentials], 201)
+        foreach ($invited as $user) {
+            try {
+                $invitations->send($user);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('No se pudo enviar la invitación', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return response()->json([
+            'imported' => count($preview),
+            'credentials' => $credentials,
+            'invited' => array_map(fn (User $user) => $user->email, $invited),
+        ], 201)
             ->header('Cache-Control', 'no-store');
     }
 

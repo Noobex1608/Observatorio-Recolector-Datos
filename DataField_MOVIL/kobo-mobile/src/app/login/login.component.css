@@ -207,3 +207,16 @@
 @media (prefers-reduced-motion: reduce) {
   .campo, .btn-acceder { transition: none; }
 }
+
+/* Inicio de sesión con Microsoft 365 (cuentas institucionales ULEAM) */
+.microsoft-bloque { display: grid; gap: 8px; margin-bottom: 12px; }
+.btn-microsoft {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 48px; border: 1px solid #8c8c8c; border-radius: 10px;
+  background: #fff; color: #1f1f1f; font: inherit; font-weight: 650; cursor: pointer;
+}
+.btn-microsoft:disabled { opacity: 0.6; cursor: default; }
+.btn-microsoft:focus-visible { outline: 3px solid #0059a8; outline-offset: 2px; }
+.microsoft-nota { margin: 0; font-size: 0.8rem; color: #4b5b6b; text-align: center; }
+.separador { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 0.75rem; color: #5b6b7a; }
+.separador::before, .separador::after { content: ''; flex: 1; border-top: 1px solid #d5dee7; }

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
+import { UserRole } from '../models';
 import {
     CreateUserRequest,
     UpdateUserRequest,
@@ -17,6 +18,19 @@ export interface ToggleStatusResponse {
 
 export interface DeleteUserResponse {
   message: string;
+}
+
+export interface AccessRequest {
+  id: number;
+  name: string;
+  email: string;
+  status: 'PENDING' | 'REJECTED';
+  requested_at: string | null;
+}
+
+export interface AccessRequestsResponse {
+  data: AccessRequest[];
+  pending_count: number;
 }
 
 @Injectable({
@@ -42,6 +56,24 @@ export class UserService {
   /**
    * Crear un nuevo usuario (solo admin)
    */
+  /** Solicitudes de acceso: personas de ULEAM que entraron con Microsoft 365 sin estar registradas. */
+  getAccessRequests(status: 'PENDING' | 'REJECTED' = 'PENDING'): Observable<AccessRequestsResponse> {
+    return this.api.get<AccessRequestsResponse>('/users/access-requests', { status });
+  }
+
+  approveAccessRequest(userId: number, rol: UserRole): Observable<{ message: string }> {
+    return this.api.post<{ message: string }>(`/users/access-requests/${userId}/approve`, { rol });
+  }
+
+  rejectAccessRequest(userId: number): Observable<{ message: string }> {
+    return this.api.post<{ message: string }>(`/users/access-requests/${userId}/reject`, {});
+  }
+
+  /** Reenvía el correo de confirmación a un usuario externo que aún no confirma su cuenta. */
+  resendInvitation(userId: number): Observable<{ message: string }> {
+    return this.api.post<{ message: string }>(`/users/${userId}/invitation`, {});
+  }
+
   createUser(data: CreateUserRequest): Observable<UserDetailResponse> {
     return this.api.post<UserDetailResponse>('/users', data);
   }

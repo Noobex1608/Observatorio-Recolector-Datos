@@ -9,7 +9,6 @@ const TR: Record<Lang, Record<string, string>> = {
   es: {
     app_title: 'ULEAM DataField',
     app_subtitle: 'Herramienta de Recolección de Datos',
-    app_footer: 'Proyecto Integrador - Desarrollo Móvil',
     online: 'Conectado al servidor central',
     offline: 'Modo Offline - Guardando datos localmente',
     fill_form: 'Llenar nuevo formulario',
@@ -39,14 +38,30 @@ const TR: Record<Lang, Record<string, string>> = {
     change_server: 'Cambiar servidor',
     continue: 'Continuar',
     back: 'Volver',
-    version: 'v1.0.0 (Proyecto Integrador)',
+    version: 'Versión',
     about: 'Acerca de',
     send: 'Enviar',
+    account: 'Cuenta',
+    preferences: 'Preferencias',
+    connection: 'Conexión',
+    device_data: 'Datos del teléfono',
+    edit_profile: 'Editar perfil',
+    theme_dark_label: 'Tema oscuro',
+    theme_dark_help: 'Útil con poca luz; al sol se lee mejor el tema claro.',
+    server: 'Servidor',
+    server_not_set: 'Sin servidor configurado',
+    delete_local_responses: 'Borrar respuestas del teléfono',
+    delete_local_help: 'Libera espacio. No afecta lo que ya se envió al servidor.',
+    delete_pending_warning: '{n} sin enviar se perderían',
+    about_app: 'App de recolección de datos en campo',
+    about_institution: 'Institución',
+    about_offline: 'Sin conexión',
+    about_offline_text: 'Las respuestas se guardan en el teléfono hasta enviarlas.',
+    demo_mode: 'Modo demostración',
   },
   en: {
     app_title: 'ULEAM DataField',
     app_subtitle: 'Data Collection Tool',
-    app_footer: 'Integrator Project - Mobile Development',
     online: 'Connected to server',
     offline: 'Offline Mode - Saving locally',
     fill_form: 'Fill new form',
@@ -76,9 +91,26 @@ const TR: Record<Lang, Record<string, string>> = {
     change_server: 'Change server',
     continue: 'Continue',
     back: 'Back',
-    version: 'v1.0.0 (Integrator Project)',
+    version: 'Version',
     about: 'About',
     send: 'Send',
+    account: 'Account',
+    preferences: 'Preferences',
+    connection: 'Connection',
+    device_data: 'Phone data',
+    edit_profile: 'Edit profile',
+    theme_dark_label: 'Dark theme',
+    theme_dark_help: 'Handy in low light; in sunlight the light theme reads better.',
+    server: 'Server',
+    server_not_set: 'No server configured',
+    delete_local_responses: 'Delete responses on this phone',
+    delete_local_help: 'Frees space. Does not affect what was already sent to the server.',
+    delete_pending_warning: '{n} unsent would be lost',
+    about_app: 'Field data collection app',
+    about_institution: 'Institution',
+    about_offline: 'Offline',
+    about_offline_text: 'Responses stay on the phone until they are sent.',
+    demo_mode: 'Demo mode',
   }
 };
 
@@ -106,6 +138,13 @@ export class ThemeService {
     this.darkMode.set(next);
     localStorage.setItem(THEME_KEY, next ? 'dark' : 'light');
     this.applyTheme(next);
+  }
+
+  setLang(next: Lang) {
+    if (next === this.lang()) return;
+    this.lang.set(next);
+    localStorage.setItem(LANG_KEY, next);
+    this.applyLang();
   }
 
   toggleLang() {

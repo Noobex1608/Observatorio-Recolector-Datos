@@ -169,6 +169,12 @@ export class BuilderComponent implements OnInit, OnDestroy {
       icon: 'event_repeat',
     },
     {
+      value: 'GPS',
+      labelKey: 'forms.builder.types.GPS',
+      hintKey: 'forms.builder.hints.GPS',
+      icon: 'my_location',
+    },
+    {
       value: 'MULTIMEDIA',
       labelKey: 'forms.builder.types.MULTIMEDIA',
       hintKey: 'forms.builder.hints.MULTIMEDIA',
@@ -251,6 +257,12 @@ export class BuilderComponent implements OnInit, OnDestroy {
     if (!this.vm.errorMessage() && this.delimitNow() && this.canDelimitAfterSave() && this.vm.formId()) {
       await this.router.navigate(['/admin/proyectos'], { queryParams: { project: this.vm.projectId(), form: this.vm.formId(), tab: 'zones' } });
     }
+  }
+
+  /** Duración máxima de video permitida: entre 5 y 120 segundos (el backend valida lo mismo). */
+  clampVideoSeconds(value: unknown): number {
+    const seconds = Math.round(Number(value));
+    return Number.isFinite(seconds) ? Math.min(120, Math.max(5, seconds)) : 60;
   }
 
   ngOnDestroy(): void {

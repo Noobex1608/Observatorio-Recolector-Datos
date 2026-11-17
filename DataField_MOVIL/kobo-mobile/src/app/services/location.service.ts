@@ -21,6 +21,9 @@ export interface GpsLocationPayload {
   } | null;
 }
 
+/** Tiempo agotado esperando la ubicación (permite reintentar con menor precisión). */
+export class GpsTimeoutError extends Error {}
+
 export interface GpsOptions {
   enableHighAccuracy?: boolean;
   timeout?: number;
@@ -63,7 +66,20 @@ export class LocationService {
     return this.permissionStatus();
   }
 
-  getCurrentPosition(options: GpsOptions = {}): Promise<GpsLocationPayload> {
+  /**
+   * Ubicación actual. Si la fijación satelital (alta precisión) agota el tiempo, reintenta una vez
+   * con la ubicación de red/caché reciente, que funciona sin datos móviles y responde antes.
+   */
+  async getCurrentPosition(options: GpsOptions = {}): Promise<GpsLocationPayload> {
+    try {
+      return await this.requestPosition(options);
+    } catch (error) {
+      if (!(error instanceof GpsTimeoutError) || options.enableHighAccuracy === false) throw error;
+      return this.requestPosition({ enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 });
+    }
+  }
+
+  private requestPosition(options: GpsOptions = {}): Promise<GpsLocationPayload> {
     this.ensurePermissionStatus();
     const timeoutMs = options.timeout ?? 12000;
     const defaultOptions: PositionOptions = {
@@ -81,7 +97,7 @@ export class LocationService {
 
       let timerId: any = setTimeout(() => {
         timerId = null;
-        reject(new Error('Se agotó el tiempo de espera (12s) para obtener fijación de satélites GPS. Puede utilizar el ingreso manual.'));
+        reject(new GpsTimeoutError(`Se agotó el tiempo de espera (${Math.round(timeoutMs / 1000)} s) para obtener la ubicación. Reintente en un lugar abierto o use el ingreso manual.`));
       }, timeoutMs + 1000);
 
       navigator.geolocation.getCurrentPosition(
@@ -117,8 +133,8 @@ export class LocationService {
               errorMessage = 'Información de ubicación no disponible. Verifique que el GPS esté activo.';
               break;
             case error.TIMEOUT:
-              errorMessage = 'Se agotó el tiempo de espera para obtener la ubicación de alta precisión.';
-              break;
+              reject(new GpsTimeoutError('Se agotó el tiempo de espera para obtener la ubicación de alta precisión.'));
+              return;
           }
           reject(new Error(errorMessage));
         },

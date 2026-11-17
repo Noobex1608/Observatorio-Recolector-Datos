@@ -90,14 +90,26 @@ class ProcessResponseMedia
         $this->uploadedPaths = [];
     }
 
+    /** Enlace temporal del archivo, leído del almacenamiento donde se guardó (Supabase o SharePoint). */
     public function temporaryUrl(array $answer): string
     {
-        if (($answer['storage_driver'] ?? null) !== $this->storage->driverName()
-            || ! is_string($answer['path'] ?? null)) {
+        $driver = $answer['storage_driver'] ?? null;
+        if (! is_string($driver) || ! is_string($answer['path'] ?? null)) {
+            throw new HttpException(404, 'Medio no encontrado.');
+        }
+        $storage = $driver === $this->storage->driverName()
+            ? $this->storage
+            : (app()->bound('response-media.storage-for') ? app('response-media.storage-for')($driver) : null);
+        if (! $storage) {
             throw new HttpException(404, 'Medio no encontrado.');
         }
 
-        return $this->storage->temporaryUrl($answer['path'], 300);
+        try {
+            return $storage->temporaryUrl($answer['path'], 300);
+        } catch (Throwable $e) {
+            Log::warning('No se pudo obtener el enlace de un medio.', ['driver' => $driver, 'error' => $e->getMessage()]);
+            throw new HttpException(404, 'Medio no encontrado.');
+        }
     }
 
     /** @return array{string, string} */

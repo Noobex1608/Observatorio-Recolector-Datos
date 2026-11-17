@@ -186,11 +186,11 @@ export class ProjectService {
     return this.http.get(`${this.apiUrl}/${projectId}/collectors/template`, { responseType: 'blob' });
   }
 
-  importCollectors(projectId: string, file: File, preview: boolean): Observable<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }> }> {
+  importCollectors(projectId: string, file: File, preview: boolean): Observable<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }>; invited?: string[] }> {
     const body = new FormData();
     body.append('file', file);
     body.append('preview', preview ? '1' : '0');
-    return this.http.post<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }> }>(`${this.apiUrl}/${projectId}/collectors/import`, body);
+    return this.http.post<{ rows?: CollectorImportRow[]; valid?: boolean; imported?: number; credentials?: Array<{ name: string; email: string; password: string }>; invited?: string[] }>(`${this.apiUrl}/${projectId}/collectors/import`, body);
   }
 
   updateCollector(projectId: string, userId: number, data: Partial<Pick<ProjectCollector, 'name' | 'email' | 'cedula' | 'is_active'>>): Observable<void> {

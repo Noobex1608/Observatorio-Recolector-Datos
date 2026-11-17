@@ -199,6 +199,7 @@ export class QuestionGpsComponent {
     this.errorMessage.set(null);
 
     try {
+      // Si el satélite no responde a tiempo, el servicio reintenta solo con la ubicación de red.
       const location = await this.locationService.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 15000

@@ -97,6 +97,13 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+        // Invitaciones a usuarios externos: el enlace para crear la contraseña dura 72 horas.
+        'invitations' => [
+            'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 4320,
+            'throttle' => 60,
+        ],
     ],
 
     /*

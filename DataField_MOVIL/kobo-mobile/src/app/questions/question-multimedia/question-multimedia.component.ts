@@ -49,6 +49,33 @@ export class QuestionMultimediaComponent implements OnDestroy {
   private audioChunks: Blob[] = [];
   private recordingInterval: any = null;
 
+  // Grabación de video dentro de la app (con límite de duración y calidad acotada)
+  readonly isVideoRecording = signal<boolean>(false);
+  readonly videoCameraOpen = signal<boolean>(false);
+  readonly videoSeconds = signal<number>(0);
+  readonly cameraStream = signal<MediaStream | null>(null);
+  private videoRecorder: MediaRecorder | null = null;
+  private videoChunks: Blob[] = [];
+  private videoInterval: any = null;
+  private videoStartedAt = 0;
+
+  /** Duración máxima de video de la pregunta: 5 a 120 s (60 por defecto). */
+  readonly maxVideoSeconds = computed(() => {
+    const seconds = Math.round(Number((this.question() as any)?.properties?.max_video_seconds ?? 60));
+    return Number.isFinite(seconds) ? Math.min(120, Math.max(5, seconds)) : 60;
+  });
+
+  /** Tamaño máximo por archivo: el de la pregunta, con tope de 30 MB (igual que el servidor). */
+  readonly maxFileMb = computed(() => {
+    const mb = Number((this.question() as any)?.properties?.max_file_size_mb ?? 20);
+    return Math.min(30, Math.max(1, Number.isFinite(mb) ? mb : 20));
+  });
+
+  readonly videoRemaining = computed(() => this.formatSeconds(Math.max(0, this.maxVideoSeconds() - this.videoSeconds())));
+  readonly videoLimitLabel = computed(() => this.formatSeconds(this.maxVideoSeconds()));
+  readonly canRecordVideoInApp = typeof window !== 'undefined' && typeof MediaRecorder !== 'undefined'
+    && !!navigator.mediaDevices?.getUserMedia;
+
   // Allowed media mode: 'photo' | 'audio' | 'video' | 'both' | 'all'
   readonly allowedMedia = computed<'photo' | 'audio' | 'video' | 'both' | 'all'>(() => {
     const q = this.question();
@@ -128,6 +155,7 @@ export class QuestionMultimediaComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopRecordingTimer();
+    this.closeVideoCamera();
     const url = this.previewUrl();
     if (url) {
       this.mediaStorage.revokeObjectUrl(url);
@@ -148,6 +176,22 @@ export class QuestionMultimediaComponent implements OnDestroy {
 
     const file = inputEl.files[0];
     const mediaType = file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('audio/') ? 'AUDIO' : 'VIDEO';
+
+    // Se valida aquí, sin señal en campo: si no, el archivo solo fallaría al sincronizar.
+    if (file.size > this.maxFileMb() * 1024 * 1024) {
+      this.errorMessage.set(`El archivo pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB; el máximo es ${this.maxFileMb()} MB.`
+        + (mediaType === 'VIDEO' && this.canRecordVideoInApp ? ' Grábalo con "Grabar video" para que ocupe menos.' : ''));
+      inputEl.value = '';
+      return;
+    }
+    if (mediaType === 'VIDEO') {
+      const duration = await this.readVideoDuration(file);
+      if (duration !== null && duration > this.maxVideoSeconds() + 0.5) {
+        this.errorMessage.set(`El video dura ${Math.round(duration)} s; el máximo para esta pregunta es ${this.maxVideoSeconds()} s.`);
+        inputEl.value = '';
+        return;
+      }
+    }
 
     try {
       this.mediaSize.set(file.size);
@@ -252,6 +296,10 @@ export class QuestionMultimediaComponent implements OnDestroy {
     if (media?.mediaType === 'AUDIO') {
       await this.removeMedia();
       void this.startAudioRecording();
+    } else if (media?.mediaType === 'VIDEO' && this.canRecordVideoInApp) {
+      await this.removeMedia();
+      this.activeTab.set('video');
+      void this.openVideoCamera();
     } else {
       const inputId = media?.mediaType === 'VIDEO' ? `file-input-video-${this.question().id}` : `file-input-${this.question().id}`;
       const fileInput = (document.getElementById(inputId) || document.getElementById(`file-input-${this.question().id}`)) as HTMLInputElement;
@@ -259,6 +307,130 @@ export class QuestionMultimediaComponent implements OnDestroy {
         fileInput.click();
       }
     }
+  }
+
+  // ---- Video grabado en la app: 720p y ~1 Mbps, así 120 s ocupan ~16 MB y caben en el límite ----
+
+  private getSupportedVideoMimeType(): string {
+    const candidates = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported?.(type)) return type;
+    }
+    return '';
+  }
+
+  /** Abre la cámara trasera con vista previa; la grabación empieza con "Grabar". */
+  async openVideoCamera(): Promise<void> {
+    if (this.disabled() || this.videoCameraOpen()) return;
+    this.errorMessage.set(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
+        audio: true,
+      });
+      this.cameraStream.set(stream);
+      this.videoCameraOpen.set(true);
+    } catch {
+      this.errorMessage.set('No se pudo abrir la cámara. Revise los permisos de cámara y micrófono, o use "Subir desde galería".');
+    }
+  }
+
+  startVideoRecording(): void {
+    const stream = this.cameraStream();
+    if (!stream || this.isVideoRecording()) return;
+    const mimeType = this.getSupportedVideoMimeType();
+    try {
+      this.videoRecorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 1_000_000, audioBitsPerSecond: 64_000,
+      });
+    } catch {
+      this.videoRecorder = new MediaRecorder(stream);
+    }
+    this.videoChunks = [];
+    this.videoRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) this.videoChunks.push(event.data);
+    };
+    this.videoRecorder.onstop = () => void this.saveRecordedVideo();
+    this.videoRecorder.start(1000);
+    this.isVideoRecording.set(true);
+    this.videoSeconds.set(0);
+    this.videoStartedAt = Date.now();
+    this.videoInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - this.videoStartedAt) / 1000);
+      this.videoSeconds.set(Math.min(elapsed, this.maxVideoSeconds()));
+      // Se detiene sola al llegar al límite de la pregunta.
+      if (elapsed >= this.maxVideoSeconds()) this.stopVideoRecording();
+    }, 250);
+  }
+
+  stopVideoRecording(): void {
+    if (!this.videoRecorder || !this.isVideoRecording()) return;
+    clearInterval(this.videoInterval);
+    this.videoInterval = null;
+    this.isVideoRecording.set(false);
+    if (this.videoRecorder.state !== 'inactive') this.videoRecorder.stop();
+  }
+
+  closeVideoCamera(): void {
+    if (this.isVideoRecording()) {
+      // Cerrar sin guardar: se descarta lo grabado.
+      if (this.videoRecorder) this.videoRecorder.onstop = null;
+      this.stopVideoRecording();
+    }
+    clearInterval(this.videoInterval);
+    this.cameraStream()?.getTracks().forEach((track) => track.stop());
+    this.cameraStream.set(null);
+    this.videoCameraOpen.set(false);
+  }
+
+  private async saveRecordedVideo(): Promise<void> {
+    const type = (this.videoRecorder?.mimeType || this.getSupportedVideoMimeType() || 'video/webm').split(';')[0];
+    const blob = new Blob(this.videoChunks, { type });
+    this.videoChunks = [];
+    this.closeVideoCamera();
+    if (blob.size === 0) {
+      this.errorMessage.set('No se grabó ningún video. Inténtelo de nuevo.');
+      return;
+    }
+    if (blob.size > this.maxFileMb() * 1024 * 1024) {
+      this.errorMessage.set(`El video pesa ${(blob.size / (1024 * 1024)).toFixed(1)} MB y supera el máximo de ${this.maxFileMb()} MB. Grabe uno más corto.`);
+      return;
+    }
+    try {
+      this.mediaSize.set(blob.size);
+      const extension = type === 'video/mp4' ? 'mp4' : 'webm';
+      const payload = await this.mediaStorage.saveMultimediaFile(this.question().id, blob, 'VIDEO', undefined, `video_${Date.now()}.${extension}`);
+      this.currentMedia.set(payload);
+      this.setPreviewUrl(payload.objectUrl || null);
+      this.valueChange.emit(payload);
+      this.errorMessage.set(null);
+    } catch (err: any) {
+      this.errorMessage.set(err?.message || 'Error al guardar el video.');
+    }
+  }
+
+  private readVideoDuration(file: Blob): Promise<number | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      let settled = false;
+      const done = (value: number | null) => {
+        if (settled) return;
+        settled = true;
+        URL.revokeObjectURL(url);
+        resolve(value);
+      };
+      video.preload = 'metadata';
+      video.muted = true;
+      video.onloadedmetadata = () => done(Number.isFinite(video.duration) ? video.duration : null);
+      video.onerror = () => done(null);
+      setTimeout(() => done(null), 8000);
+      video.src = url;
+    });
+  }
+
+  private formatSeconds(total: number): string {
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
   async removeMedia(): Promise<void> {

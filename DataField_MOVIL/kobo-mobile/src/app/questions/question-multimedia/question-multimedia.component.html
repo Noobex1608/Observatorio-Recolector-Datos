@@ -130,7 +130,31 @@
       }
 
       <!-- Video Dropzone -->
-      @if (activeTab() === 'video') {
+      @if (activeTab() === 'video' && videoCameraOpen()) {
+        <!-- Cámara de la app: vista previa, contador con el límite y parada automática -->
+        <div class="video-recorder" [class.is-recording]="isVideoRecording()">
+          <video class="video-recorder-preview" [srcObject]="cameraStream()" autoplay muted playsinline aria-label="Vista previa de la cámara"></video>
+          <div class="video-recorder-status" aria-live="polite">
+            @if (isVideoRecording()) {
+              <span class="rec-dot" aria-hidden="true"></span>
+              <span>Grabando · quedan {{ videoRemaining() }}</span>
+            } @else {
+              <span>Listo para grabar · máximo {{ videoLimitLabel() }}</span>
+            }
+          </div>
+          <div class="video-recorder-progress" aria-hidden="true">
+            <div class="video-recorder-progress-fill" [style.width.%]="(videoSeconds() / maxVideoSeconds()) * 100"></div>
+          </div>
+          <div class="video-recorder-actions">
+            @if (isVideoRecording()) {
+              <button type="button" class="btn-primary-action btn-stop" (click)="stopVideoRecording()">Detener y guardar</button>
+            } @else {
+              <button type="button" class="btn-primary-action btn-video-action" (click)="startVideoRecording()">Grabar</button>
+              <button type="button" class="btn-secondary-action" (click)="closeVideoCamera()">Cancelar</button>
+            }
+          </div>
+        </div>
+      } @else if (activeTab() === 'video') {
         <div class="dropzone-box video-zone">
           <div class="dropzone-icon-wrapper video-wrapper">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="dropzone-icon video-icon">
@@ -139,24 +163,45 @@
             </svg>
           </div>
           <div class="dropzone-text-group">
-            <p class="dropzone-title">Toca para abrir la cámara o seleccionar video</p>
-            <p class="dropzone-subtitle">Archivos soportados: MP4, WEBM, MOV (hasta 20 MB)</p>
+            <p class="dropzone-title">Graba un video o súbelo desde la galería</p>
+            <p class="dropzone-subtitle">Duración máxima {{ videoLimitLabel() }} · hasta {{ maxFileMb() }} MB</p>
           </div>
-          <label class="btn-primary-action btn-video-action">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7"/>
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-            </svg>
-            <span>Grabar / Subir Video</span>
-            <input
-              type="file"
-              [id]="'file-input-video-' + question().id"
-              accept="video/*"
-              capture="environment"
-              (change)="onFileSelected($event)"
-              class="hidden-file-input"
-            />
-          </label>
+          @if (canRecordVideoInApp) {
+            <button type="button" class="btn-primary-action btn-video-action" (click)="openVideoCamera()" [disabled]="disabled()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <span>Grabar video</span>
+            </button>
+            <label class="btn-secondary-action">
+              <span>Subir desde galería</span>
+              <input
+                type="file"
+                [id]="'file-input-video-' + question().id"
+                accept="video/*"
+                (change)="onFileSelected($event)"
+                class="hidden-file-input"
+              />
+            </label>
+          } @else {
+            <!-- Navegador sin grabación integrada: cámara del sistema; la duración se valida al volver. -->
+            <label class="btn-primary-action btn-video-action">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              <span>Grabar / Subir Video</span>
+              <input
+                type="file"
+                [id]="'file-input-video-' + question().id"
+                accept="video/*"
+                capture="environment"
+                (change)="onFileSelected($event)"
+                class="hidden-file-input"
+              />
+            </label>
+          }
         </div>
       }
     } @else {

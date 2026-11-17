@@ -1,57 +1,115 @@
 <div class="ajustes-page">
-  <div class="header-ajustes">
-    <button class="btn-regreso" (click)="regresarAtras()" title="Atrás">← Atrás</button>
-    <h2>{{ 'settings' | translate }}</h2>
-  </div>
+  <header class="ajustes-header">
+    <button type="button" class="icon-btn" (click)="regresarAtras()" [attr.aria-label]="'back' | translate">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+    </button>
+    <h1>{{ 'settings' | translate }}</h1>
+  </header>
 
-  <div class="contenido-ajustes">
-    <!-- Idioma -->
-    <div class="ajuste-item" role="button" tabindex="0" (click)="theme.toggleLang()" (keydown.enter)="theme.toggleLang()" (keydown.space)="$event.preventDefault(); theme.toggleLang()">
-      <div class="icono" aria-hidden="true">🌐</div>
-      <div class="ajuste-item-body">
-        <p class="titulo">{{ 'language' | translate }}</p>
-        <p class="subtitulo">{{ theme.lang() === 'es' ? 'Español' : 'English' }}</p>
+  <div class="ajustes-body">
+    <!-- Cuenta -->
+    <section class="grupo" aria-labelledby="grupo-cuenta">
+      <h2 id="grupo-cuenta">{{ 'account' | translate }}</h2>
+      <div class="tarjeta">
+        <a class="fila" routerLink="/perfil" [attr.aria-label]="nombre + '. ' + ('edit_profile' | translate)">
+          <span class="avatar" aria-hidden="true">{{ inicial }}</span>
+          <span class="fila-texto">
+            <span class="fila-titulo">{{ nombre }}</span>
+            @if (email) { <span class="fila-detalle fila-correo">{{ email }}</span> }
+            @if (rol) { <span class="rol">{{ rol }}</span> }
+          </span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </a>
       </div>
-      <span class="ajuste-switch-info">{{ theme.lang() === 'es' ? 'ES' : 'EN' }}</span>
-    </div>
+    </section>
 
-    <!-- Modo oscuro -->
-    <div class="ajuste-item" role="switch" tabindex="0" [attr.aria-checked]="theme.darkMode()" aria-label="Modo oscuro" (click)="theme.toggleTheme()" (keydown.enter)="theme.toggleTheme()" (keydown.space)="$event.preventDefault(); theme.toggleTheme()">
-      <div class="icono" aria-hidden="true">{{ theme.darkMode() ? '🌙' : '☀️' }}</div>
-      <div class="ajuste-item-body">
-        <p class="titulo">{{ theme.darkMode() ? 'dark_mode' : 'light_mode' | translate }}</p>
-        <p class="subtitulo">{{ theme.darkMode() ? 'Activo' : 'Inactivo' }}</p>
-      </div>
-      <div class="toggle-switch" [class.active]="theme.darkMode()">
-        <div class="toggle-knob"></div>
-      </div>
-    </div>
+    <!-- Preferencias -->
+    <section class="grupo" aria-labelledby="grupo-preferencias">
+      <h2 id="grupo-preferencias">{{ 'preferences' | translate }}</h2>
+      <div class="tarjeta">
+        <div class="fila fila-estatica">
+          <span class="fila-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+          </span>
+          <span class="fila-texto">
+            <span class="fila-titulo" id="etiqueta-idioma">{{ 'language' | translate }}</span>
+          </span>
+          <span class="segmentado" role="group" aria-labelledby="etiqueta-idioma">
+            <button type="button" [attr.aria-pressed]="theme.lang() === 'es'" [class.activo]="theme.lang() === 'es'"
+              (click)="theme.setLang('es')" lang="es">Español</button>
+            <button type="button" [attr.aria-pressed]="theme.lang() === 'en'" [class.activo]="theme.lang() === 'en'"
+              (click)="theme.setLang('en')" lang="en">English</button>
+          </span>
+        </div>
 
-    <!-- Servidor -->
-    <div class="ajuste-item" role="button" tabindex="0" (click)="cambiarServidor()" (keydown.enter)="cambiarServidor()" (keydown.space)="$event.preventDefault(); cambiarServidor()">
-      <div class="icono" aria-hidden="true">☁️</div>
-      <div class="ajuste-item-body">
-        <p class="titulo">{{ 'server_url' | translate }}</p>
-        <p class="subtitulo">{{ 'change_server' | translate }}</p>
+        <button type="button" class="fila" role="switch" [attr.aria-checked]="theme.darkMode()" (click)="theme.toggleTheme()">
+          <span class="fila-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+          </span>
+          <span class="fila-texto">
+            <span class="fila-titulo">{{ 'theme_dark_label' | translate }}</span>
+            <span class="fila-detalle">{{ 'theme_dark_help' | translate }}</span>
+          </span>
+          <span class="interruptor" [class.activo]="theme.darkMode()" aria-hidden="true"><span></span></span>
+        </button>
       </div>
-    </div>
+    </section>
 
-    <!-- Limpiar datos -->
-    <div class="ajuste-item" role="button" tabindex="0" (click)="limpiarDatos()" (keydown.enter)="limpiarDatos()" (keydown.space)="$event.preventDefault(); limpiarDatos()">
-      <div class="icono" aria-hidden="true">🗑️</div>
-      <div class="ajuste-item-body">
-        <p class="titulo">{{ 'delete_form' | translate }}</p>
-        <p class="subtitulo">{{ 'delete_local_only' | translate }}</p>
+    <!-- Conexión -->
+    <section class="grupo" aria-labelledby="grupo-conexion">
+      <h2 id="grupo-conexion">{{ 'connection' | translate }}</h2>
+      <div class="tarjeta">
+        <button type="button" class="fila" (click)="cambiarServidor()">
+          <span class="fila-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01" /></svg>
+          </span>
+          <span class="fila-texto">
+            <span class="fila-titulo">{{ 'server' | translate }}</span>
+            <span class="fila-detalle fila-mono">{{ servidor || ('server_not_set' | translate) }}</span>
+          </span>
+          <span class="fila-accion">{{ 'change_server' | translate }}</span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </button>
       </div>
-    </div>
+    </section>
+
+    <!-- Datos del teléfono -->
+    <section class="grupo" aria-labelledby="grupo-datos">
+      <h2 id="grupo-datos">{{ 'device_data' | translate }}</h2>
+      <div class="tarjeta">
+        <button type="button" class="fila fila-peligro" (click)="limpiarDatos()">
+          <span class="fila-icono" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+          </span>
+          <span class="fila-texto">
+            <span class="fila-titulo">{{ 'delete_local_responses' | translate }}</span>
+            @if (pendientes() > 0) {
+              <span class="fila-detalle fila-aviso">{{ avisoPendientes() }}</span>
+            } @else {
+              <span class="fila-detalle">{{ 'delete_local_help' | translate }}</span>
+            }
+          </span>
+        </button>
+      </div>
+    </section>
 
     <!-- Acerca de -->
-    <div class="ajuste-item" role="button" tabindex="0" (click)="verAcercaDe()" (keydown.enter)="verAcercaDe()" (keydown.space)="$event.preventDefault(); verAcercaDe()">
-      <div class="icono" aria-hidden="true">ℹ️</div>
-      <div class="ajuste-item-body">
-        <p class="titulo">{{ 'about' | translate }}</p>
-        <p class="subtitulo">{{ 'version' | translate }}</p>
+    <section class="grupo" id="acerca-de" aria-labelledby="grupo-acerca" tabindex="-1">
+      <h2 id="grupo-acerca">{{ 'about' | translate }}</h2>
+      <div class="tarjeta acerca">
+        <div class="acerca-marca">
+          <img src="/login-uleam.png" alt="" width="40" height="40" />
+          <span>
+            <strong>{{ info.name }}</strong>
+            <span>{{ 'about_app' | translate }}</span>
+          </span>
+        </div>
+        <dl class="acerca-datos">
+          <div><dt>{{ 'version' | translate }}</dt><dd>{{ info.version }}</dd></div>
+          <div><dt>{{ 'about_institution' | translate }}</dt><dd>{{ info.institution }}</dd></div>
+          <div><dt>{{ 'about_offline' | translate }}</dt><dd>{{ 'about_offline_text' | translate }}</dd></div>
+        </dl>
       </div>
-    </div>
+    </section>
   </div>
 </div>

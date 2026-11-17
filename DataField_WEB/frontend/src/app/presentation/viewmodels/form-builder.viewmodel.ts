@@ -1047,7 +1047,7 @@ export class FormBuilderViewModel {
           zone_name: '',
         };
       case 'MULTIMEDIA':
-        return { allowed_media: 'all', max_file_size_mb: 20 };
+        return { allowed_media: 'all', max_file_size_mb: 20, max_video_seconds: 60 };
       case 'SIGNATURE':
         return { pen_color: '#000000', background_color: '#ffffff' };
       case 'RATING':

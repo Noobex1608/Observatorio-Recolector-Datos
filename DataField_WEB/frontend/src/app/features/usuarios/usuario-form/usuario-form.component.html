@@ -49,6 +49,38 @@
                 }
               </mat-form-field>
 
+              @switch (accountKind()) {
+                @case ('microsoft') {
+                  <p class="account-note" role="status">
+                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    Cuenta institucional de ULEAM: ingresa con Microsoft 365. No necesita contraseña ni correo de confirmación.
+                  </p>
+                }
+                @case ('internal-password') {
+                  <p class="account-note" role="status">
+                    <mat-icon aria-hidden="true">info</mat-icon>
+                    Cuenta institucional. Mientras el inicio con Microsoft 365 no esté configurado, indica una contraseña.
+                  </p>
+                }
+                @case ('external') {
+                  @if (!isEditMode()) {
+                    <p class="account-note" role="status">
+                      <mat-icon aria-hidden="true">mark_email_unread</mat-icon>
+                      Usuario externo: recibirá un correo de confirmación para crear su propia contraseña.
+                    </p>
+                  } @else if (user()?.invitation_pending) {
+                    <div class="account-note account-note--pending" role="status">
+                      <mat-icon aria-hidden="true">schedule_send</mat-icon>
+                      <span>Aún no confirma su correo.</span>
+                      <button mat-stroked-button type="button" (click)="resendInvitation()" [disabled]="resendingInvitation()">
+                        {{ resendingInvitation() ? 'Enviando…' : 'Reenviar invitación' }}
+                      </button>
+                    </div>
+                  }
+                }
+              }
+
+              @if (showPassword()) {
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>{{ 'users.form.password' | translate }}</mat-label>
                 <input
@@ -73,10 +105,13 @@
                 @if (userForm.get('password')?.hasError('minlength')) {
                   <mat-error>{{ 'users.validation.passwordMinLength' | translate }}</mat-error>
                 }
-                @if (isEditMode()) {
+                @if (isEditMode() && accountKind() === 'external') {
+                  <mat-hint>Si la cambias, el usuario deberá crear una nueva al ingresar.</mat-hint>
+                } @else if (isEditMode()) {
                   <mat-hint>{{ 'users.form.passwordHint' | translate }}</mat-hint>
                 }
               </mat-form-field>
+              }
             </div>
           </mat-card-content>
         </mat-card>
@@ -91,29 +126,19 @@
             <div class="form-fields">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>{{ 'users.form.role' | translate }}</mat-label>
+                <!-- Solo los roles que quien administra puede asignar; un externo solo supervisor o recolector. -->
                 <mat-select formControlName="rol">
-                  <mat-option value="SUPER_ADMIN">
-                    <mat-icon>workspace_premium</mat-icon>
-                    Super administrador - {{ 'users.roles.superAdminDesc' | translate }}
-                  </mat-option>
-                  <mat-option value="RECOLECTOR">
-                    <mat-icon>person</mat-icon>
-                    Recolector - {{ 'users.roles.recolectorDesc' | translate }}
-                  </mat-option>
-                  <mat-option value="PROJECT">
-                    <mat-icon>assignment_ind</mat-icon>
-                    Líder - {{ 'users.roles.projectDesc' | translate }}
-                  </mat-option>
-                  <mat-option value="SUPERVISOR">
-                    <mat-icon>visibility</mat-icon>
-                    Supervisor de campo
-                  </mat-option>
-                  <mat-option value="ADMIN">
-                    <mat-icon>security</mat-icon>
-                    Administrador - {{ 'users.roles.adminDesc' | translate }}
-                  </mat-option>
+                  @for (role of formRoles(); track role) {
+                    <mat-option [value]="role">
+                      <mat-icon>{{ roleOptions[role].icon }}</mat-icon>
+                      {{ roleOptions[role].label }}@if (roleOptions[role].descKey) { - {{ roleOptions[role].descKey! | translate }} }
+                    </mat-option>
+                  }
                 </mat-select>
                 <mat-icon matPrefix>admin_panel_settings</mat-icon>
+                @if (accountKind() === 'external') {
+                  <mat-hint>Un usuario externo solo puede ser recolector o supervisor.</mat-hint>
+                }
               </mat-form-field>
 
               <div class="checkbox-field">

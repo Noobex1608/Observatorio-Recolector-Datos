@@ -69,6 +69,26 @@ class TextFormatSubmissionTest extends TestCase
         $this->assertSame('0991234567', $data[$this->ids['telefono_ec']]);
     }
 
+    public function test_video_duration_is_limited_between_5_and_120_seconds(): void
+    {
+        $leader = User::find($this->form->user_id);
+        $this->form->project->technicalSheet()->create([
+            'description' => 'Ficha', 'start_date' => today()->toDateString(),
+            'end_date' => today()->addMonth()->toDateString(), 'status' => 'VALIDATED',
+        ]);
+        $this->form->update(['state' => 'DRAFT']);
+        Sanctum::actingAs($leader);
+
+        $this->postJson("/api/forms/{$this->form->id}/questions", [
+            'type' => 'MULTIMEDIA', 'label' => 'Video de la vivienda', 'properties' => ['allowed_media' => 'video', 'max_video_seconds' => 120],
+        ])->assertCreated()->assertJsonPath('properties.max_video_seconds', 120);
+        foreach ([121, 4, 'mucho'] as $invalid) {
+            $this->postJson("/api/forms/{$this->form->id}/questions", [
+                'type' => 'MULTIMEDIA', 'label' => 'Video', 'properties' => ['max_video_seconds' => $invalid],
+            ])->assertStatus(422)->assertJsonValidationErrors('properties.max_video_seconds');
+        }
+    }
+
     public function test_only_known_formats_can_be_configured(): void
     {
         $leader = User::find($this->form->user_id);

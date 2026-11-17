@@ -53,14 +53,14 @@ export const ADMIN_ROUTES: Routes = [
       import('../features/projects/supervision/collector-route.component').then((m) => m.CollectorRouteComponent),
     title: 'routes.projects',
   },
-  // Usuarios (solo admin)
+  // Usuarios: SUPER_ADMIN y ADMIN (el ADMIN gestiona roles operativos y aprueba solicitudes de acceso)
   {
     path: 'usuarios',
     loadComponent: () =>
       import('../features/usuarios/usuario-list/usuario-list.component').then(
         (m) => m.UsuarioListComponent,
       ),
-    canActivate: [roleGuard('SUPER_ADMIN')],
+    canActivate: [roleGuard('SUPER_ADMIN', 'ADMIN')],
     title: 'routes.users',
   },
   {
@@ -69,7 +69,7 @@ export const ADMIN_ROUTES: Routes = [
       import('../features/usuarios/usuario-form/usuario-form.component').then(
         (m) => m.UsuarioFormComponent,
       ),
-    canActivate: [roleGuard('SUPER_ADMIN')],
+    canActivate: [roleGuard('SUPER_ADMIN', 'ADMIN')],
     title: 'routes.newUser',
   },
   {
@@ -78,7 +78,7 @@ export const ADMIN_ROUTES: Routes = [
       import('../features/usuarios/usuario-form/usuario-form.component').then(
         (m) => m.UsuarioFormComponent,
       ),
-    canActivate: [roleGuard('SUPER_ADMIN')],
+    canActivate: [roleGuard('SUPER_ADMIN', 'ADMIN')],
     title: 'routes.editUser',
   },
   // Auditoria (solo SuperAdmin)

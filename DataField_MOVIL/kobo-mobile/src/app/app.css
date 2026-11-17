@@ -9,7 +9,9 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg, 0 8px 26px rgba(0, 0, 0, 0.15));
+  /* clip recorta igual que hidden pero no crea contenedor de desplazamiento: las barras sticky funcionan. */
   overflow: hidden;
+  overflow: clip;
   box-sizing: border-box;
 }
 
@@ -263,7 +265,8 @@
 
 .toast-container {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top));
+  /* Debajo de la barra superior de cada pantalla (hasta ~75px en Llenar encuesta), sin tapar el título ni el botón de volver. */
+  top: calc(max(8px, env(safe-area-inset-top)) + var(--toast-offset, 84px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -287,8 +290,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 6px 10px 12px;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--toast-accent);
+  border: 1px solid color-mix(in srgb, var(--toast-accent) 35%, var(--border));
   border-radius: 12px;
   background: var(--bg-card);
   color: var(--text);
@@ -352,8 +354,8 @@
   --dialog-accent: var(--primary);
   width: min(420px, 100%);
   padding: 20px 20px 16px;
+  /* El tono (normal o peligro) lo marca el botón de confirmar, no un borde de color. */
   border: 1px solid var(--border);
-  border-top: 4px solid var(--dialog-accent);
   border-radius: 16px;
   background: var(--bg-card);
   color: var(--text);

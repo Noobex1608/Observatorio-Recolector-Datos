@@ -8,6 +8,16 @@ export const AUTH_ROUTES: Routes = [
     title: 'Cambiar contraseña',
   },
   {
+    path: 'microsoft',
+    loadComponent: () => import('../features/auth/microsoft-callback.component').then((m) => m.MicrosoftCallbackComponent),
+    title: 'Iniciar sesión con Microsoft',
+  },
+  {
+    path: 'activar',
+    loadComponent: () => import('../features/auth/activate-account.component').then((m) => m.ActivateAccountComponent),
+    title: 'Confirmar cuenta',
+  },
+  {
     path: 'login',
     loadComponent: () =>
       import('../features/auth/login/login.component').then((m) => m.LoginComponent),

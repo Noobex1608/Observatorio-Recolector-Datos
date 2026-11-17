@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
-import { QuestionType } from './db.service';
+import { QuestionType } from './db.service';
 import { trimTrailingSlashes } from './utils/url';
 
 const TOKEN_KEY = 'kobo_token';
@@ -117,6 +117,28 @@ export class ApiService {
         headers: { Accept: 'application/json' }
       })
     );
+  }
+
+  /** ¿El servidor ofrece inicio de sesión con Microsoft 365? (cuentas institucionales de ULEAM) */
+  async microsoftEnabled(servidor: string): Promise<{ microsoft: boolean; internal_domains: string[] }> {
+    try {
+      return await lastValueFrom(this.http.get<{ microsoft: boolean; internal_domains: string[] }>(
+        this.buildUrl(servidor, 'auth/providers'), { headers: { Accept: 'application/json' } }));
+    } catch {
+      return { microsoft: false, internal_domains: [] };
+    }
+  }
+
+  /** URL para abrir el inicio de sesión de Microsoft; el servidor vuelve a returnUrl con un código. */
+  microsoftLoginUrl(servidor: string, returnUrl: string): string {
+    return `${this.buildUrl(servidor, 'auth/microsoft/redirect')}?return=${encodeURIComponent(returnUrl)}`;
+  }
+
+  /** Canjea el código de un solo uso devuelto tras el inicio con Microsoft por la sesión. */
+  exchangeMicrosoftCode(servidor: string, code: string): Promise<LoginResponse> {
+    return lastValueFrom(this.http.post<LoginResponse>(this.buildUrl(servidor, 'auth/microsoft/exchange'), { code }, {
+      headers: { Accept: 'application/json' },
+    }));
   }
 
   changeTemporaryPassword(servidor: string, token: string, currentPassword: string, password: string): Promise<unknown> {
