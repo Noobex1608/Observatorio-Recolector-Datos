@@ -35,7 +35,6 @@ return [
         ],
     ],
 
-
     /*
     | Inicio de sesión con Microsoft 365 / Entra ID (OpenID Connect) y envío de correo por Microsoft Graph.
     | Los datos los entrega TI al registrar la aplicación en Entra ID. El secret solo vive en el .env del backend.

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Application\User\UseCases;
 
-use App\Application\User\DTOs\UpdateUserDTO;
 use App\Application\Auth\Services\InstitutionalEmail;
+use App\Application\User\DTOs\UpdateUserDTO;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Support\Facades\DB;

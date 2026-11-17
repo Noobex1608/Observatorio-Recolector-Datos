@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\User\UseCases;
 
+use App\Application\Auth\Services\AccountInvitation;
 use App\Application\User\DTOs\CreateUserDTO;
 use App\Models\User;
-use App\Application\Auth\Services\AccountInvitation;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 

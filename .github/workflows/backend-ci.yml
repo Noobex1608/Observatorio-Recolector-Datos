@@ -94,7 +94,9 @@ jobs:
           cache: npm
           cache-dependency-path: DataField_MOVIL/kobo-mobile/package-lock.json
       - run: npm ci
-      - run: npm audit --audit-level=high
+      # GHSA-fc5q-39xc-vjpf: picomatch <=4.0.7 (solo herramientas de build/test) sin versión corregida publicada.
+      # Quitar el ID cuando salga picomatch 4.0.8+; cualquier otro aviso high/critical sigue fallando.
+      - run: node ../../.github/ci/npm-audit-high.mjs GHSA-fc5q-39xc-vjpf
       - run: npm run build
       - run: npm test -- --watch=false
 
@@ -113,6 +115,8 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
-      - run: bun audit --audit-level=high
+      # GHSA-fc5q-39xc-vjpf: picomatch <=4.0.7 (solo herramientas de build/test) sin versión corregida publicada.
+      # Quitar el --ignore cuando salga picomatch 4.0.8+.
+      - run: bun audit --audit-level=high --ignore=GHSA-fc5q-39xc-vjpf
       - run: bun run build
       - run: bun run test --watch=false
