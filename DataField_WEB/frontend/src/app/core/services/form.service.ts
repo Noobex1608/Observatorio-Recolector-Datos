@@ -108,6 +108,14 @@ export interface FormQuestionProperties {
   allowed_formats?: 'QR' | 'BARCODE' | 'ALL';
   allow_manual_input?: boolean;
   expression?: string;
+  /** Opciones en cascada: qué respuestas de una pregunta anterior muestran cada opción. */
+  choice_filter?: ChoiceFilter | null;
+}
+
+/** `parents[i]` son las opciones de la pregunta `question_id` que muestran la opción i; vacío = siempre. */
+export interface ChoiceFilter {
+  question_id: string;
+  parents: string[][];
 }
 
 export interface FormQuestion {
@@ -277,6 +285,16 @@ export class FormService {
 
   fetchPublicForm(linkUuid: string): Observable<Form> {
     return this.http.get<Form>(`${this.apiUrl}/fetch/${linkUuid}`);
+  }
+
+  /** Formulario guardado (borrador o publicado) para recorrerlo en modo de prueba. */
+  fetchTestForm(formId: string): Observable<Form & { test_mode: true }> {
+    return this.http.get<Form & { test_mode: true }>(`${this.apiUrl}/${formId}/test`);
+  }
+
+  /** Valida una respuesta de prueba con las reglas reales; el servidor no guarda nada. */
+  submitTestResponse(formId: string, data: Record<string, unknown>): Observable<{ message: string; answered: number; active_questions: number }> {
+    return this.http.post<{ message: string; answered: number; active_questions: number }>(`${this.apiUrl}/${formId}/test-submit`, { data });
   }
 
   submitResponse(linkUuid: string, data: Record<string, unknown>, clientSubmissionId: string): Observable<{ message: string; id: string }> {

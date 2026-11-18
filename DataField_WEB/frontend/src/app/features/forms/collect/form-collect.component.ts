@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -9,6 +9,7 @@ import { Form, FormQuestion, FormService } from '@core/services/form.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { normalizeTextFormat, textFormatError, textFormatInput, textFormatOf } from '@core/utils/text-format';
 import { maxVideoSeconds, readVideoDuration } from '@core/utils/video-duration';
+import { allowedOptions, choiceFilterOf, pruneCascadeAnswers } from '@core/utils/choice-filter';
 
 /** Avance de una encuesta pública guardado en la pestaña para sobrevivir a una recarga. */
 interface SavedProgress {
@@ -36,10 +37,21 @@ interface QuestionVisualMeta {
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    RouterLink,
     TranslateModule,
   ],
   template: `
     <div class="collect-page">
+      @if (testMode) {
+        <aside class="test-bar" role="note">
+          <mat-icon aria-hidden="true">science</mat-icon>
+          <p>
+            <strong>{{ 'forms.collect.test.title' | translate }}</strong>
+            <span>{{ 'forms.collect.test.banner' | translate }}</span>
+          </p>
+          <a mat-stroked-button [routerLink]="['/admin/forms', testFormId, 'edit']">{{ 'forms.collect.test.backToEditor' | translate }}</a>
+        </aside>
+      }
       @if (loading()) {
         <div class="state-box">
           <mat-spinner diameter="40"></mat-spinner>
@@ -55,6 +67,15 @@ interface QuestionVisualMeta {
           <mat-icon>event</mat-icon>
           <h1>{{ form()!.title }}</h1>
           <p>Este formulario estará disponible a partir del {{ form()!.start_date | date:'dd/MM/yyyy' }}.</p>
+        </div>
+      } @else if (submitted() && testMode) {
+        <div class="state-box success">
+          <mat-icon>task_alt</mat-icon>
+          <h2>{{ 'forms.collect.test.doneTitle' | translate }}</h2>
+          <p>{{ 'forms.collect.test.doneText' | translate: { answered: testAnswered() } }}</p>
+          <button mat-raised-button color="primary" (click)="resetForm()" type="button">
+            {{ 'forms.collect.test.again' | translate }}
+          </button>
         </div>
       } @else if (submitted()) {
         <div class="state-box success">
@@ -139,6 +160,7 @@ interface QuestionVisualMeta {
                           </label>
                         }
                       </div>
+                      @if (cascadeHint(question); as hint) { <p class="question-help">{{ hint }}</p> }
                     }
                     @case ('MULTIPLE_CHOICE') {
                       <div class="options-list">
@@ -153,6 +175,7 @@ interface QuestionVisualMeta {
                           </label>
                         }
                       </div>
+                      @if (cascadeHint(question); as hint) { <p class="question-help">{{ hint }}</p> }
                     }
                     @case ('LIKERT') {
                       <!-- En pantallas angostas cada fila se muestra como un grupo de opciones, sin desplazamiento lateral. -->
@@ -384,7 +407,7 @@ interface QuestionVisualMeta {
                 @if (submitting()) {
                   {{ 'forms.collect.submitting' | translate }}
                 } @else {
-                  {{ 'forms.collect.submit' | translate }}
+                  {{ (testMode ? 'forms.collect.test.submit' : 'forms.collect.submit') | translate }}
                 }
               </button>
             }
@@ -402,7 +425,44 @@ interface QuestionVisualMeta {
         background: var(--bg-primary);
         padding: 1.5rem 1rem;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      /* Aviso del modo de prueba: plano, con borde, sin color de alarma. */
+      .test-bar {
+        width: 100%;
+        max-width: 900px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        background: var(--bg-secondary);
+
+        mat-icon { flex: none; color: var(--primary-text-600); }
+
+        p {
+          flex: 1;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          font-size: 0.875rem;
+          line-height: 1.4;
+          color: var(--text-secondary);
+        }
+
+        strong { color: var(--text-primary); font-size: 0.9375rem; }
+        a { flex: none; }
+      }
+
+      @media (max-width: 560px) {
+        .test-bar { flex-wrap: wrap; }
+        .test-bar a { width: 100%; }
       }
 
       .collect-card {
@@ -821,6 +881,11 @@ export class FormCollectComponent implements OnInit {
 
   private linkUuid = '';
 
+  /** Modo de prueba (/prueba/:formId): mismo recorrido que el encuestado, sin guardar respuestas. */
+  readonly testMode = this.route.snapshot.data?.['testMode'] === true;
+  readonly testFormId = this.route.snapshot.paramMap.get('formId') ?? '';
+  readonly testAnswered = signal(0);
+
   constructor() {
     // Guarda el avance en la pestaña cada vez que cambia, para que una recarga no lo pierda.
     effect(() => {
@@ -838,7 +903,7 @@ export class FormCollectComponent implements OnInit {
   }
 
   private get storageKey(): string {
-    return `uleam:collect:${this.linkUuid}`;
+    return this.testMode ? `uleam:collect:prueba:${this.testFormId}` : `uleam:collect:${this.linkUuid}`;
   }
 
   private saveProgress(progress: SavedProgress): void {
@@ -883,7 +948,7 @@ export class FormCollectComponent implements OnInit {
 
   ngOnInit(): void {
     this.linkUuid = this.route.snapshot.paramMap.get('uuid') ?? '';
-    if (!this.linkUuid) {
+    if (this.testMode ? !this.testFormId : !this.linkUuid) {
       this.error.set(this.translate.instant('forms.collect.errors.invalidLink'));
       this.loading.set(false);
       return;
@@ -892,7 +957,10 @@ export class FormCollectComponent implements OnInit {
   }
 
   loadForm(): void {
-    this.formService.fetchPublicForm(this.linkUuid).subscribe({
+    const request = this.testMode
+      ? this.formService.fetchTestForm(this.testFormId)
+      : this.formService.fetchPublicForm(this.linkUuid);
+    request.subscribe({
       next: (form) => {
         this.form.set({ ...form, questions: form.questions ?? [] });
         if (form.availability === 'SCHEDULED') {
@@ -908,7 +976,7 @@ export class FormCollectComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.error.set(this.translate.instant('forms.collect.errors.load'));
+        this.error.set(this.translate.instant(this.testMode ? 'forms.collect.test.loadError' : 'forms.collect.errors.load'));
         this.loading.set(false);
       },
     });
@@ -1003,7 +1071,8 @@ export class FormCollectComponent implements OnInit {
   }
 
   setAnswer(questionId: string, value: unknown): void {
-    this.answers.update((answers) => ({ ...answers, [questionId]: value }));
+    // Al cambiar la provincia se quita el cantón que ya no le corresponde (y así en cadena).
+    this.answers.update((answers) => pruneCascadeAnswers(this.orderedQuestions(), { ...answers, [questionId]: value }));
     this.clearQuestionError(questionId);
   }
 
@@ -1083,9 +1152,22 @@ export class FormCollectComponent implements OnInit {
   }
 
   getChoiceOptions(question: FormQuestion): string[] {
-    return Array.isArray(question.options)
-      ? question.options.map((option) => String(option)).filter(Boolean)
+    const options = Array.isArray(question.options)
+      ? question.options.map((option) => String(option))
       : [];
+    const filter = question.type === 'SINGLE_CHOICE' || question.type === 'MULTIPLE_CHOICE' ? choiceFilterOf(question.properties) : null;
+    // El filtro va por posición, así que se aplica antes de descartar opciones vacías.
+    return allowedOptions(options, filter, filter ? this.answers()[filter.question_id] : null).filter(Boolean);
+  }
+
+  /** Aviso cuando las opciones dependen de una pregunta anterior que aún no habilita ninguna. */
+  cascadeHint(question: FormQuestion): string {
+    const filter = choiceFilterOf(question.properties);
+    if (!filter || this.getChoiceOptions(question).length > 0) return '';
+    const source = this.orderedQuestions().find((item) => item.id === filter.question_id);
+    const answer = source ? this.answers()[source.id] : undefined;
+    const answered = answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0);
+    return this.translate.instant(answered ? 'forms.collect.noOptionsFor' : 'forms.collect.answerFirst', { question: source?.label ?? '' });
   }
 
   getLikertRows(question: FormQuestion): string[] {
@@ -1250,6 +1332,29 @@ export class FormCollectComponent implements OnInit {
     if (!this.consentAccepted()) return;
     this.submitting.set(true);
     this.submitError.set('');
+
+    if (this.testMode) {
+      this.formService.submitTestResponse(this.testFormId, this.normalizedAnswers()).subscribe({
+        next: (result) => {
+          this.testAnswered.set(result.answered);
+          this.submitted.set(true);
+          this.submitting.set(false);
+        },
+        error: (err) => {
+          // Mismas reglas que un envío real: se marcan las preguntas que el servidor rechazó.
+          const fieldErrors = (err?.error?.errors ?? {}) as Record<string, string[]>;
+          const byQuestion: Record<string, string> = {};
+          for (const [key, messages] of Object.entries(fieldErrors)) {
+            const id = key.startsWith('data.') ? key.slice(5) : key;
+            if (Array.isArray(messages) && messages[0]) byQuestion[id] = messages[0];
+          }
+          this.validationErrors.update((errors) => ({ ...errors, ...byQuestion }));
+          this.submitError.set(err?.error?.message || this.translate.instant('forms.collect.errors.submit'));
+          this.submitting.set(false);
+        },
+      });
+      return;
+    }
 
     this.formService.submitResponse(this.linkUuid, this.normalizedAnswers(), this.clientSubmissionId).subscribe({
       next: () => {

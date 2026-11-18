@@ -294,8 +294,130 @@
                 </p>
               }
             </div>
+
+            <!-- Corrección (solo superadministrador): mismas reglas que un envío y motivo obligatorio. -->
+            @if (field.question && canCorrect(field.question)) {
+              @let q = field.question;
+              @if (editingField() === field.key) {
+                <form class="correction-form" (ngSubmit)="saveEdit(q)" [attr.aria-label]="'Corregir ' + field.label">
+                  @switch (q.type) {
+                    @case ('SINGLE_CHOICE') {
+                      <select name="value" [(ngModel)]="editValue" aria-label="Valor corregido">
+                        <option [ngValue]="null">(sin respuesta)</option>
+                        @for (option of correctionOptions(q); track option) {
+                          <option [ngValue]="option">{{ option }}</option>
+                        }
+                      </select>
+                    }
+                    @case ('MULTIPLE_CHOICE') {
+                      <div class="correction-options" role="group" aria-label="Valor corregido">
+                        @for (option of correctionOptions(q); track option) {
+                          <label>
+                            <input type="checkbox" [checked]="editValue?.includes(option)" (change)="toggleEditOption(option, $any($event.target).checked)" />
+                            {{ option }}
+                          </label>
+                        }
+                      </div>
+                    }
+                    @case ('NUMBER') { <input name="value" type="number" step="any" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                    @case ('RATING') { <input name="value" type="number" min="1" [max]="q.properties?.max_rating ?? 5" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                    @case ('DATE') { <input name="value" type="date" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                    @case ('TIME') { <input name="value" type="time" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                    @case ('DATETIME') { <input name="value" type="text" [(ngModel)]="editValue" placeholder="AAAA-MM-DDTHH:MM" aria-label="Valor corregido" /> }
+                    @default { <input name="value" type="text" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                  }
+                  <label class="correction-reason">
+                    <span>Motivo de la corrección</span>
+                    <textarea name="reason" rows="2" [(ngModel)]="editReason" placeholder="Ej.: el encuestado aclaró su edad por teléfono"></textarea>
+                  </label>
+                  @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
+                  <div class="correction-actions">
+                    <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="correctionBusy()">Cancelar</button>
+                    <button mat-flat-button color="primary" type="submit" [disabled]="correctionBusy()">Guardar corrección</button>
+                  </div>
+                </form>
+              } @else {
+                <button class="correction-link" type="button" (click)="startEdit(field)">
+                  <mat-icon aria-hidden="true">edit</mat-icon> Corregir
+                </button>
+              }
+            }
           </article>
         }
+
+      @if (isSuperAdmin()) {
+        <section class="correction-tools" aria-label="Correcciones de la respuesta">
+          <div class="correction-tools-actions">
+            <button mat-stroked-button type="button" (click)="openPanel('collector')" [attr.aria-expanded]="panel() === 'collector'">
+              <mat-icon>person_search</mat-icon> Cambiar encuestador
+            </button>
+            <button mat-stroked-button color="warn" type="button" (click)="openPanel('void')" [attr.aria-expanded]="panel() === 'void'">
+              <mat-icon>block</mat-icon> Anular respuesta
+            </button>
+          </div>
+
+          @if (panel() === 'collector') {
+            <div class="correction-form">
+              <label class="correction-reason">
+                <span>Nuevo encuestador</span>
+                <select [(ngModel)]="chosenCollector" name="collector">
+                  <option [ngValue]="null">Elegir…</option>
+                  @for (user of collectorOptions(); track user.id) {
+                    <option [ngValue]="user.id">{{ user.name }} · {{ user.email }}</option>
+                  }
+                </select>
+              </label>
+              @if (collectorOptions().length === 0) {
+                <p class="correction-hint">No hay otras personas asignadas a este formulario o a su proyecto.</p>
+              }
+              <label class="correction-reason">
+                <span>Motivo</span>
+                <textarea rows="2" [(ngModel)]="panelReason" name="collectorReason" placeholder="Ej.: la encuesta se registró con la cuenta de otra persona"></textarea>
+              </label>
+              @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
+              <div class="correction-actions">
+                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">Cancelar</button>
+                <button mat-flat-button color="primary" type="button" (click)="confirmReassign()" [disabled]="correctionBusy()">Cambiar encuestador</button>
+              </div>
+            </div>
+          }
+
+          @if (panel() === 'void') {
+            <div class="correction-form">
+              <p class="correction-hint">La respuesta deja de contar en la lista, los exportes y las estadísticas. No se borra: puedes restaurarla desde el Centro de datos.</p>
+              <label class="correction-reason">
+                <span>Motivo de la anulación</span>
+                <textarea rows="2" [(ngModel)]="panelReason" name="voidReason" placeholder="Ej.: encuesta de prueba o duplicada"></textarea>
+              </label>
+              @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
+              <div class="correction-actions">
+                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">Cancelar</button>
+                <button mat-flat-button color="warn" type="button" (click)="confirmVoid()" [disabled]="correctionBusy()">Anular respuesta</button>
+              </div>
+            </div>
+          }
+        </section>
+      }
+
+      @if (selectedResponse.corrections?.length) {
+        <section class="correction-history" aria-labelledby="correction-history-title">
+          <h3 id="correction-history-title">Historial de correcciones</h3>
+          <ol>
+            @for (entry of selectedResponse.corrections; track $index) {
+              <li>
+                <strong>{{ correctionTitle(entry) }}</strong>
+                @if (entry.type === 'answer' || entry.type === 'collector') {
+                  <span>{{ describeValue(entry.before) }} → {{ describeValue(entry.after) }}</span>
+                }
+                @if (entry.cleared?.length) {
+                  <span>Se vaciaron: {{ entry.cleared!.map(item => item.question).join(', ') }}</span>
+                }
+                <small>{{ entry.by }} · {{ entry.at | date: 'dd/MM/yyyy HH:mm' }} · Motivo: {{ entry.reason }}</small>
+              </li>
+            }
+          </ol>
+        </section>
+      }
       </div>
 
       <footer class="response-preview-footer">

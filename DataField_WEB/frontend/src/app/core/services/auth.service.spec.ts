@@ -49,3 +49,27 @@ describe('AuthService session persistence', () => {
     expect(JSON.parse(localStorage.getItem('auth_user') ?? '{}').id).toBe(1);
   });
 });
+
+describe('AuthService: vuelve a la página que pidió iniciar sesión', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: ApiService, useValue: {} }] });
+  });
+  afterEach(() => sessionStorage.clear());
+
+  it('recuerda una ruta interna una sola vez', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.rememberReturnUrl('/prueba/f1');
+    expect(auth.takeReturnUrl()).toBe('/prueba/f1');
+    expect(auth.takeReturnUrl()).toBe('/admin/dashboard');
+  });
+
+  it('ignora destinos externos o de inicio de sesión', () => {
+    const auth = TestBed.inject(AuthService);
+    for (const url of ['//evil.example', 'https://evil.example', '/auth/login', '/\\evil.example']) {
+      auth.rememberReturnUrl(url);
+      expect(auth.takeReturnUrl()).toBe('/admin/dashboard');
+    }
+  });
+});
+

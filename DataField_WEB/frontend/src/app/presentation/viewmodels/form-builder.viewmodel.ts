@@ -4,6 +4,13 @@ import { Project, ProjectService } from '@core/services/project.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { TEXT_FORMATS, TextFormat } from '@core/utils/text-format';
+import { choiceFilterOf } from '@core/utils/choice-filter';
+
+/** Tipos que pueden tener (o ser origen de) opciones en cascada. */
+const CASCADE_TYPES: FormQuestion['type'][] = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'];
+
+/** Valor del selector cuando una opción depende de varias respuestas (viene del Excel). */
+export const CASCADE_MULTIPLE = '__varias__';
 
 export interface FormSectionDraft {
   tempId: string;
@@ -422,6 +429,9 @@ export class FormBuilderViewModel {
           properties.expression = properties.expression.split('${' + oldId + '}').join('${' + newId + '}');
         }
       }
+      if (properties.choice_filter?.question_id) {
+        properties.choice_filter = { ...properties.choice_filter, question_id: remap(properties.choice_filter.question_id)! };
+      }
       return {
         ...question,
         id: undefined,
@@ -452,6 +462,7 @@ export class FormBuilderViewModel {
       return {
         ...question,
         options: lines,
+        properties: this.resizeCascade(question.properties, lines.length),
         branchRules: this.supportsBranching(question.type)
           ? lines.map((_, optionIndex) => question.branchRules[optionIndex]
             ? { ...question.branchRules[optionIndex], optionIndex }
@@ -512,6 +523,12 @@ export class FormBuilderViewModel {
           properties.expression = properties.expression.split('${' + oldId + '}').join('${' + newId + '}');
         }
       }
+      const importedFilter = choiceFilterOf(properties);
+      if (importedFilter) {
+        const source = newIds.get(importedFilter.question_id);
+        if (source) properties.choice_filter = { question_id: source, parents: importedFilter.parents };
+        else delete properties.choice_filter;
+      }
       return {
         tempId: newIds.get(question.temp_id)!,
         type: question.type,
@@ -567,6 +584,10 @@ export class FormBuilderViewModel {
         .filter((question) => !removedIds.has(question.tempId))
         .map((question) => ({
           ...question,
+          // Si se borra la pregunta de la que dependían sus opciones, vuelven a mostrarse todas.
+          properties: removedIds.has(choiceFilterOf(question.properties)?.question_id ?? '')
+            ? (({ choice_filter: _removed, ...rest }) => rest)(question.properties)
+            : question.properties,
           branchRules: question.branchRules.map((rule) =>
             rule.nextQuestionTempId && removedIds.has(rule.nextQuestionTempId) ? { ...rule, nextQuestionTempId: null } : rule,
           ),
@@ -727,9 +748,12 @@ export class FormBuilderViewModel {
             }))
           : [];
 
+        const properties = { ...question.properties };
+        if (!CASCADE_TYPES.includes(type)) delete properties.choice_filter;
         return {
           ...question,
           type,
+          properties,
           options: nextOptions,
           likertRows: nextLikertRows,
           likertColumns: nextLikertColumns,
@@ -794,6 +818,7 @@ export class FormBuilderViewModel {
           ? {
               ...question,
               options: [...question.options, ''],
+              properties: this.resizeCascade(question.properties, question.options.length + 1),
               branchRules: this.supportsBranching(question.type)
                 ? [...question.branchRules, { optionIndex: question.options.length, action: 'CONTINUE', nextQuestionTempId: null }]
                 : question.branchRules,
@@ -804,13 +829,24 @@ export class FormBuilderViewModel {
   }
 
   updateOption(tempId: string, optionIndex: number, value: string): void {
+    const previous = this.questions().find((question) => question.tempId === tempId)?.options[optionIndex];
     this.questions.update((questions) =>
       questions.map((question) => {
-        if (question.tempId !== tempId) return question;
-
-        const options = [...question.options];
-        options[optionIndex] = value;
-        return { ...question, options };
+        if (question.tempId === tempId) {
+          const options = [...question.options];
+          options[optionIndex] = value;
+          return { ...question, options };
+        }
+        // Si otra pregunta depende de esta opción, se renombra también allí.
+        const filter = choiceFilterOf(question.properties);
+        if (!filter || filter.question_id !== tempId || previous === undefined || previous.trim() === '') return question;
+        return {
+          ...question,
+          properties: {
+            ...question.properties,
+            choice_filter: { ...filter, parents: filter.parents.map((labels) => labels.map((label) => (label === previous ? value : label))) },
+          },
+        };
       }),
     );
   }
@@ -820,9 +856,13 @@ export class FormBuilderViewModel {
       questions.map((question) => {
         if (question.tempId !== tempId || question.options.length <= 1) return question;
 
+        const filter = choiceFilterOf(question.properties);
         return {
           ...question,
           options: question.options.filter((_, index) => index !== optionIndex),
+          properties: filter
+            ? { ...question.properties, choice_filter: { ...filter, parents: filter.parents.filter((_, index) => index !== optionIndex) } }
+            : question.properties,
           branchRules: this.supportsBranching(question.type)
             ? question.branchRules
                 .filter((_, index) => index !== optionIndex)
@@ -940,6 +980,9 @@ export class FormBuilderViewModel {
         if (typeof properties.expression === 'string') {
           for (const [temp, id] of ids) properties.expression = properties.expression.split('${' + temp + '}').join('${' + id + '}');
         }
+        const filter = this.cascadePayload(q);
+        if (filter) properties.choice_filter = { question_id: ids.get(filter.question_id) ?? filter.question_id, parents: filter.parents };
+        else delete properties.choice_filter;
         return {
           ...this.toQuestionPayload(q), id: ids.get(q.tempId)!, properties,
           parent_question_id: q.parentTempId ? ids.get(q.parentTempId) ?? q.parentQuestionId ?? null : null,
@@ -1261,6 +1304,88 @@ export class FormBuilderViewModel {
         label: `${question.order + 1}. ${this.getQuestionDisplayLabel(question)}`,
       })),
     ];
+  }
+
+  // ---- Opciones en cascada (provincia → cantón) ----
+
+  canConfigureCascade(type: FormQuestion['type']): boolean {
+    return CASCADE_TYPES.includes(type);
+  }
+
+  /** Preguntas de opciones anteriores de las que puede depender esta. */
+  getCascadeSources(tempId: string): Array<{ value: string; label: string }> {
+    const questions = this.questions();
+    const index = questions.findIndex((question) => question.tempId === tempId);
+    return questions.slice(0, Math.max(index, 0))
+      .filter((question) => CASCADE_TYPES.includes(question.type))
+      .map((question) => ({ value: question.tempId, label: `${question.order + 1}. ${this.getQuestionDisplayLabel(question)}` }));
+  }
+
+  cascadeSourceId(question: FormQuestionDraft): string | null {
+    return choiceFilterOf(question.properties)?.question_id ?? null;
+  }
+
+  /** Opciones (no vacías) de la pregunta de la que depende. */
+  cascadeSourceOptions(question: FormQuestionDraft): string[] {
+    const sourceId = this.cascadeSourceId(question);
+    const source = this.questions().find((item) => item.tempId === sourceId);
+    return source ? source.options.map((option) => option.trim()).filter(Boolean) : [];
+  }
+
+  setCascadeSource(tempId: string, sourceTempId: string | null): void {
+    if (!this.canEditQuestions()) return;
+    this.questions.update((questions) => questions.map((question) => {
+      if (question.tempId !== tempId) return question;
+      const properties = { ...question.properties };
+      if (sourceTempId) properties.choice_filter = { question_id: sourceTempId, parents: question.options.map(() => []) };
+      else delete properties.choice_filter;
+      return { ...question, properties };
+    }));
+    this.clearMessages();
+  }
+
+  /** '' = se muestra siempre; texto = depende de esa opción; CASCADE_MULTIPLE = de varias. */
+  getCascadeParent(question: FormQuestionDraft, optionIndex: number): string {
+    const parents = choiceFilterOf(question.properties)?.parents[optionIndex] ?? [];
+    return parents.length === 0 ? '' : parents.length === 1 ? parents[0] : CASCADE_MULTIPLE;
+  }
+
+  getCascadeParentList(question: FormQuestionDraft, optionIndex: number): string[] {
+    return choiceFilterOf(question.properties)?.parents[optionIndex] ?? [];
+  }
+
+  setCascadeParent(tempId: string, optionIndex: number, value: string): void {
+    if (!this.canEditQuestions() || value === CASCADE_MULTIPLE) return;
+    this.questions.update((questions) => questions.map((question) => {
+      const filter = question.tempId === tempId ? choiceFilterOf(question.properties) : null;
+      if (!filter) return question;
+      const parents = question.options.map((_, index) => filter.parents[index] ?? []);
+      parents[optionIndex] = value ? [value] : [];
+      return { ...question, properties: { ...question.properties, choice_filter: { ...filter, parents } } };
+    }));
+  }
+
+  /** Mantiene `parents` con una entrada por opción. */
+  private resizeCascade(properties: FormQuestionProperties, length: number): FormQuestionProperties {
+    const filter = choiceFilterOf(properties);
+    if (!filter) return properties;
+    return { ...properties, choice_filter: { ...filter, parents: Array.from({ length }, (_, index) => filter.parents[index] ?? []) } };
+  }
+
+  /**
+   * Cascada lista para guardar: alineada con las opciones no vacías (las vacías no se guardan) y
+   * solo con respuestas que existen en la pregunta origen. Sin origen válido no se guarda.
+   */
+  private cascadePayload(question: FormQuestionDraft): { question_id: string; parents: string[][] } | null {
+    const filter = CASCADE_TYPES.includes(question.type) ? choiceFilterOf(question.properties) : null;
+    const source = filter ? this.questions().find((item) => item.tempId === filter.question_id) : null;
+    if (!filter || !source || !CASCADE_TYPES.includes(source.type)) return null;
+    const sourceOptions = new Set(source.options.map((option) => option.trim()).filter(Boolean));
+    const parents = question.options
+      .map((option, index) => ({ option: option.trim(), parents: filter.parents[index] ?? [] }))
+      .filter((entry) => entry.option !== '')
+      .map((entry) => [...new Set(entry.parents.map((label) => label.trim()).filter((label) => sourceOptions.has(label)))]);
+    return { question_id: filter.question_id, parents };
   }
 
   canConfigureBranching(type: FormQuestion['type']): boolean {

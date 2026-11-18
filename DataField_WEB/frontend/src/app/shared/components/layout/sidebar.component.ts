@@ -75,6 +75,17 @@ import { TranslateModule } from '@ngx-translate/core';
             </div>
             <span class="nav-text">{{ 'layout.sidebar.auditLogs' | translate }}</span>
           </a>
+          <a
+            class="nav-item"
+            routerLink="/admin/datos"
+            routerLinkActive="active"
+            (click)="navigate.emit()"
+          >
+            <div class="nav-icon-wrapper">
+              <mat-icon class="nav-icon">dataset</mat-icon>
+            </div>
+            <span class="nav-text">{{ 'layout.sidebar.dataCenter' | translate }}</span>
+          </a>
         }
 
       </div>

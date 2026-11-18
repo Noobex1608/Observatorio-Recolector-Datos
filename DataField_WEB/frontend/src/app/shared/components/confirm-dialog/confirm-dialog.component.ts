@@ -20,10 +20,13 @@ export interface ConfirmDialogData {
   imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule, TranslateModule],
   template: `
     <h2 mat-dialog-title>
-      @if (data.icon) {
-        <mat-icon [color]="data.confirmColor || 'primary'">{{ data.icon }}</mat-icon>
-      }
-      {{ data.title }}
+      <!-- El flex va en un contenedor interno: en el título, el ::before de Material contaría como elemento y desplazaría el texto. -->
+      <span class="confirm-title">
+        @if (data.icon) {
+          <mat-icon [color]="data.confirmColor || 'primary'" aria-hidden="true">{{ data.icon }}</mat-icon>
+        }
+        <span>{{ data.title }}</span>
+      </span>
     </h2>
     <mat-dialog-content>
       <p>{{ data.message }}</p>
@@ -39,19 +42,40 @@ export interface ConfirmDialogData {
   `,
   styles: [
     `
-      h2 {
+      /* Mismo margen izquierdo (24px) para título, mensaje y botones. */
+      h2[mat-dialog-title] {
+        margin: 0;
+        padding: 1.25rem 1.5rem 0.5rem;
+        font-size: 1.125rem;
+        font-weight: 700;
+        line-height: 1.4;
+        color: var(--text-primary);
+      }
+
+      h2[mat-dialog-title]::before {
+        display: none;
+      }
+
+      .confirm-title {
         display: flex;
         align-items: center;
         gap: 0.5rem;
       }
 
+      mat-dialog-content {
+        padding: 0 1.5rem;
+      }
+
       mat-dialog-content p {
         margin: 0;
+        line-height: 1.5;
         color: var(--text-secondary);
+        overflow-wrap: anywhere;
       }
 
       mat-dialog-actions {
-        padding: 1rem 1.5rem;
+        min-height: 0;
+        padding: 1.25rem 1.5rem 1.25rem;
         gap: 0.5rem;
       }
     `,

@@ -19,6 +19,7 @@ import { evaluateArithmetic } from '../utils/arithmetic-expression';
 import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
 import { TRACE_KEY, TraceEvent, TraceRecorder } from '../utils/trace-recorder';
 import { textFormatError, textFormatInput, textFormatOf } from '../utils/text-format';
+import { allowedOptions, choiceFilterOf, pruneCascadeAnswers } from '../utils/choice-filter';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -494,9 +495,46 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     } else {
       this.respuestas[qId] = this.respuestas[qId].filter((o: string) => o !== option);
     }
+    this.podarCascadas();
+  }
+
+  /** Opciones visibles: si dependen de una pregunta anterior (provincia → cantón), solo las que le corresponden. */
+  opcionesDe(pregunta: FormQuestion): string[] {
+    const opciones = pregunta.options ?? [];
+    const filtro = pregunta.type === 'SINGLE_CHOICE' || pregunta.type === 'MULTIPLE_CHOICE' ? choiceFilterOf(pregunta.properties) : null;
+    return filtro ? allowedOptions(opciones, filtro, this.respuestas[filtro.question_id]) : opciones;
+  }
+
+  /** Aviso cuando la pregunta de la que dependen las opciones todavía no habilita ninguna. */
+  avisoCascada(pregunta: FormQuestion): string {
+    const filtro = choiceFilterOf(pregunta.properties);
+    if (!filtro || this.opcionesDe(pregunta).length > 0) return '';
+    const origen = this.formulario?.questions.find(q => q.id === filtro.question_id);
+    const respuesta = this.respuestas[filtro.question_id];
+    const respondida = respuesta !== undefined && respuesta !== null && respuesta !== '' && !(Array.isArray(respuesta) && respuesta.length === 0);
+    return respondida
+      ? `No hay opciones para lo elegido en «${origen?.label ?? 'la pregunta anterior'}».`
+      : `Primero responde «${origen?.label ?? 'la pregunta anterior'}» para ver las opciones.`;
+  }
+
+  /**
+   * Quita las respuestas que dejaron de corresponder al cambiar una pregunta de la que dependen
+   * (si cambia la provincia, se borra el cantón elegido). Se modifica el mismo objeto de respuestas.
+   */
+  podarCascadas(): void {
+    const preguntas = this.formulario?.questions ?? [];
+    const podadas = pruneCascadeAnswers(preguntas, this.respuestas);
+    if (podadas === this.respuestas) return;
+    for (const id of Object.keys(this.respuestas)) {
+      if (!(id in podadas)) delete this.respuestas[id];
+      else if (podadas[id] !== this.respuestas[id]) this.respuestas[id] = podadas[id];
+    }
   }
 
   onSingleChoiceChange(qId: string, option: string) {
+    // Se asigna aquí (no se espera a ngModel) para podar con el valor nuevo.
+    this.respuestas[qId] = option;
+    this.podarCascadas();
     const pregunta = this.formulario?.questions.find(q => q.id === qId);
     if (!pregunta) {
       return;

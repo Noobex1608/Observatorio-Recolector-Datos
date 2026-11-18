@@ -181,6 +181,8 @@ class ProjectController extends Controller
 
         DB::transaction(function () use ($project, $user) {
             AuditLogService::logProjectAction($user, $project, 'DELETE');
+            // Va a la papelera del Centro de datos: el superadministrador puede restaurarlo.
+            $project->forceFill(['deleted_by' => $user->id])->save();
             $project->delete();
         });
 

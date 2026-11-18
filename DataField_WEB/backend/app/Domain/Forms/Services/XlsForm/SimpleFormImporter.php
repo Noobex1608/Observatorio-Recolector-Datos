@@ -29,6 +29,9 @@ final class SimpleFormImporter
     /** @var array<string, string> N.º => id temporal */
     private array $byNumber = [];
 
+    /** @var array<string, list<array{0:?string, 1:list<string>}>> temp_id => grupos de opciones en cascada */
+    private array $optionGroups = [];
+
     private string $sheetName = SimpleFormat::SHEET;
 
     /** Encabezado de la hoja en minúsculas sin tildes => clave de columna. */
@@ -43,6 +46,8 @@ final class SimpleFormImporter
         $keys[SimpleFormat::key('Subpregunta de')] = 'parent';
         $keys[SimpleFormat::key('Si responde ir a')] = 'jumps';
         $keys[SimpleFormat::key('Saltos')] = 'jumps';
+        $keys[SimpleFormat::key('Opciones según')] = 'depends';
+        $keys[SimpleFormat::key('Depende de')] = 'depends';
 
         $map = [];
         foreach ($headerRow as $column => $value) {
@@ -161,7 +166,7 @@ final class SimpleFormImporter
             if ($type[0] === 'LIKERT') {
                 $matrix = $index;
             }
-            if (($row['jumps'] ?? '') !== '' || ($row['parent'] ?? '') !== '' || $type[0] === 'CALCULATE') {
+            if (($row['jumps'] ?? '') !== '' || ($row['parent'] ?? '') !== '' || ($row['depends'] ?? '') !== '' || $type[0] === 'CALCULATE') {
                 $pending[] = ['index' => $index, 'row' => $row];
             }
         }
@@ -187,7 +192,15 @@ final class SimpleFormImporter
             case 'SINGLE_CHOICE':
             case 'MULTIPLE_CHOICE':
             case 'RANKING':
-                $options = SimpleFormat::splitOptions($rawOptions);
+                $cascade = ($row['depends'] ?? '') !== '' && $type !== 'RANKING';
+                if ($cascade) {
+                    // Opciones por grupos («Manabí: Portoviejo; Manta | Guayas: …»); el mismo texto en
+                    // varios grupos es una sola opción. Los grupos se enlazan al resolver «Opciones según».
+                    $groups = SimpleFormat::splitOptionGroups($rawOptions);
+                    $options = array_values(array_unique(array_merge(...array_map(fn ($group) => $group[1], $groups ?: [[null, []]]))));
+                } else {
+                    $options = SimpleFormat::splitOptions($rawOptions);
+                }
                 if ($options === []) {
                     $this->error($line, 'Escribe las «Opciones» separadas por punto y coma (ej. Sí; No).');
 
@@ -250,9 +263,17 @@ final class SimpleFormImporter
         if (! in_array($required, ['', 'si', 'no', 'yes', 's', 'n', 'x', '1', '0'], true)) {
             $this->warn($line, '«Obligatoria» debe ser Sí o No; se tomó como No.');
         }
+        if (($row['depends'] ?? '') !== '' && ! in_array($type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $this->warn($line, '«Opciones según» solo se aplica a Opción única u Opción múltiple; se ignoró.');
+        }
+
+        $tempId = (string) Str::uuid();
+        if (isset($groups)) {
+            $this->optionGroups[$tempId] = $groups;
+        }
 
         return [
-            'temp_id' => (string) Str::uuid(),
+            'temp_id' => $tempId,
             'row' => $line,
             'name' => $number,
             'type' => $type,
@@ -291,6 +312,14 @@ final class SimpleFormImporter
                 }
             }
 
+            $groups = $this->optionGroups[$question['temp_id']] ?? null;
+            if ($groups !== null) {
+                $filter = $this->cascade($groups, preg_replace('/\.0+$/', '', $row['depends']) ?? '', $question, $index, $position);
+                if ($filter !== null) {
+                    $question['properties']['choice_filter'] = $filter;
+                }
+            }
+
             if (($row['jumps'] ?? '') !== '') {
                 $question['branch_rules'] = $this->jumps($row['jumps'], $question, $index, $position);
             }
@@ -300,6 +329,56 @@ final class SimpleFormImporter
             }
             unset($question);
         }
+    }
+
+    /**
+     * «Opciones según (N.º)»: enlaza cada grupo de opciones con la respuesta de la pregunta indicada.
+     *
+     * @param  list<array{0:?string, 1:list<string>}>  $groups
+     * @return array{question_id:string, parents:list<list<string>>}|null
+     */
+    private function cascade(array $groups, string $number, array $question, int $index, array $position): ?array
+    {
+        $line = $question['row'];
+        $sourceId = $this->byNumber[$number] ?? null;
+        $source = $sourceId !== null ? $this->questions[$position[$sourceId]] : null;
+        if (! $source || $position[$sourceId] >= $index || ! in_array($source['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $this->warn($line, "«Opciones según» indica la {$number}, que no es una pregunta de opciones anterior; se muestran todas las opciones.");
+
+            return null;
+        }
+        if (! collect($groups)->contains(fn ($group) => $group[0] !== null)) {
+            $this->warn($line, "Para que las opciones dependan de la pregunta {$number}, agrúpalas así: «Manabí: Portoviejo; Manta | Guayas: Guayaquil». Se muestran todas.");
+
+            return null;
+        }
+
+        $sourceLabels = [];
+        foreach ($source['options'] as $label) {
+            $sourceLabels[SimpleFormat::key((string) $label)] = (string) $label;
+        }
+        $parentsByOption = array_fill_keys($question['options'], []);
+        $unknown = [];
+        foreach ($groups as [$parent, $items]) {
+            $label = $parent !== null ? ($sourceLabels[SimpleFormat::key($parent)] ?? null) : null;
+            if ($parent !== null && $label === null) {
+                $unknown[] = $parent;
+            }
+            foreach ($items as $item) {
+                if ($label !== null && ! in_array($label, $parentsByOption[$item], true)) {
+                    $parentsByOption[$item][] = $label;
+                }
+            }
+        }
+        if ($unknown !== []) {
+            $this->warn($line, 'Los grupos «'.implode('», «', array_slice($unknown, 0, 5))."» no son opciones de la pregunta {$number}; sus opciones se mostrarán siempre.");
+        }
+        $always = count(array_filter($parentsByOption, fn ($parents) => $parents === []));
+        if ($always > 0 && $unknown === []) {
+            $this->warn($line, "{$always} opción(es) no pertenecen a ningún grupo; se mostrarán siempre.");
+        }
+
+        return ['question_id' => $sourceId, 'parents' => array_values($parentsByOption)];
     }
 
     private function jumps(string $text, array $question, int $index, array $position): array

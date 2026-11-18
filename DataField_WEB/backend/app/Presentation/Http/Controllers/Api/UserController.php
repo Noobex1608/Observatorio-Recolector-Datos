@@ -11,6 +11,7 @@ use App\Application\User\UseCases\CreateUserUseCase;
 use App\Application\User\UseCases\DeleteUserUseCase;
 use App\Application\User\UseCases\GetUserByIdUseCase;
 use App\Application\User\UseCases\GetUsersUseCase;
+use App\Application\User\UseCases\RestoreUserUseCase;
 use App\Application\User\UseCases\ToggleUserStatusUseCase;
 use App\Application\User\UseCases\UpdateUserRoleUseCase;
 use App\Application\User\UseCases\UpdateUserUseCase;
@@ -34,6 +35,7 @@ class UserController extends Controller
         private readonly UpdateUserRoleUseCase $updateUserRoleUseCase,
         private readonly DeleteUserUseCase $deleteUserUseCase,
         private readonly ToggleUserStatusUseCase $toggleUserStatusUseCase,
+        private readonly RestoreUserUseCase $restoreUserUseCase,
     ) {}
 
     #[OA\Get(
@@ -52,7 +54,7 @@ class UserController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = max(1, min((int) $request->input('per_page', 15), 100));
-        $users = $this->getUsersUseCase->execute($request->user()->id, $perPage);
+        $users = $this->getUsersUseCase->execute($request->user()->id, $perPage, $request->boolean('deleted'));
 
         return response()->json([
             'data' => UserResource::collection($users->items()),
@@ -238,6 +240,41 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuario eliminado exitosamente',
+        ]);
+    }
+
+    /**
+     * Quita el vínculo de la cuenta con su identidad de Microsoft 365. Sirve cuando el inicio con Microsoft
+     * responde «account_mismatch» (la cuenta quedó atada a otra identidad): el siguiente inicio con
+     * Microsoft con ese correo vuelve a vincularla. Se cierran las sesiones abiertas.
+     */
+    public function unlinkMicrosoft(Request $request, int $id): JsonResponse
+    {
+        $admin = $request->user();
+        abort_unless($admin->canManageUsers(), 403, 'Solo los administradores restablecen la vinculación con Microsoft.');
+        $user = \App\Models\User::findOrFail($id);
+        abort_unless($admin->canManageRole($user->rol), 403, 'No tienes permisos sobre una cuenta con ese rol.');
+        abort_if($user->microsoft_oid === null, 422, 'La cuenta no está vinculada a Microsoft.');
+
+        $user->forceFill(['microsoft_oid' => null])->save();
+        $user->tokens()->delete();
+        \App\Services\AuditLogService::log($admin, 'UNLINK_MICROSOFT', 'usuarios',
+            "Restableció la vinculación con Microsoft de {$user->email}.", ['target_user_id' => $user->id]);
+
+        return response()->json([
+            'message' => "Vinculación restablecida. {$user->email} queda vinculado a la cuenta de Microsoft con la que entre la próxima vez.",
+            'data' => new UserResource($user->load('perfil')),
+        ]);
+    }
+
+    /** Deshace la eliminación de una cuenta (vuelve activa, con su rol y asignaciones). */
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        $user = $this->restoreUserUseCase->execute($id, $request->user()->id);
+
+        return response()->json([
+            'message' => "Cuenta de {$user->email} restaurada. Ya puede volver a entrar.",
+            'data' => new UserResource($user),
         ]);
     }
 

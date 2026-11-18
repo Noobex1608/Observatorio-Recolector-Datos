@@ -45,6 +45,7 @@
     "select": "Select language"
   },
   "routes": {
+    "collectTest": "Test form - ULEAM DataField",
     "login": "Sign in - ULEAM DataField",
     "dashboard": "My forms - ULEAM DataField",
     "accountSettings": "Account settings - ULEAM DataField",
@@ -56,6 +57,7 @@
     "newUser": "New user - ULEAM DataField",
     "editUser": "Edit user - ULEAM DataField",
     "auditLogs": "Audit & Data Control - ULEAM DataField",
+    "dataCenter": "Data center - ULEAM DataField",
     "collect": "Complete form - ULEAM DataField",
     "profile": "My profile - ULEAM DataField"
   },
@@ -103,7 +105,8 @@
       "newForm": "New form",
       "projects": "Projects",
       "users": "Users",
-      "auditLogs": "Audit Logs"
+      "auditLogs": "Audit Logs",
+      "dataCenter": "Data center"
     }
   },
 
@@ -311,6 +314,20 @@
       }
     },
     "builder": {
+      "cascade": {
+        "title": "Cascading options",
+        "help": "Show each option only when a certain answer was chosen in an earlier question (province → canton).",
+        "dependsOn": "Options depend on",
+        "none": "Do not depend on another question",
+        "showWhen": "Show when choosing",
+        "always": "Always show"
+      },
+      "testRun": {
+        "help": "Go through the form as a respondent, without publishing it or saving answers.",
+        "open": "Test survey",
+        "saving": "Saving…",
+        "copy": "Copy test link"
+      },
       "eyebrow": "Form builder",
       "newTitle": "New form",
       "editTitle": "Edit form",
@@ -457,6 +474,18 @@
       }
     },
     "collect": {
+      "answerFirst": "Answer “{{question}}” first to see the options.",
+      "noOptionsFor": "There are no options for the answer chosen in “{{question}}”.",
+      "test": {
+        "title": "Test mode",
+        "banner": "You go through the form as a respondent. Answers are validated but not saved.",
+        "backToEditor": "Back to editor",
+        "submit": "Validate answers",
+        "doneTitle": "Test completed",
+        "doneText": "The answers follow the form rules ({{answered}} answered). Nothing was saved.",
+        "again": "Test again",
+        "loadError": "The test could not be opened. Check that you have access to this form."
+      },
       "loading": "Loading form...",
       "stepMode": "Complete the current question to continue.",
       "sectionGeneral": "General section",

@@ -14,7 +14,7 @@ class GetUsersUseCase
      * Obtiene la lista de usuarios.
      * Solo puede ser ejecutado por un administrador.
      */
-    public function execute(int $adminId, int $perPage = 15): LengthAwarePaginator
+    public function execute(int $adminId, int $perPage = 15, bool $deleted = false): LengthAwarePaginator
     {
         // Verificar que el usuario que ejecuta la acción es admin
         $admin = User::findOrFail($adminId);
@@ -24,8 +24,10 @@ class GetUsersUseCase
         }
 
         // Las solicitudes de acceso (pendientes o rechazadas) tienen su propia bandeja.
+        // Con $deleted, las cuentas eliminadas (borrado suave) para poder restaurarlas.
         $query = User::with('perfil')
             ->whereNull('access_request_status')
+            ->when($deleted, fn ($q) => $q->onlyTrashed()->orderBy('deleted_at', 'desc'))
             ->orderBy('created_at', 'desc');
 
         if ($admin->isAdmin()) {

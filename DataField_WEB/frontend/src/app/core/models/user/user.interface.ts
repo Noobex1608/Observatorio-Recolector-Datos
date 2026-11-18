@@ -15,5 +15,9 @@ export interface User {
   email_verified_at?: string;
   created_at?: string;
   updated_at?: string;
+  /** Fecha de eliminación (borrado suave); solo en la vista de eliminados. */
+  deleted_at?: string | null;
+  /** Ya entró con Microsoft 365 y la cuenta quedó atada a esa identidad. */
+  microsoft_linked?: boolean;
   perfil?: Perfil | null;
 }

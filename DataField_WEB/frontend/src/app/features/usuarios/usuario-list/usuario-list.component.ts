@@ -53,7 +53,12 @@ export class UsuarioListComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly translate = inject(TranslateService);
 
-  displayedColumns = ['name', 'email', 'rol', 'is_active', 'created_at', 'actions'];
+  /** Usuarios vigentes o eliminados (borrado suave, se pueden restaurar). */
+  readonly userView = signal<'active' | 'deleted'>('active');
+  readonly displayedColumns = computed(() => this.userView() === 'deleted'
+    ? ['name', 'email', 'rol', 'deleted_at', 'restore']
+    : ['name', 'email', 'rol', 'is_active', 'created_at', 'actions']);
+  readonly restoringUser = signal<number | null>(null);
   
   users = signal<User[]>([]);
   loading = signal(true);
@@ -73,9 +78,28 @@ export class UsuarioListComponent implements OnInit {
   readonly accessRequests = signal<AccessRequest[]>([]);
   readonly pendingCount = signal(0);
   readonly requestStatus = signal<'PENDING' | 'REJECTED'>('PENDING');
-  readonly requestRoles: Partial<Record<number, UserRole>> = {};
+  /** Rol elegido por solicitud; sin elegir, Recolector. */
+  readonly requestRoles = signal<Partial<Record<number, UserRole>>>({});
   readonly busyRequest = signal<number | null>(null);
+  readonly bulkBusy = signal(false);
   readonly requestableRoles = computed(() => assignableRoles(this.actorRole(), true));
+  readonly requestSearch = signal('');
+  readonly selectedRequests = signal<ReadonlySet<number>>(new Set());
+
+  /** Solicitudes que coinciden con la búsqueda (nombre o correo, sin distinguir tildes). */
+  readonly filteredRequests = computed(() => {
+    const term = normalize(this.requestSearch());
+    const requests = this.accessRequests();
+    return term ? requests.filter((request) => normalize(`${request.name} ${request.email}`).includes(term)) : requests;
+  });
+  /** Seleccionadas que siguen en la lista (la búsqueda no deselecciona). */
+  readonly selectedList = computed(() => this.accessRequests().filter((request) => this.selectedRequests().has(request.id)));
+  readonly allFilteredSelected = computed(() => {
+    const visible = this.filteredRequests();
+    return visible.length > 0 && visible.every((request) => this.selectedRequests().has(request.id));
+  });
+  readonly someFilteredSelected = computed(() =>
+    !this.allFilteredSelected() && this.filteredRequests().some((request) => this.selectedRequests().has(request.id)));
 
   ngOnInit(): void {
     this.loadUsers();
@@ -88,7 +112,9 @@ export class UsuarioListComponent implements OnInit {
   }
 
   loadAccessRequests(status: 'PENDING' | 'REJECTED' = this.requestStatus()): void {
+    if (status !== this.requestStatus()) this.requestSearch.set('');
     this.requestStatus.set(status);
+    this.selectedRequests.set(new Set());
     this.userService.getAccessRequests(status).subscribe({
       next: (response) => {
         this.accessRequests.set(response.data);
@@ -98,8 +124,120 @@ export class UsuarioListComponent implements OnInit {
     });
   }
 
+  roleOf(requestId: number): UserRole {
+    const chosen = this.requestRoles()[requestId];
+    const allowed = this.requestableRoles();
+    return chosen && allowed.includes(chosen) ? chosen : (allowed.includes('RECOLECTOR') ? 'RECOLECTOR' : allowed[allowed.length - 1]);
+  }
+
+  setRequestRole(requestId: number, role: UserRole): void {
+    this.requestRoles.update((roles) => ({ ...roles, [requestId]: role }));
+  }
+
+  /** Asigna el mismo rol a todas las solicitudes seleccionadas. */
+  setRoleForSelected(role: UserRole): void {
+    if (!role) return;
+    this.requestRoles.update((roles) => {
+      const next = { ...roles };
+      for (const request of this.selectedList()) next[request.id] = role;
+      return next;
+    });
+  }
+
+  toggleRequest(requestId: number, checked: boolean): void {
+    this.selectedRequests.update((current) => {
+      const next = new Set(current);
+      if (checked) next.add(requestId);
+      else next.delete(requestId);
+      return next;
+    });
+  }
+
+  /** Marca o desmarca todas las solicitudes visibles con la búsqueda actual. */
+  toggleAllFiltered(checked: boolean): void {
+    this.selectedRequests.update((current) => {
+      const next = new Set(current);
+      for (const request of this.filteredRequests()) {
+        if (checked) next.add(request.id);
+        else next.delete(request.id);
+      }
+      return next;
+    });
+  }
+
+  /** Resumen de roles para el diálogo de confirmación: «3 Recolector, 1 Supervisor». */
+  private roleSummary(requests: AccessRequest[]): string {
+    const counts = new Map<UserRole, number>();
+    for (const request of requests) counts.set(this.roleOf(request.id), (counts.get(this.roleOf(request.id)) ?? 0) + 1);
+    return [...counts].map(([role, count]) => `${count} ${this.getRoleLabel(role)}`).join(', ');
+  }
+
+  approveSelected(): void {
+    this.approveMany(this.selectedList());
+  }
+
+  /** Aprueba todas las solicitudes de la lista (las que coinciden con la búsqueda, si hay una). */
+  approveAllFiltered(): void {
+    this.approveMany(this.filteredRequests());
+  }
+
+  private approveMany(requests: AccessRequest[]): void {
+    if (requests.length === 0 || this.bulkBusy()) return;
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: requests.length === 1 ? 'Aprobar solicitud' : `Aprobar ${requests.length} solicitudes`,
+        message: `Tendrán acceso con estos roles: ${this.roleSummary(requests)}. Podrás cambiar el rol después desde la lista de usuarios.`,
+        confirmText: 'Aprobar',
+        cancelText: this.translate.instant('common.buttons.cancel'),
+      },
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.bulkBusy.set(true);
+      this.userService.approveAccessRequests(requests.map((request) => ({ id: request.id, rol: this.roleOf(request.id) }))).subscribe({
+        next: (response) => {
+          this.notify.success(response.message);
+          this.bulkBusy.set(false);
+          this.loadAccessRequests();
+          this.loadUsers(this.currentPage());
+        },
+        error: (err) => {
+          this.notify.error(err.error?.message || 'No se pudieron aprobar las solicitudes.');
+          this.bulkBusy.set(false);
+        },
+      });
+    });
+  }
+
+  rejectSelected(): void {
+    const requests = this.selectedList();
+    if (requests.length === 0 || this.bulkBusy()) return;
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Rechazar ${requests.length} solicitud${requests.length === 1 ? '' : 'es'}`,
+        message: 'No tendrán acceso. Podrás aprobarlas más tarde desde "Rechazadas".',
+        confirmText: 'Rechazar',
+        cancelText: this.translate.instant('common.buttons.cancel'),
+        confirmColor: 'warn',
+      },
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.bulkBusy.set(true);
+      this.userService.rejectAccessRequests(requests.map((request) => request.id)).subscribe({
+        next: (response) => {
+          this.notify.success(response.message);
+          this.bulkBusy.set(false);
+          this.loadAccessRequests();
+        },
+        error: (err) => {
+          this.notify.error(err.error?.message || 'No se pudieron rechazar las solicitudes.');
+          this.bulkBusy.set(false);
+        },
+      });
+    });
+  }
+
   approveRequest(request: AccessRequest): void {
-    const rol = this.requestRoles[request.id] ?? 'RECOLECTOR';
+    const rol = this.roleOf(request.id);
     this.busyRequest.set(request.id);
     this.userService.approveAccessRequest(request.id, rol).subscribe({
       next: (response) => {
@@ -141,9 +279,61 @@ export class UsuarioListComponent implements OnInit {
     });
   }
 
+  /** Restablece la vinculación con Microsoft cuando la persona ve «vinculado a otra cuenta de Microsoft». */
+  unlinkMicrosoft(user: User): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Restablecer vinculación con Microsoft',
+        message: `${user.name} (${user.email}) quedará vinculado a la cuenta de Microsoft con la que entre la próxima vez. Úsalo si al entrar le aparece que el correo está vinculado a otra cuenta. Se cerrarán sus sesiones abiertas.`,
+        confirmText: 'Restablecer',
+        cancelText: this.translate.instant('common.buttons.cancel'),
+      },
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.userService.unlinkMicrosoft(user.id).subscribe({
+        next: (response) => {
+          this.notify.success(response.message);
+          this.users.update((users) => users.map((item) => (item.id === user.id ? { ...item, microsoft_linked: false } : item)));
+        },
+        error: (err) => this.notify.error(err.error?.message || 'No se pudo restablecer la vinculación.'),
+      });
+    });
+  }
+
+  setUserView(view: 'active' | 'deleted'): void {
+    if (this.userView() === view) return;
+    this.userView.set(view);
+    this.loadUsers(1);
+  }
+
+  restoreUser(user: User): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Restaurar usuario',
+        message: `${user.name} (${user.email}) volverá a la lista, activo y con el rol ${this.getRoleLabel(user.rol)} y sus asignaciones de antes.`,
+        confirmText: 'Restaurar',
+        cancelText: this.translate.instant('common.buttons.cancel'),
+      },
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.restoringUser.set(user.id);
+      this.userService.restoreUser(user.id).subscribe({
+        next: (response) => {
+          this.notify.success(response.message);
+          this.restoringUser.set(null);
+          this.loadUsers(this.currentPage());
+        },
+        error: (err) => {
+          this.notify.error(err.error?.message || 'No se pudo restaurar el usuario.');
+          this.restoringUser.set(null);
+        },
+      });
+    });
+  }
+
   loadUsers(page = 1): void {
     this.loading.set(true);
-    this.userService.getUsers(this.pageSize(), page).subscribe({
+    this.userService.getUsers(this.pageSize(), page, this.userView() === 'deleted').subscribe({
       next: (response) => {
         this.users.set(response.data);
         this.currentPage.set(response.meta.current_page);
@@ -264,8 +454,13 @@ export class UsuarioListComponent implements OnInit {
     return isActive ? 'badge-active' : 'badge-inactive';
   }
 
-  formatDate(date: string | undefined): string {
+  formatDate(date: string | null | undefined): string {
     if (!date) return '-';
     return new Date(date).toLocaleDateString();
   }
+}
+
+/** Texto comparable para la búsqueda: minúsculas y sin tildes. */
+function normalize(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }

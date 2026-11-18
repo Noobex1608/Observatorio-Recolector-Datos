@@ -31,6 +31,9 @@ class UserResource extends JsonResource
                 'bio' => $this->perfil->bio,
             ] : null),
             'created_at' => $this->created_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
+            // Ya entró con Microsoft y la cuenta quedó atada a esa identidad.
+            'microsoft_linked' => $this->microsoft_oid !== null,
         ];
     }
 }

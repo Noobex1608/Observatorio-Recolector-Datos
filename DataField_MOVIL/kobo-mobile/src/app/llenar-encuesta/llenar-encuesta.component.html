@@ -411,7 +411,7 @@
 
               @if (preguntaActual!.type === 'SINGLE_CHOICE') {
                 <div class="option-group" role="group" [attr.aria-labelledby]="'pregunta-' + preguntaActual!.id">
-                  @for (opcion of preguntaActual!.options; track opcion) {
+                  @for (opcion of opcionesDe(preguntaActual!); track opcion) {
                     <label class="radio-option">
                       <input
                         type="radio"
@@ -424,11 +424,12 @@
                     </label>
                   }
                 </div>
+                @if (avisoCascada(preguntaActual!); as aviso) { <p class="cascade-hint">{{ aviso }}</p> }
               }
 
               @if (preguntaActual!.type === 'MULTIPLE_CHOICE') {
                 <div class="option-group" role="group" [attr.aria-labelledby]="'pregunta-' + preguntaActual!.id">
-                  @for (opcion of preguntaActual!.options; track opcion) {
+                  @for (opcion of opcionesDe(preguntaActual!); track opcion) {
                     <label class="radio-option">
                       <input
                         type="checkbox"
@@ -440,6 +441,7 @@
                     </label>
                   }
                 </div>
+                @if (avisoCascada(preguntaActual!); as aviso) { <p class="cascade-hint">{{ aviso }}</p> }
               }
 
               @if (preguntaActual!.type === 'LIKERT') {
@@ -589,23 +591,25 @@
             }
             @if (q.type === 'SINGLE_CHOICE') {
               <div class="option-group" role="group" [attr.aria-labelledby]="'pregunta-' + q.id">
-                @for (opcion of q.options; track opcion) {
+                @for (opcion of opcionesDe(q); track opcion) {
                   <label class="radio-option">
-                    <input type="radio" [name]="q.id" [value]="opcion" [(ngModel)]="respuestas[q.id]" />
+                    <input type="radio" [name]="q.id" [value]="opcion" [(ngModel)]="respuestas[q.id]" (change)="onSingleChoiceChange(q.id, opcion)" />
                     <span class="radio-text">{{ opcion }}</span>
                   </label>
                 }
               </div>
+              @if (avisoCascada(q); as aviso) { <p class="cascade-hint">{{ aviso }}</p> }
             }
             @if (q.type === 'MULTIPLE_CHOICE') {
               <div class="option-group" role="group" [attr.aria-labelledby]="'pregunta-' + q.id">
-                @for (opcion of q.options; track opcion) {
+                @for (opcion of opcionesDe(q); track opcion) {
                   <label class="radio-option">
                     <input type="checkbox" [name]="q.id + '-' + opcion" [value]="opcion" (change)="onCheckboxChange(q.id, opcion, $event)" />
                     <span class="radio-text">{{ opcion }}</span>
                   </label>
                 }
               </div>
+              @if (avisoCascada(q); as aviso) { <p class="cascade-hint">{{ aviso }}</p> }
             }
             @if (q.type === 'LIKERT') {
               <app-question-likert [question]="q" [value]="respuestas[q.id]" (valueChange)="onLikertChange(q.id, $event)"></app-question-likert>

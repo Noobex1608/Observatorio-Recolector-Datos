@@ -29,7 +29,8 @@ class StoreFormResponse
                     abort_unless(app(FormPolicy::class)->submit($user->fresh(), $form), 403, 'No tienes permiso para enviar este formulario.');
                 }
                 $hash = hash('sha256', json_encode($this->canonical($data), JSON_THROW_ON_ERROR));
-                $existing = $form->responses()->where('client_submission_id', $submissionId)->first();
+                // Incluye anuladas: el mismo envío reintentado desde un celular no debe duplicarse ni fallar.
+                $existing = $form->responses()->withTrashed()->where('client_submission_id', $submissionId)->first();
                 if ($existing) {
                     abort_unless($existing->user_id === $user?->id && hash_equals($existing->submission_hash, $hash),
                         409, 'El identificador de envío ya fue utilizado con otro contenido o cuenta.');

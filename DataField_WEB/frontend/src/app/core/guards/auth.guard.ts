@@ -7,12 +7,13 @@ import { AuthService } from '../services/auth.service';
  * Guard que protege rutas que requieren autenticación.
  * Verifica si el usuario tiene un token válido y opcionalmente valida con el backend.
  */
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (_route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Si no hay token, redirigir a login
+  // Si no hay token, redirigir a login y volver a esta página al entrar.
   if (!authService.isAuthenticated()) {
+    authService.rememberReturnUrl(state.url);
     void router.navigate(['/auth/login']);
     return false;
   }
@@ -27,6 +28,7 @@ export const authGuard: CanActivateFn = () => {
   return authService.checkAuth().pipe(
     map((isValid) => {
       if (!isValid) {
+        authService.rememberReturnUrl(state.url);
         void router.navigate(['/auth/login']);
         return false;
       }
@@ -52,6 +54,6 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
-  void router.navigate([authService.user()?.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
+  void router.navigateByUrl(authService.user()?.must_change_password ? '/auth/change-password' : authService.takeReturnUrl());
   return false;
 };

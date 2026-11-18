@@ -86,6 +86,7 @@ Sesion en `AuthSessionService` persiste a `localStorage`. Token Sanctum via `aut
 | `/admin/usuarios/:id` | `UsuarioFormComponent` | Editar usuario (requiere SUPER_ADMIN) |
 | `/perfil` | `ProfileComponent` | Perfil de usuario |
 | `/collect/:uuid` | `FormCollectComponent` | Coleccion publica (sin auth) |
+| `/prueba/:formId` | `FormCollectComponent` (modo prueba) | Probar un formulario (incluso borrador) sin guardar respuestas; requiere sesion y acceso al formulario |
 
 ### Asignacion de formularios
 
@@ -151,6 +152,19 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - Limites de tamaño: `RESPONSE_MEDIA_MAX_FILE_BYTES` (30 MB por archivo) y `RESPONSE_MEDIA_MAX_TOTAL_BYTES` (35 MB por respuesta); cada pregunta fija `max_file_size_mb` (tope 30).
 - Duracion de video: propiedad `max_video_seconds` de la pregunta MULTIMEDIA (5 a 120 s, 60 por defecto; validada en backend). La PWA graba dentro de la app (720p, ~1 Mbps: 120 s ≈ 16 MB) y se detiene sola al llegar al limite; los videos de la galeria (PWA y `/collect`) se rechazan si duran mas. El servidor no puede medir la duracion: el control es del cliente mas el limite de tamaño.
 
+### Centro de datos (correcciones sin entrar a la base de datos)
+
+- Pagina `/admin/datos` (solo `SUPER_ADMIN`), API `/api/data-center/*` (`DataCenterController`, servicios en `app/Application/DataCenter`). Toda accion pide motivo y queda en Auditoria.
+- Papelera: proyectos, formularios y zonas usan borrado suave (`deleted_at`, `deleted_by`). `GET /trash/{projects|forms|zones|responses}`, `POST /trash/{type}/{id}/restore`, `DELETE /trash/{type}/{id}` (definitivo; no para respuestas). Un formulario no se restaura si su proyecto sigue en la papelera; una zona vuelve sin encuestadores asignados.
+- Respuestas: se anulan (`POST /responses/{id}/void`, borrado suave + `void_reason`/`voided_by`), dejan de contar en lista, exportes, estadisticas y metas, y se restauran desde la papelera. Correccion de un valor: `PATCH /responses/{id}/answer` (`question_id`, `value`, `reason`; tipos simples, valida como un envio, vacia las opciones en cascada que dejan de corresponder y recalcula los calculos). Cambio de encuestador: `PATCH /responses/{id}/collector` (solo personas asignadas al formulario o al proyecto). El historial queda en `form_responses.corrections` y se ve en el detalle de la respuesta.
+- Al reintentar un envio ya anulado (mismo `client_submission_id`) se devuelve el existente, sin duplicar.
+
+### Opciones en cascada y modo de prueba
+
+- Opciones en cascada (provincia → canton → parroquia): `properties.choice_filter = { question_id, parents }` en preguntas `SINGLE_CHOICE`/`MULTIPLE_CHOICE`; `parents[i]` son las respuestas de la pregunta origen (anterior, de opciones) que muestran la opcion i; vacio = siempre. Se valida al guardar (`ChoiceFilter`/`FormSchemaValidator`) y al enviar (`FormResponseValidator`). Web `/collect` y PWA filtran y borran la respuesta que deja de corresponder (`choice-filter.ts`, copia en la PWA).
+- Excel: XLSForm usa la columna estandar `choice_filter` (`provincia=${provincia}` con una columna `provincia` en `choices`); la plantilla simple usa la columna «Opciones según (N.º)» y grupos en «Opciones»: `Manabí: Portoviejo; Manta | Guayas: Guayaquil`. Ambas exportaciones conservan la cascada.
+- Modo de prueba: `GET /api/forms/{id}/test` y `POST /api/forms/{id}/test-submit` (quien puede ver el formulario). Valida con las mismas reglas que un envio real y no guarda nada. El editor abre `/prueba/:formId` en la misma pestaña (la sesion sin «Recordarme» vive en `sessionStorage`); al pedir login se recuerda la pagina y se vuelve a ella al entrar (`AuthService.rememberReturnUrl`).
+
 ### Autenticacion: internos (Microsoft 365) y externos (invitacion)
 
 - Internos: correos de `AUTH_INTERNAL_EMAIL_DOMAINS` (por defecto `uleam.edu.ec`, `live.uleam.edu.ec`, `dn.uleam.edu.ec`). Con `MICROSOFT_CLIENT_ID/SECRET/TENANT_ID` configurados entran solo con Microsoft 365 (OpenID Connect): sin contraseña local, sin correo de confirmacion ni cambio de contraseña. El `SUPER_ADMIN` conserva la contraseña como acceso de emergencia. La cuenta debe existir en el panel (no se crean cuentas al entrar).
@@ -159,9 +173,9 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - Correo saliente: `MAIL_MAILER=microsoft-graph` envia desde `MICROSOFT_MAIL_SENDER` (buzon propio de la app; permiso `Mail.Send` limitado a ese buzon con una Application Access Policy).
 - Mientras Microsoft no este configurado, los internos se crean con contraseña como antes.
 - Desarrollo local: sin `ADMIN_EMAIL`/`ADMIN_PASSWORD` en el `.env`, `AdminUserSeeder` crea `superadmin@datafield.test` (dominio de pruebas no institucional, entra con contraseña; la clave esta en el seeder). No usar un `@uleam.edu.ec` inexistente en Microsoft como superadmin de pruebas. Un `SUPER_ADMIN` con correo institucional puede entrar con contraseña desde el enlace de emergencia del login.
-- Solicitudes de acceso: si alguien de ULEAM entra con Microsoft sin estar registrado se crea una cuenta inactiva con `access_request_status=PENDING`. Un `SUPER_ADMIN` o `ADMIN` la aprueba asignando rol o la rechaza en `/admin/usuarios` (`GET /api/users/access-requests`, `POST /api/users/access-requests/{id}/approve|reject`). No aparecen en la lista de usuarios ni se activan con el interruptor de estado.
-- La cuenta se ata al `microsoft_oid` en el primer inicio con Microsoft: un correo reasignado a otra persona no hereda la cuenta (`error=account_mismatch`).
-- Roles: el `SUPER_ADMIN` asigna cualquiera; el `ADMIN` gestiona usuarios y solo asigna `PROJECT`, `SUPERVISOR` y `RECOLECTOR`; solo el `SUPER_ADMIN` borra usuarios. Los externos solo pueden ser `RECOLECTOR` o `SUPERVISOR` (validado en backend; reglas espejo en `frontend/src/app/core/utils/role-rules.ts`).
+- Solicitudes de acceso: si alguien de ULEAM entra con Microsoft sin estar registrado se crea una cuenta inactiva con `access_request_status=PENDING`. Un `SUPER_ADMIN` o `ADMIN` la aprueba asignando rol o la rechaza en `/admin/usuarios` (`GET /api/users/access-requests`, `POST /api/users/access-requests/{id}/approve|reject`; en lote, todo o nada: `POST /api/users/access-requests/approve` con `items: [{id, rol}]` y `POST /api/users/access-requests/reject` con `ids`). La bandeja es una tabla con busqueda, seleccion y rol por fila (Recolector por defecto). No aparecen en la lista de usuarios ni se activan con el interruptor de estado.
+- La cuenta se ata al `microsoft_oid` en el primer inicio con Microsoft: un correo reasignado a otra persona no hereda la cuenta (`error=account_mismatch`). Si la vinculacion quedo mal, un administrador usa «Restablecer vinculacion con Microsoft» en `/admin/usuarios` (`POST /api/users/{id}/microsoft/unlink`): borra el `microsoft_oid`, cierra sus sesiones y el siguiente inicio con Microsoft vuelve a vincular la cuenta.
+- Roles: el `SUPER_ADMIN` asigna cualquiera; el `ADMIN` gestiona usuarios y solo asigna `PROJECT`, `SUPERVISOR` y `RECOLECTOR`; solo el `SUPER_ADMIN` borra usuarios (borrado suave). Las cuentas eliminadas se ven en la pestaña «Eliminados» de `/admin/usuarios` (`GET /api/users?deleted=1`) y se restauran activas, con su rol y asignaciones (`POST /api/users/{id}/restore`; SUPER_ADMIN, o ADMIN para los roles que gestiona). Los externos solo pueden ser `RECOLECTOR` o `SUPERVISOR` (validado en backend; reglas espejo en `frontend/src/app/core/utils/role-rules.ts`).
 
 Roles globales:
 

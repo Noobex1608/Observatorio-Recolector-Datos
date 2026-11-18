@@ -172,6 +172,14 @@
   gap: 0.5rem;
 }
 
+/* Opciones en cascada: aviso cuando la pregunta anterior aún no habilita ninguna opción. */
+.cascade-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
 .radio-option {
   display: flex;
   align-items: center;

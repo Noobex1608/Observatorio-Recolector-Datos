@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Forms\Services\XlsForm;
 
+use App\Domain\Forms\Services\ChoiceFilter;
 use App\Domain\Forms\Services\TextFormat;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -23,20 +24,21 @@ final class SimpleFormExporter
 
     private const BLUE = '0059A8';
 
-    private const WIDTHS = ['A' => 7, 'B' => 24, 'C' => 52, 'D' => 22, 'E' => 42, 'F' => 13, 'G' => 13, 'H' => 30, 'I' => 22, 'J' => 14, 'K' => 18];
+    private const WIDTHS = ['A' => 7, 'B' => 24, 'C' => 52, 'D' => 22, 'E' => 42, 'F' => 13, 'G' => 13, 'H' => 30, 'I' => 22, 'J' => 14, 'K' => 18, 'L' => 16];
 
     private const PROMPTS = [
         'A' => ['N.º', 'Número de la pregunta. Se usa en los saltos (No → 5). Vacío = se numera solo.'],
         'B' => ['Sección', 'Título de la sección. Las filas con la misma sección quedan juntas.'],
         'C' => ['Pregunta', 'El texto de la pregunta. En «Fila de matriz», la afirmación.'],
         'D' => ['Tipo', 'Elija el tipo de la lista. Vea la hoja «Cómo llenarla».'],
-        'E' => ['Opciones', 'Separadas por punto y coma: Sí; No; No sabe. En Matriz, la escala. En Calificación, los niveles (3 a 10).'],
+        'E' => ['Opciones', 'Separadas por punto y coma: Sí; No; No sabe. En Matriz, la escala. En Calificación, los niveles (3 a 10). En cascada: Manabí: Portoviejo; Manta | Guayas: Guayaquil'],
         'F' => ['Obligatoria', 'Sí o No.'],
         'G' => ['Formato', 'Solo para Texto: Cédula, Correo o Teléfono (se validan).'],
         'H' => ['Ayuda', 'Texto de ayuda opcional para el encuestador.'],
         'I' => ['Si responde… ir a', 'Solo en Opción única: «No → 12» o «No → fin». Varios separados por «;».'],
         'J' => ['Subpregunta de', 'Opcional: N.º de la pregunta de la que depende.'],
         'K' => ['Cálculo', 'Solo en Cálculo: números de preguntas entre corchetes, ej. [3] + [4].'],
+        'L' => ['Opciones según', 'Opcional, en Opción única o múltiple: N.º de la pregunta anterior que decide qué opciones se ven (ej. la provincia para el cantón).'],
     ];
 
     public function template(): Spreadsheet
@@ -79,7 +81,12 @@ final class SimpleFormExporter
             $options = $question->options ?? null;
             $number = $numbers[$question->id];
             $optionsText = '';
-            if (in_array($question->type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'], true) && is_array($options)) {
+            $dependsOn = '';
+            $filter = in_array($question->type, ChoiceFilter::CHILD_TYPES, true) ? ChoiceFilter::of($properties) : null;
+            if ($filter && is_array($options) && isset($numbers[$filter['question_id']])) {
+                $dependsOn = $numbers[$filter['question_id']];
+                $optionsText = $this->optionGroups(array_values($options), $filter['parents']);
+            } elseif (in_array($question->type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'], true) && is_array($options)) {
                 $optionsText = implode('; ', array_values($options));
             } elseif ($question->type === 'LIKERT' && is_array($options)) {
                 $optionsText = implode('; ', $options['columns'] ?? []);
@@ -101,16 +108,45 @@ final class SimpleFormExporter
                 $question->type === 'CALCULATE'
                     ? (preg_replace_callback('/\$\{([^}]+)\}/', fn ($m) => '['.($numbers[$m[1]] ?? '?').']', (string) ($properties['expression'] ?? '')) ?? '')
                     : '',
+                $dependsOn,
             ];
 
             if ($question->type === 'LIKERT' && is_array($options)) {
                 foreach ($options['rows'] ?? [] as $statement) {
-                    $rows[] = ['', (string) ($question->section_name ?? ''), '↳ '.$statement, SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', ''];
+                    $rows[] = ['', (string) ($question->section_name ?? ''), '↳ '.$statement, SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''];
                 }
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * Opciones en cascada como grupos, en el orden original: las opciones seguidas con la misma
+     * respuesta de origen van juntas («Manabí: Portoviejo; Manta | Guayas: Guayaquil | Otro»).
+     * Una opción que depende de varias respuestas se repite en cada grupo y al importarla se une.
+     *
+     * @param  list<string>  $options
+     * @param  list<list<string>>  $parents
+     */
+    private function optionGroups(array $options, array $parents): string
+    {
+        $groups = [];
+        foreach ($options as $index => $option) {
+            foreach (($parents[$index] ?? []) ?: [null] as $parent) {
+                $last = array_key_last($groups);
+                if ($last !== null && $groups[$last][0] === $parent) {
+                    $groups[$last][1][] = (string) $option;
+                } else {
+                    $groups[] = [$parent, [(string) $option]];
+                }
+            }
+        }
+
+        return implode(' | ', array_map(
+            fn ($group) => ($group[0] !== null ? $group[0].': ' : '').implode('; ', $group[1]),
+            $groups,
+        ));
     }
 
     private function jumps(object $question, array $numbers): string
@@ -139,19 +175,21 @@ final class SimpleFormExporter
         $s2 = 'Opinión';
 
         return [
-            ['1', $s1, 'Nombre completo', 'Texto', '', 'Sí', '', '', '', '', ''],
-            ['2', $s1, 'Número de cédula', 'Texto', '', 'Sí', 'Cédula', '', '', '', ''],
-            ['3', $s1, 'Correo electrónico', 'Texto', '', 'No', 'Correo', '', '', '', ''],
-            ['4', $s1, 'Edad (años cumplidos)', 'Número', '', 'Sí', '', '', '', '', ''],
-            ['5', $s1, 'Sexo', 'Opción única', 'Hombre; Mujer; Prefiere no decir', 'Sí', '', '', '', '', ''],
-            ['6', $s1, '¿Trabaja actualmente?', 'Opción única', 'Sí; No', 'Sí', '', '', 'No → 8', '', ''],
-            ['7', $s1, '¿En qué trabaja?', 'Texto', '', 'No', '', '', '', '6', ''],
-            ['8', $s2, '¿Qué tan de acuerdo está con lo siguiente?', 'Matriz', implode('; ', SimpleFormat::DEFAULT_SCALE), 'Sí', '', '', '', '', ''],
-            ['', $s2, '↳ Los servicios públicos funcionan bien', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', ''],
-            ['', $s2, '↳ Me siento seguro en mi barrio', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', ''],
-            ['9', $s2, '¿Por qué medios se informa?', 'Opción múltiple', 'Televisión; Radio; Redes sociales; Prensa escrita', 'No', '', 'Marque todas las que apliquen', '', '', ''],
-            ['10', $s2, 'Califique la atención recibida', 'Calificación', '5', 'No', '', '', '', '', ''],
-            ['11', $s2, 'Gracias por su tiempo.', 'Nota', '', '', '', '', '', '', ''],
+            ['1', $s1, 'Nombre completo', 'Texto', '', 'Sí', '', '', '', '', '', ''],
+            ['2', $s1, 'Número de cédula', 'Texto', '', 'Sí', 'Cédula', '', '', '', '', ''],
+            ['3', $s1, 'Correo electrónico', 'Texto', '', 'No', 'Correo', '', '', '', '', ''],
+            ['4', $s1, 'Edad (años cumplidos)', 'Número', '', 'Sí', '', '', '', '', '', ''],
+            ['5', $s1, 'Provincia', 'Opción única', 'Manabí; Guayas', 'Sí', '', '', '', '', '', ''],
+            ['6', $s1, 'Cantón', 'Opción única', 'Manabí: Portoviejo; Manta; Jipijapa | Guayas: Guayaquil; Durán; Milagro', 'Sí', '', 'Solo aparecen los cantones de la provincia elegida', '', '', '', '5'],
+            ['7', $s1, 'Sexo', 'Opción única', 'Hombre; Mujer; Prefiere no decir', 'Sí', '', '', '', '', '', ''],
+            ['8', $s1, '¿Trabaja actualmente?', 'Opción única', 'Sí; No', 'Sí', '', '', 'No → 10', '', '', ''],
+            ['9', $s1, '¿En qué trabaja?', 'Texto', '', 'No', '', '', '', '8', '', ''],
+            ['10', $s2, '¿Qué tan de acuerdo está con lo siguiente?', 'Matriz', implode('; ', SimpleFormat::DEFAULT_SCALE), 'Sí', '', '', '', '', '', ''],
+            ['', $s2, '↳ Los servicios públicos funcionan bien', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''],
+            ['', $s2, '↳ Me siento seguro en mi barrio', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''],
+            ['11', $s2, '¿Por qué medios se informa?', 'Opción múltiple', 'Televisión; Radio; Redes sociales; Prensa escrita', 'No', '', 'Marque todas las que apliquen', '', '', '', ''],
+            ['12', $s2, 'Califique la atención recibida', 'Calificación', '5', 'No', '', '', '', '', '', ''],
+            ['13', $s2, 'Gracias por su tiempo.', 'Nota', '', '', '', '', '', '', '', ''],
         ];
     }
 
@@ -161,28 +199,28 @@ final class SimpleFormExporter
         $sheet->fromArray([array_values(SimpleFormat::COLUMNS), ...$rows], null, 'A1', true);
         $last = self::ROWS + 1;
 
-        $header = $sheet->getStyle('A1:K1');
+        $header = $sheet->getStyle('A1:L1');
         $header->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $header->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(self::BLUE);
         $header->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
         $sheet->getRowDimension(1)->setRowHeight(32);
         // Columnas avanzadas con encabezado más claro
-        $sheet->getStyle('I1:K1')->getFill()->getStartColor()->setRGB('3D7CC0');
+        $sheet->getStyle('I1:L1')->getFill()->getStartColor()->setRGB('3D7CC0');
 
         foreach (self::WIDTHS as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
-        $sheet->getStyle("A2:K{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle("A2:L{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
         foreach (['B', 'C', 'E', 'H', 'I'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$last}")->getAlignment()->setWrapText(true);
         }
-        $sheet->getStyle("A2:K{$last}")->getBorders()->getAllBorders()
+        $sheet->getStyle("A2:L{$last}")->getBorders()->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9E2EC');
-        foreach (['A', 'F', 'G'] as $column) {
+        foreach (['A', 'F', 'G', 'L'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:K1');
+        $sheet->setAutoFilter('A1:L1');
 
         // Mensajes de ayuda al seleccionar cada columna y listas desplegables
         foreach (self::PROMPTS as $column => [$title, $prompt]) {
@@ -204,6 +242,7 @@ final class SimpleFormExporter
         $this->highlight($sheet, "E2:E{$last}", 'AND(OR($D2="Opción única",$D2="Opción múltiple",$D2="Ordenar"),TRIM($E2)="")');
         $this->highlight($sheet, "K2:K{$last}", 'AND($D2="Cálculo",TRIM($K2)="")');
         $this->highlight($sheet, "G2:G{$last}", 'AND($G2<>"",$D2<>"Texto")');
+        $this->highlight($sheet, "L2:L{$last}", 'AND($L2<>"",$D2<>"Opción única",$D2<>"Opción múltiple")');
     }
 
     private function highlight(Worksheet $sheet, string $range, string $formula): void
@@ -254,6 +293,7 @@ final class SimpleFormExporter
             ['Si responde… ir a', 'Solo en Opción única: «No → 12» salta a la pregunta 12; «No → fin» termina la encuesta. Varios separados por «;».'],
             ['Subpregunta de', 'N.º de la pregunta de la que depende (debe estar antes y en la misma sección).'],
             ['Cálculo', 'Solo en tipo Cálculo: + - * / con números de preguntas anteriores entre corchetes, ej. [3] + [4].'],
+            ['Opciones según', 'Opciones en cascada (provincia → cantón). Escriba el N.º de la pregunta anterior y, en «Opciones», agrupe por su respuesta: «Manabí: Portoviejo; Manta | Guayas: Guayaquil». Un grupo sin «:» se muestra siempre.'],
             [''],
             ['Matriz (escala Likert): escriba una fila de tipo «Matriz» con la pregunta y la escala en «Opciones»; debajo, una fila «Fila de matriz» por cada afirmación.'],
         ];

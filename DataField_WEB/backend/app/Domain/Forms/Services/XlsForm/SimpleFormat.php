@@ -33,6 +33,7 @@ final class SimpleFormat
         'jumps' => 'Si responde… ir a',
         'parent' => 'Subpregunta de (N.º)',
         'calculation' => 'Cálculo',
+        'depends' => 'Opciones según (N.º)',
     ];
 
     public const MATRIX_ROW = 'Fila de matriz';
@@ -106,6 +107,30 @@ final class SimpleFormat
         }
 
         return 'Texto';
+    }
+
+    /**
+     * Opciones en cascada escritas por grupos: «Manabí: Portoviejo; Manta | Guayas: Guayaquil | Otro».
+     * Cada grupo es «respuesta de la pregunta anterior: opciones»; un grupo sin «:» se muestra siempre.
+     * Los grupos se separan con «|» o con un salto de línea dentro de la celda.
+     *
+     * @return list<array{0:?string, 1:list<string>}> [respuesta de la que depende (o null), opciones]
+     */
+    public static function splitOptionGroups(string $value): array
+    {
+        $groups = [];
+        foreach (preg_split('/\s*(?:\||\R)\s*/u', $value) ?: [] as $group) {
+            if (trim($group) === '') {
+                continue;
+            }
+            $parent = null;
+            if (preg_match('/^([^:;]+?)\s*:\s*(.*)$/su', $group, $match)) {
+                [$parent, $group] = [trim($match[1]), $match[2]];
+            }
+            $groups[] = [$parent, self::splitOptions($group)];
+        }
+
+        return $groups;
     }
 
     /** @return list<string> */

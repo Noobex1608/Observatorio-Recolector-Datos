@@ -17,7 +17,7 @@ const MENSAJES: Record<string, string> = {
   inactive: 'Tu cuenta está desactivada. Contacta al administrador.',
   pending_approval: 'Tu solicitud de acceso quedó registrada. Un administrador debe aprobarla y asignarte un rol; luego vuelve a iniciar sesión con Microsoft.',
   rejected: 'Tu solicitud de acceso fue rechazada. Si crees que es un error, contacta al administrador.',
-  account_mismatch: 'Este correo ya está vinculado a otra cuenta de Microsoft. Contacta al administrador.',
+  account_mismatch: 'Este correo quedó vinculado a otra cuenta de Microsoft. Pide a un administrador que, en Usuarios, use «Restablecer vinculación con Microsoft» sobre tu cuenta y vuelve a entrar.',
   failed: 'Microsoft no pudo validar el inicio de sesión. Vuelve a intentarlo.',
 };
 

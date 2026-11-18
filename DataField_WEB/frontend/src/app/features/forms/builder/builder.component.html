@@ -786,6 +786,60 @@
                   </div>
                 }
 
+                @if (vm.canConfigureCascade(question.type)) {
+                  @let cascadeSources = vm.getCascadeSources(question.tempId);
+                  @let cascadeSource = vm.cascadeSourceId(question);
+                  @if (cascadeSources.length > 0 || cascadeSource) {
+                    <div class="cascade-builder">
+                      <div class="options-header">
+                        <span [id]="'cascade-title-' + question.tempId">{{ 'forms.builder.cascade.title' | translate }}</span>
+                        <small>{{ 'forms.builder.cascade.help' | translate }}</small>
+                      </div>
+                      <label class="cascade-source">
+                        <span>{{ 'forms.builder.cascade.dependsOn' | translate }}</span>
+                        <select
+                          [ngModel]="cascadeSource"
+                          (ngModelChange)="vm.setCascadeSource(question.tempId, $event)"
+                          [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                        >
+                          <option [ngValue]="null">{{ 'forms.builder.cascade.none' | translate }}</option>
+                          @for (source of cascadeSources; track source.value) {
+                            <option [ngValue]="source.value">{{ source.label }}</option>
+                          }
+                        </select>
+                      </label>
+
+                      @if (cascadeSource) {
+                        @let parentOptions = vm.cascadeSourceOptions(question);
+                        <div class="branch-list" role="group" [attr.aria-labelledby]="'cascade-title-' + question.tempId">
+                          @for (option of question.options; track $index; let optionIndex = $index) {
+                            <label class="branch-row">
+                              <span>{{ option || ('forms.builder.emptyOption' | translate) }}</span>
+                              <div class="branch-controls">
+                                @let parent = vm.getCascadeParent(question, optionIndex);
+                                <select
+                                  [attr.aria-label]="('forms.builder.cascade.showWhen' | translate) + ' ' + (option || (optionIndex + 1))"
+                                  [ngModel]="parent"
+                                  (ngModelChange)="vm.setCascadeParent(question.tempId, optionIndex, $event)"
+                                  [disabled]="vm.isSaving() || !vm.canEditQuestions()"
+                                >
+                                  <option value="">{{ 'forms.builder.cascade.always' | translate }}</option>
+                                  @if (parent === cascadeMultiple) {
+                                    <option [value]="cascadeMultiple">{{ vm.getCascadeParentList(question, optionIndex).join(', ') }}</option>
+                                  }
+                                  @for (parentOption of parentOptions; track parentOption) {
+                                    <option [value]="parentOption">{{ parentOption }}</option>
+                                  }
+                                </select>
+                              </div>
+                            </label>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                }
+
                 @if (vm.canConfigureBranching(question.type)) {
                   <div class="branch-builder">
                     <div class="options-header">
@@ -1197,6 +1251,20 @@
             <button class="preview-open-button" type="button" (click)="openPreview('mobile')">
               <span class="material-icons" aria-hidden="true">open_in_full</span>
               {{ 'forms.builder.previewOpen' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <div class="test-run">
+          <p>{{ 'forms.builder.testRun.help' | translate }}</p>
+          <div class="test-run-actions">
+            <button class="test-run-button" type="button" (click)="openTestRun()" [disabled]="openingTestRun() || vm.isSaving()">
+              <span class="material-icons" aria-hidden="true">science</span>
+              {{ (openingTestRun() ? 'forms.builder.testRun.saving' : 'forms.builder.testRun.open') | translate }}
+            </button>
+            <button class="test-run-copy" type="button" (click)="copyTestRunLink()" [disabled]="!vm.formId()"
+              [attr.aria-label]="'forms.builder.testRun.copy' | translate" [title]="'forms.builder.testRun.copy' | translate">
+              <span class="material-icons" aria-hidden="true">link</span>
             </button>
           </div>
         </div>

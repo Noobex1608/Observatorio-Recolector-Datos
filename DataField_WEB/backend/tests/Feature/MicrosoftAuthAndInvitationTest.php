@@ -177,6 +177,37 @@ class MicrosoftAuthAndInvitationTest extends TestCase
         $this->assertStringEndsWith('error=rejected', $this->signInWithMicrosoft('rechazo@live.uleam.edu.ec'));
     }
 
+    public function test_admin_approves_or_rejects_several_requests_at_once(): void
+    {
+        $pending = fn (string $email) => User::factory()->create([
+            'email' => $email, 'rol' => User::ROLE_USER, 'is_active' => false,
+            'access_request_status' => User::ACCESS_PENDING, 'access_requested_at' => now(),
+        ]);
+        [$a, $b, $c, $d] = [$pending('a@uleam.edu.ec'), $pending('b@uleam.edu.ec'), $pending('c@uleam.edu.ec'), $pending('d@uleam.edu.ec')];
+        Sanctum::actingAs(User::factory()->create(['rol' => User::ROLE_ADMIN, 'email' => 'jefe@uleam.edu.ec']));
+
+        // Todo o nada: un rol que el ADMIN no puede asignar no aprueba a nadie.
+        $this->postJson('/api/users/access-requests/approve', ['items' => [
+            ['id' => $a->id, 'rol' => User::ROLE_USER], ['id' => $b->id, 'rol' => User::ROLE_ADMIN],
+        ]])->assertForbidden();
+        $this->assertSame(User::ACCESS_PENDING, $a->fresh()->access_request_status);
+
+        $this->postJson('/api/users/access-requests/approve', ['items' => [
+            ['id' => $a->id, 'rol' => User::ROLE_USER], ['id' => $b->id, 'rol' => User::ROLE_SUPERVISOR],
+        ]])->assertOk()->assertJsonPath('approved', 2);
+        $this->assertSame([User::ROLE_USER, true, null], [$a->fresh()->rol, $a->fresh()->is_active, $a->fresh()->access_request_status]);
+        $this->assertSame(User::ROLE_SUPERVISOR, $b->fresh()->rol);
+
+        // Ya resueltas: se pide recargar.
+        $this->postJson('/api/users/access-requests/approve', ['items' => [['id' => $a->id, 'rol' => User::ROLE_USER]]])->assertStatus(422);
+
+        $this->postJson('/api/users/access-requests/reject', ['ids' => [$c->id, $d->id]])->assertOk()->assertJsonPath('rejected', 2);
+        $this->assertSame([User::ACCESS_REJECTED, false], [$c->fresh()->access_request_status, $c->fresh()->is_active]);
+
+        Sanctum::actingAs(User::factory()->create(['rol' => User::ROLE_USER]));
+        $this->postJson('/api/users/access-requests/reject', ['ids' => [$d->id]])->assertForbidden();
+    }
+
     public function test_account_is_bound_to_the_microsoft_identity(): void
     {
         $this->enableMicrosoft();
@@ -190,6 +221,28 @@ class MicrosoftAuthAndInvitationTest extends TestCase
         // Si la persona cambia de correo en Microsoft, sigue entrando a su misma cuenta por su oid.
         $this->assertStringStartsWith(self::RETURN_URL.'?code=', $this->signInWithMicrosoft('docente.nuevo@uleam.edu.ec'));
         $this->assertSame(1, User::where('microsoft_oid', 'oid-123')->count());
+    }
+
+    public function test_admin_resets_a_wrong_microsoft_link_from_the_app(): void
+    {
+        $this->enableMicrosoft();
+        $user = User::factory()->create(['email' => 'docente@uleam.edu.ec', 'rol' => User::ROLE_PROJECT, 'microsoft_oid' => 'identidad-equivocada']);
+        $user->createToken('vieja');
+        $this->assertStringEndsWith('error=account_mismatch', $this->signInWithMicrosoft('docente@uleam.edu.ec'));
+
+        Sanctum::actingAs(User::factory()->create(['rol' => User::ROLE_USER]));
+        $this->postJson("/api/users/{$user->id}/microsoft/unlink")->assertForbidden();
+        Sanctum::actingAs(User::factory()->create(['rol' => User::ROLE_ADMIN, 'email' => 'jefe@uleam.edu.ec']));
+        $this->getJson('/api/users')->assertOk()->assertJsonFragment(['email' => 'docente@uleam.edu.ec', 'microsoft_linked' => true]);
+        $this->postJson("/api/users/{$user->id}/microsoft/unlink")->assertOk()->assertJsonPath('data.microsoft_linked', false);
+        $this->postJson("/api/users/{$user->id}/microsoft/unlink")->assertUnprocessable();
+        $this->assertNull($user->fresh()->microsoft_oid);
+        $this->assertSame(0, $user->tokens()->count());
+
+        // El siguiente inicio con Microsoft vuelve a vincular la cuenta a quien entra.
+        $this->app['auth']->forgetGuards();
+        $this->assertStringStartsWith(self::RETURN_URL.'?code=', $this->signInWithMicrosoft('docente@uleam.edu.ec'));
+        $this->assertSame('oid-123', $user->fresh()->microsoft_oid);
     }
 
     public function test_external_users_can_only_be_collectors_or_supervisors(): void
