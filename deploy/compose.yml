@@ -3,8 +3,9 @@
 # que define OTM_PROYECTO, OTM_ENTORNO, OTM_TAG y OTM_HOST; el resto llega en el .env del pipeline.
 # Un solo host: /api → api, /m → pwa, / → web. Las claves de Traefik van literales (compose no
 # reemplaza ${VAR} en las claves).
-# Primera versión sin Supabase: videos en almacenamiento local (volumen "storage"); los adjuntos de
-# respuestas quedan deshabilitados hasta implementar SharePoint (hallazgo H-09).
+# Sin Supabase: videos en almacenamiento local (volumen "storage"); adjuntos de respuestas en
+# SharePoint; login de cuentas ULEAM y correo con la app de Entra "OTM - DataField" (una sola app,
+# client secret en Key Vault: udf-prod-entra-client-secret).
 
 x-api-entorno: &api-entorno
   APP_NAME: ULEAM DataField
@@ -26,25 +27,34 @@ x-api-entorno: &api-entorno
   CACHE_STORE: file
   QUEUE_CONNECTION: database
   FILESYSTEM_DISK: local
-  MAIL_MAILER: log
+  # Correo por Microsoft Graph desde el buzón compartido; Exchange (RBAC for Applications) solo
+  # permite ese remitente.
+  MAIL_MAILER: microsoft-graph
+  MAIL_FROM_ADDRESS: notificaciones.otm@uleam.edu.ec
+  MAIL_FROM_NAME: ULEAM DataField
+  MICROSOFT_MAIL_SENDER: notificaciones.otm@uleam.edu.ec
+  # Enlace de los correos de invitación: FRONTEND_URL/auth/activar
+  FRONTEND_URL: https://${OTM_HOST}
   CORS_ALLOWED_ORIGINS: https://${OTM_HOST}
   L5_SWAGGER_CONST_HOST: https://${OTM_HOST}/api
   # Sin Supabase (decisión del usuario): ninguna sincronización ni almacenamiento en Supabase.
   SUPABASE_FORM_SCHEMA_SYNC_ENABLED: "false"
   SUPABASE_RESPONSE_SYNC_ENABLED: "false"
   VIDEO_STORAGE_DRIVER: local
-  # Hoy "supabase" es el único proveedor de adjuntos y el controlador de formularios lo resuelve
-  # siempre (otro valor rompe todos los formularios). Con URL y clave vacías, cada subida falla en
-  # assertConfigured() antes de hacer cualquier llamada de red. Se reemplaza por SharePoint (H-09).
-  RESPONSE_MEDIA_DRIVER: supabase
+  # Adjuntos de respuestas (fotos, audios, videos, firmas) en la biblioteca "Archivos DataField" del
+  # sitio Apps - Votaciones. El permiso de la app es de sitio: usar siempre el LibraryId de prod.
+  RESPONSE_MEDIA_DRIVER: sharepoint
   SUPABASE_URL: ""
   SUPABASE_SERVICE_ROLE_KEY: ""
-  # SharePoint (Microsoft Graph): llegan en el .env; el código aún no las usa.
-  SHAREPOINT_CLIENT_ID: ${SHAREPOINT_CLIENT_ID:-}
-  SHAREPOINT_TENANT_ID: ${SHAREPOINT_TENANT_ID:-}
-  SHAREPOINT_SITE_ID: ${SHAREPOINT_SITE_ID:-}
-  SHAREPOINT_DRIVE_ID: ${SHAREPOINT_DRIVE_ID:-}
-  SHAREPOINT_CERT: ${SHAREPOINT_CERT:-}
+  SharePoint__SiteId: uleam.sharepoint.com,6f0984c2-aec5-4a5e-890c-a5364acabc3c,fa71f417-678a-43b5-8e45-7a54f168ac7b
+  SharePoint__LibraryId: c9eae2d4-a82a-477e-8172-79908a45a7e4
+  # Login con Microsoft 365 (OIDC) y token de Graph. Con las tres variables presentes, las cuentas
+  # ULEAM entran solo con Microsoft (el SUPER_ADMIN conserva la contraseña de emergencia).
+  MICROSOFT_CLIENT_ID: e50bc0fa-54c8-41ee-bf56-58df45dd95ac
+  MICROSOFT_TENANT_ID: 31a17900-7589-4cfc-b11a-f4e83c27b8ed
+  MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:?falta MICROSOFT_CLIENT_SECRET}
+  MICROSOFT_REDIRECT_URI: https://${OTM_HOST}/api/auth/microsoft/callback
+  AUTH_INTERNAL_EMAIL_DOMAINS: uleam.edu.ec,live.uleam.edu.ec,dn.uleam.edu.ec
 
 services:
   db:
@@ -101,7 +111,7 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: proxy
-      traefik.http.routers.udf-prod-api.rule: Host(`${OTM_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/storage`) || Path(`/up`))
+      traefik.http.routers.udf-prod-api.rule: Host(`${OTM_HOST}`) && (Path(`/api`) || PathPrefix(`/api/`) || PathPrefix(`/storage/`) || Path(`/up`))
       traefik.http.routers.udf-prod-api.priority: "100"
       traefik.http.routers.udf-prod-api.entrypoints: websecure
       traefik.http.routers.udf-prod-api.tls: "true"
@@ -177,7 +187,7 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: proxy
-      traefik.http.routers.udf-prod-pwa.rule: Host(`${OTM_HOST}`) && PathPrefix(`/m`)
+      traefik.http.routers.udf-prod-pwa.rule: Host(`${OTM_HOST}`) && (Path(`/m`) || PathPrefix(`/m/`))
       traefik.http.routers.udf-prod-pwa.priority: "50"
       traefik.http.routers.udf-prod-pwa.entrypoints: websecure
       traefik.http.routers.udf-prod-pwa.tls: "true"
