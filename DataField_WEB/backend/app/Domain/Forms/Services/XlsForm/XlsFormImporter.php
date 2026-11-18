@@ -18,6 +18,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *  - `formato`: email | cedula_ec | telefono_ec para preguntas de texto;
  *  - `saltos`: «opción => nombre_destino; otra => fin» en preguntas de opción única;
  *  - `subpregunta_de`: nombre de la pregunta padre.
+ * La columna estándar `choice_filter` (ej. «provincia=${provincia}») se convierte en opciones en cascada.
  */
 final class XlsFormImporter
 {
@@ -39,8 +40,17 @@ final class XlsFormImporter
     /** @var list<array{row:int, sheet:string, message:string}> */
     private array $warnings = [];
 
-    /** @var array<string, list<array{name:string, label:string}>> */
+    /** @var array<string, list<array{name:string, label:string, row:array<string, mixed>}>> */
     private array $choices = [];
+
+    /** @var array<int, string> índice de la pregunta => lista de opciones de XLSForm */
+    private array $questionLists = [];
+
+    /** @var array<string, list<list<array{name:string, label:string, row:array<string, mixed>}>>> temp_id => filas de choices por opción */
+    private array $choiceGroups = [];
+
+    /** @var list<list<array{name:string, label:string, row:array<string, mixed>}>> */
+    private array $lastGroups = [];
 
     /** @var array<string, string> nombre XLSForm => id temporal */
     private array $nameToTempId = [];
@@ -227,8 +237,14 @@ final class XlsFormImporter
             return;
         }
 
+        $choiceFilter = trim($row['choice_filter'] ?? '');
+        if ($choiceFilter !== '' && ! in_array($mapped, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $this->warn($line, 'survey', 'El filtro de opciones («choice_filter») solo se aplica a preguntas de opción única o múltiple; se ignoró.');
+            $choiceFilter = '';
+        }
+        $this->lastGroups = [];
         if (in_array($mapped, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'], true)) {
-            $options = $this->optionsFor($listName, $line);
+            $options = $this->optionsFor($listName, $line, $choiceFilter !== '');
             if ($options === null) {
                 return;
             }
@@ -298,6 +314,9 @@ final class XlsFormImporter
         }
 
         $tempId = (string) Str::uuid();
+        if ($choiceFilter !== '') {
+            $this->choiceGroups[$tempId] = $this->lastGroups;
+        }
         if ($name !== '') {
             if (isset($this->nameToTempId[$name])) {
                 $this->error($line, 'survey', "El nombre «{$name}» está repetido.");
@@ -319,11 +338,14 @@ final class XlsFormImporter
             'branch_rules' => [],
         ];
         $this->questions[] = $question;
+        if ($listName !== null && $listName !== '') {
+            $this->questionLists[count($this->questions) - 1] = $listName;
+        }
 
         $jumps = trim($row['saltos'] ?? '');
         $parent = trim($row['subpregunta_de'] ?? '');
-        if ($jumps !== '' || $parent !== '' || $mapped === 'CALCULATE') {
-            $pendingLinks[] = ['index' => count($this->questions) - 1, 'jumps' => $jumps, 'parent' => $parent];
+        if ($jumps !== '' || $parent !== '' || $choiceFilter !== '' || $mapped === 'CALCULATE') {
+            $pendingLinks[] = ['index' => count($this->questions) - 1, 'jumps' => $jumps, 'parent' => $parent, 'filter' => $choiceFilter];
         }
     }
 
@@ -401,6 +423,13 @@ final class XlsFormImporter
 
             if ($link['jumps'] !== '') {
                 $question['branch_rules'] = $this->parseJumps($link['jumps'], $question, $link['index'], $position);
+            }
+
+            if (($link['filter'] ?? '') !== '') {
+                $filter = $this->convertChoiceFilter($link['filter'], $question, $link['index'], $position);
+                if ($filter !== null) {
+                    $question['properties']['choice_filter'] = $filter;
+                }
             }
 
             if ($question['type'] === 'CALCULATE') {
@@ -482,8 +511,88 @@ final class XlsFormImporter
         return $converted;
     }
 
+    /**
+     * «provincia=${provincia}» (o al revés, o «selected(${provincia}, provincia)»): la columna «provincia»
+     * de la hoja choices dice a qué opción de la pregunta anterior pertenece cada opción.
+     *
+     * @return array{question_id:string, parents:list<list<string>>}|null
+     */
+    private function convertChoiceFilter(string $expression, array $question, int $index, array $position): ?array
+    {
+        $line = $question['row'];
+        $text = trim($expression);
+        $column = $sourceName = null;
+        $name = '[A-Za-z_][\w.\-]*';
+        if (preg_match('/^('.$name.')\s*=\s*\$\{\s*([^}]+?)\s*\}$/u', $text, $match)) {
+            [$column, $sourceName] = [$match[1], $match[2]];
+        } elseif (preg_match('/^\$\{\s*([^}]+?)\s*\}\s*=\s*('.$name.')$/u', $text, $match)) {
+            [$sourceName, $column] = [$match[1], $match[2]];
+        } elseif (preg_match('/^selected\(\s*\$\{\s*([^}]+?)\s*\}\s*,\s*('.$name.')\s*\)$/u', $text, $match)) {
+            [$sourceName, $column] = [$match[1], $match[2]];
+        }
+        if ($column === null) {
+            $this->warn($line, 'survey', "El filtro de opciones «{$text}» no se pudo convertir (usa «columna=\${pregunta}»); se muestran todas las opciones.");
+
+            return null;
+        }
+
+        $sourceId = $this->nameToTempId[$sourceName] ?? null;
+        $sourceIndex = $sourceId !== null ? ($position[$sourceId] ?? null) : null;
+        $source = $sourceIndex !== null ? $this->questions[$sourceIndex] : null;
+        if (! $source || $sourceIndex >= $index || ! in_array($source['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $this->warn($line, 'survey', "El filtro de opciones depende de «{$sourceName}», que no es una pregunta de opciones anterior; se muestran todas las opciones.");
+
+            return null;
+        }
+
+        $key = Str::lower($column);
+        $groups = $this->choiceGroups[$question['temp_id']] ?? [];
+        if ($groups === [] || ! array_key_exists($key, $groups[0][0]['row'] ?? [])) {
+            $this->warn($line, 'survey', "La hoja «choices» no tiene la columna «{$column}» que usa el filtro de opciones; se muestran todas las opciones.");
+
+            return null;
+        }
+
+        // Nombre de la opción de la pregunta origen => su texto (las respuestas guardan el texto).
+        $sourceLabels = [];
+        foreach ($this->choices[$this->questionLists[$sourceIndex] ?? ''] ?? [] as $choice) {
+            $sourceLabels[Str::lower($choice['name'])] = $choice['label'] !== '' ? $choice['label'] : $choice['name'];
+        }
+
+        $parents = [];
+        $unassigned = 0;
+        $unknown = [];
+        foreach ($groups as $choices) {
+            $labels = [];
+            $assigned = false;
+            foreach ($choices as $choice) {
+                $value = trim((string) ($choice['row'][$key] ?? ''));
+                foreach ($value === '' ? [] : (preg_split('/\s+/', $value) ?: []) as $parentName) {
+                    $assigned = true;
+                    $label = $sourceLabels[Str::lower($parentName)] ?? null;
+                    if ($label === null) {
+                        $unknown[$parentName] = true;
+                    } elseif (! in_array($label, $labels, true)) {
+                        $labels[] = $label;
+                    }
+                }
+            }
+            $unassigned += $assigned ? 0 : 1;
+            $parents[] = $labels;
+        }
+
+        if ($unknown !== []) {
+            $this->warn($line, 'survey', "En la columna «{$column}» hay valores que no son opciones de «{$sourceName}»: ".implode(', ', array_slice(array_keys($unknown), 0, 5)).'.');
+        }
+        if ($unassigned > 0) {
+            $this->warn($line, 'survey', "{$unassigned} opción(es) no indican a qué «{$sourceName}» pertenecen; se mostrarán siempre.");
+        }
+
+        return ['question_id' => $sourceId, 'parents' => $parents];
+    }
+
     /** @return list<string>|null */
-    private function optionsFor(?string $listName, int $line): ?array
+    private function optionsFor(?string $listName, int $line, bool $merge = false): ?array
     {
         if ($listName === null || $listName === '') {
             $this->error($line, 'survey', 'Falta el nombre de la lista de opciones (ej. «select_one provincias»).');
@@ -497,7 +606,19 @@ final class XlsFormImporter
             return null;
         }
 
-        return array_values(array_map(fn ($choice) => $choice['label'] !== '' ? $choice['label'] : $choice['name'], $options));
+        if (! $merge) {
+            return array_values(array_map(fn ($choice) => $choice['label'] !== '' ? $choice['label'] : $choice['name'], $options));
+        }
+
+        // Con filtro, un mismo texto puede repetirse para varios padres (ej. una parroquia con el mismo
+        // nombre en dos cantones): se une en una sola opción que depende de todos ellos.
+        $groups = [];
+        foreach ($options as $choice) {
+            $groups[$choice['label'] !== '' ? $choice['label'] : $choice['name']][] = $choice;
+        }
+        $this->lastGroups = array_values($groups);
+
+        return array_map('strval', array_keys($groups));
     }
 
     /** @param list<array<string, string>> $rows */
@@ -515,7 +636,7 @@ final class XlsFormImporter
 
                 continue;
             }
-            $this->choices[$list][] = ['name' => $name, 'label' => Str::limit($label, 500, '')];
+            $this->choices[$list][] = ['name' => $name, 'label' => Str::limit($label, 500, ''), 'row' => $row];
         }
     }
 

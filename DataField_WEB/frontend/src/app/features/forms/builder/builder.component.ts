@@ -9,7 +9,7 @@ import { AuthService } from '@core/services/auth.service';
 import { NotificationService } from '@core/services/notification.service';
 import { UserService } from '@core/services/user.service';
 import { User } from '@core/models/user/user.interface';
-import { FormBuilderViewModel, FormQuestionDraft, FormQuestionTreeEntry, QuestionInsertTarget } from '@presentation/viewmodels/form-builder.viewmodel';
+import { CASCADE_MULTIPLE, FormBuilderViewModel, FormQuestionDraft, FormQuestionTreeEntry, QuestionInsertTarget } from '@presentation/viewmodels/form-builder.viewmodel';
 import { ProjectService } from '@core/services/project.service';
 import { TranslateModule } from '@ngx-translate/core';
 import { TEXT_FORMATS, TextFormat, textFormatInput } from '@core/utils/text-format';
@@ -38,6 +38,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly notify = inject(NotificationService);
   readonly previewMode = signal<PreviewMode>('mobile');
+  readonly cascadeMultiple = CASCADE_MULTIPLE;
   readonly delimitNow = signal(false);
   readonly canDelimitAfterSave = computed(() => {
     const projectId = this.vm.projectId();
@@ -615,6 +616,56 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
   private prefersReducedMotion(): boolean {
     return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /** Enlace del modo de prueba: recorre el formulario guardado como encuestado, sin publicarlo. */
+  testRunUrl(formId: string): string {
+    const path = this.router.serializeUrl(this.router.createUrlTree(['/prueba', formId]));
+    return new URL(path.replace(/^\//, ''), this.document.baseURI).toString();
+  }
+
+  readonly openingTestRun = signal(false);
+
+  /**
+   * Abre la prueba en esta misma pestaña (la sesión sin «Recordarme» vive solo en la pestaña, así
+   * que una pestaña nueva pediría iniciar sesión). Si hay cambios sin guardar los guarda primero,
+   * para probar exactamente lo que se ve en el editor; «Volver al editor» regresa aquí.
+   */
+  async openTestRun(): Promise<void> {
+    if (this.openingTestRun()) return;
+    const needsSave = !this.vm.formId() || (this.vm.isDirty() && this.vm.canEditQuestions());
+    if (needsSave) {
+      if (!this.vm.isFormValid()) {
+        this.notify.error('Completa las preguntas marcadas antes de probar el formulario.');
+        return;
+      }
+      this.openingTestRun.set(true);
+      try {
+        await this.vm.saveForm();
+      } finally {
+        this.openingTestRun.set(false);
+      }
+    }
+    const formId = this.vm.formId();
+    if ((needsSave && this.vm.errorMessage()) || !formId) {
+      this.notify.error(this.vm.errorMessage() || 'No se pudo guardar el formulario para probarlo.');
+      return;
+    }
+    await this.router.navigate(['/prueba', formId]);
+  }
+
+  async copyTestRunLink(): Promise<void> {
+    const formId = this.vm.formId();
+    if (!formId) {
+      this.notify.error('Guarda el formulario para obtener el enlace de prueba.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(this.testRunUrl(formId));
+      this.notify.success('Enlace de prueba copiado. Quien lo abra inicia sesión y debe tener acceso al formulario; las respuestas no se guardan.');
+    } catch {
+      this.notify.error('No se pudo copiar el enlace.');
+    }
   }
 
   openPreview(mode: PreviewMode = 'mobile'): void {

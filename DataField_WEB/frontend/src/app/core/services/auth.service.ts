@@ -8,6 +8,7 @@ import { environment } from '../../../environments/environment';
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const MICROSOFT_REMEMBER_KEY = 'auth_microsoft_remember';
+const RETURN_URL_KEY = 'auth_return_url';
 
 export interface AuthProviders {
   microsoft: boolean;
@@ -35,6 +36,25 @@ export class AuthService {
   readonly isRecolector = computed(() => this.userSignal()?.rol === 'RECOLECTOR');
   readonly isSupervisor = computed(() => this.userSignal()?.rol === 'SUPERVISOR');
   readonly userRole = computed(() => this.userSignal()?.rol ?? null);
+
+  /**
+   * Recuerda la página que pidió iniciar sesión (p. ej. un enlace de prueba) para volver a ella al
+   * entrar, también tras el inicio con Microsoft. Solo rutas internas de la app.
+   */
+  rememberReturnUrl(url: string): void {
+    if (!isSafeReturnUrl(url)) return;
+    try { sessionStorage.setItem(RETURN_URL_KEY, url); } catch { /* sin almacenamiento */ }
+  }
+
+  /** Devuelve (y olvida) la página pendiente, o la ruta por defecto. */
+  takeReturnUrl(fallback = '/admin/dashboard'): string {
+    let url: string | null = null;
+    try {
+      url = sessionStorage.getItem(RETURN_URL_KEY);
+      sessionStorage.removeItem(RETURN_URL_KEY);
+    } catch { /* sin almacenamiento */ }
+    return url && isSafeReturnUrl(url) ? url : fallback;
+  }
 
   login(data: LoginRequest, rememberMe = false): Observable<AuthResponse> {
     this.loadingSignal.set(true);
@@ -188,4 +208,9 @@ export class AuthService {
       storage.setItem(USER_KEY, JSON.stringify(user));
     }
   }
+}
+
+/** Solo rutas internas: evita redirecciones abiertas (//otro-sitio) y bucles hacia el login. */
+function isSafeReturnUrl(url: string): boolean {
+  return url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\') && !url.startsWith('/auth');
 }

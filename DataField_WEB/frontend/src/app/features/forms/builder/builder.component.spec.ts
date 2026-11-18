@@ -215,6 +215,48 @@ describe('Constructor de formularios: vista y acciones', () => {
     expect(component.issueLocation({ row: 0, sheet: 'choices' })).toBe('Hoja choices');
   });
 
+  it('importa opciones en cascada, las edita y las guarda con los ids definitivos', async () => {
+    const saveDraft = vi.fn((_id: string, body: { questions: Array<{ id: string; properties: Record<string, unknown> }> }) =>
+      of({ id: 'f9', state: 'DRAFT', draft_revision: 1, step_by_step: false, questions: body.questions }));
+    const { vm } = setup({ createForm: () => of({ id: 'f9' }), saveDraft });
+    vm.importQuestions(preview({
+      questions: [
+        { temp_id: 'p', row: 2, name: 'provincia', type: 'SINGLE_CHOICE', label: 'Provincia', required: true, options: ['Manabí', 'Guayas'],
+          properties: {}, section_name: null, parent_temp_id: null, branch_rules: [] },
+        { temp_id: 'c', row: 3, name: 'canton', type: 'SINGLE_CHOICE', label: 'Cantón', required: true, options: ['Manta', 'Guayaquil', 'Otro'],
+          properties: { choice_filter: { question_id: 'p', parents: [['Manabí'], ['Guayas'], []] } },
+          section_name: null, parent_temp_id: null, branch_rules: [] },
+      ],
+    }), 'replace');
+    const [province, canton] = vm.questions();
+    expect(vm.cascadeSourceId(canton)).toBe(province.tempId);
+    expect(vm.getCascadeSources(canton.tempId).map((item) => item.value)).toEqual([province.tempId]);
+    expect(vm.cascadeSourceOptions(canton)).toEqual(['Manabí', 'Guayas']);
+
+    // Renombrar la provincia se refleja en el cantón; quitar una opción quita su dependencia.
+    vm.updateOption(province.tempId, 0, 'Manabi');
+    vm.setCascadeParent(canton.tempId, 2, 'Guayas');
+    vm.removeOption(canton.tempId, 1);
+    const edited = vm.questions()[1];
+    expect(vm.getCascadeParent(edited, 0)).toBe('Manabi');
+    expect(vm.getCascadeParent(edited, 1)).toBe('Guayas');
+    vm.addOption(canton.tempId);
+    expect(vm.getCascadeParent(vm.questions()[1], 2)).toBe('');
+    vm.setCascadeSource(canton.tempId, null);
+    expect(vm.cascadeSourceId(vm.questions()[1])).toBeNull();
+    vm.setCascadeSource(canton.tempId, province.tempId);
+    vm.setCascadeParent(canton.tempId, 0, 'Manabi');
+    vm.setCascadeParent(canton.tempId, 1, 'Guayas');
+
+    vm.title.set('Hogares');
+    vm.projectId.set('p1');
+    vm.consentText.set('Acepto participar en la encuesta.');
+    await vm.saveForm();
+    const saved = saveDraft.mock.calls[0][1].questions;
+    // La opción vacía no se guarda, y la cascada apunta al id definitivo de la provincia.
+    expect(saved[1].properties['choice_filter']).toEqual({ question_id: saved[0].id, parents: [['Manabi'], ['Guayas']] });
+  });
+
   it('descarga plantillas y exportaciones en ambos formatos', () => {
     const { component, vm, forms, notify } = setup();
     const createObjectURL = vi.fn(() => 'blob:x');

@@ -318,6 +318,8 @@ class FormController extends Controller
 
         $formId = $form->id;
         \App\Services\AuditLogService::logFormAction($user, $form, 'DELETE');
+        // Va a la papelera del Centro de datos: el superadministrador puede restaurarlo.
+        $form->forceFill(['deleted_by' => $user->id])->save();
         $form->delete();
 
         $this->enqueueFormSchemaSync->enqueueById($formId, 'delete');
@@ -751,6 +753,50 @@ class FormController extends Controller
             'id' => $response->id,
             'response' => new FormResponseResource($response),
         ], 201);
+    }
+
+    /**
+     * Modo de prueba: el formulario tal como está guardado (borrador o publicado), para recorrerlo
+     * como lo haría un encuestado sin publicarlo. Solo para quien puede ver el formulario.
+     */
+    public function testForm(Request $request, string $id): JsonResponse
+    {
+        $form = $this->findViewableForm($id, $request->user());
+        $form->load(['questions' => fn ($q) => $q->orderBy('order')]);
+
+        $data = $form->only(['id', 'title', 'description', 'state', 'step_by_step', 'require_consent', 'consent_text', 'start_date', 'end_date']);
+        $data['questions'] = $form->questions->map(fn ($q) => $this->formatMobileQuestion($q))->toArray();
+        $data['test_mode'] = true;
+
+        return response()->json($data);
+    }
+
+    /**
+     * Valida una respuesta de prueba con las mismas reglas que un envío real (obligatorias, formatos,
+     * saltos, cálculos y opciones en cascada) pero no guarda nada ni sube archivos.
+     */
+    public function testSubmit(Request $request, string $id): JsonResponse
+    {
+        $form = $this->findViewableForm($id, $request->user());
+        $input = $request->validate(['data' => 'required|array']);
+        $data = $input['data'];
+
+        $questions = $form->questions()->orderBy('order')->get();
+        foreach ($questions as $question) {
+            $format = $question->type === 'TEXT' ? \App\Domain\Forms\Services\TextFormat::of($question->properties) : null;
+            if ($format !== null && is_string($data[$question->id] ?? null)) {
+                $data[$question->id] = \App\Domain\Forms\Services\TextFormat::normalize($format, $data[$question->id]);
+            }
+        }
+        $data = app(\App\Domain\Forms\Services\FormResponseCalculator::class)->calculate($questions, $data);
+        $active = $this->formFlowEngine->calculateActiveQuestions($questions, $data, (bool) $form->step_by_step);
+        $this->formResponseValidator->validate($active, $data, null, $questions);
+
+        return response()->json([
+            'message' => 'La respuesta de prueba es válida. No se guardó.',
+            'answered' => $active->filter(fn ($q) => ($data[$q->id] ?? null) !== null && ($data[$q->id] ?? null) !== '' && ($data[$q->id] ?? null) !== [])->count(),
+            'active_questions' => $active->count(),
+        ]);
     }
 
     #[OA\Get(path: '/forms/{id}/responses', summary: 'Listar respuestas', security: [['sanctum' => []]], tags: ['Forms'])]

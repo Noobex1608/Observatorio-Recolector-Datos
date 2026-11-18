@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FormResponse extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'client_submission_id', 'submission_hash', 'instrument_snapshot', 'consent_evidence',
@@ -17,6 +18,9 @@ class FormResponse extends Model
         'data',
         'location_trace',
         'trace_started_at',
+        'void_reason',
+        'voided_by',
+        'corrections',
     ];
 
     /** El trazado GPS se entrega solo en la vista de supervisión. */
@@ -28,6 +32,7 @@ class FormResponse extends Model
         'consent_evidence' => 'array',
         'location_trace' => 'array',
         'trace_started_at' => 'datetime',
+        'corrections' => 'array',
     ];
 
     public function form()

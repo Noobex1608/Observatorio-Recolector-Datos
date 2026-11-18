@@ -91,5 +91,13 @@ export const ADMIN_ROUTES: Routes = [
     canActivate: [roleGuard('SUPER_ADMIN')],
     title: 'routes.auditLogs',
   },
+  // Centro de datos: papelera y correcciones sin entrar a la base de datos (solo SuperAdmin)
+  {
+    path: 'datos',
+    loadComponent: () =>
+      import('../features/data-center/data-center.component').then((m) => m.DataCenterComponent),
+    canActivate: [roleGuard('SUPER_ADMIN')],
+    title: 'routes.dataCenter',
+  },
 ];
 

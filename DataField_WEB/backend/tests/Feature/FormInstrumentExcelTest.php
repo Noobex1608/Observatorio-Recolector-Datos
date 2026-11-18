@@ -173,7 +173,7 @@ class FormInstrumentExcelTest extends TestCase
     {
         $book = new Spreadsheet;
         $book->getActiveSheet()->setTitle('Mi encuesta')->fromArray([
-            ['N.º', 'Sección', 'Pregunta', 'Tipo', 'Opciones', 'Obligatoria', 'Formato', 'Ayuda', 'Si responde… ir a', 'Subpregunta de (N.º)', 'Cálculo'],
+            ['N.º', 'Sección', 'Pregunta', 'Tipo', 'Opciones', 'Obligatoria', 'Formato', 'Ayuda', 'Si responde… ir a', 'Subpregunta de (N.º)', 'Cálculo', 'Opciones según (N.º)'],
             ...$rows,
         ], null, 'A1', true);
 
@@ -194,13 +194,17 @@ class FormInstrumentExcelTest extends TestCase
         $this->assertSame(['Datos del encuestado', 'Opinión'], $preview['sections']);
         $q = collect($preview['questions'])->keyBy('name');
         $this->assertSame('cedula_ec', $q['2']['properties']['text_format']);
-        $this->assertSame(['Hombre', 'Mujer', 'Prefiere no decir'], $q['5']['options']);
-        $this->assertSame(['option_index' => 1, 'action' => 'GO_TO', 'next_temp_id' => $q['8']['temp_id']], $q['6']['branch_rules'][1]);
-        $this->assertSame($q['6']['temp_id'], $q['7']['parent_temp_id']);
-        $this->assertSame('LIKERT', $q['8']['type']);
-        $this->assertSame(['Los servicios públicos funcionan bien', 'Me siento seguro en mi barrio'], $q['8']['options']['rows']);
-        $this->assertSame(5, $q['10']['properties']['max_rating']);
-        $this->assertSame('NOTE', $q['11']['type']);
+        $this->assertSame(['Hombre', 'Mujer', 'Prefiere no decir'], $q['7']['options']);
+        // Cantón según la provincia (opciones en cascada)
+        $this->assertSame(['Portoviejo', 'Manta', 'Jipijapa', 'Guayaquil', 'Durán', 'Milagro'], $q['6']['options']);
+        $this->assertSame(['question_id' => $q['5']['temp_id'], 'parents' => [['Manabí'], ['Manabí'], ['Manabí'], ['Guayas'], ['Guayas'], ['Guayas']]],
+            $q['6']['properties']['choice_filter']);
+        $this->assertSame(['option_index' => 1, 'action' => 'GO_TO', 'next_temp_id' => $q['10']['temp_id']], $q['8']['branch_rules'][1]);
+        $this->assertSame($q['8']['temp_id'], $q['9']['parent_temp_id']);
+        $this->assertSame('LIKERT', $q['10']['type']);
+        $this->assertSame(['Los servicios públicos funcionan bien', 'Me siento seguro en mi barrio'], $q['10']['options']['rows']);
+        $this->assertSame(5, $q['12']['properties']['max_rating']);
+        $this->assertSame('NOTE', $q['13']['type']);
         $this->assertTrue($q['1']['required']);
         $this->assertFalse($q['3']['required']);
     }
@@ -412,5 +416,60 @@ class FormInstrumentExcelTest extends TestCase
             $this->assertSame('email', $preview['questions'][10]['properties']['text_format']);
             $this->assertSame(7, $preview['questions'][0]['properties']['max_rating']);
         }
+    }
+
+    public function test_simple_format_cascading_options_by_groups(): void
+    {
+        $preview = $this->postJson('/api/forms/import/preview', ['file' => $this->upload($this->simpleBook([
+            ['1', 'A', 'Provincia', 'Opción única', 'Manabí; Guayas', 'Sí'],
+            ['2', 'A', 'Cantón', 'Opción única', "manabi: Portoviejo; Olmedo\nGuayas: Guayaquil; Olmedo | Otro", 'Sí', '', '', '', '', '', '1'],
+            ['3', 'A', 'Parroquias visitadas', 'Opción múltiple', 'Portoviejo: 12 de Marzo; Andrés de Vera | Guayaquil: Tarqui', 'No', '', '', '', '', '', '2'],
+            ['4', 'A', 'Sin grupos', 'Opción única', 'A; B', 'No', '', '', '', '', '', '1'],
+            ['5', 'A', 'Grupo desconocido', 'Opción única', 'Los Ríos: Babahoyo | Manabí: Manta', 'No', '', '', '', '', '', '1'],
+            ['6', 'A', 'Edad', 'Número', '', 'No', '', '', '', '', '', '1'],
+            ['7', 'A', 'Origen posterior', 'Opción única', 'X: Y', 'No', '', '', '', '', '', '9'],
+        ]))])->assertOk()->json();
+
+        $this->assertTrue($preview['valid'], json_encode($preview['errors']));
+        $q = collect($preview['questions'])->keyBy('name');
+        // Sin distinguir tildes ni mayúsculas en el grupo; el mismo cantón en dos provincias es una opción.
+        $this->assertSame(['Portoviejo', 'Olmedo', 'Guayaquil', 'Otro'], $q['2']['options']);
+        $this->assertSame(['question_id' => $q['1']['temp_id'], 'parents' => [['Manabí'], ['Manabí', 'Guayas'], ['Guayas'], []]],
+            $q['2']['properties']['choice_filter']);
+        // Cadena: parroquia según cantón
+        $this->assertSame(['question_id' => $q['2']['temp_id'], 'parents' => [['Portoviejo'], ['Portoviejo'], ['Guayaquil']]],
+            $q['3']['properties']['choice_filter']);
+        $this->assertSame(['A', 'B'], $q['4']['options']);
+        $this->assertArrayNotHasKey('choice_filter', $q['4']['properties']);
+        $this->assertSame([[], ['Manabí']], $q['5']['properties']['choice_filter']['parents']);
+        $this->assertArrayNotHasKey('choice_filter', $q['7']['properties']);
+
+        $warnings = collect($preview['warnings'])->map(fn ($e) => $e['row'].': '.$e['message'])->implode(' | ');
+        $this->assertStringContainsString('3: 1 opción(es) no pertenecen a ningún grupo', $warnings);
+        $this->assertStringContainsString('5: Para que las opciones dependan de la pregunta 1', $warnings);
+        $this->assertStringContainsString('6: Los grupos «Los Ríos» no son opciones de la pregunta 1', $warnings);
+        $this->assertStringContainsString('7: «Opciones según» solo se aplica a Opción única u Opción múltiple', $warnings);
+        $this->assertStringContainsString('8: «Opciones según» indica la 9', $warnings);
+    }
+
+    public function test_simple_export_and_reimport_keep_the_cascade(): void
+    {
+        $form = $this->sampleForm();
+        $province = $form->questions()->create(['type' => 'SINGLE_CHOICE', 'label' => 'Provincia', 'order' => 4, 'required' => true,
+            'section_name' => 'Opinión', 'options' => ['Manabí', 'Guayas']]);
+        $form->questions()->create(['type' => 'SINGLE_CHOICE', 'label' => 'Cantón', 'order' => 5, 'required' => true,
+            'section_name' => 'Opinión', 'options' => ['Portoviejo', 'Olmedo', 'Guayaquil', 'Otro'],
+            'properties' => ['choice_filter' => ['question_id' => $province->id, 'parents' => [['Manabí'], ['Manabí', 'Guayas'], ['Guayas'], []]]]]);
+
+        $download = $this->get("/api/forms/{$form->id}/instrument.xlsx")->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'simple').'.xlsx';
+        file_put_contents($path, $download->streamedContent());
+        $preview = $this->postJson('/api/forms/import/preview', ['file' => new UploadedFile($path, 'c.xlsx', null, null, true)])->assertOk()->json();
+
+        $this->assertTrue($preview['valid'], json_encode($preview['errors']));
+        [, , , , $p, $c] = $preview['questions'];
+        $this->assertSame(['Portoviejo', 'Olmedo', 'Guayaquil', 'Otro'], $c['options']);
+        $this->assertSame(['question_id' => $p['temp_id'], 'parents' => [['Manabí'], ['Manabí', 'Guayas'], ['Guayas'], []]],
+            $c['properties']['choice_filter']);
     }
 }

@@ -84,6 +84,16 @@ class FormResponseValidator
             };
             if (! $valid) {
                 $errors[$question->id][] = "La respuesta a '{$question->label}' no tiene un valor válido para {$type}.";
+
+                continue;
+            }
+            $filter = in_array($type, ChoiceFilter::CHILD_TYPES, true) ? ChoiceFilter::of($properties) : null;
+            if ($filter !== null) {
+                $allowed = ChoiceFilter::allowed(array_map('strval', array_values($options)), $filter, $data[$filter['question_id']] ?? null);
+                $chosen = is_array($value) ? $value : [$value];
+                if (array_diff(array_map('strval', $chosen), $allowed) !== []) {
+                    $errors[$question->id][] = "La respuesta a '{$question->label}' no corresponde a lo elegido en la pregunta anterior.";
+                }
             }
         }
 

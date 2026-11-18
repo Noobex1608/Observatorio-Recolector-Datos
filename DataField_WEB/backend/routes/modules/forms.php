@@ -29,6 +29,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\SerializeFormMutation::c
 
     Route::put('/{id}/draft', [FormController::class, 'saveDraft']);
 
+    // Modo de prueba: recorrer el formulario sin publicarlo; el envío se valida y no se guarda.
+    Route::get('/{id}/test', [FormController::class, 'testForm']);
+    Route::post('/{id}/test-submit', [FormController::class, 'testSubmit'])->middleware('throttle:60,1');
+
     // Questions
     Route::get('/{id}/questions', [FormController::class, 'getQuestions']);
     Route::post('/{id}/questions', [FormController::class, 'storeQuestion']);

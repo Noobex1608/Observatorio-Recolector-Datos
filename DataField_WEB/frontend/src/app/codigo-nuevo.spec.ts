@@ -28,7 +28,7 @@ import { MainLayoutComponent } from './shared/components/layout/main-layout.comp
 import { MapGeofenceSelectorComponent } from './shared/components/map-geofence-selector/map-geofence-selector.component';
 import { environment } from '../environments/environment';
 
-const router = () => ({ navigate: vi.fn().mockResolvedValue(true), createUrlTree: vi.fn((commands: string[]) => commands.join('/')) });
+const router = () => ({ navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true), createUrlTree: vi.fn((commands: string[]) => commands.join('/')) });
 const translate = { instant: (key: string) => key, get: (key: string) => of(key), onLangChange: of(), stream: (key: string) => of(key) };
 
 /** Crea una clase que usa inject() sin renderizar su plantilla. */
@@ -42,9 +42,9 @@ afterEach(() => TestBed.resetTestingModule());
 describe('Guards e interceptor: redirecciones', () => {
   it('authGuard manda al login sin token, con token inválido o si falla la validación', async () => {
     const nav = router();
-    const auth = { isAuthenticated: vi.fn(() => true), user: vi.fn(() => null), checkAuth: vi.fn(() => of(false)) };
+    const auth = { isAuthenticated: vi.fn(() => true), user: vi.fn(() => null), checkAuth: vi.fn(() => of(false)), rememberReturnUrl: vi.fn() };
     TestBed.configureTestingModule({ providers: [{ provide: Router, useValue: nav }, { provide: AuthService, useValue: auth }] });
-    const run = () => TestBed.runInInjectionContext(() => authGuard({} as any, {} as any));
+    const run = () => TestBed.runInInjectionContext(() => authGuard({} as any, { url: '/prueba/f1' } as any));
 
     auth.isAuthenticated.mockReturnValueOnce(false);
     expect(run()).toBe(false);
@@ -57,19 +57,21 @@ describe('Guards e interceptor: redirecciones', () => {
     expect(await firstValueFrom(run() as Observable<unknown>)).toBe(false);
     expect(nav.navigate).toHaveBeenCalledTimes(3);
     expect(nav.navigate).toHaveBeenCalledWith(['/auth/login']);
+    // Al entrar se vuelve a la página pedida (p. ej. el enlace de prueba).
+    expect(auth.rememberReturnUrl).toHaveBeenCalledWith('/prueba/f1');
   });
 
   it('guestGuard envía al panel o a cambiar la contraseña temporal', () => {
     const nav = router();
-    const auth = { isAuthenticated: () => true, user: vi.fn(() => ({ must_change_password: true })) };
+    const auth = { isAuthenticated: () => true, user: vi.fn(() => ({ must_change_password: true })), takeReturnUrl: vi.fn(() => '/admin/dashboard') };
     TestBed.configureTestingModule({ providers: [{ provide: Router, useValue: nav }, { provide: AuthService, useValue: auth }] });
 
     expect(TestBed.runInInjectionContext(() => guestGuard({} as any, {} as any))).toBe(false);
     auth.user.mockReturnValue({ must_change_password: false });
     TestBed.runInInjectionContext(() => guestGuard({} as any, {} as any));
 
-    expect(nav.navigate).toHaveBeenCalledWith(['/auth/change-password']);
-    expect(nav.navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+    expect(nav.navigateByUrl).toHaveBeenCalledWith('/auth/change-password');
+    expect(nav.navigateByUrl).toHaveBeenCalledWith('/admin/dashboard');
   });
 
   it('adminGuard y roleGuard redirigen según el rol', () => {
@@ -124,6 +126,7 @@ describe('Login y cambio de contraseña', () => {
     const auth = {
       login: vi.fn(() => of({ user: { must_change_password: false } })),
       providers: vi.fn(() => of({ microsoft: false, internal_domains: ['uleam.edu.ec'] })),
+      takeReturnUrl: vi.fn(() => '/prueba/f1'),
     };
     const login = build(() => new LoginComponent(), [
       { provide: Router, useValue: nav }, { provide: AuthService, useValue: auth }, { provide: TranslateService, useValue: translate },
@@ -133,7 +136,7 @@ describe('Login y cambio de contraseña', () => {
     login.onSubmit();
 
     expect(auth.login).toHaveBeenCalledWith({ email: 'ana@uleam.edu.ec', password: 'secreta123' }, false);
-    expect(nav.navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+    expect(nav.navigateByUrl).toHaveBeenCalledWith('/prueba/f1');
   });
 
   it('con Microsoft 365 activo, las cuentas de ULEAM van a Microsoft y no al login con contraseña', () => {

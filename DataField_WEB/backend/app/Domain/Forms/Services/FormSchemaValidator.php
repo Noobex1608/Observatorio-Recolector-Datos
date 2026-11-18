@@ -45,6 +45,10 @@ class FormSchemaValidator
             if ($parentId && (! isset($positions[$parentId]) || $positions[$parentId] >= $position)) {
                 $errors["questions.{$question->id}.parent_question_id"] = 'La pregunta padre debe pertenecer al formulario y aparecer antes de la hija.';
             }
+            $filterError = ChoiceFilter::configurationError($question, $byId, $positions);
+            if ($filterError !== null) {
+                $errors["questions.{$question->id}.choice_filter"] = $filterError;
+            }
 
             $rules = $question->branch_rules ?? [];
             if ($rules !== [] && $question->type !== 'SINGLE_CHOICE') {

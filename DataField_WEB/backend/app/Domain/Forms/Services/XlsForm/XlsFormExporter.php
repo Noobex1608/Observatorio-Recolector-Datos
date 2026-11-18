@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Forms\Services\XlsForm;
 
+use App\Domain\Forms\Services\ChoiceFilter;
 use App\Domain\Forms\Services\TextFormat;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
@@ -20,7 +21,7 @@ final class XlsFormExporter
 {
     public const SURVEY_COLUMNS = [
         'type', 'name', 'label', 'hint', 'required', 'appearance', 'calculation', 'parameters',
-        'formato', 'saltos', 'subpregunta_de',
+        'choice_filter', 'formato', 'saltos', 'subpregunta_de',
     ];
 
     /** Tipos sugeridos en la lista desplegable de la plantilla (se puede escribir cualquier otro). */
@@ -43,8 +44,10 @@ final class XlsFormExporter
             $names[$question->id] = 'p'.($index + 1);
         }
 
+        $byId = $questions->keyBy('id');
         $survey = [];
         $choices = [];
+        $filterColumns = [];
         $currentSection = null;
         $sectionCount = 0;
 
@@ -92,8 +95,35 @@ final class XlsFormExporter
                 case 'RANKING':
                     $list = $name.'_opciones';
                     $keyword = ['SINGLE_CHOICE' => 'select_one', 'MULTIPLE_CHOICE' => 'select_multiple', 'RANKING' => 'rank'][$question->type];
+                    $labels = is_array($options) ? array_values($options) : [];
+                    $filter = $question->type !== 'RANKING' ? ChoiceFilter::of($properties) : null;
+                    $source = $filter ? $byId->get($filter['question_id']) : null;
+                    if ($filter && $source && isset($names[$source->id])) {
+                        // Opciones en cascada: la columna con el nombre de la pregunta origen dice a qué
+                        // opción de ella pertenece cada fila (una fila por cada opción de la que depende).
+                        $column = $names[$source->id];
+                        $filterColumns[$column] = true;
+                        $sourceNames = [];
+                        foreach (is_array($source->options) ? array_values($source->options) : [] as $i => $sourceLabel) {
+                            $sourceNames[(string) $sourceLabel] = 'op'.($i + 1);
+                        }
+                        foreach ($labels as $i => $label) {
+                            $parents = array_values(array_filter(array_map(fn ($parent) => $sourceNames[$parent] ?? null, $filter['parents'][$i] ?? [])));
+                            foreach ($parents === [] ? [''] : $parents as $j => $parent) {
+                                $choices[] = [
+                                    'list_name' => $list, 'name' => 'op'.($i + 1).($j > 0 ? '_'.($j + 1) : ''),
+                                    'label' => (string) $label, $column => $parent,
+                                ];
+                            }
+                        }
+                        $survey[] = array_merge($base, [
+                            'type' => $keyword.' '.$list, 'saltos' => $this->jumps($question, $names),
+                            'choice_filter' => $column.'=${'.$column.'}',
+                        ]);
+                        break;
+                    }
                     $survey[] = array_merge($base, ['type' => $keyword.' '.$list, 'saltos' => $this->jumps($question, $names)]);
-                    $this->addChoices($choices, $list, is_array($options) ? array_values($options) : []);
+                    $this->addChoices($choices, $list, $labels);
                     break;
                 case 'TEXT':
                     $survey[] = array_merge($base, ['type' => 'text', 'formato' => TextFormat::of($properties) ?? '']);
@@ -128,7 +158,7 @@ final class XlsFormExporter
             $survey[] = ['type' => 'end_group'];
         }
 
-        return $this->build($title, $survey, $choices, false);
+        return $this->build($title, $survey, $choices, false, array_keys($filterColumns));
     }
 
     /** Plantilla con ejemplos de cada tipo e instrucciones. */
@@ -166,7 +196,7 @@ final class XlsFormExporter
      * @param  list<array<string, string>>  $survey
      * @param  list<array<string, string>>  $choices
      */
-    private function build(string $title, array $survey, array $choices, bool $withInstructions): Spreadsheet
+    private function build(string $title, array $survey, array $choices, bool $withInstructions, array $filterColumns = []): Spreadsheet
     {
         $book = new Spreadsheet;
         $surveySheet = $book->getActiveSheet()->setTitle('survey');
@@ -174,7 +204,7 @@ final class XlsFormExporter
         $this->addTypeDropdown($surveySheet, max(200, count($survey) + 50));
 
         $choicesSheet = $book->createSheet()->setTitle('choices');
-        $this->table($choicesSheet, ['list_name', 'name', 'label'], $choices, [22 => 'A', 18 => 'B', 50 => 'C']);
+        $this->table($choicesSheet, ['list_name', 'name', 'label', ...$filterColumns], $choices, [22 => 'A', 18 => 'B', 50 => 'C']);
 
         $settings = $book->createSheet()->setTitle('settings');
         $this->table($settings, ['form_title', 'default_language'], [['form_title' => $title, 'default_language' => 'Español (es)']], [50 => 'A', 20 => 'B']);
@@ -193,6 +223,9 @@ final class XlsFormExporter
                 [''],
                 ['Tipos: text, integer, decimal, select_one, select_multiple, rank, date, time, datetime, geopoint,'],
                 ['image (con appearance «signature» es una firma), audio, video, file, note, range (escala 3 a 10), barcode, calculate.'],
+                [''],
+                ['choice_filter (opciones en cascada): en la pregunta «canton» escriba «provincia=${provincia}» y en la hoja choices'],
+                ['agregue una columna «provincia» con el name de la provincia a la que pertenece cada cantón.'],
                 [''],
                 ['Columnas propias del sistema (Kobo las ignora):'],
                 ['formato: en preguntas text valida email, cedula_ec o telefono_ec.'],

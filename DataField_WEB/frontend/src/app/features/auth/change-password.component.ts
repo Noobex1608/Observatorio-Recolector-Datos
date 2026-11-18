@@ -48,7 +48,7 @@ export class ChangePasswordComponent {
     if (password !== confirmation) { this.error.set('Las contraseñas no coinciden.'); return; }
     this.busy.set(true);
     this.auth.changePassword(current, password).subscribe({
-      next: () => this.router.navigate(['/admin/dashboard']),
+      next: () => this.router.navigateByUrl(this.auth.takeReturnUrl()),
       error: (error) => { this.busy.set(false); this.error.set(error?.error?.message || 'No se pudo actualizar la contraseña.'); },
     });
   }

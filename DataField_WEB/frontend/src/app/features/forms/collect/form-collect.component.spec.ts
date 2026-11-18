@@ -14,12 +14,12 @@ const form = {
   ],
 };
 
-function open(formService: Record<string, unknown>) {
+function open(formService: Record<string, unknown>, route: { params?: Record<string, string>; data?: Record<string, unknown> } = {}) {
   TestBed.resetTestingModule();
   TestBed.overrideComponent(FormCollectComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ uuid: 'abc' }) } } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(route.params ?? { uuid: 'abc' }), data: route.data ?? {} } } },
       { provide: FormService, useValue: formService },
       { provide: TranslateService, useValue: { instant: (key: string) => key } },
     ],
@@ -129,5 +129,79 @@ describe('Encuesta pública: formatos de correo, cédula y teléfono', () => {
 
     const answers = (submitResponse.mock.calls[0] as unknown[])[1] as Record<string, unknown>;
     expect(answers).toEqual(expect.objectContaining({ ced: '1710034065', tel: '0991234567' }));
+  });
+});
+
+const cascade = {
+  id: 'f2', title: 'Hogares por cantón', step_by_step: false,
+  questions: [
+    { id: 'prov', type: 'SINGLE_CHOICE', label: 'Provincia', order: 0, required: true, options: ['Manabí', 'Guayas'] },
+    {
+      id: 'canton', type: 'SINGLE_CHOICE', label: 'Cantón', order: 1, required: true,
+      options: ['Portoviejo', 'Manta', 'Guayaquil'],
+      properties: { choice_filter: { question_id: 'prov', parents: [['Manabí'], ['Manabí'], ['Guayas']] } },
+    },
+  ],
+};
+
+describe('Opciones en cascada y modo de prueba', () => {
+  beforeEach(() => sessionStorage.clear());
+  afterEach(() => sessionStorage.clear());
+
+  it('filtra los cantones por provincia y quita el que deja de corresponder', () => {
+    const { component } = open({ fetchPublicForm: () => of(cascade) });
+    const canton = cascade.questions[1] as never;
+
+    expect(component.getChoiceOptions(canton)).toEqual([]);
+    expect(component.cascadeHint(canton)).toBe('forms.collect.answerFirst');
+
+    component.setAnswer('prov', 'Manabí');
+    expect(component.getChoiceOptions(canton)).toEqual(['Portoviejo', 'Manta']);
+    component.setAnswer('canton', 'Manta');
+
+    component.setAnswer('prov', 'Guayas');
+    expect(component.getChoiceOptions(canton)).toEqual(['Guayaquil']);
+    expect(component.answers()['canton']).toBeUndefined();
+  });
+
+  it('en modo de prueba carga el borrador, valida en el servidor y no usa el enlace público', () => {
+    const fetchPublicForm = vi.fn();
+    const submitResponse = vi.fn();
+    const submitTestResponse = vi.fn(() => of({ message: 'ok', answered: 2, active_questions: 2 }));
+    const { component } = open(
+      { fetchTestForm: () => of({ ...cascade, test_mode: true }), fetchPublicForm, submitResponse, submitTestResponse },
+      { params: { formId: 'f2' }, data: { testMode: true } },
+    );
+
+    expect(component.testMode).toBe(true);
+    expect(component.form()?.title).toBe('Hogares por cantón');
+    component.acceptConsent();
+    component.setAnswer('prov', 'Guayas');
+    component.setAnswer('canton', 'Guayaquil');
+    component.onSubmit();
+
+    expect(fetchPublicForm).not.toHaveBeenCalled();
+    expect(submitResponse).not.toHaveBeenCalled();
+    expect(submitTestResponse).toHaveBeenCalledWith('f2', expect.objectContaining({ prov: 'Guayas', canton: 'Guayaquil' }));
+    expect(component.submitted()).toBe(true);
+    expect(component.testAnswered()).toBe(2);
+  });
+
+  it('en modo de prueba marca las preguntas que el servidor rechaza', () => {
+    const submitTestResponse = vi.fn(() => throwError(() => ({
+      error: { message: 'Revise las respuestas.', errors: { 'data.canton': ['No corresponde a la provincia.'] } },
+    })));
+    const { component } = open(
+      { fetchTestForm: () => of(cascade), submitTestResponse },
+      { params: { formId: 'f2' }, data: { testMode: true } },
+    );
+    component.acceptConsent();
+    component.setAnswer('prov', 'Manabí');
+    component.setAnswer('canton', 'Manta');
+    component.onSubmit();
+
+    expect(component.submitted()).toBe(false);
+    expect(component.questionError('canton')).toBe('No corresponde a la provincia.');
+    expect(component.submitError()).toBe('Revise las respuestas.');
   });
 });

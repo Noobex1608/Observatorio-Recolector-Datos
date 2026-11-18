@@ -72,7 +72,7 @@ export class LoginComponent {
 
     this.authService.login({ email: email.trim(), password }, rememberMe).subscribe({
       next: (response) => {
-        void this.router.navigate([response.user.must_change_password ? '/auth/change-password' : '/admin/dashboard']);
+        void this.router.navigateByUrl(response.user.must_change_password ? '/auth/change-password' : this.authService.takeReturnUrl());
       },
       error: (err) => {
         this.loading.set(false);

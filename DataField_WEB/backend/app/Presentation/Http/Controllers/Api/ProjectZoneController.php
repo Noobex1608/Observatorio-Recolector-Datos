@@ -184,6 +184,8 @@ class ProjectZoneController extends Controller
         DB::transaction(function () use ($zone, $user) {
             $userIds = $zone->assignedUsers()->pluck('users.id')->all();
             $zone->assignedUsers()->detach();
+            // Va a la papelera del Centro de datos (se restaura sin encuestadores asignados).
+            $zone->forceFill(['deleted_by' => $user->id])->save();
             $zone->delete();
             // Quien se queda sin ninguna zona del formulario ya no puede enviar encuestas: se le retira el acceso.
             $this->revokeFormAccessWithoutZone($zone->form_id, $userIds);

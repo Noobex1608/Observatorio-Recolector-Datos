@@ -1,3 +1,4 @@
+import type { ResponseCorrection } from '@core/services/data-center.service';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Form, FormQuestion, FormService, FormShare } from '@core/services/form.service';
 import { PdfExportService } from '@core/services/pdf-export.service';
@@ -11,6 +12,9 @@ export interface FormResponseRow {
   submitted_at: string;
   answers: Record<string, string>;
   rawAnswers: Record<string, any>;
+  user_id?: number | null;
+  /** Historial de correcciones hechas desde el Centro de datos. */
+  corrections?: ResponseCorrection[];
 }
 
 export interface QuestionChart {
@@ -132,12 +136,7 @@ export class FormResponsesViewModel {
       this.stats.set(statsData);
       this.shares.set(sharesData);
 
-      const rows: FormResponseRow[] = (responseData.responses ?? []).map((r: any) => ({
-        id: r.id,
-        submitted_at: r.created_at,
-        answers: this.flattenAnswers(r.data ?? {}, this.questions()),
-        rawAnswers: r.data ?? {},
-      }));
+      const rows: FormResponseRow[] = (responseData.responses ?? []).map((r: any) => this.toRow(r));
 
       this.responses.set(rows);
       this.responseTotal.set(responseData.pagination?.total ?? rows.length);
@@ -150,6 +149,30 @@ export class FormResponsesViewModel {
     }
   }
 
+  private toRow(r: any): FormResponseRow {
+    return {
+      id: r.id,
+      submitted_at: r.created_at,
+      answers: this.flattenAnswers(r.data ?? {}, this.questions()),
+      rawAnswers: r.data ?? {},
+      user_id: r.user_id ?? null,
+      corrections: Array.isArray(r.corrections) ? r.corrections : [],
+    };
+  }
+
+  /** Reemplaza una fila tras una corrección del Centro de datos y la devuelve actualizada. */
+  replaceResponse(raw: { id: string; created_at: string; data: Record<string, unknown>; user_id: number | null; corrections: ResponseCorrection[] | null }): FormResponseRow {
+    const row = this.toRow(raw);
+    this.responses.update((rows) => rows.map((item) => (item.id === row.id ? row : item)));
+    return row;
+  }
+
+  /** Quita una respuesta anulada de la lista (ya no cuenta en totales ni estadísticas). */
+  removeResponse(id: string): void {
+    this.responses.update((rows) => rows.filter((row) => row.id !== id));
+    this.responseTotal.update((total) => Math.max(0, total - 1));
+  }
+
   async loadMoreResponses(): Promise<void> {
     const formId = this.formId();
     const page = this.nextResponsePage();
@@ -157,12 +180,7 @@ export class FormResponsesViewModel {
     this.isLoadingMore.set(true);
     try {
       const data = await firstValueFrom(this.formService.getResponses(formId, page));
-      const rows: FormResponseRow[] = (data.responses ?? []).map((r: any) => ({
-        id: r.id,
-        submitted_at: r.created_at,
-        answers: this.flattenAnswers(r.data ?? {}, this.questions()),
-        rawAnswers: r.data ?? {},
-      }));
+      const rows: FormResponseRow[] = (data.responses ?? []).map((r: any) => this.toRow(r));
       this.responses.update((existing) => [...existing, ...rows]);
       this.nextResponsePage.set(data.pagination && data.pagination.current_page < data.pagination.last_page
         ? data.pagination.current_page + 1 : null);

@@ -45,6 +45,7 @@
     "select": "Seleccionar idioma"
   },
   "routes": {
+    "collectTest": "Probar formulario - ULEAM DataField",
     "login": "Iniciar sesion - ULEAM DataField",
     "dashboard": "Mis formularios - ULEAM DataField",
     "accountSettings": "Configuracion de cuenta - ULEAM DataField",
@@ -56,6 +57,7 @@
     "newUser": "Nuevo usuario - ULEAM DataField",
     "editUser": "Editar usuario - ULEAM DataField",
     "auditLogs": "Auditoría & Control de Datos - ULEAM DataField",
+    "dataCenter": "Centro de datos - ULEAM DataField",
     "collect": "Completar formulario - ULEAM DataField",
     "profile": "Mi perfil - ULEAM DataField"
   },
@@ -103,7 +105,8 @@
       "newForm": "Nuevo formulario",
       "projects": "Proyectos",
       "users": "Usuarios",
-      "auditLogs": "Auditoría y Logs"
+      "auditLogs": "Auditoría y Logs",
+      "dataCenter": "Centro de datos"
     }
   },
 
@@ -311,6 +314,20 @@
       }
     },
     "builder": {
+      "cascade": {
+        "title": "Opciones en cascada",
+        "help": "Muestra cada opción solo si en una pregunta anterior se eligió cierta respuesta (provincia → cantón).",
+        "dependsOn": "Las opciones dependen de",
+        "none": "No dependen de otra pregunta",
+        "showWhen": "Mostrar cuando se elija",
+        "always": "Mostrar siempre"
+      },
+      "testRun": {
+        "help": "Recorre el formulario como un encuestado, sin publicarlo ni guardar respuestas.",
+        "open": "Probar encuesta",
+        "saving": "Guardando…",
+        "copy": "Copiar enlace de prueba"
+      },
       "eyebrow": "Constructor de formularios",
       "newTitle": "Nuevo formulario",
       "editTitle": "Editar formulario",
@@ -479,6 +496,18 @@
       }
     },
     "collect": {
+      "answerFirst": "Primero responde «{{question}}» para ver las opciones.",
+      "noOptionsFor": "No hay opciones para lo elegido en «{{question}}».",
+      "test": {
+        "title": "Modo de prueba",
+        "banner": "Recorres el formulario como un encuestado. Las respuestas se validan pero no se guardan.",
+        "backToEditor": "Volver al editor",
+        "submit": "Validar respuestas",
+        "doneTitle": "Prueba completada",
+        "doneText": "Las respuestas cumplen las reglas del formulario ({{answered}} respondidas). No se guardó nada.",
+        "again": "Probar otra vez",
+        "loadError": "No se pudo abrir la prueba. Verifica que tengas acceso a este formulario."
+      },
       "loading": "Cargando formulario...",
       "stepMode": "Completa la pregunta actual para continuar.",
       "sectionGeneral": "Sección general",

@@ -152,6 +152,6 @@ class ProjectSupervisionController extends Controller
             ->orWhereIn('users.id', DB::table('project_zone_user_assignments as a')
                 ->join('project_zones as z', 'z.id', '=', 'a.zone_id')->whereIn('z.form_id', $formIds)->select('a.user_id'))
             ->orWhereIn('users.id', DB::table('form_responses')->whereIn('form_id', $formIds)
-                ->whereNotNull('user_id')->select('user_id')));
+                ->whereNull('deleted_at')->whereNotNull('user_id')->select('user_id')));
     }
 }

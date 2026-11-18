@@ -70,3 +70,4 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(__DIR__.'/modules/mob
 Route::prefix('projects')->group(__DIR__.'/modules/projects.php');
 Route::prefix('users')->group(__DIR__.'/modules/users.php');
 Route::prefix('audit-logs')->group(__DIR__.'/modules/audit.php');
+Route::prefix('data-center')->group(__DIR__.'/modules/data-center.php');

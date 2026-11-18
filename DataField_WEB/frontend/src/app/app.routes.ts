@@ -17,6 +17,17 @@ export const routes: Routes = [
     title: 'routes.collect',
   },
   {
+    // Recorrer un formulario (incluso en borrador) como encuestado, sin guardar respuestas.
+    path: 'prueba/:formId',
+    loadComponent: () =>
+      import('./features/forms/collect/form-collect.component').then(
+        (m) => m.FormCollectComponent,
+      ),
+    canActivate: [authGuard],
+    data: { testMode: true },
+    title: 'routes.collectTest',
+  },
+  {
     path: 'auth',
     children: AUTH_ROUTES,
   },

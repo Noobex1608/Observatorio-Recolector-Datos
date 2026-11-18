@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { UserRole } from '../models';
+import { User, UserRole } from '../models';
 import {
     CreateUserRequest,
     UpdateUserRequest,
@@ -42,8 +42,18 @@ export class UserService {
   /**
    * Obtener lista de usuarios (solo admin)
    */
-  getUsers(perPage = 15, page = 1): Observable<UsersListResponse> {
-    return this.api.get<UsersListResponse>(`/users?per_page=${perPage}&page=${page}`);
+  getUsers(perPage = 15, page = 1, deleted = false): Observable<UsersListResponse> {
+    return this.api.get<UsersListResponse>(`/users?per_page=${perPage}&page=${page}${deleted ? '&deleted=1' : ''}`);
+  }
+
+  /** Quita el vínculo con Microsoft 365 (error «account_mismatch»); el próximo inicio lo vuelve a crear. */
+  unlinkMicrosoft(id: number): Observable<{ message: string; data: User }> {
+    return this.api.post<{ message: string; data: User }>(`/users/${id}/microsoft/unlink`, {});
+  }
+
+  /** Deshace la eliminación de una cuenta: vuelve activa, con su rol y asignaciones. */
+  restoreUser(id: number): Observable<{ message: string; data: User }> {
+    return this.api.post<{ message: string; data: User }>(`/users/${id}/restore`, {});
   }
 
   /**
@@ -63,6 +73,15 @@ export class UserService {
 
   approveAccessRequest(userId: number, rol: UserRole): Observable<{ message: string }> {
     return this.api.post<{ message: string }>(`/users/access-requests/${userId}/approve`, { rol });
+  }
+
+  /** Aprueba varias solicitudes a la vez, cada una con su rol (todo o nada). */
+  approveAccessRequests(items: Array<{ id: number; rol: UserRole }>): Observable<{ message: string; approved: number }> {
+    return this.api.post<{ message: string; approved: number }>('/users/access-requests/approve', { items });
+  }
+
+  rejectAccessRequests(ids: number[]): Observable<{ message: string; rejected: number }> {
+    return this.api.post<{ message: string; rejected: number }>('/users/access-requests/reject', { ids });
   }
 
   rejectAccessRequest(userId: number): Observable<{ message: string }> {
