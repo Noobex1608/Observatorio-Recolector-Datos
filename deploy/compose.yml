@@ -111,7 +111,7 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: proxy
-      traefik.http.routers.udf-prod-api.rule: Host(`${OTM_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/storage`) || Path(`/up`))
+      traefik.http.routers.udf-prod-api.rule: Host(`${OTM_HOST}`) && (Path(`/api`) || PathPrefix(`/api/`) || PathPrefix(`/storage/`) || Path(`/up`))
       traefik.http.routers.udf-prod-api.priority: "100"
       traefik.http.routers.udf-prod-api.entrypoints: websecure
       traefik.http.routers.udf-prod-api.tls: "true"
@@ -187,7 +187,7 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: proxy
-      traefik.http.routers.udf-prod-pwa.rule: Host(`${OTM_HOST}`) && PathPrefix(`/m`)
+      traefik.http.routers.udf-prod-pwa.rule: Host(`${OTM_HOST}`) && (Path(`/m`) || PathPrefix(`/m/`))
       traefik.http.routers.udf-prod-pwa.priority: "50"
       traefik.http.routers.udf-prod-pwa.entrypoints: websecure
       traefik.http.routers.udf-prod-pwa.tls: "true"

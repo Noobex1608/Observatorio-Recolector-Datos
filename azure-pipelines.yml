@@ -173,6 +173,10 @@ stages:
                     curl "${args[@]}" -f -o /dev/null "https://$(hostPublico)/m/" \
                       && echo "OK  PWA /m/" \
                       || { echo "##vso[task.logissue type=error]La PWA no respondió /m/ por Traefik"; exit 1; }
+                    # Rutas de la web que empiezan con "m" (main-*.js, /mapa) no deben caer en la PWA.
+                    curl "${args[@]}" -f -o /dev/null "https://$(hostPublico)/mapa" \
+                      && echo "OK  web /mapa (no la PWA)" \
+                      || { echo "##vso[task.logissue type=error]/mapa no llegó a la web (¿regla de la PWA?)"; exit 1; }
                     # Sin sesión la API responde 401: confirma que /api llega a la API y no a la web.
                     codigo=$(curl "${args[@]}" -o /dev/null -w '%{http_code}' -H 'Accept: application/json' "https://$(hostPublico)/api/user")
                     [[ $codigo == 401 ]] \
