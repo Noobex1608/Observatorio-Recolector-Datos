@@ -4,6 +4,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ThemeService } from './theme.service';
 import { ToastService } from './toast.service';
+import { StoragePersistenceService } from './services/storage-persistence.service';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +17,11 @@ export class AppComponent {
   theme = inject(ThemeService);
   toast = inject(ToastService);
   title = 'ULEAM';
+
+  constructor() {
+    // Que el navegador no borre borradores ni respuestas pendientes (con sus fotos y videos) si falta espacio.
+    void inject(StoragePersistenceService).request();
+  }
   dialogValue = '';
   private readonly document = inject(DOCUMENT);
   private returnFocus: HTMLElement | null = null;
@@ -71,5 +77,11 @@ export class AppComponent {
 
   get isHomeRoute(): boolean {
     return this.router.url === '/';
+  }
+
+  /** Pantallas con su propia barra superior: ocupan todo el ancho, sin margen ni línea de color. */
+  get tieneBarraPropia(): boolean {
+    const path = this.router.url.split(/[?#]/)[0];
+    return ['/borradores', '/listo-para-enviar', '/enviados', '/ajustes'].includes(path);
   }
 }

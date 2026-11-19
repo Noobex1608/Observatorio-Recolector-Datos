@@ -1,58 +1,77 @@
-<div class="lista-container">
-  <div class="top-bar">
-    <button class="btn-back" (click)="volver()">⬅ {{ 'back' | translate }}</button>
-    <h2>{{ 'ready_to_send' | translate }}</h2>
-  </div>
+<header class="cabecera">
+  <button type="button" class="icono-boton" (click)="volver()" [attr.aria-label]="'back' | translate" [disabled]="sending">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+  </button>
+  <h1>{{ 'ready_to_send' | translate }}</h1>
+  @if (seleccionados.size > 0) {
+    <button type="button" class="icono-boton suave" (click)="eliminarSeleccionados()" [disabled]="sending"
+      [attr.aria-label]="'Eliminar ' + seleccionados.size + ' seleccionadas'">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" /></svg>
+    </button>
+  }
+</header>
 
-  <section class="guardados-section">
-    <div class="guardados-header" *ngIf="formularios.length > 0">
-      <h2>{{ 'ready_to_send' | translate }}</h2>
-      <div class="header-actions">
-        <button class="btn-seleccionar" (click)="seleccionarTodo()">
-          {{ seleccionados.size === formularios.length ? ('deselect_all' | translate) : ('select_all' | translate) }}
-        </button>
-        <button class="btn-eliminar-sel" *ngIf="seleccionados.size > 0" (click)="eliminarSeleccionados()" [disabled]="sending">
-          🗑 Elimar ({{ seleccionados.size }})
-        </button>
-      </div>
+<main class="contenido">
+  @if (formularios.length === 0) {
+    <div class="vacio">
+      <span class="vacio-icono" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>
+      </span>
+      <h2>No hay encuestas por enviar</h2>
+      <p>Las encuestas que terminas aparecen aquí hasta que llegan al servidor.</p>
+      <a routerLink="/enviados" class="boton boton-borde">Ver enviadas</a>
     </div>
+  } @else {
+    @if (!isOnline) {
+      <p class="aviso aviso-ambar" role="status">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 1l22 22M16.7 11.1A10.9 10.9 0 0 1 19 12.6M5 12.6a10.9 10.9 0 0 1 5.2-2.5M10.7 5.1A16 16 0 0 1 22.6 9M1.4 9a16 16 0 0 1 4.4-2.7M8.5 16.1a5 5 0 0 1 7 0M12 20h.01" /></svg>
+        <span>Sin conexión. Las encuestas siguen guardadas en el teléfono; envíalas cuando tengas señal.</span>
+      </p>
+    }
 
-    <p *ngIf="formularios.length === 0" class="empty-state">
-      {{ 'no_forms' | translate }}
-    </p>
-
-    <div *ngIf="formularios.length > 0" class="formularios-guardados">
-      <div *ngIf="sending" class="send-progress">
-        <p>Enviando {{ sentCount }} / {{ totalToSend }}...</p>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="progressPercent"></div>
-        </div>
-      </div>
-
-      <div *ngFor="let form of formularios" class="form-guardado-card" [class.selected]="isSeleccionado(form)">
-        <label class="guardar-checkbox">
-          <input type="checkbox" [checked]="isSeleccionado(form)" (change)="toggleSeleccion(form)" [attr.aria-label]="'Seleccionar ' + form.formTitle">
-          <span class="custom-checkbox"></span>
-        </label>
-
-        <div class="form-guardado-body">
-          <div class="form-guardado-top">
-            <div>
-              <h3>{{ form.formTitle }}</h3>
-              <p class="subtexto">Finalizado: {{ form.createdAt }}</p>
-            </div>
-            <div class="form-guardado-actions">
-              <span class="badge">{{ form.duration }}</span>
-              <button type="button" class="btn-eliminar" (click)="eliminarUno(form)" [disabled]="sending" title="Eliminar" aria-label="Cerrar">✕</button>
-            </div>
-          </div>
-          <p class="subtexto">ID {{ form.id }}</p>
-        </div>
-      </div>
-
-      <button class="btn-enviar" (click)="enviarSeleccionados()" [disabled]="sending">
-        {{ sending ? ('loading' | translate) : ( 'send' | translate ) + ' (' + seleccionados.size + ')' }}
+    <div class="resumen">
+      <span>{{ formularios.length === 1 ? '1 encuesta terminada' : formularios.length + ' encuestas terminadas' }}</span>
+      <button type="button" class="boton-texto" (click)="seleccionarTodo()" [disabled]="sending">
+        {{ seleccionados.size === formularios.length ? ('deselect_all' | translate) : ('select_all' | translate) }}
       </button>
     </div>
-  </section>
-</div>
+
+    <div class="tarjeta">
+      @for (form of formularios; track form.id) {
+        <div class="item" [class.item-marcado]="isSeleccionado(form)">
+          <label class="item-casilla">
+            <input type="checkbox" [checked]="isSeleccionado(form)" (change)="toggleSeleccion(form)" [disabled]="sending"
+              [attr.aria-label]="'Seleccionar ' + form.formTitle" />
+          </label>
+          <div class="item-texto">
+            <span class="item-titulo">{{ form.formTitle }}</span>
+            <span class="item-meta">Terminada {{ form.createdAt }}@if (form.duration) { · {{ form.duration }} }</span>
+            @if (form.errorEnvio) {
+              <p class="item-error" role="alert">No se pudo enviar: {{ form.errorEnvio }}</p>
+            }
+          </div>
+          <button type="button" class="icono-boton suave" (click)="eliminarUno(form)" [disabled]="sending"
+            [attr.aria-label]="'Eliminar encuesta de ' + form.formTitle">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" /></svg>
+          </button>
+        </div>
+      }
+    </div>
+  }
+</main>
+
+@if (formularios.length > 0) {
+  <div class="accion-fija">
+    @if (sending) {
+      <div class="progreso" role="progressbar" [attr.aria-valuenow]="progressPercent" aria-valuemin="0" aria-valuemax="100"
+        aria-label="Avance del envío"><span [style.width.%]="progressPercent"></span></div>
+      <p role="status">Enviando {{ totalToSend }} encuesta(s)…</p>
+    } @else {
+      <button type="button" class="boton boton-lleno" (click)="enviarSeleccionados()" [disabled]="!isOnline && !esDemo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+        {{ textoEnviar }}
+      </button>
+      @if (!isOnline && !esDemo) { <p>Se activa cuando el teléfono tenga conexión.</p> }
+    }
+  </div>
+}

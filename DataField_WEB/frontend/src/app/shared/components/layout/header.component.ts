@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,6 +11,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '@core/services/auth.service';
 import { LanguageService } from '@core/services/language.service';
 import { ThemeService } from '@core/services/theme.service';
+import { avatarUrl } from '@core/utils/avatar-url';
 
 @Component({
   selector: 'app-header',
@@ -85,7 +86,11 @@ import { ThemeService } from '@core/services/theme.service';
           @if (authService.user(); as user) {
             <button class="user-btn" [matMenuTriggerFor]="userMenu">
               <div class="user-avatar">
-                <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+                @if (fotoDe(user.perfil?.avatar); as foto) {
+                  <img [src]="foto" alt="" (error)="marcarFotoFallida(foto)" />
+                } @else {
+                  <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+                }
               </div>
               <div class="user-info">
                 <span class="user-name">{{ user.name }}</span>
@@ -97,7 +102,11 @@ import { ThemeService } from '@core/services/theme.service';
             <mat-menu #userMenu="matMenu" class="user-menu">
               <div class="menu-header">
                 <div class="menu-avatar">
-                  <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+                  @if (fotoDe(user.perfil?.avatar); as foto) {
+                    <img [src]="foto" alt="" (error)="marcarFotoFallida(foto)" />
+                  } @else {
+                    <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+                  }
                 </div>
                 <div class="menu-user-info">
                   <span class="menu-user-name">{{ user.name }}</span>
@@ -331,6 +340,20 @@ import { ThemeService } from '@core/services/theme.service';
         color: #ffffff !important;
       }
 
+      /* Foto de perfil: llena el círculo; si no carga, vuelve la inicial. */
+      .user-avatar,
+      .menu-avatar {
+        overflow: hidden;
+      }
+
+      .user-avatar img,
+      .menu-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: inherit;
+      }
+
       .user-info {
         display: none;
         flex-direction: column;
@@ -432,6 +455,18 @@ import { ThemeService } from '@core/services/theme.service';
   ],
 })
 export class HeaderComponent {
+  /** Fotos que no cargaron (borradas o sin acceso): se muestra la inicial en su lugar. */
+  private readonly fotosFallidas = signal<ReadonlySet<string>>(new Set());
+
+  fotoDe(avatar: string | null | undefined): string | null {
+    const url = avatarUrl(avatar);
+    return url && !this.fotosFallidas().has(url) ? url : null;
+  }
+
+  marcarFotoFallida(url: string): void {
+    this.fotosFallidas.update((set) => new Set([...set, url]));
+  }
+
   authService = inject(AuthService);
   themeService = inject(ThemeService);
   languageService = inject(LanguageService);

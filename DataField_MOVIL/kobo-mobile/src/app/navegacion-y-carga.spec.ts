@@ -93,7 +93,21 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
     instance.ngOnInit();
     await flush();
     expect(instance.enviados).toEqual([sent]);
-    expect(instance.obtenerClavesRespuestas({ a: 1, _location_trace: { points: [] } })).toEqual([{ key: 'a', val: '1' }]);
+    // El detalle muestra el texto de cada pregunta y respuestas legibles, sin metadatos.
+    const questions = [
+      { id: 'a', type: 'NUMBER', label: 'Edad', order: 0, required: false },
+      { id: 'n', type: 'NOTE', label: 'Gracias', order: 1, required: false },
+      { id: 'm', type: 'MULTIPLE_CHOICE', label: 'Medios', order: 2, required: false },
+      { id: 'g', type: 'GPS', label: 'Ubicación', order: 3, required: false },
+      { id: 'f', type: 'MULTIMEDIA', label: 'Foto', order: 4, required: false },
+      { id: 'v', type: 'TEXT', label: 'Comentario', order: 5, required: false },
+    ];
+    const answers = { a: 31, m: ['Radio', 'TV'], g: { latitude: -0.95, longitude: -80.72, accuracy: 8.4 }, f: { blobId: 'b1', mediaType: 'IMAGE' }, _location_trace: { points: [] } };
+    expect(instance.respuestasLegibles(answers, questions as any).map((r: any) => [r.label, r.valor])).toEqual([
+      ['Edad', '31'], ['Medios', 'Radio, TV'], ['Ubicación', '-0.95000, -80.72000 (±8 m)'],
+      ['Foto', 'Archivo adjunto (image)'], ['Comentario', 'Sin respuesta'],
+    ]);
+    expect(instance.respuestasLegibles({ a: 1, _location_trace: {} }, []).map((r: any) => r.valor)).toEqual(['1']);
 
     instance.volver();
     expect(router.navigate).toHaveBeenCalledWith(['/']);
@@ -112,6 +126,8 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
     instance.ngOnInit();
     await flush();
     expect(instance.formularios.map((f: any) => f.id)).toEqual([1]);
+    // Sin selección, el botón envía todas.
+    expect(instance.textoEnviar).toBe('Enviar encuesta');
 
     instance.volver();
     expect(router.navigate).toHaveBeenCalledWith(['/']);

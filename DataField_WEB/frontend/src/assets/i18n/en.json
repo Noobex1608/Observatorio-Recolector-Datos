@@ -141,7 +141,7 @@
     "avatar": {
       "upload": "Upload image",
       "delete": "Delete",
-      "hint": "Allowed formats: JPG, PNG, WebP. Max size: 2MB"
+      "hint": "JPG, PNG or WebP up to 8 MB. It is cropped to a square and saved optimized."
     },
     "roles": {
       "superAdmin": "Super administrator",
@@ -156,7 +156,7 @@
       "avatarDeleted": "Profile picture deleted",
       "avatarError": "Failed to update picture",
       "invalidFileType": "Invalid file format. Use JPG, PNG, or WebP",
-      "fileTooLarge": "File is too large. Max 2MB"
+      "fileTooLarge": "The image is larger than 8 MB. Choose a lighter one."
     }
   },
   "users": {

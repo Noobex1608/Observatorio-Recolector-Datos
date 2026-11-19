@@ -100,7 +100,7 @@ class ProfileController extends Controller
                             property: 'avatar',
                             type: 'string',
                             format: 'binary',
-                            description: 'Imagen de avatar (jpg, png, webp, max 2MB)'
+                            description: 'Imagen de avatar (jpg, png, webp, máx. 8 MB). Se guarda como WebP de 256×256 sin metadatos.'
                         ),
                     ]
                 )
@@ -116,7 +116,8 @@ class ProfileController extends Controller
     public function uploadAvatar(Request $request): JsonResponse
     {
         $request->validate([
-            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+            // Hasta 8 MB (una foto del celular): se guarda reducida a 256×256 en WebP.
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
         ]);
 
         $user = $this->uploadAvatarUseCase->execute(

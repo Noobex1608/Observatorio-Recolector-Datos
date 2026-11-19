@@ -33,6 +33,9 @@ class User extends Authenticatable
         self::ROLE_SUPERVISOR,
     ];
 
+    /** Roles que pueden ser líderes de un proyecto. */
+    public const LEADER_ROLES = [self::ROLE_PROJECT, self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN];
+
     protected static function boot(): void
     {
         parent::boot();
@@ -165,9 +168,13 @@ class User extends Authenticatable
         return in_array($this->rol, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
     }
 
+    /**
+     * Líder asignado de ese proyecto. Además de los líderes de proyecto, un ADMIN o SUPER_ADMIN puede
+     * ser líder (para validar la ficha técnica y crear los formularios de un proyecto que dirige).
+     */
     public function leadsProject(?string $projectId): bool
     {
-        if (! $projectId || ! $this->isProjectLeader()) {
+        if (! $projectId || ! in_array($this->rol, self::LEADER_ROLES, true)) {
             return false;
         }
 

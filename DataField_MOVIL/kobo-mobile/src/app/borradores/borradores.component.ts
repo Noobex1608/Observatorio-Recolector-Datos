@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { DbService, SavedResponse } from '../db.service';
 import { ThemeService } from '../theme.service';
@@ -8,9 +8,9 @@ import { ToastService } from '../toast.service';
 
 @Component({
   selector: 'app-borradores',
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   templateUrl: './borradores.component.html',
-  styleUrls: ['./borradores.component.css']
+  styleUrls: ['../estilos/pantalla-lista.css', './borradores.component.css']
 })
 export class BorradoresComponent implements OnInit {
   private db = inject(DbService);

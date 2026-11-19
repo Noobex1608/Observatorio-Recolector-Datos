@@ -19,6 +19,8 @@ import { evaluateArithmetic } from '../utils/arithmetic-expression';
 import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
 import { TRACE_KEY, TraceEvent, TraceRecorder } from '../utils/trace-recorder';
 import { textFormatError, textFormatInput, textFormatOf } from '../utils/text-format';
+import { mediaBudgetError } from '../utils/media-limits';
+import { StoragePersistenceService } from '../services/storage-persistence.service';
 import { allowedOptions, choiceFilterOf, pruneCascadeAnswers } from '../utils/choice-filter';
 
 @Component({
@@ -46,6 +48,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
   private toast = inject(ToastService);
+  private persistence = inject(StoragePersistenceService);
   theme = inject(ThemeService);
 
   formulario: FormDefinition | null = null;
@@ -758,13 +761,32 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       this.guardando = true;
       // Punto de fin: se espera poco para no frenar al encuestador; sin señal se guarda igual.
       await this.registrarPunto('fin', 8000);
+      // El servidor rechaza más de 35 MB (o 10 archivos) por encuesta: se avisa aquí, no al enviar.
+      const budgetError = await this.errorPresupuestoArchivos();
+      if (budgetError) {
+        this.guardando = false;
+        this.toast.show(budgetError, 'error');
+        return;
+      }
       await this.guardarConEstado('listo-para-enviar');
+      void this.persistence.request();
       this.guardadoAlSalir = true;
       this.toast.show('Formulario guardado.');
       void this.router.navigate(['/']);
     } catch (error) {
       this.toast.show(error instanceof Error ? error.message : 'No se pudo guardar la encuesta. Comprueba el espacio disponible.', 'error');
     }
+  }
+
+  /** Tamaño de las fotos, audios y videos de esta encuesta contra el límite del servidor. */
+  private async errorPresupuestoArchivos(): Promise<string | null> {
+    const blobIds = Object.values(this.respuestas)
+      .filter((answer): answer is { blobId: string } => !!answer && typeof answer === 'object'
+        && typeof (answer as { blobId?: unknown }).blobId === 'string')
+      .map(answer => answer.blobId);
+    if (blobIds.length === 0) return null;
+    const records = await this.db.mediaBlobs.where('blobId').anyOf(blobIds).toArray();
+    return mediaBudgetError(records.map(record => record.blob?.size ?? 0));
   }
 
   private formatTime(segundos: number): string {

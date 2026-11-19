@@ -291,6 +291,23 @@ svg {
   overflow-wrap: anywhere;
 }
 
+/* Botón pequeño dentro de una fila (p. ej. «Proteger» el almacenamiento) */
+.boton-secundario {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--primary-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.boton-secundario:hover { background: var(--bg-item-hover); }
+
 @media (prefers-reduced-motion: reduce) {
   .interruptor, .interruptor span { transition: none; }
 }

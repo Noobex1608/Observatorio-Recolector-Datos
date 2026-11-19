@@ -126,6 +126,40 @@ class DataCenterTest extends TestCase
         $this->assertSame($ana->id, $response->fresh()->user_id);
     }
 
+    public function test_purging_a_form_needs_its_exact_name_and_removes_its_files(): void
+    {
+        [$form, $response, $ids] = $this->formWithResponse();
+        $response->update(['data' => $response->data + [$ids['foto'] => ['path' => 'responses/f/a.jpg', 'storage_driver' => 'sharepoint', 'mediaType' => 'IMAGE']]]);
+        FormResponse::create(['form_id' => $form->id, 'data' => [$ids['foto'] => ['path' => 'responses/f/viejo.jpg']]])->delete();
+        $deleted = new \ArrayObject;
+        $this->app->bind('response-media.storage-for', fn () => fn (string $driver) => new class($driver, $deleted)
+        {
+            public function __construct(private string $driver, private \ArrayObject $deleted) {}
+
+            public function delete(string $path): void
+            {
+                $this->deleted[] = "{$this->driver}:{$path}";
+            }
+        });
+        $form->update(['state' => 'ARCHIVED']);
+        $this->deleteJson("/api/forms/{$form->id}")->assertNoContent();
+
+        // Antes de borrar se pueden exportar sus respuestas aunque esté en la papelera.
+        $this->get("/api/forms/{$form->id}/export?format=csv")->assertOk();
+
+        $this->deleteJson("/api/data-center/trash/forms/{$form->id}")->assertUnprocessable()
+            ->assertJsonPath('message', 'Para eliminarlo definitivamente escribe el nombre exacto del formulario.');
+        $this->deleteJson("/api/data-center/trash/forms/{$form->id}", ['confirm' => 'encuesta'])->assertUnprocessable();
+        $this->assertDatabaseHas('forms', ['id' => $form->id]);
+
+        $this->deleteJson("/api/data-center/trash/forms/{$form->id}", ['confirm' => ' Encuesta '])->assertOk()
+            ->assertJsonPath('message', 'El formulario «Encuesta» eliminado definitivamente. Se borraron también sus 2 archivo(s).');
+        $this->assertDatabaseMissing('forms', ['id' => $form->id]);
+        $this->assertSame(0, FormResponse::withTrashed()->where('form_id', $form->id)->count());
+        $this->assertEqualsCanonicalizing(['sharepoint:responses/f/a.jpg', 'supabase:responses/f/viejo.jpg'], $deleted->getArrayCopy());
+        $this->assertSame(2, AuditLog::where('action', 'PURGE_FORM')->first()->metadata['responses'] ?? null);
+    }
+
     public function test_deleted_projects_forms_and_zones_go_to_the_trash_and_come_back(): void
     {
         [$form] = $this->formWithResponse();

@@ -119,24 +119,78 @@ final class Trash
         });
     }
 
-    public function purge(string $type, string $id, User $admin): string
+    /**
+     * Borrado definitivo. Un formulario se lleva sus preguntas, respuestas (también las anuladas),
+     * trazas GPS y asignaciones; por eso exige escribir su nombre exacto (`$confirm`) y, tras confirmar
+     * la transacción, borra sus fotos, audios y videos del almacenamiento para no dejarlos huérfanos.
+     */
+    public function purge(string $type, string $id, User $admin, ?string $confirm = null): string
     {
         abort_if($type === 'responses', 422, 'Las respuestas anuladas se conservan como registro; puedes restaurarlas.');
 
-        return DB::transaction(function () use ($type, $id, $admin) {
+        $media = [];
+        $message = DB::transaction(function () use ($type, $id, $admin, $confirm, &$media) {
             $model = $this->find($type, $id);
             $label = $this->label($type, $model);
+            $context = [];
             if ($model instanceof Project) {
                 abort_if(Form::withTrashed()->where('project_id', $model->id)->exists(), 422,
                     'El proyecto tiene formularios en la papelera: elimínalos definitivamente primero.');
             }
+            if ($model instanceof Form) {
+                abort_unless(trim((string) $confirm) === trim((string) $model->title), 422,
+                    'Para eliminarlo definitivamente escribe el nombre exacto del formulario.');
+                $media = $this->mediaOf($model);
+                $context = [
+                    'responses' => FormResponse::withTrashed()->where('form_id', $model->id)->count(),
+                    'media_files' => count($media),
+                ];
+            }
 
             AuditLogService::log($admin, 'PURGE_'.strtoupper(rtrim($type, 's')), 'centro-de-datos',
-                "Eliminó definitivamente {$label} desde el Centro de datos.", ['type' => $type, 'id' => $id]);
+                "Eliminó definitivamente {$label} desde el Centro de datos."
+                .($context ? " Incluía {$context['responses']} respuesta(s) y {$context['media_files']} archivo(s)." : ''),
+                ['type' => $type, 'id' => $id, ...$context]);
             $model->forceDelete();
 
             return ucfirst($label).' eliminado definitivamente.';
         });
+
+        // Los archivos se borran después de confirmar la base: si algo falla aquí, los datos ya no existen
+        // y solo queda un archivo sin uso (se registra para limpiarlo a mano).
+        $failed = 0;
+        foreach ($media as [$driver, $path]) {
+            try {
+                $storage = app('response-media.storage-for')($driver);
+                $storage ? $storage->delete($path) : $failed++;
+            } catch (\Throwable $e) {
+                $failed++;
+                \Illuminate\Support\Facades\Log::warning('No se pudo borrar un archivo de una respuesta eliminada.', ['driver' => $driver, 'path' => $path, 'exception' => $e]);
+            }
+        }
+        if ($media !== []) {
+            $message .= $failed === 0
+                ? ' Se borraron también sus '.count($media).' archivo(s).'
+                : ' No se pudieron borrar '.$failed.' de sus '.count($media).' archivo(s); quedó registrado.';
+        }
+
+        return $message;
+    }
+
+    /** @return list<array{0:string, 1:string}> [almacenamiento, ruta] de cada archivo de las respuestas del formulario */
+    private function mediaOf(Form $form): array
+    {
+        $files = [];
+        foreach (FormResponse::withTrashed()->where('form_id', $form->id)->cursor() as $response) {
+            foreach ((array) $response->data as $answer) {
+                if (is_array($answer) && is_string($answer['path'] ?? null) && $answer['path'] !== '') {
+                    // Las respuestas anteriores a SharePoint no guardaban el almacenamiento: estaban en Supabase.
+                    $files[] = [(string) ($answer['storage_driver'] ?? 'supabase'), $answer['path']];
+                }
+            }
+        }
+
+        return $files;
     }
 
     private function find(string $type, string $id): Model
