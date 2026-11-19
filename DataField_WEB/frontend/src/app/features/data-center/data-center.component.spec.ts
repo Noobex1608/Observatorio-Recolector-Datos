@@ -3,6 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { DataCenterService } from '@core/services/data-center.service';
+import { FormService } from '@core/services/form.service';
 import { NotificationService } from '@core/services/notification.service';
 import { DataCenterComponent } from './data-center.component';
 
@@ -18,11 +19,13 @@ function setup(overrides: Record<string, unknown> = {}) {
     purge: vi.fn(() => of({ message: 'Eliminado.' })),
     ...overrides,
   };
+  const forms = { exportResponses: vi.fn(() => of(new Blob(['x']))) };
   const notify = { success: vi.fn(), error: vi.fn() };
   TestBed.overrideComponent(DataCenterComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
       { provide: DataCenterService, useValue: service },
+      { provide: FormService, useValue: forms },
       { provide: NotificationService, useValue: notify },
       { provide: MatDialog, useValue: { open: vi.fn(() => ({ afterClosed: () => of(true) })) } },
     ],
@@ -46,8 +49,17 @@ describe('Centro de datos: papelera', () => {
     expect(service.restore).toHaveBeenCalledWith('forms', 'f1');
     expect(component.items().map((item) => item.id)).toEqual(['f2']);
 
+    // Un formulario no se borra con un clic: pide su nombre exacto.
     component.purge(items[1]);
-    expect(service.purge).toHaveBeenCalledWith('forms', 'f2');
+    expect(service.purge).not.toHaveBeenCalled();
+    expect(component.purging()?.id).toBe('f2');
+    component.purgeConfirm.set('prueba');
+    component.confirmPurgeForm(items[1]);
+    expect(service.purge).not.toHaveBeenCalled();
+    component.purgeConfirm.set(' Prueba ');
+    component.confirmPurgeForm(items[1]);
+    expect(service.purge).toHaveBeenCalledWith('forms', 'f2', 'Prueba');
+    expect(component.purging()).toBeNull();
     expect(notify.success).toHaveBeenCalledTimes(2);
 
     component.select('responses');

@@ -29,7 +29,11 @@ class ProjectCollectorTeamTest extends TestCase
 
     private function member(string $name, bool $active = true): User
     {
-        $user = User::factory()->create(['rol' => User::ROLE_USER, 'name' => $name]);
+        // Correo derivado del nombre: uno aleatorio podría contener el apellido buscado y volver intermitente la búsqueda.
+        $user = User::factory()->create([
+            'rol' => User::ROLE_USER, 'name' => $name,
+            'email' => \Illuminate\Support\Str::slug($name).'@example.test',
+        ]);
         $this->project->collectors()->attach($user->id, ['is_active' => $active]);
 
         return $user;

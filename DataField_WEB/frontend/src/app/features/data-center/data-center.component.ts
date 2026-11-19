@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { DataCenterService, TrashItem, TrashType } from '@core/services/data-center.service';
+import { FormService } from '@core/services/form.service';
 import { NotificationService } from '@core/services/notification.service';
 import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
 
@@ -95,12 +96,46 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
                         <mat-icon>restore</mat-icon> Restaurar
                       </button>
                       @if (item.can_purge) {
-                        <button mat-button color="warn" type="button" (click)="purge(item)" [disabled]="busy() === item.id">
+                        <button mat-button color="warn" type="button" (click)="purge(item)" [disabled]="busy() === item.id"
+                          [attr.aria-expanded]="type() === 'forms' ? purging()?.id === item.id : null">
                           Eliminar definitivamente
                         </button>
                       }
                     </td>
                   </tr>
+                  @if (purging()?.id === item.id) {
+                    <!-- Borrar un formulario se lleva todas sus respuestas: se ofrece exportarlas y se pide su nombre exacto. -->
+                    <tr class="dc-purge-row">
+                      <td colspan="3">
+                        <div class="dc-purge" role="group" [attr.aria-label]="'Eliminar definitivamente ' + item.name">
+                          <p>
+                            <strong>No se puede deshacer.</strong> Se borrarán para siempre el formulario, todas sus respuestas
+                            (también las anuladas), sus trazas GPS y asignaciones, y sus fotos, audios y videos.
+                          </p>
+                          <div class="dc-purge-export">
+                            <span>Antes, guarda una copia de las respuestas:</span>
+                            <button mat-stroked-button type="button" (click)="exportResponses(item, 'xlsx')" [disabled]="exporting()">
+                              <mat-icon>download</mat-icon> Excel
+                            </button>
+                            <button mat-stroked-button type="button" (click)="exportResponses(item, 'csv')" [disabled]="exporting()">
+                              <mat-icon>download</mat-icon> CSV
+                            </button>
+                          </div>
+                          <label class="dc-purge-confirm">
+                            <span>Para confirmar, escribe el nombre del formulario: <strong>{{ item.name }}</strong></span>
+                            <input type="text" autocomplete="off" [ngModel]="purgeConfirm()" (ngModelChange)="purgeConfirm.set($event)" />
+                          </label>
+                          <div class="dc-purge-actions">
+                            <button mat-stroked-button type="button" (click)="cancelPurge()">Cancelar</button>
+                            <button mat-flat-button color="warn" type="button" (click)="confirmPurgeForm(item)"
+                              [disabled]="purgeConfirm().trim() !== item.name.trim() || busy() === item.id">
+                              Eliminar definitivamente
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
                 }
               </tbody>
             </table>
@@ -166,6 +201,23 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
     .dc-actions button { margin-left: 0.35rem; }
     .dc-note { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
 
+    .dc-purge-row td { border-top: 0; padding-top: 0; }
+    .dc-purge {
+      display: grid; gap: 0.75rem; padding: 0.9rem 1rem;
+      border: 1px solid var(--card-border); border-radius: var(--radius-lg); background: var(--bg-secondary);
+    }
+    .dc-purge p { margin: 0; line-height: 1.5; color: var(--text-primary); }
+    .dc-purge-export { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+    .dc-purge-export span { color: var(--text-secondary); font-size: 0.875rem; }
+    .dc-purge-confirm { display: grid; gap: 0.35rem; max-width: 460px; }
+    .dc-purge-confirm span { font-size: 0.875rem; color: var(--text-secondary); }
+    .dc-purge-confirm input {
+      height: 40px; padding: 0 0.65rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+      background: var(--bg-primary); color: var(--text-primary); font: inherit;
+    }
+    .dc-purge-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+    .dc-table .dc-purge-actions button, .dc-table .dc-purge-export button { margin: 0; }
+
     @media (max-width: 640px) {
       .dc-page { padding: 1rem; }
       .dc-actions { white-space: normal; }
@@ -177,6 +229,7 @@ export class DataCenterComponent implements OnInit {
   private readonly dataCenter = inject(DataCenterService);
   private readonly notify = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
+  private readonly forms = inject(FormService);
 
   readonly tabs = TABS;
   readonly type = signal<TrashType>('forms');
@@ -184,6 +237,10 @@ export class DataCenterComponent implements OnInit {
   readonly loading = signal(true);
   readonly busy = signal<string | null>(null);
   readonly search = signal('');
+  /** Formulario cuyo borrado definitivo se está confirmando. */
+  readonly purging = signal<TrashItem | null>(null);
+  readonly purgeConfirm = signal('');
+  readonly exporting = signal(false);
   readonly currentTab = computed(() => TABS.find((tab) => tab.type === this.type())!);
   readonly filtered = computed(() => {
     const term = normalize(this.search());
@@ -200,6 +257,7 @@ export class DataCenterComponent implements OnInit {
     if (this.type() === type) return;
     this.type.set(type);
     this.search.set('');
+    this.cancelPurge();
     this.load();
   }
 
@@ -223,11 +281,16 @@ export class DataCenterComponent implements OnInit {
   }
 
   purge(item: TrashItem): void {
-    const extra = this.type() === 'forms' ? ' Se borran también sus preguntas y respuestas.' : '';
+    if (this.type() === 'forms') {
+      // Formularios: confirmación en la propia fila, con exporte previo y su nombre escrito.
+      this.purging.set(this.purging()?.id === item.id ? null : item);
+      this.purgeConfirm.set('');
+      return;
+    }
     this.dialog.open(ConfirmDialogComponent, {
       data: {
         title: 'Eliminar definitivamente',
-        message: `«${item.name}» se borrará para siempre y no se podrá restaurar.${extra}`,
+        message: `«${item.name}» se borrará para siempre y no se podrá restaurar.`,
         confirmText: 'Eliminar definitivamente',
         cancelText: 'Cancelar',
         confirmColor: 'warn',
@@ -237,12 +300,42 @@ export class DataCenterComponent implements OnInit {
     });
   }
 
+  cancelPurge(): void {
+    this.purging.set(null);
+    this.purgeConfirm.set('');
+  }
+
+  confirmPurgeForm(item: TrashItem): void {
+    if (this.purgeConfirm().trim() !== item.name.trim()) return;
+    this.run(item, this.dataCenter.purge('forms', item.id, this.purgeConfirm().trim()));
+  }
+
+  exportResponses(item: TrashItem, format: 'csv' | 'xlsx'): void {
+    this.exporting.set(true);
+    this.forms.exportResponses(item.id, format).subscribe({
+      next: (blob) => {
+        this.exporting.set(false);
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${item.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'formulario'}_respuestas.${format}`;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: () => {
+        this.exporting.set(false);
+        this.notify.error('No se pudo descargar las respuestas.');
+      },
+    });
+  }
+
   private run(item: TrashItem, request: ReturnType<DataCenterService['restore']>): void {
     this.busy.set(item.id);
     request.subscribe({
       next: (result) => {
         this.busy.set(null);
         this.notify.success(result.message);
+        if (this.purging()?.id === item.id) this.cancelPurge();
         this.items.update((items) => items.filter((entry) => entry.id !== item.id));
       },
       error: (err) => {

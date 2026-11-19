@@ -134,6 +134,8 @@ export interface SavedResponse {
   estado: 'borrador' | 'listo-para-enviar' | 'enviado';
   createdAt: string;
   duration: string;
+  /** Motivo del último envío rechazado (p. ej. archivos demasiado grandes); se borra al enviarse. */
+  errorEnvio?: string;
 }
 
 export interface FormInfo {

@@ -111,6 +111,8 @@ Las respuestas (`/admin/forms/:id/responses`) muestran contadores de progreso po
 - Sincronizacion con backend via `SyncService` + `ApiService`.
 - Al enviar respuesta, `responses_count` local se incrementa para mantener progreso preciso.
 - Perfil de usuario editable (`/perfil`).
+- Pide almacenamiento persistente (`navigator.storage.persist()`) al abrir y al terminar encuestas, para que el navegador no borre borradores ni pendientes; el estado se ve en Ajustes.
+- Antes de terminar una encuesta revisa el limite del servidor por respuesta (35 MB y 10 archivos en total, `utils/media-limits.ts`); los envios rechazados que no se arreglan reintentando guardan su motivo (`errorEnvio`) y se muestra en «Listo para enviar».
 - Build: `npx ng build` desde `DataField_MOVIL/kobo-mobile/`.
 
 ### Rutas moviles
@@ -158,12 +160,18 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - Papelera: proyectos, formularios y zonas usan borrado suave (`deleted_at`, `deleted_by`). `GET /trash/{projects|forms|zones|responses}`, `POST /trash/{type}/{id}/restore`, `DELETE /trash/{type}/{id}` (definitivo; no para respuestas). Un formulario no se restaura si su proyecto sigue en la papelera; una zona vuelve sin encuestadores asignados.
 - Respuestas: se anulan (`POST /responses/{id}/void`, borrado suave + `void_reason`/`voided_by`), dejan de contar en lista, exportes, estadisticas y metas, y se restauran desde la papelera. Correccion de un valor: `PATCH /responses/{id}/answer` (`question_id`, `value`, `reason`; tipos simples, valida como un envio, vacia las opciones en cascada que dejan de corresponder y recalcula los calculos). Cambio de encuestador: `PATCH /responses/{id}/collector` (solo personas asignadas al formulario o al proyecto). El historial queda en `form_responses.corrections` y se ve en el detalle de la respuesta.
 - Al reintentar un envio ya anulado (mismo `client_submission_id`) se devuelve el existente, sin duplicar.
+- Borrado definitivo de un formulario: exige escribir su nombre exacto (`confirm`, validado en el servidor), ofrece exportar sus respuestas antes (el SUPER_ADMIN puede exportar formularios en la papelera) y borra sus archivos del almacenamiento (SharePoint o Supabase) despues de confirmar la base.
 
 ### Opciones en cascada y modo de prueba
 
 - Opciones en cascada (provincia → canton → parroquia): `properties.choice_filter = { question_id, parents }` en preguntas `SINGLE_CHOICE`/`MULTIPLE_CHOICE`; `parents[i]` son las respuestas de la pregunta origen (anterior, de opciones) que muestran la opcion i; vacio = siempre. Se valida al guardar (`ChoiceFilter`/`FormSchemaValidator`) y al enviar (`FormResponseValidator`). Web `/collect` y PWA filtran y borran la respuesta que deja de corresponder (`choice-filter.ts`, copia en la PWA).
 - Excel: XLSForm usa la columna estandar `choice_filter` (`provincia=${provincia}` con una columna `provincia` en `choices`); la plantilla simple usa la columna «Opciones según (N.º)» y grupos en «Opciones»: `Manabí: Portoviejo; Manta | Guayas: Guayaquil`. Ambas exportaciones conservan la cascada.
 - Modo de prueba: `GET /api/forms/{id}/test` y `POST /api/forms/{id}/test-submit` (quien puede ver el formulario). Valida con las mismas reglas que un envio real y no guarda nada. El editor abre `/prueba/:formId` en la misma pestaña (la sesion sin «Recordarme» vive en `sessionStorage`); al pedir login se recuerda la pagina y se vuelve a ella al entrar (`AuthService.rememberReturnUrl`).
+
+### Fotos de perfil
+
+- Al subirlas (`POST /api/profile/avatar`, hasta 8 MB) se guardan optimizadas: recorte cuadrado al centro, 256x256, WebP calidad 80 y sin metadatos EXIF (`AvatarStorage`, requiere GD con WebP; los Dockerfile ya lo instalan). Se sirven en `/api/avatars/{archivo}`.
+- Fotos subidas antes de esto: `php artisan avatars:optimize` (primero `--dry-run`) las convierte y borra el original. Se puede repetir sin efecto sobre las ya convertidas. Ejecutarlo una vez en cada servidor tras desplegar.
 
 ### Autenticacion: internos (Microsoft 365) y externos (invitacion)
 
@@ -182,6 +190,7 @@ Roles globales:
 - `SUPER_ADMIN`: control total de usuarios, proyectos, formularios, configuracion y datos.
 - `ADMIN`: gestiona proyectos, asigna lideres de proyecto y crea/gestiona formularios dentro de proyectos. Gestiona usuarios con roles `PROJECT`, `SUPERVISOR` y `RECOLECTOR` y aprueba solicitudes de acceso.
 - `PROJECT`: gestiona formularios dentro de proyectos asignados.
+- Lideres de un proyecto: usuarios `PROJECT`, `ADMIN` o `SUPER_ADMIN` (`User::LEADER_ROLES`); un administrador asignado como lider valida la ficha tecnica y crea formularios como cualquier lider (`leadsProject`). Candidatos (`GET /api/projects/leaders`): un `ADMIN` ve lideres de proyecto y administradores; un `SUPER_ADMIN` ve tambien superadministradores. Un `ADMIN` no puede asignar superadministradores, pero conserva al que ya era lider al editar.
 - `SUPERVISOR`: supervision de campo de los proyectos asignados.
 - `RECOLECTOR`: usuario movil de recoleccion; solo ve formularios asignados.
 

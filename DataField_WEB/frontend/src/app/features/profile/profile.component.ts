@@ -12,10 +12,10 @@ import { NotificationService } from '@core/services/notification.service';
 import { RouterLink } from '@angular/router';
 import { User } from '@core/models';
 import { AuthService } from '@core/services/auth.service';
+import { avatarUrl } from '@core/utils/avatar-url';
 import { ProfileService, UpdateProfileData } from '@core/services/profile.service';
 import { ThemeService } from '@core/services/theme.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-profile',
@@ -53,17 +53,7 @@ export class ProfileComponent implements OnInit {
   uploadingAvatar = signal(false);
 
   // Computed para obtener la URL completa del avatar
-  avatarUrl = computed(() => {
-    const avatar = this.user()?.perfil?.avatar;
-    if (!avatar) return null;
-    // Si ya es una URL absoluta, retornarla
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-      return avatar;
-    }
-    // Construir URL completa desde el backend
-    const baseUrl = environment.apiUrl.replace('/api', '');
-    return `${baseUrl}${avatar}`;
-  });
+  avatarUrl = computed(() => avatarUrl(this.user()?.perfil?.avatar));
 
   profileForm!: FormGroup;
 
@@ -156,8 +146,8 @@ export class ProfileComponent implements OnInit {
       return;
     }
 
-    // Validar tamaño (2MB)
-    if (file.size > 2 * 1024 * 1024) {
+    // Hasta 8 MB (una foto del celular): el servidor la guarda reducida a 256×256 en WebP.
+    if (file.size > 8 * 1024 * 1024) {
       this.notify.warning(this.translate.instant('profile.messages.fileTooLarge'));
       return;
     }

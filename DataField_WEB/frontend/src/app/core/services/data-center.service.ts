@@ -56,8 +56,10 @@ export class DataCenterService {
     return this.api.post<{ message: string }>(`/data-center/trash/${type}/${id}/restore`, {});
   }
 
-  purge(type: TrashType, id: string): Observable<{ message: string }> {
-    return this.api.delete<{ message: string }>(`/data-center/trash/${type}/${id}`);
+  /** Un formulario exige `confirm` con su nombre exacto: se lleva todas sus respuestas y archivos. */
+  purge(type: TrashType, id: string, confirm?: string): Observable<{ message: string }> {
+    const query = confirm ? `?confirm=${encodeURIComponent(confirm)}` : '';
+    return this.api.delete<{ message: string }>(`/data-center/trash/${type}/${id}${query}`);
   }
 
   correctAnswer(responseId: string, questionId: string, value: unknown, reason: string): Observable<{ message: string; data: CorrectedResponse }> {

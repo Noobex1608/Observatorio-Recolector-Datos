@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StorageService } from '../storage.service';
 import { SyncService } from '../sync.service';
@@ -11,9 +11,9 @@ import { TranslatePipe } from '../translate.pipe';
 
 @Component({
   selector: 'app-listo-para-enviar',
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   templateUrl: './listo-para-enviar.component.html',
-  styleUrls: ['./listo-para-enviar.component.css']
+  styleUrls: ['../estilos/pantalla-lista.css', './listo-para-enviar.component.css']
 })
 export class ListoParaEnviarComponent implements OnInit {
   private storage = inject(StorageService);
@@ -31,6 +31,14 @@ export class ListoParaEnviarComponent implements OnInit {
   sentCount = 0;
   progressPercent = 0;
   isOnline = navigator.onLine;
+  readonly esDemo = this.auth.esModoDemo();
+
+  /** Sin selección se envían todas; con selección, solo esas. */
+  get textoEnviar(): string {
+    const n = this.seleccionados.size || this.formularios.length;
+    if (this.seleccionados.size === 0) return n === 1 ? 'Enviar encuesta' : `Enviar todas (${n})`;
+    return `Enviar seleccionadas (${n})`;
+  }
 
   ngOnInit(): void {
     void this.inicializar();
@@ -67,9 +75,10 @@ export class ListoParaEnviarComponent implements OnInit {
   }
 
   async enviarSeleccionados() {
+    if (this.formularios.length === 0) return;
     if (this.seleccionados.size === 0) {
-      this.toast.show('Selecciona al menos un formulario para enviar.', 'info');
-      return;
+      // Sin selección, «Enviar todas».
+      this.formularios.forEach(f => f.id !== undefined && this.seleccionados.add(f.id));
     }
 
     if (this.auth.esModoDemo()) {
@@ -118,9 +127,9 @@ export class ListoParaEnviarComponent implements OnInit {
     this.cdr.detectChanges();
 
     if (fallos > 0) {
-      this.toast.show(`Enviados: ${enviados}. Fallaron: ${fallos}.`, 'error');
+      this.toast.show(`Se enviaron ${enviados}. ${fallos} no se pudieron enviar: revisa el motivo en cada una y vuelve a intentarlo.`, 'error');
     } else {
-      this.toast.show(`${enviados} formulario(s) enviados correctamente.`);
+      this.toast.show(enviados === 1 ? 'Encuesta enviada al servidor.' : `${enviados} encuestas enviadas al servidor.`);
     }
   }
 
@@ -131,6 +140,14 @@ export class ListoParaEnviarComponent implements OnInit {
     }
 
     const ids = Array.from(this.seleccionados);
+    // Aún no llegaron al servidor: borrarlas es perder ese trabajo de campo.
+    const accepted = await this.toast.confirm({
+      title: ids.length === 1 ? 'Eliminar 1 encuesta' : `Eliminar ${ids.length} encuestas`,
+      message: 'Todavía no se enviaron al servidor: se perderán sus respuestas y archivos. No se puede deshacer.',
+      confirmText: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     for (const id of ids) {
       await this.storage.eliminarFormulario(id);
     }
@@ -139,17 +156,24 @@ export class ListoParaEnviarComponent implements OnInit {
       .filter(f => f.estado === 'listo-para-enviar');
     this.seleccionados.clear();
     this.cdr.detectChanges();
-    this.toast.show(`${ids.length} formulario(s) eliminados.`);
+    this.toast.show(ids.length === 1 ? 'Encuesta eliminada.' : `${ids.length} encuestas eliminadas.`);
   }
 
   async eliminarUno(form: SavedResponse) {
     if (form.id === undefined) return;
+    const accepted = await this.toast.confirm({
+      title: 'Eliminar encuesta',
+      message: `La encuesta de «${form.formTitle}» todavía no se envió al servidor: se perderán sus respuestas y archivos. No se puede deshacer.`,
+      confirmText: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     await this.storage.eliminarFormulario(form.id);
     this.formularios = (await this.storage.obtenerFormularios())
       .filter(f => f.estado === 'listo-para-enviar');
     this.seleccionados.delete(form.id);
     this.cdr.detectChanges();
-    this.toast.show('Formulario eliminado.');
+    this.toast.show('Encuesta eliminada.');
   }
 
   volver() {

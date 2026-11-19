@@ -1089,7 +1089,9 @@ class FormController extends Controller
 
     private function findResponsesReadableForm(string $id, User $user): Form
     {
-        $form = Form::findOrFail($id);
+        // El superadministrador puede ver y exportar las respuestas de un formulario en la papelera,
+        // por ejemplo antes de eliminarlo definitivamente.
+        $form = ($user->isSuperAdmin() ? Form::withTrashed() : Form::query())->findOrFail($id);
         abort_unless(app(\App\Policies\FormPolicy::class)->viewResponses($user, $form), 403,
             'No tienes permisos para consultar o exportar las respuestas de este formulario.');
 

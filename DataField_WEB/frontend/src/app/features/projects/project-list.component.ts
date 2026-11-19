@@ -95,7 +95,7 @@ interface MemberSlot {
           <article>
             <mat-icon>supervisor_account</mat-icon>
             <span>Líderes</span>
-            <strong>{{ projectLeaders().length }}</strong>
+            <strong>{{ totalLeaders() }}</strong>
           </article>
         </div>
       </header>
@@ -153,7 +153,7 @@ interface MemberSlot {
                         @for (person of slot.options; track person.id) {
                           <mat-option [value]="person.id">
                             <span class="person-option">
-                              <span class="person-name">{{ person.name }}</span>
+                              <span class="person-name">{{ person.name }}@if (person.id === currentUserId()) { <span class="person-you">(tú)</span> }</span>
                               <span class="person-email">{{ person.email }}</span>
                             </span>
                           </mat-option>
@@ -1186,6 +1186,11 @@ interface MemberSlot {
         display: grid;
         min-width: 0;
         line-height: 1.25;
+      }
+
+      .person-you {
+        font-weight: 400;
+        color: var(--text-secondary);
       }
 
       .person-text .person-name {
@@ -2271,6 +2276,11 @@ export class ProjectListComponent implements OnInit {
       || !!project?.delegates?.some((delegate) => delegate.id === id);
   });
   canDeleteProjects = computed(() => this.authService.isSuperAdmin());
+  readonly currentUserId = computed(() => this.authService.user()?.id ?? null);
+  /** Personas que lideran al menos un proyecto (no los candidatos posibles). */
+  totalLeaders = computed(() =>
+    new Set(this.projects().flatMap((project) => (project.leaders ?? []).map((leader) => leader.id))).size,
+  );
   totalForms = computed(() =>
     this.projects().reduce((total, project) => total + (project.forms?.length ?? project.forms_count ?? 0), 0),
   );

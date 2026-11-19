@@ -9,6 +9,7 @@ import { SyncService } from '../sync.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { TranslatePipe } from '../translate.pipe';
+import { StoragePersistenceService } from '../services/storage-persistence.service';
 
 @Component({
   selector: 'app-inicio',
@@ -25,12 +26,15 @@ export class InicioComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private toast = inject(ToastService);
   theme = inject(ThemeService);
+  /** Si el navegador puede borrar lo que no se envió (se avisa en el inicio cuando hay pendientes). */
+  readonly persistence = inject(StoragePersistenceService);
 
   cargando = false;
   enviando = false;
   cantidadListos = 0;
   cantidadBorradores = 0;
   cantidadDescargados = 0;
+  cantidadEnviados = 0;
   isOnline = true;
   urlServidor: string | null = null;
   nombreUsuario: string | null = null;
@@ -55,6 +59,7 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.urlServidor = this.auth.obtenerUrlServidor();
     this.nombreUsuario = this.auth.obtenerUsuario();
     this.isOnline = navigator.onLine;
+    await this.persistence.refresh();
     this.cdr.detectChanges();
     window.addEventListener('online', this.actualizarEstadoRed);
     window.addEventListener('offline', this.actualizarEstadoRed);
@@ -69,6 +74,32 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.cantidadListos = await this.sync.cantidadPendientes();
     this.cantidadBorradores = await this.db.responses.where('estado').equals('borrador').count();
     this.cantidadDescargados = await this.db.forms.count();
+    this.cantidadEnviados = await this.db.responses.where('estado').equals('enviado').count();
+  }
+
+  /** «Tienes 1 encuesta por enviar» / «Tienes 3 encuestas por enviar». */
+  get tituloPendientes(): string {
+    return this.theme.t(this.cantidadListos === 1 ? 'pending_title_one' : 'pending_title_many').replace('{n}', String(this.cantidadListos));
+  }
+
+  /** «Jueves, 19 de noviembre» en el idioma de la app. */
+  get fechaHoy(): string {
+    const texto = new Date().toLocaleDateString(this.theme.lang() === 'en' ? 'en-US' : 'es-EC', { weekday: 'long', day: 'numeric', month: 'long' });
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  }
+
+  get saludo(): string {
+    const nombre = (this.nombreUsuario ?? '').trim().split(/\s+/)[0];
+    return nombre ? this.theme.t('greeting').replace('{name}', nombre) : this.theme.t('app_subtitle');
+  }
+
+  get detalleFormularios(): string {
+    return this.theme.t(this.cantidadDescargados === 1 ? 'forms_on_phone_one' : 'forms_on_phone_many').replace('{n}', String(this.cantidadDescargados));
+  }
+
+  /** Riesgo real: hay algo sin enviar y el navegador no garantiza conservarlo. */
+  get riesgoAlmacenamiento(): boolean {
+    return this.persistence.state() === 'best-effort' && this.cantidadListos + this.cantidadBorradores > 0;
   }
 
   actualizarEstadoRed = () => {

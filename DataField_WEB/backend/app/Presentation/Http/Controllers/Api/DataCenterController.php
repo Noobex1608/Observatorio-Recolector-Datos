@@ -43,7 +43,8 @@ class DataCenterController extends Controller
         $this->authorizeSuperAdmin($request);
         abort_unless(in_array($type, Trash::TYPES, true), 404);
 
-        return response()->json(['message' => $this->trash->purge($type, $id, $request->user())]);
+        // Un formulario exige escribir su nombre exacto (`confirm`): se lleva todas sus respuestas.
+        return response()->json(['message' => $this->trash->purge($type, $id, $request->user(), $request->input('confirm'))]);
     }
 
     public function correctAnswer(Request $request, string $responseId): JsonResponse

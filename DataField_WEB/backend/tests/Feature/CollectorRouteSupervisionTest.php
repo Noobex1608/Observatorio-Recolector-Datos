@@ -98,7 +98,8 @@ class CollectorRouteSupervisionTest extends TestCase
     public function test_supervisor_lists_collectors_and_reviews_the_route_against_the_zone(): void
     {
         $base = now('America/Guayaquil')->setTime(9, 0)->getTimestamp();
-        if ($base > time()) {
+        // Las dos encuestas (9:00 y 9:30) deben estar en el pasado; si no, se usa el día anterior.
+        if ($base + 1800 + 60 > time()) {
             $base -= 86400;
         }
         // 1) Dentro de la zona, 5 minutos.

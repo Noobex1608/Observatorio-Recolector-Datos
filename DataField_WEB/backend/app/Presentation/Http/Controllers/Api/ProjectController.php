@@ -54,9 +54,13 @@ class ProjectController extends Controller
         }
 
         return response()->json(
+            // Líderes de proyecto y administradores; los superadministradores solo los ve otro superadministrador.
             User::query()
-                ->where('rol', User::ROLE_PROJECT)
+                ->whereIn('rol', $this->leaderRolesFor($request->user()))
+                ->whereNull('access_request_status')
                 ->where('is_active', true)
+                // Primero quien crea o edita el proyecto: es la sugerencia más probable.
+                ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$request->user()->id])
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'rol'])
         );
@@ -81,7 +85,7 @@ class ProjectController extends Controller
         }
 
         $data = $request->validated();
-        $this->validateProjectMembers($data);
+        $this->validateProjectMembers($data, $user);
 
         $project = DB::transaction(function () use ($data, $user) {
             $project = Project::create([
@@ -141,7 +145,7 @@ class ProjectController extends Controller
             && (array_key_exists('delegate_ids', $data) || array_key_exists('supervisor_ids', $data))) {
             return response()->json(['message' => 'El delegado solo puede editar datos generales'], 403);
         }
-        $this->validateProjectMembers($data);
+        $this->validateProjectMembers($data, $user, $project);
 
         DB::transaction(function () use ($project, $request, $data, $user) {
             $before = $project->only(['name', 'description']);
@@ -215,8 +219,24 @@ class ProjectController extends Controller
         }
     }
 
-    private function validateProjectMembers(array $data): void
+    /** Roles que quien administra puede poner como líder: un ADMIN no asigna superadministradores. */
+    private function leaderRolesFor(User $user): array
     {
+        return $user->isSuperAdmin() ? User::LEADER_ROLES : [User::ROLE_PROJECT, User::ROLE_ADMIN];
+    }
+
+    private function validateProjectMembers(array $data, User $user, ?Project $project = null): void
+    {
+        if (array_key_exists('leader_ids', $data)) {
+            // Quien ya era líder se conserva aunque quien edita no pudiera asignarlo hoy.
+            $current = $project ? $project->leaders()->pluck('users.id')->all() : [];
+            $added = array_diff($data['leader_ids'] ?? [], $current);
+            if (User::whereIn('id', $added)->whereNotIn('rol', $this->leaderRolesFor($user))->exists()) {
+                abort(422, $user->isSuperAdmin()
+                    ? 'Los líderes deben tener el rol Líder de proyecto, Administrador o Superadministrador.'
+                    : 'Los líderes deben tener el rol Líder de proyecto o Administrador.');
+            }
+        }
         foreach (['delegate_ids' => User::ROLE_PROJECT, 'supervisor_ids' => User::ROLE_SUPERVISOR] as $key => $role) {
             if (array_key_exists($key, $data) && User::whereIn('id', $data[$key] ?? [])
                 ->where('rol', '!=', $role)->exists()) {

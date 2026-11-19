@@ -1,6 +1,6 @@
 ﻿# Sistema de diseño
 
-Guía visual vigente del panel web de **ULEAM DataField**. La referencia completa (tokens, componentes y reglas) está en [`DESIGN.md`](../../DESIGN.md), en la raíz del repositorio; el contexto de producto, en [`PRODUCT.md`](../../PRODUCT.md). Si esta guía y `DESIGN.md` difieren, manda `DESIGN.md`.
+Guía visual vigente del panel web de **ULEAM DataField**. La referencia es [`DESIGN.md`](../../DESIGN.md), en la raíz del repositorio: tokens y un mapa con las reglas principales; el texto completo (componentes, layout y criterios) está en [`.impeccable/design-full.md`](../../.impeccable/design-full.md); el contexto de producto, en [`PRODUCT.md`](../../PRODUCT.md). Si esta guía y `DESIGN.md` difieren, manda `DESIGN.md`.
 
 ## Idea guía: "La libreta de campo"
 
@@ -86,6 +86,6 @@ Valores de `frontend/src/styles.css` (tema claro). Cada token tiene su equivalen
 - `frontend/src/index.html` (carga de Inter)
 - `frontend/src/app/core/services/theme.service.ts`
 - `frontend/src/app/shared/components/layout/`
-- `DESIGN.md` y `.impeccable/design.json` (raíz del repositorio)
+- `DESIGN.md`, `.impeccable/design-full.md` y `.impeccable/design.json` (raíz del repositorio)
 
 Última actualización: noviembre de 2026.

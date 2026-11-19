@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { mediaBudgetError } from './utils/media-limits';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
 import { ACCOUNT_SCOPE_KEY, DbService } from './db.service';
@@ -116,6 +117,18 @@ export class SyncService {
         });
         const payloadAnswers = JSON.parse(JSON.stringify(resp.answers));
 
+        // Encuestas guardadas antes de este control: si sus archivos no caben, no se intenta enviar
+        // (el servidor la rechazaría siempre) y se explica en «Listo para enviar».
+        const sizes: number[] = [];
+        for (const val of Object.values(payloadAnswers)) {
+          if (val && typeof val === 'object' && (val as any).blobId) {
+            const record = await this.mediaStorage.getMediaBlobById((val as any).blobId);
+            sizes.push(record?.blob?.size ?? 0);
+          }
+        }
+        const budgetError = mediaBudgetError(sizes);
+        if (budgetError) throw Object.assign(new Error(budgetError), { reason: budgetError });
+
         // Preprocesar Blobs multimedia y firmas
         for (const [key, val] of Object.entries(payloadAnswers)) {
           if (val && typeof val === 'object' && (val as any).blobId) {
@@ -131,7 +144,7 @@ export class SyncService {
 
         assertAccount();
         await this.api.submitResponse(servidor, resp.link_uuid, payloadAnswers, submissionId);
-        await this.db.responses.update(resp.id!, { estado: 'enviado' });
+        await this.db.responses.update(resp.id!, { estado: 'enviado', errorEnvio: undefined });
 
         const form = await this.db.forms.get(resp.formId);
         if (form) {
@@ -148,6 +161,13 @@ export class SyncService {
       } catch (error: any) {
         console.error('[Sync] Error enviando respuesta:', error?.status, error?.message || error);
         fallos++;
+        // Rechazos que no se arreglan reintentando: se guarda el motivo para mostrarlo al encuestador.
+        const reason = error?.reason
+          ?? (error?.status === 413 ? 'El servidor rechazó la encuesta porque sus archivos son demasiado grandes (máximo 35 MB por encuesta).' : null)
+          ?? (error?.status === 422 ? (error?.error?.message || 'El servidor rechazó la encuesta: revisa sus respuestas.') : null);
+        if (reason && resp.id !== undefined) {
+          await this.db.responses.update(resp.id, { errorEnvio: reason }).catch(() => undefined);
+        }
       }
     }
 

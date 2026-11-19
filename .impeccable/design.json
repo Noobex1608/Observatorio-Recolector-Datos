@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-17T20:00:00-05:00",
+  "generatedAt": "2026-11-19T09:37:39-05:00",
   "title": "Design System: ULEAM DataField",
   "extensions": {
     "colorMeta": {
@@ -8,76 +8,485 @@
         "role": "primary",
         "displayName": "Azul institucional",
         "canonical": "#0059a8",
-        "tonalRamp": ["#082f59", "#004499", "#005689", "#0059a8", "#167cca", "#46a4ff", "#badcff", "#eef7ff"]
+        "tonalRamp": [
+          "#082f59",
+          "#004499",
+          "#005689",
+          "#0059a8",
+          "#167cca",
+          "#46a4ff",
+          "#badcff",
+          "#eef7ff"
+        ]
+      },
+      "institutional-blue-deep": {
+        "role": "primary",
+        "displayName": "Azul profundo",
+        "canonical": "#005689",
+        "tonalRamp": [
+          "#00304c",
+          "#005080",
+          "#0070b2",
+          "#0090e6",
+          "#29afff",
+          "#70caff",
+          "#b2e3ff",
+          "#e5f6ff"
+        ]
+      },
+      "institutional-blue-ink": {
+        "role": "primary",
+        "displayName": "Azul tinta",
+        "canonical": "#004499",
+        "tonalRamp": [
+          "#00224c",
+          "#003980",
+          "#004fb2",
+          "#0066e6",
+          "#2988ff",
+          "#70b0ff",
+          "#b2d4ff",
+          "#e5f1ff"
+        ]
+      },
+      "institutional-blue-sky": {
+        "role": "primary",
+        "displayName": "Azul cielo",
+        "canonical": "#46a4ff",
+        "tonalRamp": [
+          "#00274c",
+          "#004180",
+          "#005bb2",
+          "#0075e6",
+          "#2996ff",
+          "#70b9ff",
+          "#b2d9ff",
+          "#e5f2ff"
+        ]
+      },
+      "institutional-blue-mid": {
+        "role": "primary",
+        "displayName": "Azul medio",
+        "canonical": "#167cca",
+        "tonalRamp": [
+          "#082a45",
+          "#0d4773",
+          "#1263a1",
+          "#177fcf",
+          "#3e9fea",
+          "#7ebff1",
+          "#baddf7",
+          "#e8f4fc"
+        ]
+      },
+      "blue-mist": {
+        "role": "primary",
+        "displayName": "Bruma azul",
+        "canonical": "#eef7ff",
+        "tonalRamp": [
+          "#00284c",
+          "#004380",
+          "#005eb2",
+          "#0079e6",
+          "#299aff",
+          "#70bcff",
+          "#b2dbff",
+          "#e5f3ff"
+        ]
+      },
+      "blue-haze": {
+        "role": "primary",
+        "displayName": "Bruma azul",
+        "canonical": "#dceeff",
+        "tonalRamp": [
+          "#00274c",
+          "#004280",
+          "#005cb2",
+          "#0076e6",
+          "#2997ff",
+          "#70baff",
+          "#b2daff",
+          "#e5f3ff"
+        ]
+      },
+      "navy-night": {
+        "role": "primary",
+        "displayName": "Azul noche profundo",
+        "canonical": "#082f59",
+        "tonalRamp": [
+          "#062546",
+          "#0b3e75",
+          "#0f56a4",
+          "#136fd3",
+          "#3a91ed",
+          "#7cb5f3",
+          "#b9d8f9",
+          "#e8f2fd"
+        ]
       },
       "uleam-red": {
         "role": "secondary",
         "displayName": "Rojo ULEAM",
         "canonical": "#bc1421",
-        "tonalRamp": ["#4a080d", "#6d0c14", "#8f101a", "#bc1421", "#d83b47", "#ef4444", "#f9c9cd", "#fef2f2"]
+        "tonalRamp": [
+          "#4a080d",
+          "#6d0c14",
+          "#8f101a",
+          "#bc1421",
+          "#d83b47",
+          "#ef4444",
+          "#f9c9cd",
+          "#fef2f2"
+        ]
+      },
+      "uleam-red-dark": {
+        "role": "secondary",
+        "displayName": "Rojo ULEAM oscuro",
+        "canonical": "#8f101a",
+        "tonalRamp": [
+          "#45080d",
+          "#730d15",
+          "#a1121d",
+          "#ce1726",
+          "#e93e4c",
+          "#f17f88",
+          "#f7babf",
+          "#fce8ea"
+        ]
       },
       "field-green": {
         "role": "tertiary",
         "displayName": "Verde de campo",
         "canonical": "#16805c",
-        "tonalRamp": ["#0a3a2a", "#0e4f39", "#116344", "#16805c", "#22a474", "#5cc79b", "#b9ead4", "#ecf9f2"]
+        "tonalRamp": [
+          "#0a3a2a",
+          "#0e4f39",
+          "#116344",
+          "#16805c",
+          "#22a474",
+          "#5cc79b",
+          "#b9ead4",
+          "#ecf9f2"
+        ]
       },
       "amber-ochre": {
         "role": "tertiary",
         "displayName": "Ocre ámbar",
         "canonical": "#a16207",
-        "tonalRamp": ["#422006", "#713f12", "#854d0e", "#a16207", "#d97706", "#f2b347", "#fde3a7", "#fffbeb"]
+        "tonalRamp": [
+          "#422006",
+          "#713f12",
+          "#854d0e",
+          "#a16207",
+          "#d97706",
+          "#f2b347",
+          "#fde3a7",
+          "#fffbeb"
+        ]
       },
       "paper-blue": {
         "role": "neutral",
         "displayName": "Papel azulado",
         "canonical": "#f1f6fb",
-        "tonalRamp": ["#071527", "#172b44", "#4e6277", "#5b6f84", "#a9c3da", "#dce7f1", "#f1f6fb", "#f8fbff"]
+        "tonalRamp": [
+          "#071527",
+          "#172b44",
+          "#4e6277",
+          "#5b6f84",
+          "#a9c3da",
+          "#dce7f1",
+          "#f1f6fb",
+          "#f8fbff"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Papel blanco",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#b8b8b8",
+          "#d9d9d9",
+          "#f2f2f2"
+        ]
+      },
+      "input-wash": {
+        "role": "neutral",
+        "displayName": "Lavado de campo",
+        "canonical": "#f8fbff",
+        "tonalRamp": [
+          "#00214c",
+          "#003780",
+          "#004cb2",
+          "#0062e6",
+          "#2985ff",
+          "#70adff",
+          "#b2d3ff",
+          "#e5f0ff"
+        ]
       },
       "ink-navy": {
         "role": "neutral",
         "displayName": "Tinta azul marino",
-        "canonical": "#172b44"
+        "canonical": "#172b44",
+        "tonalRamp": [
+          "#132439",
+          "#203c5f",
+          "#2d5485",
+          "#3a6cab",
+          "#5f8ec9",
+          "#94b4db",
+          "#c6d7ec",
+          "#ecf2f9"
+        ]
       },
       "slate-ink": {
         "role": "neutral",
         "displayName": "Pizarra",
-        "canonical": "#4e6277"
+        "canonical": "#4e6277",
+        "tonalRamp": [
+          "#1e262e",
+          "#323f4d",
+          "#47596c",
+          "#5b728b",
+          "#7e93aa",
+          "#a9b7c6",
+          "#d1d9e1",
+          "#f0f2f5"
+        ]
+      },
+      "slate-quiet": {
+        "role": "neutral",
+        "displayName": "Pizarra tenue",
+        "canonical": "#5b6f84",
+        "tonalRamp": [
+          "#1f262d",
+          "#343f4b",
+          "#49596a",
+          "#5e7288",
+          "#8093a8",
+          "#aab7c5",
+          "#d2d9e0",
+          "#f0f2f5"
+        ]
       },
       "rule-line": {
         "role": "neutral",
         "displayName": "Regla",
-        "canonical": "#dce7f1"
+        "canonical": "#dce7f1",
+        "tonalRamp": [
+          "#162737",
+          "#24415b",
+          "#335b7f",
+          "#4275a4",
+          "#6696c2",
+          "#99b9d6",
+          "#c8dae9",
+          "#edf3f8"
+        ]
+      },
+      "rule-line-strong": {
+        "role": "neutral",
+        "displayName": "Regla marcada",
+        "canonical": "#a9c3da",
+        "tonalRamp": [
+          "#172735",
+          "#264159",
+          "#365b7d",
+          "#4576a0",
+          "#6997bf",
+          "#9bb9d4",
+          "#cadae8",
+          "#edf3f7"
+        ]
+      },
+      "hover-wash": {
+        "role": "neutral",
+        "displayName": "Lavado hover",
+        "canonical": "#eaf4ff",
+        "tonalRamp": [
+          "#00244c",
+          "#003d80",
+          "#0055b2",
+          "#006de6",
+          "#298fff",
+          "#70b4ff",
+          "#b2d7ff",
+          "#e5f2ff"
+        ]
       },
       "night-ground": {
         "role": "neutral",
         "displayName": "Suelo azul noche (tema oscuro)",
-        "canonical": "#071527"
+        "canonical": "#071527",
+        "tonalRamp": [
+          "#0c2341",
+          "#133a6c",
+          "#1b5197",
+          "#2369c3",
+          "#498bde",
+          "#86b1e9",
+          "#bed5f3",
+          "#e9f1fb"
+        ]
+      },
+      "night-surface": {
+        "role": "neutral",
+        "displayName": "Superficie nocturna",
+        "canonical": "#10243d",
+        "tonalRamp": [
+          "#10243d",
+          "#1a3c65",
+          "#25538d",
+          "#306bb6",
+          "#558dd2",
+          "#8eb3e1",
+          "#c2d6ef",
+          "#ebf1fa"
+        ]
+      },
+      "night-rule": {
+        "role": "neutral",
+        "displayName": "Regla nocturna",
+        "canonical": "#263d58",
+        "tonalRamp": [
+          "#172535",
+          "#263e59",
+          "#36567d",
+          "#456fa0",
+          "#6990be",
+          "#9bb5d4",
+          "#cad8e8",
+          "#edf2f7"
+        ]
+      },
+      "night-text": {
+        "role": "neutral",
+        "displayName": "Texto nocturno",
+        "canonical": "#f3f8ff",
+        "tonalRamp": [
+          "#00204c",
+          "#003580",
+          "#004ab2",
+          "#0060e6",
+          "#2982ff",
+          "#70acff",
+          "#b2d2ff",
+          "#e5f0ff"
+        ]
+      },
+      "night-text-soft": {
+        "role": "neutral",
+        "displayName": "Texto nocturno suave",
+        "canonical": "#bdd0e4",
+        "tonalRamp": [
+          "#162636",
+          "#253f5a",
+          "#34587f",
+          "#4372a3",
+          "#6793c1",
+          "#9ab7d6",
+          "#c9d8e9",
+          "#edf2f8"
+        ]
+      },
+      "night-link": {
+        "role": "neutral",
+        "displayName": "Enlace nocturno",
+        "canonical": "#86c3ff",
+        "tonalRamp": [
+          "#00274c",
+          "#004080",
+          "#005ab2",
+          "#0074e6",
+          "#2995ff",
+          "#70b8ff",
+          "#b2d9ff",
+          "#e5f2ff"
+        ]
       }
     },
     "typographyMeta": {
-      "headline": { "displayName": "Headline", "purpose": "Título de página (Proyectos, Usuarios). 1.875rem en pantallas pequeñas." },
-      "title": { "displayName": "Title", "purpose": "Títulos de panel y tarjeta." },
-      "body": { "displayName": "Body", "purpose": "Párrafos y descripciones en pizarra." },
-      "body-compact": { "displayName": "Body compact", "purpose": "Ayudas de campo, filas de tabla, metadatos y correos." },
-      "label": { "displayName": "Label", "purpose": "Rótulos de indicadores y estados, en mayúsculas." },
-      "control": { "displayName": "Control", "purpose": "Botones, campos, pestañas y menús de Angular Material (Inter)." }
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "título de página (\"Proyectos\", \"Usuarios\")."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "títulos de panel y de tarjeta (\"Editar proyecto\", \"Solicitudes de acceso\")."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "párrafos y descripciones, en pizarra (`slate-ink`)."
+      },
+      "body-compact": {
+        "displayName": "Body compact",
+        "purpose": "ayudas de campo, filas de tabla, metadatos y correos."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "rótulos de indicadores y estados (\"PROYECTOS\", \"BORRADOR\")."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Botones, campos, pestañas y menús de Angular Material (Inter)."
+      }
     },
     "shadows": [
-      { "name": "panel-destacado", "value": "0 12px 30px rgba(0, 68, 153, 0.09)", "purpose": "Editores y formularios principales que piden atención." },
-      { "name": "respuesta-accion", "value": "0 4px 12px rgba(0, 68, 153, 0.09)", "purpose": "Hover del botón principal, junto con translateY(-1px)." },
-      { "name": "linea-apoyo", "value": "0 1px 0 rgba(0, 68, 153, 0.09)", "purpose": "Hover de tarjetas." }
+      {
+        "name": "Panel destacado",
+        "value": "0 12px 30px var(--shadow-color)",
+        "purpose": "editores y formularios principales de una página."
+      },
+      {
+        "name": "Respuesta de acción",
+        "value": "0 4px 12px var(--shadow-color)",
+        "purpose": "hover del botón principal, junto con translateY(-1px)."
+      },
+      {
+        "name": "Línea de apoyo",
+        "value": "0 1px 0 var(--shadow-color)",
+        "purpose": "hover de tarjetas."
+      }
     ],
     "motion": [
-      { "name": "transition-fast", "value": "150ms ease", "purpose": "Hover y foco de controles." },
-      { "name": "transition-normal", "value": "300ms ease", "purpose": "Cambio de tema y de superficies." },
-      { "name": "scroll-to-editor", "value": "scrollIntoView smooth (auto con prefers-reduced-motion)", "purpose": "Llevar al usuario al panel que abre una acción." }
+      {
+        "name": "transition-fast",
+        "value": "150ms ease",
+        "purpose": "Hover y foco de controles."
+      },
+      {
+        "name": "transition-normal",
+        "value": "300ms ease",
+        "purpose": "Cambio de tema y de superficies."
+      },
+      {
+        "name": "scroll-to-editor",
+        "value": "scrollIntoView smooth (auto con prefers-reduced-motion)",
+        "purpose": "Llevar al usuario al panel que abre una acción."
+      }
     ],
     "breakpoints": [
-      { "name": "mobile", "value": "600px" },
-      { "name": "tablet", "value": "900px" },
-      { "name": "editor-stack", "value": "1100px" },
-      { "name": "list-detail-stack", "value": "1600px" }
+      {
+        "name": "mobile",
+        "value": "600px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "editor-stack",
+        "value": "1100px"
+      },
+      {
+        "name": "list-detail-stack",
+        "value": "1600px"
+      }
     ]
   },
   "components": [
@@ -136,6 +545,14 @@
       "description": "Responsable asignado: inicial, nombre y correo completos, con botón para quitar.",
       "html": "<span class=\"ds-person\"><span class=\"ds-person-initial\" aria-hidden=\"true\">M</span><span class=\"ds-person-text\"><span class=\"ds-person-name\">Magallanes Loor Steven Ernesto</span><span class=\"ds-person-email\">e1315176501@live.uleam.edu.ec</span></span><button class=\"ds-person-remove\" aria-label=\"Quitar\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button></span>",
       "css": ".ds-person { display: inline-flex; align-items: center; gap: 9px; padding: 5px 4px 5px 6px; border: 1px solid #dceeff; border-radius: 12px; background: #eef7ff; font-family: Inter, system-ui, sans-serif; } .ds-person-initial { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #0059a8; color: #ffffff; font-size: 0.8rem; font-weight: 700; } .ds-person-text { display: grid; line-height: 1.25; } .ds-person-name { font-size: 0.85rem; font-weight: 600; color: #172b44; } .ds-person-email { font-size: 0.76rem; color: #4e6277; } .ds-person-remove { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: #4e6277; cursor: pointer; } .ds-person-remove:hover { background: #dceeff; color: #172b44; } .ds-person-remove:focus-visible { outline: 3px solid #46a4ff; outline-offset: 1px; }"
+    },
+    {
+      "name": "Fila de la app de campo",
+      "kind": "custom",
+      "refersTo": "pwa-row",
+      "description": "Fila de lista de la PWA (Inicio, Ajustes, Borradores, Enviadas): icono en cuadro de bruma azul, título, detalle, contador y flecha; 60px de alto y regla fina entre filas.",
+      "html": "<div class=\"ds-row-list\"><button class=\"ds-row\"><span class=\"ds-row-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 2L11 13\"/><path d=\"M22 2l-7 20-4-9-9-4 20-7z\"/></svg></span><span class=\"ds-row-text\"><span class=\"ds-row-title\">Listo para enviar</span><span class=\"ds-row-detail\">Encuestas terminadas sin enviar</span></span><span class=\"ds-row-count\">2</span><svg class=\"ds-row-chevron\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></button><button class=\"ds-row\"><span class=\"ds-row-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6L9 17l-5-5\"/></svg></span><span class=\"ds-row-text\"><span class=\"ds-row-title\">Enviadas</span></span><span class=\"ds-row-count ds-row-count-zero\">0</span><svg class=\"ds-row-chevron\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></button></div>",
+      "css": ".ds-row-list { max-width: 380px; overflow: hidden; border: 1px solid #dce7f1; border-radius: 12px; background: #ffffff; font-family: Inter, system-ui, sans-serif; } .ds-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 14px; border: 0; background: transparent; color: #172b44; font: inherit; text-align: left; cursor: pointer; } .ds-row + .ds-row { border-top: 1px solid #e4edf5; } .ds-row:hover { background: #eaf4ff; } .ds-row:focus-visible { outline: 3px solid #0059a8; outline-offset: -3px; } .ds-row-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: #dceeff; color: #0059a8; } .ds-row-text { display: grid; flex: 1; gap: 2px; min-width: 0; } .ds-row-title { font-size: 0.98rem; font-weight: 600; } .ds-row-detail { font-size: 0.82rem; color: #4e6277; } .ds-row-count { min-width: 28px; padding: 2px 8px; border-radius: 999px; background: #fdf5e6; color: #a16207; box-shadow: inset 0 0 0 1px #ecd3a3; font-size: 0.85rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; } .ds-row-count-zero { background: transparent; box-shadow: none; color: #5b6f84; font-weight: 600; } .ds-row-chevron { flex: none; color: #5b6f84; }"
     }
   ],
   "narrative": {
@@ -150,12 +567,36 @@
       "Mismos roles en tema claro y oscuro, con contraste WCAG 2.1 AA."
     ],
     "rules": [
-      { "name": "The Una Sola Tinta Rule", "body": "El azul institucional es el único color de acción. Si dos cosas compiten por ser \"la acción principal\", una de ellas no lo es.", "section": "colors" },
-      { "name": "The Rojo Que Cuesta Rule", "body": "El rojo ULEAM se usa solo para la marca, los errores y lo que no se puede deshacer (eliminar, rechazar). Un botón rojo debe significar \"cuidado\".", "section": "colors" },
-      { "name": "The Papel, No Gris Rule", "body": "Los fondos y textos neutros llevan un tinte azul (papel azulado, pizarra). No introducir grises neutros puros.", "section": "colors" },
-      { "name": "The Peso, No Fuente Rule", "body": "La jerarquía se construye con peso y tamaño dentro de la misma familia. No hay fuente de exhibición en la interfaz.", "section": "typography" },
-      { "name": "The Plano Por Defecto Rule", "body": "En reposo, todo es plano con borde. Una sombra debe responder a una pregunta: ¿este panel pide atención o esta acción responde al cursor?", "section": "elevation" },
-      { "name": "The Un Solo Borde Rule", "body": "Una superficie declara su elevación una sola vez: borde o sombra destacada, nunca un borde marcado bajo una sombra ancha.", "section": "elevation" }
+      {
+        "name": "The Una Sola Tinta Rule",
+        "body": "El azul institucional es el único color de acción. Si dos cosas compiten por ser \"la acción principal\", una de ellas no lo es.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rojo Que Cuesta Rule",
+        "body": "El rojo ULEAM se usa solo para la marca, los errores y lo que no se puede deshacer (eliminar, rechazar). Un botón rojo debe significar \"cuidado\".",
+        "section": "colors"
+      },
+      {
+        "name": "The Papel, No Gris Rule",
+        "body": "Los fondos y textos neutros llevan un tinte azul (papel azulado, pizarra). No introducir grises neutros puros.",
+        "section": "colors"
+      },
+      {
+        "name": "The Peso, No Fuente Rule",
+        "body": "La jerarquía se construye con peso y tamaño dentro de la misma familia. No hay fuente de exhibición en la interfaz.",
+        "section": "typography"
+      },
+      {
+        "name": "The Plano Por Defecto Rule",
+        "body": "En reposo, todo es plano con borde. Una sombra debe responder a una pregunta: ¿este panel pide atención o esta acción responde al cursor?",
+        "section": "elevation"
+      },
+      {
+        "name": "The Un Solo Borde Rule",
+        "body": "Una superficie declara su elevación una sola vez: borde o sombra destacada, nunca un borde marcado bajo una sombra ancha.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do usar el azul institucional como único color de acción y de foco.",

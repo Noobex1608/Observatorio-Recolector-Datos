@@ -7,6 +7,7 @@ import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { ApiService } from '../api.service';
 import { DbService } from '../db.service';
+import { StoragePersistenceService } from '../services/storage-persistence.service';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { APP_INFO } from '../app-info';
 import { TranslatePipe } from '../translate.pipe';
@@ -42,8 +43,17 @@ export class AjustesComponent implements OnInit, AfterViewInit {
   readonly rol = this.auth.esModoDemo() ? '' : (ROLES[this.auth.obtenerRol() ?? ''] ?? '');
   readonly servidor = this.hostDelServidor();
 
+  /** Si el navegador puede borrar los datos de la app (borradores y pendientes) por falta de espacio. */
+  readonly persistence = inject(StoragePersistenceService);
+
   async ngOnInit(): Promise<void> {
+    void this.persistence.refresh();
     await this.contarPendientes();
+  }
+
+  async protegerAlmacenamiento(): Promise<void> {
+    const state = await this.persistence.request();
+    this.toast.show(this.theme.t(state === 'persistent' ? 'storage_protected_ok' : 'storage_protect_denied'), state === 'persistent' ? 'success' : 'info');
   }
 
   /** Al llegar desde "Acerca de" (inicio), se lleva la vista y el foco a esa sección. */
