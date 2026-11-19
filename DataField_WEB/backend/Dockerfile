@@ -1,7 +1,13 @@
 # ========================================
 # Stage 1: Composer dependencies
 # ========================================
-FROM composer:2 AS composer
+# PHP fijo en 8.4 (como la imagen final) y Composer como binario aparte: la imagen composer:2 sigue
+# a la última versión de PHP (8.6 desde el 2026-11-19, sin mbstring) y rompía package:discover.
+FROM composer/composer:2.11-bin AS composer-bin
+FROM php:8.4-cli-alpine AS composer
+
+COPY --from=composer-bin /composer /usr/bin/composer
+RUN apk add --no-cache git unzip
 
 WORKDIR /app
 
