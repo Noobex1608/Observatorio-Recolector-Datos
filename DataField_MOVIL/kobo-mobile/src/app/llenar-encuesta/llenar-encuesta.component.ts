@@ -21,7 +21,7 @@ import { TRACE_KEY, TraceEvent, TraceRecorder } from '../utils/trace-recorder';
 import { textFormatError, textFormatInput, textFormatOf } from '../utils/text-format';
 import { mediaBudgetError } from '../utils/media-limits';
 import { StoragePersistenceService } from '../services/storage-persistence.service';
-import { allowedOptions, choiceFilterOf, pruneCascadeAnswers } from '../utils/choice-filter';
+import { allowedOptions, choiceFilterOf, pruneCascadeAnswers, showIfMatches, showIfOf } from '../utils/choice-filter';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -321,7 +321,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
 
     while (nextIndex < questions.length) {
       const candidate = questions[nextIndex];
-      if (!candidate || !conditionalTargetIds[candidate.id]) {
+      // Se saltan los destinos de saltos y las subpreguntas que no corresponden a lo respondido.
+      if (!candidate || (!conditionalTargetIds[candidate.id] && this.subpreguntaVisible(candidate))) {
         break;
       }
       nextIndex++;
@@ -411,7 +412,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     if (branchDecision.action === 'GO_TO' && branchDecision.target && questionIndexes[branchDecision.target] !== undefined) {
       const targetIndex = questionIndexes[branchDecision.target];
       if (targetIndex > this.preguntaActualIndex) {
-        nextIndex = targetIndex;
+        const target = this.formulario!.questions[targetIndex];
+        nextIndex = this.subpreguntaVisible(target) ? targetIndex : this.nextQuestionIndex(targetIndex);
       }
     }
 
@@ -661,6 +663,24 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  /**
+   * Una subpregunta se muestra si su padre está visible y tiene respuesta; con «mostrar solo si se
+   * elige…», además, si entre lo elegido en el padre está alguna de esas opciones (ej. «Otro»).
+   */
+  subpreguntaVisible(pregunta: FormQuestion, profundidad = 0): boolean {
+    const parentId = pregunta.parent_question_id;
+    if (!parentId || profundidad > 20 || !this.formulario) return true;
+    const padre = this.formulario.questions.find(q => q.id === parentId);
+    if (!padre) return true;
+    const respuesta = this.respuestas[parentId];
+    if (!this.subpreguntaVisible(padre, profundidad + 1)
+      || respuesta === null || respuesta === undefined || respuesta === '' || (Array.isArray(respuesta) && respuesta.length === 0)) {
+      return false;
+    }
+    const opciones = showIfOf(pregunta.properties);
+    return !opciones || showIfMatches(opciones, respuesta);
+  }
+
   private preguntasActivasParaEnvio(): FormQuestion[] {
     if (!this.formulario) return [];
     const questions = this.formulario.questions;
@@ -674,6 +694,11 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
         const parentAnswer = this.respuestas[question.parent_question_id];
         if (!parentActive || parentAnswer === null || parentAnswer === undefined || parentAnswer === '' ||
           (Array.isArray(parentAnswer) && parentAnswer.length === 0)) {
+          index++;
+          continue;
+        }
+        const opciones = showIfOf(question.properties);
+        if (opciones && !showIfMatches(opciones, parentAnswer)) {
           index++;
           continue;
         }

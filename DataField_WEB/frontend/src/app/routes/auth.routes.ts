@@ -5,17 +5,17 @@ export const AUTH_ROUTES: Routes = [
   {
     path: 'change-password',
     loadComponent: () => import('../features/auth/change-password.component').then((m) => m.ChangePasswordComponent),
-    title: 'Cambiar contraseña',
+    title: 'routes.changePassword',
   },
   {
     path: 'microsoft',
     loadComponent: () => import('../features/auth/microsoft-callback.component').then((m) => m.MicrosoftCallbackComponent),
-    title: 'Iniciar sesión con Microsoft',
+    title: 'routes.microsoft',
   },
   {
     path: 'activar',
     loadComponent: () => import('../features/auth/activate-account.component').then((m) => m.ActivateAccountComponent),
-    title: 'Confirmar cuenta',
+    title: 'routes.activate',
   },
   {
     path: 'login',

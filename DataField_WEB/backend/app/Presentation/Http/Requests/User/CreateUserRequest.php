@@ -32,14 +32,14 @@ class CreateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'El nombre es obligatorio',
-            'name.max' => 'El nombre no puede exceder 255 caracteres',
-            'email.required' => 'El email es obligatorio',
-            'email.email' => 'El email debe tener un formato válido',
-            'email.unique' => 'Este email ya está registrado',
-            'password.min' => 'La contraseña debe tener al menos 8 caracteres',
-            'rol.in' => 'El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR',
-            'is_active.boolean' => 'El campo is_active debe ser verdadero o falso',
+            'name.required' => __('El nombre es obligatorio'),
+            'name.max' => __('El nombre no puede exceder 255 caracteres'),
+            'email.required' => __('El email es obligatorio'),
+            'email.email' => __('El email debe tener un formato válido'),
+            'email.unique' => __('Este email ya está registrado'),
+            'password.min' => __('La contraseña debe tener al menos 8 caracteres'),
+            'rol.in' => __('El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR'),
+            'is_active.boolean' => __('El campo is_active debe ser verdadero o falso'),
         ];
     }
 }

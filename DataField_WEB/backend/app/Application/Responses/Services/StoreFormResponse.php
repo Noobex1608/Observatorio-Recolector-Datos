@@ -26,27 +26,27 @@ class StoreFormResponse
             return DB::transaction(function () use ($form, $user, $data, $submissionId, &$responseId) {
                 $form = Form::whereKey($form->id)->lockForUpdate()->firstOrFail();
                 if ($user) {
-                    abort_unless(app(FormPolicy::class)->submit($user->fresh(), $form), 403, 'No tienes permiso para enviar este formulario.');
+                    abort_unless(app(FormPolicy::class)->submit($user->fresh(), $form), 403, __('No tienes permiso para enviar este formulario.'));
                 }
                 $hash = hash('sha256', json_encode($this->canonical($data), JSON_THROW_ON_ERROR));
                 // Incluye anuladas: el mismo envío reintentado desde un celular no debe duplicarse ni fallar.
                 $existing = $form->responses()->withTrashed()->where('client_submission_id', $submissionId)->first();
                 if ($existing) {
                     abort_unless($existing->user_id === $user?->id && hash_equals($existing->submission_hash, $hash),
-                        409, 'El identificador de envío ya fue utilizado con otro contenido o cuenta.');
+                        409, __('El identificador de envío ya fue utilizado con otro contenido o cuenta.'));
 
                     return $existing;
                 }
-                abort_unless($form->state === 'DEPLOYED', 422, 'El formulario no está publicado.');
+                abort_unless($form->state === 'DEPLOYED', 422, __('El formulario no está publicado.'));
                 abort_if(($form->start_date && $form->start_date->format('Y-m-d') > now('America/Guayaquil')->toDateString())
                     || ($form->end_date && $form->end_date->format('Y-m-d') < now('America/Guayaquil')->toDateString()),
-                    422, 'El formulario está fuera de su periodo de recolección.');
+                    422, __('El formulario está fuera de su periodo de recolección.'));
                 abort_if(($form->require_consent ?? true) && ($data['_consentimiento_aceptado'] ?? null) !== true,
-                    422, 'Debe aceptarse el consentimiento informado.');
+                    422, __('Debe aceptarse el consentimiento informado.'));
                 $share = $user ? $form->shares()->where('user_id', $user->id)->lockForUpdate()->first() : null;
                 if ($share?->target_responses !== null) {
                     abort_if($form->responses()->where('user_id', $user->id)->count() >= $share->target_responses,
-                        422, 'Has alcanzado el límite de respuestas para este formulario.');
+                        422, __('Has alcanzado el límite de respuestas para este formulario.'));
                 }
                 // Meta de encuestas de la zona: la fila del formulario ya está bloqueada, así que el conteo
                 // y la inserción no se cruzan con otro envío del mismo formulario.
@@ -54,7 +54,7 @@ class StoreFormResponse
                 $zone = is_string($zoneId) ? $form->zones()->whereKey($zoneId)->first() : null;
                 if ($zone && $zone->target_responses !== null) {
                     abort_if($form->responses()->where('data->_project_geofence->zone_id', $zone->id)->count() >= $zone->target_responses,
-                        422, "La zona «{$zone->name}» ya alcanzó su meta de {$zone->target_responses} encuestas.");
+                        422, __('La zona «:name» ya alcanzó su meta de :target_responses encuestas.', ['name' => $zone->name, 'target_responses' => $zone->target_responses]));
                 }
                 // El trazado GPS va en su propia columna: no es una respuesta y no debe salir en exportes.
                 $trace = $this->traces->sanitize($data['_location_trace'] ?? null);

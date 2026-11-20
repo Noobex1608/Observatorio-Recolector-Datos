@@ -34,7 +34,7 @@ class FormResponseValidator
 
         foreach (array_keys($data) as $key) {
             if (! isset($knownIds[$key]) && ! in_array($key, self::METADATA_KEYS, true)) {
-                $errors[$key][] = 'El campo no pertenece al formulario.';
+                $errors[$key][] = __('El campo no pertenece al formulario.');
             }
         }
 
@@ -45,7 +45,7 @@ class FormResponseValidator
                 continue;
             }
             if ($question->required && $type !== 'CALCULATE' && $this->isEmpty($value)) {
-                $errors[$question->id][] = "La pregunta '{$question->label}' es obligatoria.";
+                $errors[$question->id][] = __('La pregunta \':label\' es obligatoria.', ['label' => $question->label]);
 
                 continue;
             }
@@ -83,7 +83,7 @@ class FormResponseValidator
                 default => false,
             };
             if (! $valid) {
-                $errors[$question->id][] = "La respuesta a '{$question->label}' no tiene un valor válido para {$type}.";
+                $errors[$question->id][] = __('La respuesta a \':label\' no tiene un valor válido para :type.', ['label' => $question->label, 'type' => $type]);
 
                 continue;
             }
@@ -92,7 +92,7 @@ class FormResponseValidator
                 $allowed = ChoiceFilter::allowed(array_map('strval', array_values($options)), $filter, $data[$filter['question_id']] ?? null);
                 $chosen = is_array($value) ? $value : [$value];
                 if (array_diff(array_map('strval', $chosen), $allowed) !== []) {
-                    $errors[$question->id][] = "La respuesta a '{$question->label}' no corresponde a lo elegido en la pregunta anterior.";
+                    $errors[$question->id][] = __('La respuesta a \':label\' no corresponde a lo elegido en la pregunta anterior.', ['label' => $question->label]);
                 }
             }
         }

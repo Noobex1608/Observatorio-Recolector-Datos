@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Form, FormQuestion, FormShare } from './form.service';
@@ -21,11 +22,16 @@ export interface PdfExportData {
   providedIn: 'root',
 })
 export class PdfExportService {
+  private readonly i18n = inject(TranslateService);
+
   /**
    * Genera y descarga un informe ejecutivo en PDF con los resúmenes estadísticos
    * y consolidados de las respuestas recolectadas.
    */
   async exportResponsesSummaryPdf(data: PdfExportData): Promise<void> {
+    // El informe sale en el idioma elegido en la interfaz.
+    const t = (key: string, params?: Record<string, unknown>): string => this.i18n.instant(key, params);
+    const locale = this.i18n.getCurrentLang() === 'en' ? 'en-US' : 'es-EC';
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -62,34 +68,34 @@ export class PdfExportService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(...primaryColor);
-    doc.text('UNIVERSIDAD LAICA ELOY ALFARO DE MANABÍ', margin, currentY);
+    doc.text(t('pdfReport.university'), margin, currentY);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...textMuted);
-    doc.text('Sistema Barómetro / DataField — Plataforma de Recolección e Investigación', margin, currentY + 4);
+    doc.text(t('pdfReport.platform'), margin, currentY + 4);
 
-    const nowFormatted = new Date().toLocaleString('es-EC', {
+    const nowFormatted = new Date().toLocaleString(locale, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
-    doc.text(`Fecha de emisión: ${nowFormatted}`, pageWidth - margin, currentY, { align: 'right' });
+    doc.text(t('pdfReport.issuedAt', { date: nowFormatted }), pageWidth - margin, currentY, { align: 'right' });
     currentY += 12;
 
     // Título Principal del Reporte
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(...textDark);
-    doc.text('INFORME RESUMEN DE RESULTADOS', margin, currentY);
+    doc.text(t('pdfReport.title'), margin, currentY);
     currentY += 6;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(...primaryColor);
-    const formTitle = data.formTitle || data.form?.title || 'Formulario de Recolección';
+    const formTitle = data.formTitle || data.form?.title || t('pdfReport.defaultForm');
     const splitTitle = doc.splitTextToSize(formTitle, contentWidth);
     doc.text(splitTitle, margin, currentY);
     currentY += splitTitle.length * 5 + 3;
@@ -99,37 +105,37 @@ export class PdfExportService {
     // ==========================================
     const totalRespuestas = data.responses.length;
     const totalPreguntas = data.questions.length;
-    const proyectoNombre = data.form?.project?.name || 'Sin proyecto asignado';
+    const proyectoNombre = data.form?.project?.name || t('pdfReport.noProject');
     const estadoForm = data.form?.state || 'DEPLOYED';
     const periodoVigencia =
       data.form?.start_date || data.form?.end_date
-        ? `${data.form?.start_date || 'Inmediato'} al ${data.form?.end_date || 'Sin límite'}`
-        : 'Indefinido';
+        ? t('pdfReport.period', { start: data.form?.start_date || t('pdfReport.immediate'), end: data.form?.end_date || t('pdfReport.noLimit') })
+        : t('pdfReport.indefinite');
 
     const metadataRows: any[] = [
       [
-        { content: 'Proyecto:', styles: { fontStyle: 'bold' } },
+        { content: t('pdfReport.meta.project'), styles: { fontStyle: 'bold' } },
         proyectoNombre,
-        { content: 'Total Respuestas:', styles: { fontStyle: 'bold' } },
-        `${totalRespuestas} envíos`,
+        { content: t('pdfReport.meta.responses'), styles: { fontStyle: 'bold' } },
+        t('pdfReport.submissions', { count: totalRespuestas }),
       ],
       [
-        { content: 'Vigencia de Encuesta:', styles: { fontStyle: 'bold' } },
+        { content: t('pdfReport.meta.period'), styles: { fontStyle: 'bold' } },
         periodoVigencia,
-        { content: 'Total Preguntas:', styles: { fontStyle: 'bold' } },
-        `${totalPreguntas} preguntas`,
+        { content: t('pdfReport.meta.questions'), styles: { fontStyle: 'bold' } },
+        t('pdfReport.questions', { count: totalPreguntas }),
       ],
       [
-        { content: 'Estado Actual:', styles: { fontStyle: 'bold' } },
+        { content: t('pdfReport.meta.state'), styles: { fontStyle: 'bold' } },
         estadoForm,
-        { content: 'Consentimiento Informado:', styles: { fontStyle: 'bold' } },
-        data.form?.require_consent !== false ? 'Requerido y Validado' : 'No requerido',
+        { content: t('pdfReport.meta.consent'), styles: { fontStyle: 'bold' } },
+        t(data.form?.require_consent !== false ? 'pdfReport.consentRequired' : 'pdfReport.consentNotRequired'),
       ],
     ];
 
     if (data.form?.description) {
       metadataRows.push([
-        { content: 'Descripción / Objetivo:', styles: { fontStyle: 'bold' } },
+        { content: t('pdfReport.meta.description'), styles: { fontStyle: 'bold' } },
         { content: data.form.description, colSpan: 3 },
       ]);
     }
@@ -165,14 +171,14 @@ export class PdfExportService {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10.5);
       doc.setTextColor(...primaryColor);
-      doc.text('1. AVANCE Y CUMPLIMIENTO POR RECOLECTOR / ENCARGADO', margin, currentY);
+      doc.text(t('pdfReport.section1'), margin, currentY);
       currentY += 4;
 
       const sharesRows = data.shares.map((share, idx) => {
-        const nombre = share.user_name || share.user_email || `Usuario #${idx + 1}`;
+        const nombre = share.user_name || share.user_email || t('pdfReport.userN', { n: idx + 1 });
         const email = share.user_email || '-';
         const respuestas = share.responses_count ?? 0;
-        const meta = share.target_responses ? `${share.target_responses}` : 'Sin límite';
+        const meta = share.target_responses ? `${share.target_responses}` : t('pdfReport.noLimit');
         const porcentaje = share.target_responses
           ? `${Math.min(100, Math.round((respuestas / share.target_responses) * 100))}%`
           : 'N/A';
@@ -184,7 +190,7 @@ export class PdfExportService {
         startY: currentY,
         tableWidth: contentWidth,
         margin: { left: margin, right: margin },
-        head: [['Encuestador / Miembro', 'Correo Electrónico', 'Rol', 'Respuestas', 'Meta', '% Cumplimiento']],
+        head: [[t('pdfReport.cols.member'), t('pdfReport.cols.email'), t('pdfReport.cols.role'), t('pdfReport.cols.responses'), t('pdfReport.cols.target'), t('pdfReport.cols.completion')]],
         body: sharesRows,
         theme: 'striped',
         headStyles: {
@@ -221,14 +227,14 @@ export class PdfExportService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(...primaryColor);
-    doc.text('2. RESUMEN ESTADÍSTICO CONSOLIDADO POR PREGUNTA', margin, currentY);
+    doc.text(t('pdfReport.section2'), margin, currentY);
     currentY += 5;
 
     if (totalRespuestas === 0) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8.5);
       doc.setTextColor(...textMuted);
-      doc.text('No se registran respuestas recolectadas para calcular estadísticas.', margin, currentY);
+      doc.text(t('pdfReport.noResponses'), margin, currentY);
       currentY += 8;
     } else {
       let questionIndex = 1;
@@ -271,7 +277,7 @@ export class PdfExportService {
             startY: currentY,
             tableWidth: contentWidth, // Exactamente 182mm
             margin: { left: margin, right: margin },
-            head: [['Opción / Categoría', 'Frecuencia (N)', 'Porcentaje (%)', 'Distribución Visual']],
+            head: [[t('pdfReport.cols.option'), t('pdfReport.cols.frequency'), t('pdfReport.cols.percent'), t('pdfReport.cols.distribution')]],
             body: tableRows,
             theme: 'grid',
             headStyles: {
@@ -331,7 +337,7 @@ export class PdfExportService {
             ];
             const visible = slices.slice(0, 7);
             const otherCount = slices.slice(7).reduce((sum, slice) => sum + slice.count, 0);
-            if (otherCount > 0) visible.push({ name: 'Otras opciones', count: otherCount });
+            if (otherCount > 0) visible.push({ name: t('pdfReport.otherOptions'), count: otherCount });
             const total = visible.reduce((sum, slice) => sum + slice.count, 0);
             const centerX = margin + 25;
             const centerY = currentY + 22;
@@ -358,7 +364,7 @@ export class PdfExportService {
             });
             if (question.type === 'MULTIPLE_CHOICE') {
               doc.setFontSize(7);
-              doc.text('Porcentaje sobre menciones, no sobre personas.', margin + 55, currentY + 48);
+              doc.text(t('pdfReport.mentionsNote'), margin + 55, currentY + 48);
             }
             currentY += 52;
           }
@@ -384,12 +390,12 @@ export class PdfExportService {
               startY: currentY,
               tableWidth: contentWidth,
               margin: { left: margin, right: margin },
-              head: [['Métrica Estadística', 'Valor Calculado', 'Interpretación']],
+              head: [[t('pdfReport.cols.metric'), t('pdfReport.cols.value'), t('pdfReport.cols.meaning')]],
               body: [
-                ['Respuestas numéricas válidas', `${count} de ${totalRespuestas}`, `${((count / totalRespuestas) * 100).toFixed(1)}% tasa de respuesta`],
-                ['Promedio (Media Aritmética)', `${avg}`, 'Valor medio de las respuestas recolectadas'],
-                ['Valor Mínimo Registrado', `${min}`, 'Respuesta más baja observada'],
-                ['Valor Máximo Registrado', `${max}`, 'Respuesta más alta observada'],
+                [t('pdfReport.num.valid'), t('pdfReport.ofTotal', { count, total: totalRespuestas }), t('pdfReport.responseRate', { rate: ((count / totalRespuestas) * 100).toFixed(1) })],
+                [t('pdfReport.num.mean'), `${avg}`, t('pdfReport.num.meanHint')],
+                [t('pdfReport.num.min'), `${min}`, t('pdfReport.num.minHint')],
+                [t('pdfReport.num.max'), `${max}`, t('pdfReport.num.maxHint')],
               ],
               theme: 'grid',
               headStyles: {
@@ -415,7 +421,7 @@ export class PdfExportService {
             doc.setFont('helvetica', 'italic');
             doc.setFontSize(8);
             doc.setTextColor(...textMuted);
-            doc.text('Sin registros numéricos válidos en las respuestas recibidas.', margin + 2, currentY);
+            doc.text(t('pdfReport.noNumeric'), margin + 2, currentY);
             currentY += 6;
           }
         }
@@ -439,8 +445,8 @@ export class PdfExportService {
             startY: currentY,
             tableWidth: contentWidth,
             margin: { left: margin, right: margin },
-            head: [['Muestra', `Respuestas Recolectadas (${answeredCount}/${totalRespuestas} contestadas — ${tasaRespuesta}%)`]],
-            body: samples.length > 0 ? samples : [['-', 'No se registraron comentarios de texto.']],
+            head: [[t('pdfReport.cols.sample'), t('pdfReport.textHeader', { answered: answeredCount, total: totalRespuestas, rate: tasaRespuesta })]],
+            body: samples.length > 0 ? samples : [['-', t('pdfReport.noText')]],
             theme: 'grid',
             headStyles: {
               fillColor: secondaryColor,
@@ -479,14 +485,14 @@ export class PdfExportService {
           doc.setFontSize(8);
           doc.setTextColor(...textDark);
           doc.text(
-            `Coordenadas geográficas capturadas: ${gpsCount} de ${totalRespuestas} respuestas (${((gpsCount / totalRespuestas) * 100).toFixed(1)}%).`,
+            t('pdfReport.gpsSummary', { count: gpsCount, total: totalRespuestas, rate: ((gpsCount / totalRespuestas) * 100).toFixed(1) }),
             margin + 2,
             currentY,
           );
           currentY += 6;
           if (gpsRows.length > 0) {
             autoTable(doc, { startY: currentY, margin: { left: margin, right: margin },
-              head: [['#', 'X · longitud', 'Y · latitud']], body: gpsRows,
+              head: [['#', t('pdfReport.cols.lng'), t('pdfReport.cols.lat')]], body: gpsRows,
               theme: 'grid', styles: { fontSize: 7.5 },
               headStyles: { fillColor: secondaryColor, textColor: [255, 255, 255] } });
             currentY = (doc as any).lastAutoTable.finalY + 6;
@@ -506,7 +512,7 @@ export class PdfExportService {
           doc.setFontSize(8);
           doc.setTextColor(...textDark);
           doc.text(
-            `Respuestas registradas: ${answeredCount} de ${totalRespuestas} (${((answeredCount / totalRespuestas) * 100).toFixed(1)}% tasa de respuesta).`,
+            t('pdfReport.answeredSummary', { count: answeredCount, total: totalRespuestas, rate: ((answeredCount / totalRespuestas) * 100).toFixed(1) }),
             margin + 2,
             currentY,
           );
@@ -525,17 +531,17 @@ export class PdfExportService {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10.5);
       doc.setTextColor(...primaryColor);
-      doc.text('3. MUESTRA CONSOLIDADA DE ENVÍOS RECIENTES', margin, currentY);
+      doc.text(t('pdfReport.section3'), margin, currentY);
       currentY += 4;
 
       // Seleccionar hasta 3 preguntas representativas para no saturar horizontalmente
       const sampleQuestions = data.questions.slice(0, 3);
-      const headers = ['#', 'Fecha / Hora', ...sampleQuestions.map((q) => this.truncate(q.label, 24))];
+      const headers = ['#', t('pdfReport.cols.dateTime'), ...sampleQuestions.map((q) => this.truncate(q.label, 24))];
 
       // Hasta 20 envíos en la muestra
       const sampleRows = data.responses.slice(0, 20).map((resp, i) => {
         const fechaHora = resp.submitted_at
-          ? new Date(resp.submitted_at).toLocaleDateString('es-EC', {
+          ? new Date(resp.submitted_at).toLocaleDateString(locale, {
               day: '2-digit',
               month: '2-digit',
               year: 'numeric',
@@ -610,12 +616,12 @@ export class PdfExportService {
       doc.setFontSize(7.5);
       doc.setTextColor(...textMuted);
       doc.text(
-        'Universidad Laica Eloy Alfaro de Manabí (ULEAM) — Sistema de Recolección Barómetro / DataField',
+        t('pdfReport.footer'),
         margin,
         pageHeight - 8,
       );
 
-      doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - margin, pageHeight - 8, {
+      doc.text(t('pdfReport.page', { page: pageNum, total: totalPages }), pageWidth - margin, pageHeight - 8, {
         align: 'right',
       });
     }
@@ -628,7 +634,7 @@ export class PdfExportService {
       .replace(/[^a-z0-9_-]/g, '_')
       .slice(0, 40);
     const dateStamp = new Date().toISOString().split('T')[0];
-    const filename = `resumen_resultados_${safeTitle}_${dateStamp}.pdf`;
+    const filename = `${t('pdfReport.filePrefix')}_${safeTitle}_${dateStamp}.pdf`;
 
     doc.save(filename);
   }

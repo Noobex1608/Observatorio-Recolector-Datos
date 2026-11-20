@@ -18,7 +18,7 @@ class FormSchemaValidator
         $byId = $ordered->keyBy('id');
         $errors = [];
         if ($ordered->pluck('order')->unique()->count() !== $ordered->count()) {
-            $errors['questions.order'] = 'Cada pregunta debe tener un orden único antes de publicar.';
+            $errors['questions.order'] = __('Cada pregunta debe tener un orden único antes de publicar.');
         }
 
         foreach ($ordered as $question) {
@@ -26,24 +26,28 @@ class FormSchemaValidator
             if ($question->type === 'CALCULATE') {
                 $expression = $question->properties['expression'] ?? null;
                 if (! is_string($expression) || trim($expression) === '') {
-                    $errors["questions.{$question->id}.expression"] = 'La pregunta calculada requiere una expresión.';
+                    $errors["questions.{$question->id}.expression"] = __('La pregunta calculada requiere una expresión.');
                 } else {
                     preg_match_all('/\$\{([^}]+)\}/', $expression, $references);
                     foreach ($references[1] as $reference) {
                         if (! isset($byId[$reference]) || $positions[$reference] >= $position
                             || ! in_array($byId[$reference]->type, ['NUMBER', 'CALCULATE'], true)) {
-                            $errors["questions.{$question->id}.expression"] = 'La expresión solo puede referirse a números previos del mismo formulario.';
+                            $errors["questions.{$question->id}.expression"] = __('La expresión solo puede referirse a números previos del mismo formulario.');
                         }
                     }
                     $testExpression = preg_replace('/\$\{[^}]+\}/', '1', $expression);
                     if ((new ArithmeticExpressionEvaluator)->evaluate($testExpression) === null) {
-                        $errors["questions.{$question->id}.expression"] = 'La expresión aritmética no es válida.';
+                        $errors["questions.{$question->id}.expression"] = __('La expresión aritmética no es válida.');
                     }
                 }
             }
             $parentId = $question->parent_question_id;
             if ($parentId && (! isset($positions[$parentId]) || $positions[$parentId] >= $position)) {
-                $errors["questions.{$question->id}.parent_question_id"] = 'La pregunta padre debe pertenecer al formulario y aparecer antes de la hija.';
+                $errors["questions.{$question->id}.parent_question_id"] = __('La pregunta padre debe pertenecer al formulario y aparecer antes de la hija.');
+            }
+            $showIfError = ShowIf::configurationError($question, $byId);
+            if ($showIfError !== null) {
+                $errors["questions.{$question->id}.show_if"] = $showIfError;
             }
             $filterError = ChoiceFilter::configurationError($question, $byId, $positions);
             if ($filterError !== null) {
@@ -52,7 +56,7 @@ class FormSchemaValidator
 
             $rules = $question->branch_rules ?? [];
             if ($rules !== [] && $question->type !== 'SINGLE_CHOICE') {
-                $errors["questions.{$question->id}.branch_rules"] = 'Los saltos solo se admiten en selección única.';
+                $errors["questions.{$question->id}.branch_rules"] = __('Los saltos solo se admiten en selección única.');
 
                 continue;
             }
@@ -61,20 +65,20 @@ class FormSchemaValidator
             foreach ($rules as $rule) {
                 $index = $rule['option_index'] ?? null;
                 if (! is_int($index) || ! array_key_exists($index, $options) || isset($seenOptions[$index])) {
-                    $errors["questions.{$question->id}.branch_rules"] = 'Cada salto debe referirse a una opción existente una sola vez.';
+                    $errors["questions.{$question->id}.branch_rules"] = __('Cada salto debe referirse a una opción existente una sola vez.');
 
                     continue;
                 }
                 $seenOptions[$index] = true;
                 $action = $rule['action'] ?? (isset($rule['next_question_id']) ? 'GO_TO' : 'CONTINUE');
                 if (! in_array($action, ['GO_TO', 'CONTINUE', 'END_FORM'], true)) {
-                    $errors["questions.{$question->id}.branch_rules"] = 'Acción de salto no válida.';
+                    $errors["questions.{$question->id}.branch_rules"] = __('Acción de salto no válida.');
 
                     continue;
                 }
                 $target = $rule['next_question_id'] ?? null;
                 if ($action === 'GO_TO' && (! is_string($target) || ! isset($byId[$target]) || $positions[$target] <= $position)) {
-                    $errors["questions.{$question->id}.branch_rules"] = 'El destino debe pertenecer al formulario y aparecer después del origen.';
+                    $errors["questions.{$question->id}.branch_rules"] = __('El destino debe pertenecer al formulario y aparecer después del origen.');
                 }
             }
         }

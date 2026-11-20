@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
+import { provideSpanishTranslations } from './testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 describe('App', () => {
   beforeEach(async () => {

@@ -21,7 +21,7 @@ final class QuestionnaireImporter
             $reader->setReadDataOnly(true);
             $book = $reader->load($path);
         } catch (\Throwable) {
-            return $this->fail('El archivo no se pudo leer. Descarga la plantilla y guárdala como .xlsx.');
+            return $this->fail(__('El archivo no se pudo leer. Descarga la plantilla y guárdala como .xlsx.'));
         }
 
         try {
@@ -44,8 +44,8 @@ final class QuestionnaireImporter
                 ?? collect($candidates)->first(fn ($candidate, $key) => $key !== SimpleFormat::key(SimpleFormat::EXAMPLE_SHEET));
             if (! $sheet) {
                 return $this->fail(isset($candidates[SimpleFormat::key(SimpleFormat::EXAMPLE_SHEET)])
-                    ? 'Escribe tus preguntas en la hoja «Mi encuesta»; la hoja «Ejemplo» no se importa.'
-                    : 'No se reconoce el formato. Usa la plantilla (columnas «Pregunta» y «Tipo») o un XLSForm con la hoja «survey».');
+                    ? __('Escribe tus preguntas en la hoja «Mi encuesta»; la hoja «Ejemplo» no se importa.')
+                    : __('No se reconoce el formato. Usa la plantilla (columnas «Pregunta» y «Tipo») o un XLSForm con la hoja «survey».'));
             }
 
             return (new SimpleFormImporter)->import($sheet);

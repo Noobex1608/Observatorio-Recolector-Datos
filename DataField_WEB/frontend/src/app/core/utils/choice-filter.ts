@@ -65,3 +65,21 @@ export function pruneCascadeAnswers<T extends Record<string, unknown>>(questions
   }
   return next;
 }
+
+/**
+ * Subpregunta condicionada a opciones del padre: `properties.show_if = { options: [...] }`.
+ * Devuelve las opciones, o null si no tiene condición (entonces basta con que el padre tenga respuesta).
+ */
+export function showIfOf(properties: unknown): string[] | null {
+  const showIf = properties && typeof properties === 'object' ? (properties as Record<string, unknown>)['show_if'] : null;
+  const options = showIf && typeof showIf === 'object' ? (showIf as Record<string, unknown>)['options'] : null;
+  if (!Array.isArray(options)) return null;
+  const list = options.filter((item) => typeof item === 'string' || typeof item === 'number').map(String);
+  return list.length > 0 ? list : null;
+}
+
+/** ¿Lo elegido en el padre incluye alguna de las opciones de la condición? */
+export function showIfMatches(options: string[], parentAnswer: unknown): boolean {
+  const selected = new Set(selectedValues(parentAnswer));
+  return options.some((option) => selected.has(option));
+}

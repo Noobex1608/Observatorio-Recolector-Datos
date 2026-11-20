@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { TranslateService } from '@ngx-translate/core';
 import { Observable, of, forkJoin } from 'rxjs';
 import { map, tap, shareReplay, catchError, switchMap } from 'rxjs/operators';
 
@@ -136,6 +137,7 @@ export function formatManzanaName(
 })
 export class GisService {
   private readonly http = inject(HttpClient);
+  private readonly i18n = inject(TranslateService);
   private readonly baseUrl = 'assets/gis';
 
   // Cache en memoria (Singleton) para no repetir llamadas HTTP
@@ -158,7 +160,7 @@ export class GisService {
   }
 
   private reportLoadError(layer: string): void {
-    this.loadError.set(`No se pudo cargar la cartografía de ${layer}. Revise la conexión o los archivos GIS publicados.`);
+    this.loadError.set(this.i18n.instant('geofence.msg.gisLoadFailed', { layer }));
     this.loading.set(false);
   }
 

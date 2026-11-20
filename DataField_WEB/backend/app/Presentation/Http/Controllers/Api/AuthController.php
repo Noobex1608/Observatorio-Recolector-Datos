@@ -67,7 +67,7 @@ class AuthController extends Controller
     {
         $this->logoutUseCase->execute($request->user());
 
-        return response()->json(['message' => 'Sesion cerrada exitosamente']);
+        return response()->json(['message' => __('Sesion cerrada exitosamente')]);
     }
 
     #[OA\Get(
@@ -93,10 +93,10 @@ class AuthController extends Controller
             'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()],
         ]);
         $user = $request->user();
-        abort_unless(Hash::check($data['current_password'], $user->password), 422, 'La contraseña actual es incorrecta.');
-        abort_if(Hash::check($data['password'], $user->password), 422, 'La contraseña nueva debe ser diferente.');
+        abort_unless(Hash::check($data['current_password'], $user->password), 422, __('La contraseña actual es incorrecta.'));
+        abort_if(Hash::check($data['password'], $user->password), 422, __('La contraseña nueva debe ser diferente.'));
         $user->update(['password' => $data['password'], 'must_change_password' => false]);
 
-        return response()->json(['message' => 'Contraseña actualizada.']);
+        return response()->json(['message' => __('Contraseña actualizada.')]);
     }
 }

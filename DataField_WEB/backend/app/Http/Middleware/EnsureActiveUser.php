@@ -13,9 +13,9 @@ class EnsureActiveUser
         // Also resolve bearer tokens on public collection. Invalid tokens must not
         // silently become anonymous submissions and bypass collector quotas.
         $user = $request->user() ?? ($request->bearerToken() ? Auth::guard('sanctum')->user() : null);
-        abort_if($request->bearerToken() && ! $user, 401, 'La sesión expiró. Inicie sesión nuevamente.');
+        abort_if($request->bearerToken() && ! $user, 401, __('La sesión expiró. Inicie sesión nuevamente.'));
         if ($user) {
-            abort_unless($user->isActive(), 403, 'La cuenta está desactivada.');
+            abort_unless($user->isActive(), 403, __('La cuenta está desactivada.'));
             $request->setUserResolver(fn () => $user);
         }
 

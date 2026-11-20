@@ -34,6 +34,7 @@ final class SimpleFormat
         'parent' => 'Subpregunta de (N.º)',
         'calculation' => 'Cálculo',
         'depends' => 'Opciones según (N.º)',
+        'show_if' => 'Solo si elige',
     ];
 
     public const MATRIX_ROW = 'Fila de matriz';

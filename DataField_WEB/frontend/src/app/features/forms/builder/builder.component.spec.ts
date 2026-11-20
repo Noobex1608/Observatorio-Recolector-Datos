@@ -10,6 +10,10 @@ import { ProjectService } from '@core/services/project.service';
 import { UserService } from '@core/services/user.service';
 import { BuilderComponent } from './builder.component';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
+import { provideSpanishTranslations } from '../../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 80));
 
@@ -30,13 +34,13 @@ function setup(formService: Record<string, unknown> = {}, routeId: string | null
   TestBed.overrideComponent(BuilderComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
+      ...provideSpanishTranslations(),
       { provide: Router, useValue: router },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(routeId ? { id: routeId } : {}) } } },
       { provide: FormService, useValue: forms },
       { provide: ProjectService, useValue: { getProjects: () => of([]), getFormTechnicalSheet: () => of({ status: 'DRAFT' }) } },
       { provide: AuthService, useValue: { user: () => ({ id: 1 }), isAdmin: () => true } },
       { provide: UserService, useValue: { getUsers: () => of({ data: [{ id: 2, email: 'ana@uleam.edu.ec', name: 'Ana' }] }) } },
-      { provide: TranslateService, useValue: { instant: (key: string) => key } },
       { provide: NotificationService, useValue: notify },
     ],
   });
@@ -345,5 +349,40 @@ describe('Constructor de formularios: vista y acciones', () => {
     await component.removeShare('s1');
     expect(forms.deleteShare).toHaveBeenCalledWith('f1', 's1');
     component.closeShareModal();
+  });
+});
+
+describe('Constructor: subpregunta «mostrar solo si se elige…»', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('marca opciones del padre, sigue renombres y borrados, y guarda solo lo válido', async () => {
+    const saveDraft = vi.fn((_id: string, body: { questions: Array<{ id: string; properties: Record<string, unknown> }> }) =>
+      of({ id: 'f9', state: 'DRAFT', draft_revision: 1, step_by_step: false, questions: body.questions }));
+    const { vm } = setup({ createForm: () => of({ id: 'f9' }), saveDraft });
+    vm.importQuestions(preview({
+      questions: [
+        { temp_id: 'p', row: 2, name: 'p', type: 'MULTIPLE_CHOICE', label: '¿Quién?', required: true, options: ['Policía', 'Otro'],
+          properties: {}, section_name: null, parent_temp_id: null, branch_rules: [] },
+        { temp_id: 'c', row: 3, name: 'c', type: 'TEXT', label: 'Especifique', required: true, options: null,
+          properties: { show_if: { options: ['Otro'] } }, section_name: null, parent_temp_id: 'p', branch_rules: [] },
+      ],
+    }), 'replace');
+    const [parent, child] = vm.questions();
+    expect(vm.showIfParent(child)?.tempId).toBe(parent.tempId);
+    expect(vm.showIfParentOptions(child)).toEqual(['Policía', 'Otro']);
+    expect(vm.showIfSelected(child, 'Otro')).toBe(true);
+
+    vm.updateOption(parent.tempId, 1, 'Otro (especifique)');
+    expect(vm.showIfSelected(vm.questions()[1], 'Otro (especifique)')).toBe(true);
+    vm.toggleShowIf(child.tempId, 'Policía', true);
+    vm.removeOption(parent.tempId, 0);
+    expect(vm.showIfSelected(vm.questions()[1], 'Policía')).toBe(false);
+
+    vm.title.set('Recinto');
+    vm.projectId.set('p1');
+    vm.consentText.set('Acepto participar en la encuesta.');
+    await vm.saveForm();
+    const saved = saveDraft.mock.calls[0][1].questions;
+    expect(saved[1].properties['show_if']).toEqual({ options: ['Otro (especifique)'] });
   });
 });

@@ -2,6 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { NotificationService } from '@core/services/notification.service';
 import { NotificationHostComponent } from './notification-host.component';
+import { provideSpanishTranslations } from '../../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 describe('Notificaciones del sistema', () => {
   afterEach(() => {

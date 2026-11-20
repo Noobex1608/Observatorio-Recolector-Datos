@@ -38,7 +38,7 @@ final class AvatarStorage
         $path = 'avatars/'.Str::uuid().'.webp';
 
         if (! Storage::disk(self::DISK)->put($path, $bytes, 'public')) {
-            throw new RuntimeException('No se pudo guardar el avatar.');
+            throw new RuntimeException(__('No se pudo guardar el avatar.'));
         }
 
         return rtrim((string) config('app.url'), '/').'/api/avatars/'.basename($path);
@@ -48,12 +48,12 @@ final class AvatarStorage
     public function optimize(string $contents): string
     {
         if (! function_exists('imagewebp')) {
-            throw new RuntimeException('El servidor no tiene soporte de imágenes WebP (extensión GD).');
+            throw new RuntimeException(__('El servidor no tiene soporte de imágenes WebP (extensión GD).'));
         }
         $source = $contents !== '' ? @imagecreatefromstring($contents) : false;
         if (! $source instanceof GdImage) {
             throw ValidationException::withMessages([
-                'avatar' => 'No se pudo leer la imagen. Usa una foto JPG, PNG o WebP.',
+                'avatar' => __('No se pudo leer la imagen. Usa una foto JPG, PNG o WebP.'),
             ]);
         }
 
@@ -81,7 +81,7 @@ final class AvatarStorage
         imagedestroy($avatar);
 
         if (! $ok || $bytes === '') {
-            throw new RuntimeException('No se pudo convertir el avatar a WebP.');
+            throw new RuntimeException(__('No se pudo convertir el avatar a WebP.'));
         }
 
         return $bytes;

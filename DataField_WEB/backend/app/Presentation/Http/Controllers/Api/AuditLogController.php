@@ -23,7 +23,7 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
         if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
+            return response()->json(['message' => __('Acceso restringido unicamente a SuperAdministradores')], 403);
         }
 
         $query = AuditLog::with('user:id,name,email,rol')->latest();
@@ -62,7 +62,11 @@ class AuditLogController extends Controller
         $logs = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $logs->items(),
+            // `description` sale en el idioma de la petición; `description_es` se conserva tal cual.
+            'data' => collect($logs->items())->map(fn ($log) => [
+                ...$log->toArray(),
+                'description' => \App\Services\AuditLogService::describe($log),
+            ])->all(),
             'meta' => [
                 'current_page' => $logs->currentPage(),
                 'last_page' => $logs->lastPage(),
@@ -79,7 +83,7 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
         if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
+            return response()->json(['message' => __('Acceso restringido unicamente a SuperAdministradores')], 403);
         }
 
         $totalLogs = AuditLog::count();
@@ -151,7 +155,7 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
         if (! $user || ! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Acceso restringido unicamente a SuperAdministradores'], 403);
+            return response()->json(['message' => __('Acceso restringido unicamente a SuperAdministradores')], 403);
         }
 
         // List all users with their roles

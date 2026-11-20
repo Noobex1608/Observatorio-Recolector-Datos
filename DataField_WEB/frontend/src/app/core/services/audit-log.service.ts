@@ -11,6 +11,8 @@ export interface AuditLogItem {
   action: string;
   module: 'descargas' | 'permisos' | 'formularios' | 'usuarios' | 'proyectos' | string;
   description_es: string;
+  /** Descripción en el idioma de la petición (los registros antiguos solo existen en español). */
+  description?: string;
   ip_address: string;
   user_agent: string;
   metadata: any;

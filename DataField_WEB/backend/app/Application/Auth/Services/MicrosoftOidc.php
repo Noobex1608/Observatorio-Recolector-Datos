@@ -67,7 +67,7 @@ class MicrosoftOidc
             'scope' => 'openid profile email',
         ]);
         if ($response->failed() || ! is_string($response->json('id_token'))) {
-            throw new RuntimeException('Microsoft rechazó el inicio de sesión.');
+            throw new RuntimeException(__('Microsoft rechazó el inicio de sesión.'));
         }
 
         $claims = $this->decodeClaims($response->json('id_token'));
@@ -80,12 +80,12 @@ class MicrosoftOidc
             && is_numeric($claims['exp'] ?? null) && (int) $claims['exp'] > $now - 60
             && (! isset($claims['nbf']) || (int) $claims['nbf'] <= $now + 60);
         if (! $valid) {
-            throw new RuntimeException('El token de Microsoft no es válido para esta aplicación.');
+            throw new RuntimeException(__('El token de Microsoft no es válido para esta aplicación.'));
         }
 
         $email = strtolower(trim((string) ($claims['email'] ?? $claims['preferred_username'] ?? '')));
         if (! filter_var($email, FILTER_VALIDATE_EMAIL) || ! is_string($claims['oid'] ?? null)) {
-            throw new RuntimeException('La cuenta de Microsoft no tiene un correo válido.');
+            throw new RuntimeException(__('La cuenta de Microsoft no tiene un correo válido.'));
         }
 
         return ['email' => $email, 'oid' => $claims['oid'], 'name' => (string) ($claims['name'] ?? '')];
@@ -101,11 +101,11 @@ class MicrosoftOidc
     {
         $parts = explode('.', $jwt);
         if (count($parts) !== 3) {
-            throw new RuntimeException('Token de Microsoft con formato inválido.');
+            throw new RuntimeException(__('Token de Microsoft con formato inválido.'));
         }
         $segment = strtr($parts[1], '-_', '+/');
         $payload = json_decode((string) base64_decode(str_pad($segment, (int) ceil(strlen($segment) / 4) * 4, '='), true), true);
 
-        return is_array($payload) ? $payload : throw new RuntimeException('Token de Microsoft ilegible.');
+        return is_array($payload) ? $payload : throw new RuntimeException(__('Token de Microsoft ilegible.'));
     }
 }

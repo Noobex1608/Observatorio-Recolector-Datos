@@ -1,6 +1,6 @@
 import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '@core/services/auth.service';
 import { CollectorOption, DataCenterService, ResponseCorrection } from '@core/services/data-center.service';
@@ -17,8 +17,9 @@ import { PieChartComponent } from '@presentation/components/charts/pie-chart.com
 import { GpsResultsMapComponent } from './gps-results-map.component';
 import { FormResponseRow, FormResponsesViewModel } from '@presentation/viewmodels/form-responses.viewmodel';
 import { AnswerViewerComponent } from '@shared/components/answer-viewer/answer-viewer.component';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { qrDataUrl } from '@core/utils/qr-code';
+import { QualityIssueKind, reviewResponses } from '@core/utils/response-quality';
 
 @Component({
   selector: 'app-form-responses',
@@ -49,6 +50,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly dataCenter = inject(DataCenterService);
   private readonly notify = inject(NotificationService);
+  private readonly i18n = inject(TranslateService);
 
   displayedColumns: string[] = [];
   selectedResponse: FormResponseRow | null = null;
@@ -100,7 +102,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
     const response = this.selectedResponse;
     if (!response || this.correctionBusy()) return;
     if (this.editReason.trim().length < 5) {
-      this.correctionError.set('Escribe el motivo de la corrección (al menos 5 caracteres).');
+      this.correctionError.set(this.i18n.instant('forms.responses.page.errors.reasonRequired'));
       return;
     }
     let value = this.editValue;
@@ -118,7 +120,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.correctionBusy.set(false);
-        this.correctionError.set(this.firstError(err, 'No se pudo corregir la respuesta.'));
+        this.correctionError.set(this.firstError(err, this.i18n.instant('forms.responses.page.errors.correct')));
       },
     });
   }
@@ -141,7 +143,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
     const response = this.selectedResponse;
     if (!response || this.correctionBusy()) return;
     if (this.panelReason.trim().length < 5) {
-      this.correctionError.set('Escribe el motivo de la anulación (al menos 5 caracteres).');
+      this.correctionError.set(this.i18n.instant('forms.responses.page.errors.voidReasonRequired'));
       return;
     }
     this.correctionBusy.set(true);
@@ -157,7 +159,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.correctionBusy.set(false);
-        this.correctionError.set(this.firstError(err, 'No se pudo anular la respuesta.'));
+        this.correctionError.set(this.firstError(err, this.i18n.instant('forms.responses.page.errors.void')));
       },
     });
   }
@@ -166,7 +168,7 @@ export class ResponsesComponent implements OnInit, OnDestroy {
     const response = this.selectedResponse;
     if (!response || this.correctionBusy()) return;
     if (!this.chosenCollector || this.panelReason.trim().length < 5) {
-      this.correctionError.set('Elige el encuestador y escribe el motivo (al menos 5 caracteres).');
+      this.correctionError.set(this.i18n.instant('forms.responses.page.errors.collectorRequired'));
       return;
     }
     this.correctionBusy.set(true);
@@ -179,25 +181,25 @@ export class ResponsesComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.correctionBusy.set(false);
-        this.correctionError.set(this.firstError(err, 'No se pudo cambiar el encuestador.'));
+        this.correctionError.set(this.firstError(err, this.i18n.instant('forms.responses.page.errors.collector')));
       },
     });
   }
 
   /** Texto legible de un valor del historial. */
   describeValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') return '(vacío)';
-    if (Array.isArray(value)) return value.length ? value.join(', ') : '(vacío)';
+    if (value === null || value === undefined || value === '') return this.i18n.instant('forms.responses.page.history.empty');
+    if (Array.isArray(value)) return value.length ? value.join(', ') : this.i18n.instant('forms.responses.page.history.empty');
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   }
 
   correctionTitle(entry: ResponseCorrection): string {
     switch (entry.type) {
-      case 'answer': return `Corrigió «${entry.question}»`;
-      case 'collector': return 'Cambió el encuestador';
-      case 'void': return 'Anuló la respuesta';
-      default: return 'Restauró la respuesta';
+      case 'answer': return this.i18n.instant('forms.responses.page.history.answer', { question: entry.question });
+      case 'collector': return this.i18n.instant('forms.responses.page.history.collector');
+      case 'void': return this.i18n.instant('forms.responses.page.history.void');
+      default: return this.i18n.instant('forms.responses.page.history.restore');
     }
   }
 
@@ -207,13 +209,122 @@ export class ResponsesComponent implements OnInit, OnDestroy {
     return first || err?.error?.message || fallback;
   }
   qrImage: string | null = null;
-  collectUrl = '';
+  readonly linkCopied = signal(false);
 
-  showQr(): void {
-    const link = this.vm.form()?.link_uuid;
-    if (!link) return;
-    this.collectUrl = this.vm.getCollectUrl(link);
-    this.qrImage = qrDataUrl(this.collectUrl);
+  /** Enlace público solo cuando el formulario está publicado. */
+  readonly publicUrl = computed(() => {
+    const form = this.vm.form();
+    return form?.state === 'DEPLOYED' && form.link_uuid ? this.vm.getCollectUrl(form.link_uuid) : '';
+  });
+
+  /** Recolectores ordenados por avance; la barra usa la meta o, sin meta, a quien lleva más. */
+  readonly collectorRows = computed(() => {
+    const shares = this.vm.shareProgress();
+    const max = Math.max(0, ...shares.map((share) => share.responses_count ?? 0));
+    return shares
+      .map((share) => {
+        const count = share.responses_count ?? 0;
+        const target = share.target_responses ?? null;
+        return {
+          id: share.id,
+          name: share.user_name || share.user_email || this.i18n.instant('forms.responses.page.userFallback'),
+          role: share.role,
+          count,
+          target,
+          complete: !!target && count >= target,
+          width: target ? (share.progress ?? 0) : max > 0 ? Math.round((count / max) * 100) : 0,
+        };
+      })
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+  });
+  readonly activeCollectors = computed(() => this.collectorRows().filter((row) => row.count > 0).length);
+  readonly hasTargets = computed(() => this.collectorRows().some((row) => !!row.target));
+  /** El rol solo aporta cuando no todos tienen el mismo. */
+  readonly showRoles = computed(() => new Set(this.collectorRows().map((row) => row.role)).size > 1);
+  readonly lastSubmittedAt = computed(() => {
+    const dates = this.vm.responses().map((row) => row.submitted_at).filter(Boolean).sort();
+    return dates.at(-1) ?? null;
+  });
+
+  // ---- Filtros ----
+  readonly collectorFilterOptions = computed(() => [
+    ...this.vm.shares()
+      .map((share) => ({ value: String(share.user_id), label: share.user_name || share.user?.name || share.user_email || 'forms.responses.page.userFallback' }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es')),
+    { value: 'public', label: 'forms.responses.page.filters.publicOption' },
+  ]);
+
+  setFilter(field: 'from' | 'to' | 'collector', value: string): void {
+    this.showAllIssues.set(false);
+    this.qualityKind.set(null);
+    this.selectedPointKey.set(null);
+    void this.vm.applyFilters({ ...this.vm.filters(), [field]: value ?? '' });
+  }
+
+  clearFilters(): void {
+    this.showAllIssues.set(false);
+    this.qualityKind.set(null);
+    this.selectedPointKey.set(null);
+    void this.vm.applyFilters({ from: '', to: '', collector: '' });
+  }
+
+  // ---- Calidad de los datos ----
+  readonly qualityKinds: { id: QualityIssueKind; label: string }[] = [
+    { id: 'outside', label: 'forms.responses.page.quality.kinds.outside' },
+    { id: 'accuracy', label: 'forms.responses.page.quality.kinds.accuracy' },
+    { id: 'duplicate', label: 'forms.responses.page.quality.kinds.duplicate' },
+  ];
+  readonly qualityKind = signal<QualityIssueKind | null>(null);
+  readonly showAllIssues = signal(false);
+  readonly qualityIssues = computed(() => reviewResponses(
+    this.vm.responses(),
+    this.vm.questions().filter((question) => question.type === 'GPS').map((question) => question.id),
+    this.vm.gpsZones(),
+  ));
+  readonly filteredIssues = computed(() => {
+    const kind = this.qualityKind();
+    return kind ? this.qualityIssues().filter((issue) => issue.kind === kind) : this.qualityIssues();
+  });
+  readonly visibleIssues = computed(() => (this.showAllIssues() ? this.filteredIssues() : this.filteredIssues().slice(0, 5)));
+
+  qualityCount(kind: QualityIssueKind): number {
+    return this.qualityIssues().filter((issue) => issue.kind === kind).length;
+  }
+
+  qualityIcon(kind: QualityIssueKind): string {
+    return kind === 'outside' ? 'wrong_location' : kind === 'accuracy' ? 'gps_not_fixed' : 'content_copy';
+  }
+
+  // ---- Mapa GPS: lista y marcadores vinculados ----
+  readonly selectedPointKey = signal<string | null>(null);
+  readonly hasManyGpsQuestions = computed(() => new Set(this.vm.gpsPoints().map((point) => point.question)).size > 1);
+
+  selectPoint(key: string): void {
+    this.selectedPointKey.set(key);
+    this.document.getElementById(`gps-point-${key}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  openResponseById(responseId: string): void {
+    const row = this.vm.responses().find((item) => item.id === responseId);
+    if (row) this.openResponsePreview(row);
+  }
+
+  toggleQr(): void {
+    if (this.qrImage) { this.qrImage = null; return; }
+    const url = this.publicUrl();
+    if (url) this.qrImage = qrDataUrl(url);
+  }
+
+  copyLink(): void {
+    const url = this.publicUrl();
+    if (!url || !navigator.clipboard) return;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        this.linkCopied.set(true);
+        setTimeout(() => this.linkCopied.set(false), 2000);
+      },
+      () => this.notify.error(this.i18n.instant('forms.responses.page.errors.copy')),
+    );
   }
 
   downloadQr(): void {

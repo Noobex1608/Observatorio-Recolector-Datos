@@ -28,21 +28,21 @@ class UpdateUserUseCase
             $admin = User::findOrFail($dto->adminId);
 
             if (! $admin->canManageUsers()) {
-                throw new AccessDeniedHttpException('Solo los administradores pueden actualizar usuarios');
+                throw new AccessDeniedHttpException(__('Solo los administradores pueden actualizar usuarios'));
             }
 
             // Buscar el usuario a modificar
             $user = User::with('perfil')->find($dto->userId);
 
             if (! $user) {
-                throw new NotFoundHttpException('Usuario no encontrado');
+                throw new NotFoundHttpException(__('Usuario no encontrado'));
             }
 
             if (! $admin->canManageRole($user->rol)) {
-                throw new AccessDeniedHttpException('No tienes permisos para administrar usuarios con ese rol');
+                throw new AccessDeniedHttpException(__('No tienes permisos para administrar usuarios con ese rol'));
             }
             if ($user->hasAccessRequest() && $dto->isActive) {
-                throw new AccessDeniedHttpException('Esta cuenta es una solicitud de acceso: apruébala desde la bandeja de solicitudes.');
+                throw new AccessDeniedHttpException(__('Esta cuenta es una solicitud de acceso: apruébala desde la bandeja de solicitudes.'));
             }
             app(ProtectAdministrator::class)->check($user, $dto->adminId, $dto->rol ?? $user->rol, $dto->isActive ?? $user->is_active);
             $before = $user->only(['name', 'email', 'rol', 'is_active']);
@@ -55,7 +55,7 @@ class UpdateUserUseCase
             if ($dto->email !== null && $dto->email !== $user->email) {
                 // Verificar que el nuevo email no esté en uso
                 if (User::where('email', $dto->email)->where('id', '!=', $user->id)->exists()) {
-                    throw new ConflictHttpException('El email ya está en uso por otro usuario');
+                    throw new ConflictHttpException(__('El email ya está en uso por otro usuario'));
                 }
                 $user->email = $dto->email;
             }
@@ -68,10 +68,10 @@ class UpdateUserUseCase
 
             if ($dto->rol !== null) {
                 if (! in_array($dto->rol, User::ROLES, true)) {
-                    throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR');
+                    throw new \InvalidArgumentException(__('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR'));
                 }
                 if (! $admin->canManageRole($dto->rol)) {
-                    throw new AccessDeniedHttpException('No tienes permisos para asignar ese rol');
+                    throw new AccessDeniedHttpException(__('No tienes permisos para asignar ese rol'));
                 }
                 $user->rol = $dto->rol;
             }
@@ -114,11 +114,11 @@ class UpdateUserUseCase
             $user->load('perfil');
 
             AuditLogService::log($admin, 'UPDATE_USER', 'usuarios',
-                "Actualizó los datos del usuario {$user->email}.", [
+                'Actualizó los datos del usuario :email.', [
                     'target_user_id' => $user->id,
                     'before' => $before,
                     'after' => $user->only(['name', 'email', 'rol', 'is_active']),
-                ]);
+                ], params: ['email' => $user->email]);
 
             return $user;
         });

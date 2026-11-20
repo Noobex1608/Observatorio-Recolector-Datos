@@ -89,7 +89,7 @@ class ProjectSupervisionController extends Controller
         $formIds = $this->formIds($project, $request->query('form_id'));
         $collector = $this->collectorQuery($project, $formIds)->whereKey($userId)
             ->first(['users.id', 'users.name', 'users.email', 'users.cedula']);
-        abort_unless($collector, 404, 'El encuestador no pertenece a este proyecto.');
+        abort_unless($collector, 404, __('El encuestador no pertenece a este proyecto.'));
 
         // Días con encuestas, en hora de Ecuador.
         $moments = FormResponse::query()->whereIn('form_id', $formIds)->where('user_id', $collector->id)
@@ -139,7 +139,7 @@ class ProjectSupervisionController extends Controller
     private function formIds(Project $project, ?string $formId): Collection
     {
         $ids = $project->forms()->when($formId, fn ($q) => $q->whereKey($formId))->pluck('id');
-        abort_if($formId && $ids->isEmpty(), 404, 'El formulario no pertenece a este proyecto.');
+        abort_if($formId && $ids->isEmpty(), 404, __('El formulario no pertenece a este proyecto.'));
 
         return $ids;
     }

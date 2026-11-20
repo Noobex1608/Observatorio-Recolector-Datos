@@ -2,38 +2,39 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 /** Usuario externo: confirma su correo y crea su contraseña desde el enlace de la invitación. */
 @Component({
   standalone: true,
   selector: 'app-activate-account',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslateModule],
   template: `
     <main class="activate-page">
       @if (done()) {
         <section class="card" aria-live="polite">
-          <h1>Cuenta confirmada</h1>
-          <p>Tu correo quedó confirmado y tu contraseña creada. Ya puedes iniciar sesión en la web o en la app de recolección.</p>
-          <a routerLink="/auth/login" class="btn-primary">Iniciar sesión</a>
+          <h1>{{ 'auth.activate.doneTitle' | translate }}</h1>
+          <p>{{ 'auth.activate.doneText' | translate }}</p>
+          <a routerLink="/auth/login" class="btn-primary">{{ 'auth.activate.signIn' | translate }}</a>
         </section>
       } @else if (!token || !email) {
         <section class="card">
-          <h1>Enlace incompleto</h1>
-          <p role="alert">Abre el enlace completo del correo de invitación o pide al administrador que te lo reenvíe.</p>
-          <a routerLink="/auth/login" class="btn-primary">Ir al inicio de sesión</a>
+          <h1>{{ 'auth.activate.incompleteTitle' | translate }}</h1>
+          <p role="alert">{{ 'auth.activate.incompleteText' | translate }}</p>
+          <a routerLink="/auth/login" class="btn-primary">{{ 'auth.activate.goToLogin' | translate }}</a>
         </section>
       } @else {
         <form class="card" [formGroup]="form" (ngSubmit)="submit()">
-          <h1>Confirma tu cuenta</h1>
-          <p>Crea la contraseña para <strong>{{ email }}</strong>. Usa al menos 12 caracteres con mayúsculas, minúsculas y números.</p>
-          <label>Nueva contraseña
+          <h1>{{ 'auth.activate.title' | translate }}</h1>
+          <p>{{ 'auth.activate.introBefore' | translate }} <strong>{{ email }}</strong>{{ 'auth.activate.introAfter' | translate }}</p>
+          <label>{{ 'auth.passwords.new' | translate }}
             <input type="password" formControlName="password" autocomplete="new-password" />
           </label>
-          <label>Confirmar contraseña
+          <label>{{ 'auth.passwords.confirm' | translate }}
             <input type="password" formControlName="confirmation" autocomplete="new-password" />
           </label>
           @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-          <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? 'Guardando…' : 'Confirmar y crear contraseña' }}</button>
+          <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? ('auth.activate.saving' | translate) : ('auth.activate.submit' | translate) }}</button>
         </form>
       }
     </main>
@@ -55,6 +56,7 @@ import { AuthService } from '@core/services/auth.service';
 export class ActivateAccountComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(TranslateService);
   private readonly params = inject(ActivatedRoute).snapshot.queryParamMap;
   readonly token = this.params.get('token') ?? '';
   readonly email = this.params.get('email') ?? '';
@@ -69,11 +71,11 @@ export class ActivateAccountComponent {
   submit(): void {
     const { password, confirmation } = this.form.getRawValue();
     if (password.length < 12 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
-      this.error.set('La contraseña necesita al menos 12 caracteres, con mayúsculas, minúsculas y números.');
+      this.error.set(this.i18n.instant('auth.passwords.rules'));
       return;
     }
     if (password !== confirmation) {
-      this.error.set('Las contraseñas no coinciden.');
+      this.error.set(this.i18n.instant('auth.passwords.mismatch'));
       return;
     }
     this.busy.set(true);

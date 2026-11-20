@@ -92,7 +92,7 @@ export class UsuarioFormComponent implements OnInit {
     SUPER_ADMIN: { label: ROLE_LABELS.SUPER_ADMIN, icon: 'workspace_premium', descKey: 'users.roles.superAdminDesc' },
     ADMIN: { label: ROLE_LABELS.ADMIN, icon: 'security', descKey: 'users.roles.adminDesc' },
     PROJECT: { label: ROLE_LABELS.PROJECT, icon: 'assignment_ind', descKey: 'users.roles.projectDesc' },
-    SUPERVISOR: { label: 'Supervisor de campo', icon: 'visibility' },
+    SUPERVISOR: { label: 'roles.SUPERVISOR_FIELD', icon: 'visibility' },
     RECOLECTOR: { label: ROLE_LABELS.RECOLECTOR, icon: 'person', descKey: 'users.roles.recolectorDesc' },
   };
 
@@ -233,7 +233,7 @@ export class UsuarioFormComponent implements OnInit {
         this.resendingInvitation.set(false);
       },
       error: (err) => {
-        this.notify.error(err.error?.message || 'No se pudo reenviar la invitación.');
+        this.notify.error(err.error?.message || this.translate.instant('users.page.form.resendFailed'));
         this.resendingInvitation.set(false);
       },
     });

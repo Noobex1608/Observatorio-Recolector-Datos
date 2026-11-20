@@ -24,8 +24,8 @@ class UpdateUserRoleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'rol.required' => 'El rol es obligatorio',
-            'rol.in' => 'El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR',
+            'rol.required' => __('El rol es obligatorio'),
+            'rol.in' => __('El rol debe ser SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR o SUPERVISOR'),
         ];
     }
 }

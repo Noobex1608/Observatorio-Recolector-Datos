@@ -50,7 +50,7 @@ class ProjectController extends Controller
     public function leaders(Request $request): JsonResponse
     {
         if (! $request->user()->canManageProjects()) {
-            return response()->json(['message' => 'No tienes permisos para listar lideres'], 403);
+            return response()->json(['message' => __('No tienes permisos para listar lideres')], 403);
         }
 
         return response()->json(
@@ -81,7 +81,7 @@ class ProjectController extends Controller
     {
         $user = $request->user();
         if (! $user->canManageProjects()) {
-            return response()->json(['message' => 'No tienes permisos para crear proyectos'], 403);
+            return response()->json(['message' => __('No tienes permisos para crear proyectos')], 403);
         }
 
         $data = $request->validated();
@@ -115,7 +115,7 @@ class ProjectController extends Controller
         $user = $request->user();
 
         if (! $this->canViewProject($project, $user)) {
-            return response()->json(['message' => 'No tienes permisos para ver este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para ver este proyecto')], 403);
         }
 
         if (! $this->canManageProjectForms($project, $user)) {
@@ -134,16 +134,16 @@ class ProjectController extends Controller
         $user = $request->user();
         $project = Project::findOrFail($id);
         if (! $user->canManageProjects() && ! $user->leadsProject($id) && ! $user->isProjectDelegate($id)) {
-            return response()->json(['message' => 'No tienes permisos para actualizar proyectos'], 403);
+            return response()->json(['message' => __('No tienes permisos para actualizar proyectos')], 403);
         }
         $data = $request->validated();
 
         if (! $user->canManageProjects() && array_key_exists('leader_ids', $data)) {
-            return response()->json(['message' => 'Solo administración puede cambiar líderes'], 403);
+            return response()->json(['message' => __('Solo administración puede cambiar líderes')], 403);
         }
         if ($user->isProjectDelegate($id) && ! $user->leadsProject($id)
             && (array_key_exists('delegate_ids', $data) || array_key_exists('supervisor_ids', $data))) {
-            return response()->json(['message' => 'El delegado solo puede editar datos generales'], 403);
+            return response()->json(['message' => __('El delegado solo puede editar datos generales')], 403);
         }
         $this->validateProjectMembers($data, $user, $project);
 
@@ -156,13 +156,13 @@ class ProjectController extends Controller
             }
             $this->syncProjectMembers($project, $data);
             AuditLogService::log($user, 'PROJECT_UPDATE', 'proyectos',
-                "Actualización del proyecto '{$project->name}'.", [
+                'Actualización del proyecto \':name\'.', [
                     'project_id' => $project->id,
                     'before' => $before,
                     'after' => $project->only(['name', 'description']),
                     'member_fields_changed' => array_values(array_intersect(array_keys($data),
                         ['leader_ids', 'delegate_ids', 'supervisor_ids'])),
-                ]);
+                ], params: ['name' => $project->name]);
         });
 
         $project->load(['leaders:id,name,email,rol', 'delegates:id,name,email,rol', 'supervisors:id,name,email,rol', 'forms.shares.user:id,name,email,rol']);
@@ -175,12 +175,12 @@ class ProjectController extends Controller
     {
         $user = $request->user();
         if (! $user->isSuperAdmin()) {
-            return response()->json(['message' => 'Solo el super admin puede eliminar proyectos'], 403);
+            return response()->json(['message' => __('Solo el super admin puede eliminar proyectos')], 403);
         }
 
         $project = Project::withCount('forms')->findOrFail($id);
         if ($project->forms_count > 0) {
-            return response()->json(['message' => 'No se puede eliminar un proyecto con formularios asociados'], 422);
+            return response()->json(['message' => __('No se puede eliminar un proyecto con formularios asociados')], 422);
         }
 
         DB::transaction(function () use ($project, $user) {
@@ -233,14 +233,14 @@ class ProjectController extends Controller
             $added = array_diff($data['leader_ids'] ?? [], $current);
             if (User::whereIn('id', $added)->whereNotIn('rol', $this->leaderRolesFor($user))->exists()) {
                 abort(422, $user->isSuperAdmin()
-                    ? 'Los líderes deben tener el rol Líder de proyecto, Administrador o Superadministrador.'
-                    : 'Los líderes deben tener el rol Líder de proyecto o Administrador.');
+                    ? __('Los líderes deben tener el rol Líder de proyecto, Administrador o Superadministrador.')
+                    : __('Los líderes deben tener el rol Líder de proyecto o Administrador.'));
             }
         }
         foreach (['delegate_ids' => User::ROLE_PROJECT, 'supervisor_ids' => User::ROLE_SUPERVISOR] as $key => $role) {
             if (array_key_exists($key, $data) && User::whereIn('id', $data[$key] ?? [])
                 ->where('rol', '!=', $role)->exists()) {
-                abort(422, "Los usuarios de {$key} deben tener el rol {$role}.");
+                abort(422, __('Los usuarios de :key deben tener el rol :role.', ['key' => $key, 'role' => $role]));
             }
         }
     }

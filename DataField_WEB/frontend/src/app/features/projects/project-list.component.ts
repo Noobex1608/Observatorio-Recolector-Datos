@@ -19,6 +19,7 @@ import { CollectorCandidate, CollectorImportRow, Project, RandomAssignment, Proj
 import { SupervisionCollectorsComponent } from './supervision/supervision-collectors.component';
 import { MapGeofenceSelectorComponent, GeofenceSelectionEvent } from '@shared/components/map-geofence-selector/map-geofence-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LanguageService } from '@core/services/language.service';
 
 /** La fecha de fin no puede ser anterior a la de inicio (mismo criterio que after_or_equal en el backend). */
 function endDateNotBeforeStart(group: AbstractControl): ValidationErrors | null {
@@ -70,31 +71,31 @@ interface MemberSlot {
     <section class="projects-page">
       <header class="page-header">
         <div>
-          <span class="eyebrow">Gestión de proyectos</span>
+          <span class="eyebrow">{{ 'projects.page.eyebrow' | translate }}</span>
           <h1>{{ 'projects.title' | translate }}</h1>
           <p>{{ 'projects.subtitle' | translate }}</p>
           @if (canManageProjects()) {
             <button mat-flat-button color="primary" type="button" class="new-project-btn"
               (click)="openCreateProject()" [disabled]="creatingProject()">
               <mat-icon>add</mat-icon>
-              Nuevo proyecto
+              {{ 'projects.page.newProject' | translate }}
             </button>
           }
         </div>
         <div class="page-kpis">
           <article>
             <mat-icon>folder_managed</mat-icon>
-            <span>Proyectos</span>
+            <span>{{ 'dataCenter.tabs.projects' | translate }}</span>
             <strong>{{ projects().length }}</strong>
           </article>
           <article>
             <mat-icon>description</mat-icon>
-            <span>Formularios</span>
+            <span>{{ 'dataCenter.tabs.forms' | translate }}</span>
             <strong>{{ totalForms() }}</strong>
           </article>
           <article>
             <mat-icon>supervisor_account</mat-icon>
-            <span>Líderes</span>
+            <span>{{ 'projects.page.leaders' | translate }}</span>
             <strong>{{ totalLeaders() }}</strong>
           </article>
         </div>
@@ -106,39 +107,39 @@ interface MemberSlot {
           <header class="editor-head">
             <div class="editor-title">
               @if (editingProject(); as editing) {
-                <h2 id="project-editor-title">Editar proyecto</h2>
+                <h2 id="project-editor-title">{{ 'projects.page.editProject' | translate }}</h2>
                 <p>{{ editing.name }}</p>
               } @else {
-                <h2 id="project-editor-title">Nuevo proyecto</h2>
-                <p>Un proyecto agrupa los formularios, las zonas y el equipo de un levantamiento.</p>
+                <h2 id="project-editor-title">{{ 'projects.page.newProject' | translate }}</h2>
+                <p>{{ 'projects.page.newProjectIntro' | translate }}</p>
               }
             </div>
             <button mat-icon-button type="button" (click)="cancelEdit()"
-              [attr.aria-label]="editingProject() ? 'Cerrar sin guardar cambios' : 'Cerrar sin crear el proyecto'">
+              [attr.aria-label]="editingProject() ? ('projects.page.closeNoSave' | translate) : ('projects.page.closeNoCreate' | translate)">
               <mat-icon>close</mat-icon>
             </button>
           </header>
 
           <form class="editor-body" [formGroup]="projectForm" (ngSubmit)="saveProject()">
             <fieldset class="editor-section">
-              <legend>Datos del proyecto</legend>
+              <legend>{{ 'projects.page.projectData' | translate }}</legend>
               <mat-form-field appearance="outline">
                 <mat-label>{{ 'projects.name' | translate }}</mat-label>
                 <input #projectNameInput matInput formControlName="name" maxlength="255" required />
                 @if (projectForm.controls.name.hasError('required')) {
-                  <mat-error>El proyecto necesita un nombre.</mat-error>
+                  <mat-error>{{ 'projects.page.nameRequired' | translate }}</mat-error>
                 }
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>{{ 'projects.description' | translate }}</mat-label>
                 <textarea matInput rows="4" formControlName="description"
-                  placeholder="Objetivo, población o territorio que cubre el levantamiento"></textarea>
+                  [placeholder]="'projects.page.descriptionPlaceholder' | translate"></textarea>
               </mat-form-field>
             </fieldset>
 
             @if (memberSlots().length) {
               <fieldset class="editor-section">
-                <legend>Responsables</legend>
+                <legend>{{ 'projects.page.owners' | translate }}</legend>
                 @for (slot of memberSlots(); track slot.key) {
                   <div class="member-slot">
                     <div class="member-slot-head">
@@ -153,18 +154,18 @@ interface MemberSlot {
                         @for (person of slot.options; track person.id) {
                           <mat-option [value]="person.id">
                             <span class="person-option">
-                              <span class="person-name">{{ person.name }}@if (person.id === currentUserId()) { <span class="person-you">(tú)</span> }</span>
+                              <span class="person-name">{{ person.name }}@if (person.id === currentUserId()) { <span class="person-you">{{ 'projects.page.you' | translate }}</span> }</span>
                               <span class="person-email">{{ person.email }}</span>
                             </span>
                           </mat-option>
                         } @empty {
-                          <mat-option disabled>No hay usuarios con este rol todavía.</mat-option>
+                          <mat-option disabled>{{ 'projects.page.noUsersForRole' | translate }}</mat-option>
                         }
                       </mat-select>
                     </mat-form-field>
                     @let people = selectedPeople(slot.key, slot.options);
                     @if (people.length) {
-                      <ul class="people-list" [attr.aria-label]="slot.label + ' asignados'">
+                      <ul class="people-list" [attr.aria-label]="'projects.page.assignedTo' | translate: { role: slot.label }">
                         @for (person of people; track person.id) {
                           <li class="person-chip">
                             <span class="person-initial" aria-hidden="true">{{ person.name.charAt(0) }}</span>
@@ -173,7 +174,7 @@ interface MemberSlot {
                               <span class="person-email">{{ person.email }}</span>
                             </span>
                             <button mat-icon-button type="button" class="person-remove" (click)="removeMember(slot.key, person.id)"
-                              [attr.aria-label]="'Quitar a ' + person.name + ' de ' + slot.label">
+                              [attr.aria-label]="'projects.page.removePerson' | translate: { name: person.name, role: slot.label }">
                               <mat-icon>close</mat-icon>
                             </button>
                           </li>
@@ -187,7 +188,7 @@ interface MemberSlot {
                 @if (creatingProject() && canManageProjects()) {
                   <p class="editor-note">
                     <mat-icon aria-hidden="true">info</mat-icon>
-                    Los delegados y supervisores se asignan después, desde «Editar proyecto».
+                    {{ 'projects.page.delegatesLater' | translate }}
                   </p>
                 }
               </fieldset>
@@ -197,8 +198,8 @@ interface MemberSlot {
               <button mat-stroked-button type="button" (click)="cancelEdit()">{{ 'common.buttons.cancel' | translate }}</button>
               <button mat-flat-button color="primary" type="submit" [disabled]="projectForm.invalid || saving()">
                 <mat-icon>{{ editingProject() ? 'save' : 'add' }}</mat-icon>
-                @if (saving()) { {{ editingProject() ? 'Guardando…' : 'Creando…' }} }
-                @else { {{ editingProject() ? 'Guardar cambios' : 'Crear proyecto' }} }
+                @if (saving()) { {{ editingProject() ? ('projects.page.saving' | translate) : ('projects.page.creating' | translate) }} }
+                @else { {{ editingProject() ? ('projects.page.saveChanges' | translate) : ('projects.page.createProject' | translate) }} }
               </button>
             </footer>
           </form>
@@ -232,7 +233,7 @@ interface MemberSlot {
                 @if (canManageProjects() && !creatingProject()) {
                   <button mat-stroked-button type="button" (click)="openCreateProject()">
                     <mat-icon>add</mat-icon>
-                    Crear el primer proyecto
+                    {{ 'projects.page.createFirst' | translate }}
                   </button>
                 }
               </div>
@@ -245,7 +246,7 @@ interface MemberSlot {
                 <div class="panel-heading">
                   <h2>{{ project.name }}</h2>
                   @if (selectedForm(); as form) {
-                    <p>Formulario seleccionado: <strong>{{ form.title }}</strong></p>
+                    <p>{{ 'projects.page.selectedForm' | translate }} <strong>{{ form.title }}</strong></p>
                   }
                   <small>{{ 'projects.formsCount' | translate: { count: project.forms?.length ?? project.forms_count ?? 0 } }}</small>
                 </div>
@@ -263,11 +264,11 @@ interface MemberSlot {
                   <mat-tab>
                     <ng-template mat-tab-label>
                       <mat-icon class="tab-icon">assignment_turned_in</mat-icon>
-                      Ficha Técnica
+                      {{ 'projects.page.tabs.sheet' | translate }}
                     </ng-template>
 
                     <div class="tab-body">
-                      <p class="muted">Una sola ficha para todo el proyecto. Al validarla se habilitan las preguntas, las zonas y la publicación de todos sus formularios; cada formulario define sus fechas dentro de este periodo.</p>
+                      <p class="muted">{{ 'projects.page.sheetIntro' | translate }}</p>
                       <form [formGroup]="technicalSheetForm" (ngSubmit)="saveTechnicalSheet()" class="sheet-form">
                         <div class="sheet-banner" [class.validated]="technicalSheet()?.status === 'VALIDATED'">
                           <mat-icon>{{ technicalSheet()?.status === 'VALIDATED' ? 'verified_user' : 'info' }}</mat-icon>
@@ -275,7 +276,7 @@ interface MemberSlot {
                             <strong>{{ 'projects.technicalSheet.title' | translate }}</strong>
                             <p>
                               @if (technicalSheet()?.status === 'VALIDATED') {
-                                {{ 'projects.technicalSheet.validatedInfo' | translate: { name: technicalSheet()?.validator?.name || 'Administrador', date: (technicalSheet()?.validated_at | date:'medium') } }}
+                                {{ 'projects.technicalSheet.validatedInfo' | translate: { name: technicalSheet()?.validator?.name || ('projects.page.adminFallback' | translate), date: (technicalSheet()?.validated_at | date:'medium') } }}
                               } @else {
                                 {{ 'projects.technicalSheet.draftNotice' | translate }}
                               }
@@ -328,7 +329,7 @@ interface MemberSlot {
 
                           @if (!editingSheet() && canEditSelectedProject()) {
                             <button mat-stroked-button type="button" (click)="editingSheet.set(true)">
-                              <mat-icon>edit</mat-icon> Editar ficha
+                              <mat-icon>edit</mat-icon> {{ 'projects.page.editSheet' | translate }}
                             </button>
                           }
 
@@ -346,14 +347,14 @@ interface MemberSlot {
                           }
                         </div>
                         @if (editingSheet() && technicalSheet()?.status === 'VALIDATED') {
-                          <p class="muted">Al guardar cambios la ficha vuelve a borrador: los formularios en borrador no podrán editarse ni publicarse hasta que el líder la valide de nuevo. Los formularios ya publicados siguen recibiendo encuestas.</p>
+                          <p class="muted">{{ 'projects.page.sheetRevalidate' | translate }}</p>
                         }
                       </form>
 
                       <!-- Fechas propias de cada formulario, dentro del periodo del proyecto -->
                       <section class="panel-section form-periods">
                         <div class="section-title">
-                          <h2>Periodo de cada formulario</h2>
+                          <h2>{{ 'projects.page.formPeriods' | translate }}</h2>
                           @if (canCreateFormsInProject(project)) {
                             <button mat-stroked-button type="button" (click)="openNewFormModal(project)">
                               <mat-icon>add_circle</mat-icon> {{ 'projects.newForm' | translate }}
@@ -361,10 +362,10 @@ interface MemberSlot {
                           }
                         </div>
                         <p class="muted">
-                          Deben estar dentro del periodo del proyecto
+                          {{ 'projects.page.periodsRule' | translate }}
                           @if (technicalSheet()?.start_date && technicalSheet()?.end_date) {
-                            ({{ technicalSheet()?.start_date | date:'dd/MM/yyyy' }} al {{ technicalSheet()?.end_date | date:'dd/MM/yyyy' }})
-                          }. Un formulario sin fechas propias toma el periodo del proyecto al publicarse.
+                            ({{ 'projects.page.periodRange' | translate: { start: (technicalSheet()?.start_date | date:'dd/MM/yyyy'), end: (technicalSheet()?.end_date | date:'dd/MM/yyyy') } }})
+                          }. {{ 'projects.page.periodsDefault' | translate }}
                         </p>
                         @for (form of project.forms ?? []; track form.id) {
                           <div class="form-period-row">
@@ -373,7 +374,7 @@ interface MemberSlot {
                               <small [class]="'form-state-badge ' + form.state.toLowerCase()">{{ formStateLabel(form.state) }}</small>
                             </div>
                             <mat-form-field appearance="outline">
-                              <mat-label>Inicio</mat-label>
+                              <mat-label>{{ 'projects.page.start' | translate }}</mat-label>
                               <input matInput type="date"
                                 [value]="formPeriodValue(form, 'start_date')"
                                 (change)="setFormPeriod(form, 'start_date', $event)"
@@ -382,7 +383,7 @@ interface MemberSlot {
                                 [disabled]="form.state === 'DEPLOYED' || !canEditSelectedProject()" />
                             </mat-form-field>
                             <mat-form-field appearance="outline">
-                              <mat-label>Fin</mat-label>
+                              <mat-label>{{ 'projects.page.end' | translate }}</mat-label>
                               <input matInput type="date"
                                 [value]="formPeriodValue(form, 'end_date')"
                                 (change)="setFormPeriod(form, 'end_date', $event)"
@@ -391,17 +392,17 @@ interface MemberSlot {
                                 [disabled]="form.state === 'DEPLOYED' || !canEditSelectedProject()" />
                             </mat-form-field>
                             @if (form.state === 'DEPLOYED') {
-                              <small class="muted">Publicado: archívalo para cambiar sus fechas.</small>
+                              <small class="muted">{{ 'projects.page.publishedDates' | translate }}</small>
                             } @else if (canEditSelectedProject()) {
                               <button mat-stroked-button type="button"
                                 [disabled]="!formPeriodDirty(form) || savingFormPeriodId() === form.id"
                                 (click)="saveFormPeriod(form)">
-                                <mat-icon>save</mat-icon> Guardar fechas
+                                <mat-icon>save</mat-icon> {{ 'projects.page.saveDates' | translate }}
                               </button>
                             }
                           </div>
                         } @empty {
-                          <p class="muted">Este proyecto aún no tiene formularios.</p>
+                          <p class="muted">{{ 'projects.page.noForms' | translate }}</p>
                         }
                       </section>
                     </div>
@@ -411,7 +412,7 @@ interface MemberSlot {
                   <mat-tab>
                     <ng-template mat-tab-label>
                       <mat-icon class="tab-icon">assignment</mat-icon>
-                      Formularios y Miembros
+                      {{ 'projects.page.tabs.forms' | translate }}
                     </ng-template>
 
                     <section class="panel-section">
@@ -434,9 +435,9 @@ interface MemberSlot {
                                 @if (form.start_date || form.end_date) {
                                   <span class="form-item-dates">
                                     <mat-icon>calendar_today</mat-icon>
-                                    {{ form.start_date ? (form.start_date | date:'dd/MM/yyyy') : 'Inmediato' }}
+                                    {{ form.start_date ? (form.start_date | date:'dd/MM/yyyy') : ('projects.page.immediate' | translate) }}
                                     —
-                                    {{ form.end_date ? (form.end_date | date:'dd/MM/yyyy') : 'Sin límite' }}
+                                    {{ form.end_date ? (form.end_date | date:'dd/MM/yyyy') : ('projects.page.noLimit' | translate) }}
                                   </span>
                                 }
                               </div>
@@ -457,67 +458,67 @@ interface MemberSlot {
 
                       @if (canAssignMembers()) {
                         <div class="collector-panel">
-                          <h3>Encuestadores del proyecto</h3>
+                          <h3>{{ 'projects.page.collectors.title' | translate }}</h3>
                           <div class="collector-actions">
-                            <button mat-stroked-button type="button" (click)="downloadCollectorTemplate()">Descargar plantilla Excel</button>
-                            <label class="collector-upload">Importar Excel (.xlsx)
+                            <button mat-stroked-button type="button" (click)="downloadCollectorTemplate()">{{ 'projects.page.collectors.downloadTemplate' | translate }}</button>
+                            <label class="collector-upload">{{ 'projects.page.collectors.import' | translate }}
                               <input type="file" accept=".xlsx" (change)="chooseCollectorFile($event)" />
                             </label>
                           </div>
                           @if (collectorPreview().length) {
                             <div class="collector-preview">
-                              <strong>Vista previa: {{ collectorPreview().length }} fila(s)</strong>
+                              <strong>{{ 'projects.page.collectors.previewRows' | translate: { count: collectorPreview().length } }}</strong>
                               @for (row of collectorPreview(); track row.row) {
                                 <div class="collector-row" [class.collector-invalid]="row.errors.length">
                                   <span>{{ row.row }}. {{ row.name }} · {{ row.cedula }} · {{ row.email }} ({{ row.status }})</span>
                                   @if (row.errors.length) { <small>{{ row.errors.join(' ') }}</small> }
                                 </div>
                               }
-                              <button mat-flat-button type="button" [disabled]="!collectorPreviewValid() || collectorBusy()" (click)="confirmCollectorImport()">Confirmar importación</button>
+                              <button mat-flat-button type="button" [disabled]="!collectorPreviewValid() || collectorBusy()" (click)="confirmCollectorImport()">{{ 'projects.page.collectors.confirmImport' | translate }}</button>
                             </div>
                           }
                           @if (collectorCredentials().length) {
                             <div class="collector-preview">
-                              <strong>{{ collectorCredentials().length }} cuenta(s) nueva(s). Descarga las claves temporales ahora; no se volverán a mostrar.</strong>
-                              <button mat-flat-button type="button" (click)="downloadCollectorCredentials()">Descargar credenciales CSV</button>
+                              <strong>{{ 'projects.page.collectors.newAccounts' | translate: { count: collectorCredentials().length } }}</strong>
+                              <button mat-flat-button type="button" (click)="downloadCollectorCredentials()">{{ 'projects.page.collectors.downloadCredentials' | translate }}</button>
                             </div>
                           }
                           <!-- Agregar usuarios encuestadores que ya tienen cuenta -->
                           <div class="collector-toolbar">
                             <button mat-stroked-button type="button" (click)="toggleAddExisting()">
-                              <mat-icon>person_add</mat-icon> {{ showAddExisting() ? 'Cerrar' : 'Agregar usuarios existentes' }}
+                              <mat-icon>person_add</mat-icon> {{ showAddExisting() ? ('common.buttons.close' | translate) : ('projects.page.collectors.addExisting' | translate) }}
                             </button>
                           </div>
                           @if (showAddExisting()) {
                             <div class="collector-preview">
-                              <strong>Agregar encuestadores que ya tienen cuenta</strong>
-                              <input class="collector-search" type="search" placeholder="Buscar por nombre, correo o cédula..."
-                                [value]="candidateSearch()" (input)="onCandidateSearch($event)" aria-label="Buscar usuarios existentes" />
+                              <strong>{{ 'projects.page.collectors.addExistingTitle' | translate }}</strong>
+                              <input class="collector-search" type="search" [placeholder]="'projects.page.collectors.searchCandidates' | translate"
+                                [value]="candidateSearch()" (input)="onCandidateSearch($event)" [attr.aria-label]="'projects.page.collectors.searchCandidatesLabel' | translate" />
                               @for (candidate of candidates(); track candidate.id) {
                                 <label class="collector-form">
                                   <input type="checkbox" [checked]="selectedCandidateIds().includes(candidate.id)" (change)="toggleCandidate(candidate.id)" />
-                                  {{ candidate.name }} · {{ candidate.cedula || 'sin cédula' }} · {{ candidate.email }}
+                                  {{ candidate.name }} · {{ candidate.cedula || ('projects.page.collectors.noId' | translate) }} · {{ candidate.email }}
                                 </label>
                               } @empty {
-                                <small class="muted">{{ candidateSearch() ? 'No hay encuestadores fuera del proyecto con esa búsqueda.' : 'No hay más encuestadores activos fuera del proyecto.' }}</small>
+                                <small class="muted">{{ candidateSearch() ? ('projects.page.collectors.noCandidatesSearch' | translate) : ('projects.page.collectors.noCandidates' | translate) }}</small>
                               }
                               <button mat-flat-button type="button" [disabled]="!selectedCandidateIds().length || collectorBusy()" (click)="addExistingCollectors()">
-                                Agregar {{ selectedCandidateIds().length || '' }} al proyecto
+                                {{ 'projects.page.collectors.addToProject' | translate: { count: selectedCandidateIds().length || '' } }}
                               </button>
                             </div>
                           }
 
                           <!-- Búsqueda, selección masiva y paginación del equipo -->
                           <div class="collector-toolbar">
-                            <input class="collector-search" type="search" placeholder="Buscar en el equipo por nombre, correo o cédula..."
-                              [value]="collectorSearch()" (input)="onCollectorSearch($event)" aria-label="Buscar encuestadores del proyecto" />
+                            <input class="collector-search" type="search" [placeholder]="'projects.page.collectors.searchTeam' | translate"
+                              [value]="collectorSearch()" (input)="onCollectorSearch($event)" [attr.aria-label]="'projects.page.collectors.searchTeamLabel' | translate" />
                             <button mat-stroked-button type="button" [disabled]="collectorBusy()" (click)="selectAllCollectors()">
-                              <mat-icon>select_all</mat-icon> Seleccionar todos{{ collectorSearch() ? ' (búsqueda)' : '' }}
+                              <mat-icon>select_all</mat-icon> {{ (collectorSearch() ? 'projects.page.collectors.selectAllSearch' : 'projects.page.collectors.selectAll') | translate }}
                             </button>
-                            <button mat-stroked-button type="button" (click)="selectCollectorPage()">Seleccionar página</button>
+                            <button mat-stroked-button type="button" (click)="selectCollectorPage()">{{ 'projects.page.collectors.selectPage' | translate }}</button>
                             @if (selectedCollectorIds().length) {
                               <button mat-stroked-button type="button" (click)="selectedCollectorIds.set([])">
-                                <mat-icon>deselect</mat-icon> Quitar selección ({{ selectedCollectorIds().length }})
+                                <mat-icon>deselect</mat-icon> {{ 'projects.page.collectors.clearSelection' | translate: { count: selectedCollectorIds().length } }}
                               </button>
                             }
                           </div>
@@ -525,39 +526,39 @@ interface MemberSlot {
                             <div class="collector-row">
                               <label><input type="checkbox" [checked]="selectedCollectorIds().includes(collector.id)" [disabled]="!collector.is_active" (change)="toggleCollectorSelection(collector.id)" /></label>
                               @if (editingCollectorId() === collector.id) {
-                                <input #collectorName [value]="collector.name" aria-label="Nombre del encuestador" />
-                                <input #collectorEmail [value]="collector.email" aria-label="Correo del encuestador" />
-                                <input #collectorCedula [value]="collector.cedula" aria-label="Cédula del encuestador" />
-                                <button type="button" (click)="saveCollector(collector, collectorName.value, collectorEmail.value, collectorCedula.value)">Guardar</button>
-                                <button type="button" (click)="editingCollectorId.set(null)">Cancelar</button>
+                                <input #collectorName [value]="collector.name" [attr.aria-label]="'projects.page.collectors.nameLabel' | translate" />
+                                <input #collectorEmail [value]="collector.email" [attr.aria-label]="'projects.page.collectors.emailLabel' | translate" />
+                                <input #collectorCedula [value]="collector.cedula" [attr.aria-label]="'projects.page.collectors.idLabel' | translate" />
+                                <button type="button" (click)="saveCollector(collector, collectorName.value, collectorEmail.value, collectorCedula.value)">{{ 'common.buttons.save' | translate }}</button>
+                                <button type="button" (click)="editingCollectorId.set(null)">{{ 'common.buttons.cancel' | translate }}</button>
                               } @else {
-                                <span><strong>{{ collector.name }}</strong> · {{ collector.cedula }} · {{ collector.email }}<br /><small>{{ collector.is_active ? 'Activo' : 'Inactivo' }} · {{ collector.form_ids.length }} formulario(s)</small></span>
-                                <button type="button" (click)="editingCollectorId.set(collector.id)">Editar</button>
-                                <button type="button" (click)="setCollectorActive(collector, !collector.is_active)">{{ collector.is_active ? 'Desactivar' : 'Activar' }}</button>
-                                <button type="button" (click)="removeCollector(collector)">Quitar</button>
+                                <span><strong>{{ collector.name }}</strong> · {{ collector.cedula }} · {{ collector.email }}<br /><small>{{ collector.is_active ? ('projects.page.collectors.active' | translate) : ('projects.page.collectors.inactive' | translate) }} · {{ 'projects.page.collectors.formsCount' | translate: { count: collector.form_ids.length } }}</small></span>
+                                <button type="button" (click)="editingCollectorId.set(collector.id)">{{ 'common.buttons.edit' | translate }}</button>
+                                <button type="button" (click)="setCollectorActive(collector, !collector.is_active)">{{ collector.is_active ? ('projects.page.collectors.deactivate' | translate) : ('projects.page.collectors.activate' | translate) }}</button>
+                                <button type="button" (click)="removeCollector(collector)">{{ 'projects.page.collectors.remove' | translate }}</button>
                               }
                             </div>
                           } @empty {
-                            <p class="muted">{{ collectorSearch() ? 'Ningún encuestador del proyecto coincide con la búsqueda.' : 'Este proyecto aún no tiene encuestadores. Impórtalos con la plantilla o agrega usuarios existentes.' }}</p>
+                            <p class="muted">{{ collectorSearch() ? ('projects.page.collectors.noMatch' | translate) : ('projects.page.collectors.empty' | translate) }}</p>
                           }
                           @if (collectorPagination(); as pagination) {
                             @if (pagination.last_page > 1) {
                               <div class="collector-pager">
-                                <button mat-stroked-button type="button" [disabled]="pagination.current_page <= 1" (click)="goToCollectorPage(pagination.current_page - 1)">Anterior</button>
-                                <span>Página {{ pagination.current_page }} de {{ pagination.last_page }} · {{ pagination.total }} encuestadores</span>
-                                <button mat-stroked-button type="button" [disabled]="pagination.current_page >= pagination.last_page" (click)="goToCollectorPage(pagination.current_page + 1)">Siguiente</button>
+                                <button mat-stroked-button type="button" [disabled]="pagination.current_page <= 1" (click)="goToCollectorPage(pagination.current_page - 1)">{{ 'projects.page.collectors.previous' | translate }}</button>
+                                <span>{{ 'projects.page.collectors.page' | translate: { page: pagination.current_page, pages: pagination.last_page, total: pagination.total } }}</span>
+                                <button mat-stroked-button type="button" [disabled]="pagination.current_page >= pagination.last_page" (click)="goToCollectorPage(pagination.current_page + 1)">{{ 'projects.page.collectors.next' | translate }}</button>
                               </div>
                             } @else {
-                              <small class="muted">{{ pagination.total }} encuestador(es)</small>
+                              <small class="muted">{{ 'projects.page.collectors.total' | translate: { count: pagination.total } }}</small>
                             }
                           }
                           @if (collectors().length && (project.forms ?? []).length) {
                             <div class="collector-preview">
-                              <strong>Repartir formularios a los encuestadores seleccionados</strong>
+                              <strong>{{ 'projects.page.collectors.assignFormsTitle' | translate }}</strong>
                               @for (form of project.forms ?? []; track form.id) {
                                 <label class="collector-form"><input type="checkbox" [checked]="selectedCollectorFormIds().includes(form.id)" (change)="toggleCollectorFormSelection(form.id)" />{{ form.title }}</label>
                               }
-                              <button mat-flat-button type="button" [disabled]="!selectedCollectorIds().length || !selectedCollectorFormIds().length || collectorBusy()" (click)="assignCollectorForms()">Asignar formularios</button>
+                              <button mat-flat-button type="button" [disabled]="!selectedCollectorIds().length || !selectedCollectorFormIds().length || collectorBusy()" (click)="assignCollectorForms()">{{ 'projects.page.collectors.assignForms' | translate }}</button>
                             </div>
                           }
                         </div>
@@ -586,12 +587,12 @@ interface MemberSlot {
                   <mat-tab>
                     <ng-template mat-tab-label>
                       <mat-icon class="tab-icon">map</mat-icon>
-                      Delimitación Multizona
+                      {{ 'projects.page.tabs.zones' | translate }}
                     </ng-template>
 
                     <div class="tab-body">
                       <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Primero seleccione el formulario</mat-label>
+                        <mat-label>{{ 'projects.page.zones.selectForm' | translate }}</mat-label>
                         <mat-select [value]="selectedFormId()" (selectionChange)="selectForm($event.value)">
                           @for (form of project.forms ?? []; track form.id) {
                             <mat-option [value]="form.id">{{ form.title }}</mat-option>
@@ -600,14 +601,14 @@ interface MemberSlot {
                       </mat-form-field>
                       @if (selectedFormId() && technicalSheet()?.status !== 'VALIDATED') {
                         <div class="zone-prerequisite">
-                          <p>La ficha técnica del proyecto debe estar validada antes de delimitar zonas.</p>
+                          <p>{{ 'projects.page.zones.sheetRequired' | translate }}</p>
                           @if (canLeadSelectedProject()) {
                             <button mat-stroked-button type="button" (click)="selectedTabIndex = 0">
                               <mat-icon>assignment_turned_in</mat-icon>
-                              Ir a ficha técnica para validarla
+                              {{ 'projects.page.zones.goToSheet' | translate }}
                             </button>
                           } @else {
-                            <p>Solicita al líder del proyecto que valide la ficha técnica.</p>
+                            <p>{{ 'projects.page.zones.askLeader' | translate }}</p>
                           }
                         </div>
                       }
@@ -615,17 +616,17 @@ interface MemberSlot {
                       <div class="zone-kpis">
                         <article class="kpi-card">
                           <mat-icon>place</mat-icon>
-                          <span>Zonas Delimitadas</span>
+                          <span>{{ 'projects.page.zones.kpiZones' | translate }}</span>
                           <strong>{{ zones().length }}</strong>
                         </article>
                         <article class="kpi-card">
                           <mat-icon>group</mat-icon>
-                          <span>Pool Encuestadores</span>
+                          <span>{{ 'projects.page.zones.kpiPool' | translate }}</span>
                           <strong>{{ allEnumerators().length }}</strong>
                         </article>
                         <article class="kpi-card">
                           <mat-icon>person_pin_circle</mat-icon>
-                          <span>Asignados por Zonas</span>
+                          <span>{{ 'projects.page.zones.kpiAssigned' | translate }}</span>
                           <strong>{{ totalAssignedCount() }}</strong>
                         </article>
                       </div>
@@ -660,13 +661,13 @@ interface MemberSlot {
                                 </mat-form-field>
 
                                 <mat-form-field appearance="outline">
-                                  <mat-label>Cuota de Encuestadores (Cantidad)</mat-label>
+                                  <mat-label>{{ 'projects.page.zones.quota' | translate }}</mat-label>
                                   <input matInput type="number" formControlName="assigned_count" placeholder="Ej. 50" />
                                 </mat-form-field>
 
                                 <mat-form-field appearance="outline">
                                   <mat-label>{{ 'projects.zones.zoneDescription' | translate }}</mat-label>
-                                  <input matInput formControlName="description" placeholder="Notas sobre la zona..." />
+                                  <input matInput formControlName="description" [placeholder]="'projects.page.zones.notesPlaceholder' | translate" />
                                 </mat-form-field>
                               </div>
 
@@ -675,25 +676,25 @@ interface MemberSlot {
                                 <div class="picker-header">
                                   <h4>
                                     <mat-icon>person_add</mat-icon>
-                                    Asignar Encuestadores Especificos ({{ selectedEnumeratorIds().length }}{{ zoneForm.value.assigned_count ? ' / cuota ' + zoneForm.value.assigned_count : '' }} seleccionados de {{ allEnumerators().length }} del proyecto)
+                                    {{ (zoneForm.value.assigned_count ? 'projects.page.zones.pickerTitleQuota' : 'projects.page.zones.pickerTitle') | translate: { selected: selectedEnumeratorIds().length, quota: zoneForm.value.assigned_count, total: allEnumerators().length } }}
                                   </h4>
                                   <div class="picker-actions">
                                     <button mat-stroked-button type="button" (click)="selectAllEnumerators()">
-                                      <mat-icon>select_all</mat-icon> Seleccionar Todos
+                                      <mat-icon>select_all</mat-icon> {{ 'projects.page.zones.selectAll' | translate }}
                                     </button>
                                     <button mat-stroked-button type="button" (click)="clearSelectedEnumerators()">
-                                      <mat-icon>deselect</mat-icon> Limpiar
+                                      <mat-icon>deselect</mat-icon> {{ 'projects.page.zones.clear' | translate }}
                                     </button>
                                   </div>
                                 </div>
 
                                 <div class="enumerator-search-box">
                                   <mat-form-field appearance="outline" class="w-full">
-                                    <mat-label>Buscar encuestador por nombre, correo o rol...</mat-label>
-                                    <input matInput [value]="enumeratorSearchQuery()" (input)="onSearchEnumerator($event)" placeholder="Ej. Steven, recolector..." />
+                                    <mat-label>{{ 'projects.page.zones.searchEnumerator' | translate }}</mat-label>
+                                    <input matInput [value]="enumeratorSearchQuery()" (input)="onSearchEnumerator($event)" [placeholder]="'projects.page.zones.searchEnumeratorPlaceholder' | translate" />
                                     <mat-icon matPrefix>search</mat-icon>
                                     @if (enumeratorSearchQuery()) {
-                                      <button mat-icon-button matSuffix (click)="enumeratorSearchQuery.set('')" type="button" aria-label="Limpiar búsqueda">
+                                      <button mat-icon-button matSuffix (click)="enumeratorSearchQuery.set('')" type="button" [attr.aria-label]="'projects.page.clearSearch' | translate">
                                         <mat-icon>close</mat-icon>
                                       </button>
                                     }
@@ -712,9 +713,9 @@ interface MemberSlot {
                                     </label>
                                   } @empty {
                                     @if (allEnumerators().length === 0) {
-                                      <p class="muted">Este proyecto aún no tiene encuestadores activos. Impórtalos desde la pestaña Encuestadores.</p>
+                                      <p class="muted">{{ 'projects.page.zones.noActive' | translate }}</p>
                                     } @else {
-                                      <p class="muted">No se encontraron encuestadores con la búsqueda realizada.</p>
+                                      <p class="muted">{{ 'projects.page.zones.noSearchResults' | translate }}</p>
                                     }
                                   }
                                 </div>
@@ -724,7 +725,7 @@ interface MemberSlot {
                               <div class="map-wrapper">
                                 <h4>
                                   <mat-icon>location_searching</mat-icon>
-                                  Delimitación Espacial en Mapa
+                                  {{ 'projects.page.zones.mapTitle' | translate }}
                                 </h4>
                                 <app-map-geofence-selector
                                   [zoneName]="zoneForm.value.name || ''"
@@ -757,34 +758,34 @@ interface MemberSlot {
                             <mat-card-header>
                               <mat-icon mat-card-avatar color="primary">pin_drop</mat-icon>
                               <mat-card-title>{{ zone.name }}</mat-card-title>
-                              <mat-card-subtitle>{{ zone.description || 'Zona delimitada' }}</mat-card-subtitle>
+                              <mat-card-subtitle>{{ zone.description || ('projects.page.zones.defaultDescription' | translate) }}</mat-card-subtitle>
                             </mat-card-header>
 
                             <mat-card-content class="zone-card-body">
                               <div class="zone-details">
                                 <span class="badge" [class.polygon]="zone.geofence_type === 'manzana_polygon'">
                                   <mat-icon>{{ zone.geofence_type === 'manzana_polygon' ? 'polyline' : 'radar' }}</mat-icon>
-                                  {{ zone.geofence_type === 'manzana_polygon' ? ('Polígono INEC' + (manzanaCount(zone) > 1 ? ' (' + manzanaCount(zone) + ' manzanas)' : '')) : ('Radio GPS (' + zone.radius_meters + 'm)') }}
+                                  {{ zone.geofence_type === 'manzana_polygon' ? ((manzanaCount(zone) > 1 ? 'projects.page.zones.polygonBlocks' : 'projects.page.zones.polygon') | translate: { count: manzanaCount(zone) }) : ('projects.page.zones.radius' | translate: { meters: zone.radius_meters }) }}
                                 </span>
 
                                 @if (zone.target_responses) {
-                                  <span class="quota">Meta: {{ zone.target_responses }} encuestas</span>
+                                  <span class="quota">{{ 'projects.page.zones.target' | translate: { count: zone.target_responses } }}</span>
                                 }
                                 @if (zone.assigned_count) {
-                                  <span class="quota">Cuota: {{ zone.assigned_count }} encuestadores</span>
+                                  <span class="quota">{{ 'projects.page.zones.quotaValue' | translate: { count: zone.assigned_count } }}</span>
                                 }
                               </div>
 
                               <div class="zone-users">
                                 <strong>
                                   <mat-icon>groups</mat-icon>
-                                  Encuestadores Asignados ({{ zone.assigned_users?.length ?? 0 }}):
+                                  {{ 'projects.page.zones.assignedCount' | translate: { count: zone.assigned_users?.length ?? 0 } }}
                                 </strong>
                                 <div class="user-pills">
                                   @for (user of zone.assigned_users; track user.id) {
                                     <span class="user-pill">{{ user.name }}</span>
                                   } @empty {
-                                    <em class="muted">Sin encuestadores asignados específicamente (cuota libre).</em>
+                                    <em class="muted">{{ 'projects.page.zones.noAssigned' | translate }}</em>
                                   }
                                 </div>
                               </div>
@@ -815,33 +816,32 @@ interface MemberSlot {
                       @if (canLeadSelectedProject() && selectedFormId() && zones().length > 0) {
                         <mat-card class="zone-builder-card">
                           <mat-card-content>
-                            <h3>Designación aleatoria de encuestadores</h3>
+                            <h3>{{ 'projects.page.random.title' | translate }}</h3>
                             @if (zonesHaveAssignments()) {
-                              <p class="random-note">Las zonas de este formulario ya tienen encuestadores. El sorteo solo se usa con zonas vacías; ajusta las asignaciones desde cada zona.</p>
+                              <p class="random-note">{{ 'projects.page.random.alreadyAssigned' | translate }}</p>
                             } @else {
-                              <p>Indica cuántos encuestadores necesitas. El sistema los elige al azar entre los
-                                <strong>{{ activeTeamCount() }}</strong> encuestadores activos del proyecto y los reparte entre las {{ zones().length }} zonas.</p>
+                              <p>{{ 'projects.page.random.intro' | translate: { active: activeTeamCount(), zones: zones().length } }}</p>
                               <div class="random-row">
                                 <mat-form-field appearance="outline">
-                                  <mat-label>Cantidad de encuestadores</mat-label>
+                                  <mat-label>{{ 'projects.page.random.count' | translate }}</mat-label>
                                   <input matInput type="number" min="1" [max]="randomMax()" [value]="randomCount()"
                                          (input)="setRandomCount($any($event.target).value)" />
-                                  <mat-hint>Máximo {{ randomMax() }}@if (zoneCapacity() !== null) { · las zonas admiten {{ zoneCapacity() }} }</mat-hint>
+                                  <mat-hint>{{ 'projects.page.random.max' | translate: { max: randomMax() } }}@if (zoneCapacity() !== null) { · {{ 'projects.page.random.capacity' | translate: { count: zoneCapacity() } }} }</mat-hint>
                                 </mat-form-field>
                                 <button mat-stroked-button type="button" [disabled]="!randomCountValid()" (click)="previewRandomAssignment()">
-                                  <mat-icon aria-hidden="true">casino</mat-icon> {{ randomPreview() ? 'Volver a sortear' : 'Sortear' }}
+                                  <mat-icon aria-hidden="true">casino</mat-icon> {{ randomPreview() ? ('projects.page.random.redraw' | translate) : ('projects.page.random.draw' | translate) }}
                                 </button>
                               </div>
                               @if (randomPreview(); as preview) {
                                 <div class="random-preview" aria-live="polite">
-                                  <p class="random-note">Vista previa: {{ preview.users.length }} de {{ preview.pool_size }} encuestadores activos. Nada se guarda hasta confirmar.</p>
+                                  <p class="random-note">{{ 'projects.page.random.preview' | translate: { count: preview.users.length, pool: preview.pool_size } }}</p>
                                   @for (zone of zones(); track zone.id) {
                                     <div class="random-zone">
                                       <strong>{{ zone.name }}</strong>
-                                      <span>{{ randomNames(preview, zone.id!) || 'Sin encuestadores' }}</span>
+                                      <span>{{ randomNames(preview, zone.id!) || ('projects.page.random.none' | translate) }}</span>
                                     </div>
                                   }
-                                  <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">Confirmar designación</button>
+                                  <button mat-flat-button color="primary" type="button" (click)="confirmRandomAssignment()">{{ 'projects.page.random.confirm' | translate }}</button>
                                 </div>
                               }
                             }
@@ -849,13 +849,13 @@ interface MemberSlot {
                         </mat-card>
                       }
                       @if (canLeadSelectedProject() && selectedForm()?.state === 'DRAFT' && zones().length > 0) {
-                        <button mat-flat-button color="primary" type="button" (click)="publishSelectedForm()">Publicar encuesta</button>
+                        <button mat-flat-button color="primary" type="button" (click)="publishSelectedForm()">{{ 'projects.page.publish' | translate }}</button>
                       }
                     </div>
                   </mat-tab>
                   @if (authService.isSupervisor() || canLeadSelectedProject() || canManageProjects()) {
                     <mat-tab>
-                      <ng-template mat-tab-label><mat-icon class="tab-icon">track_changes</mat-icon> Supervisión</ng-template>
+                      <ng-template mat-tab-label><mat-icon class="tab-icon">track_changes</mat-icon> {{ 'projects.page.tabs.supervision' | translate }}</ng-template>
                       <div class="tab-body">
                         <app-supervision-collectors [projectId]="project.id" [forms]="project.forms ?? []" [initialFormId]="selectedFormId()" />
                       </div>
@@ -897,52 +897,52 @@ interface MemberSlot {
                 <mat-icon>assignment_add</mat-icon>
               </div>
               <div class="modal-header-text">
-                <h3 id="new-form-title">Nuevo Formulario de Recolección</h3>
-                <p>Proyecto: <strong>{{ newFormProjectName() }}</strong></p>
+                <h3 id="new-form-title">{{ 'projects.page.newForm.title' | translate }}</h3>
+                <p>{{ 'projects.page.newForm.project' | translate }} <strong>{{ newFormProjectName() }}</strong></p>
               </div>
-              <button type="button" class="close-icon-btn" aria-label="Cerrar" (click)="closeNewFormModal()">
+              <button type="button" class="close-icon-btn" [attr.aria-label]="'common.buttons.close' | translate" (click)="closeNewFormModal()">
                 <mat-icon>close</mat-icon>
               </button>
             </header>
 
             <form [formGroup]="newFormForm" (ngSubmit)="submitNewForm()" class="modal-body-form">
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Título del Formulario</mat-label>
-                <input matInput formControlName="title" placeholder="Ej: Diagnóstico Comunitario 2026" required />
+                <mat-label>{{ 'projects.page.newForm.titleLabel' | translate }}</mat-label>
+                <input matInput formControlName="title" [placeholder]="'projects.page.newForm.titlePlaceholder' | translate" required />
                 <mat-icon matPrefix>title</mat-icon>
                 @if (newFormForm.get('title')?.hasError('required') && newFormForm.get('title')?.touched) {
-                  <mat-error>El título del formulario es obligatorio</mat-error>
+                  <mat-error>{{ 'projects.page.newForm.titleRequired' | translate }}</mat-error>
                 }
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Descripción u Objetivo</mat-label>
-                <textarea matInput formControlName="description" rows="2" placeholder="Objetivo general del instrumento de recolección"></textarea>
+                <mat-label>{{ 'projects.page.newForm.description' | translate }}</mat-label>
+                <textarea matInput formControlName="description" rows="2" [placeholder]="'projects.page.newForm.descriptionPlaceholder' | translate"></textarea>
                 <mat-icon matPrefix>description</mat-icon>
               </mat-form-field>
 
               <div class="date-row">
                 <mat-form-field appearance="outline">
-                  <mat-label>Fecha de inicio (opcional)</mat-label>
+                  <mat-label>{{ 'projects.page.newForm.start' | translate }}</mat-label>
                   <input matInput type="date" formControlName="start_date"
                     [min]="technicalSheet()?.start_date || null" [max]="technicalSheet()?.end_date || null" />
                 </mat-form-field>
                 <mat-form-field appearance="outline">
-                  <mat-label>Fecha de fin (opcional)</mat-label>
+                  <mat-label>{{ 'projects.page.newForm.end' | translate }}</mat-label>
                   <input matInput type="date" formControlName="end_date"
                     [min]="newFormForm.value.start_date || technicalSheet()?.start_date || null" [max]="technicalSheet()?.end_date || null" />
                 </mat-form-field>
               </div>
 
-              <p>El formulario se creará en borrador. Sus fechas deben estar dentro del periodo de la ficha técnica del proyecto; si las dejas vacías, usará ese periodo al publicarse. Las preguntas se habilitan cuando el líder valida la ficha del proyecto.</p>
+              <p>{{ 'projects.page.newForm.note' | translate }}</p>
 
               <footer class="modal-actions">
                 <button mat-button type="button" (click)="closeNewFormModal()" [disabled]="savingNewForm()">
-                  Cancelar
+                  {{ 'common.buttons.cancel' | translate }}
                 </button>
                 <button mat-flat-button color="primary" type="submit" [disabled]="savingNewForm() || newFormForm.invalid">
                   <mat-icon>arrow_forward</mat-icon>
-                  <span>{{ savingNewForm() ? 'Creando formulario...' : 'Crear formulario' }}</span>
+                  <span>{{ savingNewForm() ? ('projects.page.newForm.creating' | translate) : ('common.buttons.createForm' | translate) }}</span>
                 </button>
               </footer>
             </form>
@@ -2162,6 +2162,7 @@ export class ProjectListComponent implements OnInit {
   private readonly formService = inject(FormService);
   private readonly notify = inject(NotificationService);
   private readonly translate = inject(TranslateService);
+  private readonly language = inject(LanguageService);
 
   showNewFormModal = signal(false);
   newFormProjectId = signal<string | null>(null);
@@ -2192,7 +2193,7 @@ export class ProjectListComponent implements OnInit {
     const teamIds = new Set(team.map((user) => user.id));
     const legacy = (this.editingZone()?.assigned_users ?? [])
       .filter((user) => !teamIds.has(user.id))
-      .map((user) => ({ id: user.id, name: user.name, email: user.email, rol: 'Fuera del equipo del proyecto' }));
+      .map((user) => ({ id: user.id, name: user.name, email: user.email, rol: this.translate.instant('projects.page.msg.outsideTeam') }));
     return [...team, ...legacy];
   });
   assignableUsers = signal<Array<{ id: number; name: string; email: string; rol: string }>>([]);
@@ -2373,7 +2374,7 @@ export class ProjectListComponent implements OnInit {
     // Lista completa: la usa el selector de encuestadores de las zonas.
     this.projectService.getCollectors(projectId).subscribe({
       next: (collectors) => this.collectors.set(collectors),
-      error: () => this.notify.error('No se pudieron cargar los encuestadores'),
+      error: () => this.notify.error(this.translate.instant('projects.page.msg.loadCollectorsFailed')),
     });
     this.loadCollectorPage(projectId);
   }
@@ -2397,7 +2398,7 @@ export class ProjectListComponent implements OnInit {
         this.collectorPageItems.set(page.data);
         this.collectorPagination.set(page.pagination);
       },
-      error: () => this.notify.error('No se pudieron cargar los encuestadores'),
+      error: () => this.notify.error(this.translate.instant('projects.page.msg.loadCollectorsFailed')),
     });
   }
 
@@ -2423,11 +2424,11 @@ export class ProjectListComponent implements OnInit {
       next: (ids) => {
         this.collectorBusy.set(false);
         this.selectedCollectorIds.set(ids);
-        this.notify.success(`${ids.length} encuestador(es) activo(s) seleccionados`);
+        this.notify.success(this.translate.instant('projects.page.msg.selectedActive', { count: ids.length }));
       },
       error: () => {
         this.collectorBusy.set(false);
-        this.notify.error('No se pudo seleccionar a todos');
+        this.notify.error(this.translate.instant('projects.page.msg.selectAllFailed'));
       },
     });
   }
@@ -2454,7 +2455,7 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.getCollectorCandidates(project.id, this.candidateSearch()).subscribe({
       next: (users) => this.candidates.set(users),
-      error: () => this.notify.error('No se pudieron buscar usuarios'),
+      error: () => this.notify.error(this.translate.instant('projects.page.msg.searchFailed')),
     });
   }
 
@@ -2479,11 +2480,11 @@ export class ProjectListComponent implements OnInit {
         this.selectedCandidateIds.set([]);
         this.loadCandidates();
         this.loadCollectors(project.id);
-        this.notify.success(`${result.added} encuestador(es) agregados al proyecto`);
+        this.notify.success(this.translate.instant('projects.page.msg.added', { count: result.added }));
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.notify.error(error?.error?.message || 'No se pudieron agregar los encuestadores');
+        this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.addFailed'));
       },
     });
   }
@@ -2502,7 +2503,7 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.getCollectorTemplate(project.id).subscribe({
       next: (blob) => this.downloadBlob(blob, 'plantilla-encuestadores.xlsx'),
-      error: () => this.notify.error('No se pudo descargar la plantilla'),
+      error: () => this.notify.error(this.translate.instant('projects.page.msg.templateFailed')),
     });
   }
 
@@ -2522,7 +2523,7 @@ export class ProjectListComponent implements OnInit {
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.notify.error(error?.error?.message || 'No se pudo leer el archivo');
+        this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.readFailed'));
       },
     });
     (event.target as HTMLInputElement).value = '';
@@ -2542,12 +2543,12 @@ export class ProjectListComponent implements OnInit {
         this.loadCollectors(project.id);
         this.loadAllEnumerators(project.id);
         const invited = result.invited?.length ?? 0;
-        this.notify.success(`${result.imported} encuestador(es) importados`
-          + (invited ? `. ${invited} externo(s) recibirán un correo para confirmar su cuenta y crear su contraseña.` : ''));
+        this.notify.success(this.translate.instant('projects.page.msg.imported', { count: result.imported })
+          + (invited ? ' ' + this.translate.instant('projects.page.msg.invited', { count: invited }) : ''));
       },
       error: (error) => {
         this.collectorBusy.set(false);
-        this.notify.error(error?.error?.message || 'No se pudo importar');
+        this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.importFailed'));
       },
     });
   }
@@ -2574,8 +2575,8 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!project) return;
     this.projectService.updateCollector(project.id, collector.id, { name: name.trim(), email: email.trim(), cedula: cedula.trim() }).subscribe({
-      next: () => { this.editingCollectorId.set(null); this.loadCollectors(project.id); this.notify.success('Encuestador actualizado'); },
-      error: (error) => this.notify.error(error?.error?.message || 'No se pudo actualizar'),
+      next: () => { this.editingCollectorId.set(null); this.loadCollectors(project.id); this.notify.success(this.translate.instant('projects.page.msg.collectorUpdated')); },
+      error: (error) => this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.updateFailed')),
     });
   }
 
@@ -2584,7 +2585,7 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.projectService.updateCollector(project.id, collector.id, { is_active: active }).subscribe({
       next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); },
-      error: (error) => this.notify.error(error?.error?.message || 'No se pudo cambiar el estado'),
+      error: (error) => this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.statusFailed')),
     });
   }
 
@@ -2592,15 +2593,15 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!project) return;
     const accepted = await this.notify.confirm({
-      title: 'Quitar encuestador',
-      message: `¿Quitar a ${collector.name} de este proyecto? Dejará de tener asignados sus formularios.`,
-      confirmText: 'Quitar',
+      title: this.translate.instant('projects.page.msg.removeCollectorTitle'),
+      message: this.translate.instant('projects.page.msg.removeCollectorMessage', { name: collector.name }),
+      confirmText: this.translate.instant('projects.page.collectors.remove'),
       tone: 'danger',
     });
     if (!accepted) return;
     this.projectService.removeCollector(project.id, collector.id).subscribe({
       next: () => { this.selectedCollectorIds.update((ids) => ids.filter((id) => id !== collector.id)); this.loadCollectors(project.id); this.selectProject(project); },
-      error: (error) => this.notify.error(error?.error?.message || 'No se pudo quitar'),
+      error: (error) => this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.removeFailed')),
     });
   }
 
@@ -2609,8 +2610,8 @@ export class ProjectListComponent implements OnInit {
     if (!project) return;
     this.collectorBusy.set(true);
     this.projectService.assignCollectorForms(project.id, this.selectedCollectorIds(), this.selectedCollectorFormIds()).subscribe({
-      next: (result) => { this.collectorBusy.set(false); this.loadCollectors(project.id); this.selectProject(project); this.notify.success(`${result.assigned} asignación(es) nuevas`); },
-      error: (error) => { this.collectorBusy.set(false); this.notify.error(error?.error?.message || 'No se pudieron asignar formularios'); },
+      next: (result) => { this.collectorBusy.set(false); this.loadCollectors(project.id); this.selectProject(project); this.notify.success(this.translate.instant('projects.page.msg.assigned', { count: result.assigned })); },
+      error: (error) => { this.collectorBusy.set(false); this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.assignFailed')); },
     });
   }
 
@@ -2658,7 +2659,7 @@ export class ProjectListComponent implements OnInit {
     if (count === null) return;
     this.projectService.randomAssignZones(project.id, formId, count, null, true).subscribe({
       next: (result) => this.randomPreview.set(result),
-      error: (err) => this.notify.error(err?.error?.message || 'No se pudo previsualizar la designación'),
+      error: (err) => this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.previewFailed')),
     });
   }
 
@@ -2679,10 +2680,10 @@ export class ProjectListComponent implements OnInit {
     const preview = this.randomPreview();
     if (!project || !formId || !preview) return;
     this.projectService.randomAssignZones(project.id, formId, preview.users.length, preview.seed, false, preview.users.map((user) => user.id)).subscribe({
-      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.notify.success('Designación confirmada'); },
+      next: () => { this.randomPreview.set(null); this.randomCount.set(null); this.loadZones(project.id); this.notify.success(this.translate.instant('projects.page.msg.assignmentConfirmed')); },
       error: (err) => {
         if (err?.status === 409) this.randomPreview.set(null);
-        this.notify.error(err?.error?.message || 'No se pudo confirmar');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.confirmFailed'));
       },
     });
   }
@@ -2692,8 +2693,8 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!formId || !project) return;
     this.formService.deployForm(formId).subscribe({
-      next: () => { this.notify.success('Encuesta publicada'); this.selectProject(project); },
-      error: (err) => this.notify.error(err?.error?.message || 'No se pudo publicar'),
+      next: () => { this.notify.success(this.translate.instant('projects.page.msg.published')); this.selectProject(project); },
+      error: (err) => this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.publishFailed')),
     });
   }
 
@@ -2792,11 +2793,11 @@ export class ProjectListComponent implements OnInit {
         this.technicalSheet.set(sheet);
         this.editingSheet.set(false);
         this.savingSheet.set(false);
-        this.notify.success('Ficha técnica guardada correctamente');
+        this.notify.success(this.translate.instant('projects.page.msg.sheetSaved'));
       },
       error: (err) => {
         this.savingSheet.set(false);
-        this.notify.error(err?.error?.message || 'Error al guardar ficha técnica');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.sheetSaveFailed'));
       },
     });
   }
@@ -2810,11 +2811,11 @@ export class ProjectListComponent implements OnInit {
       next: (sheet) => {
         this.technicalSheet.set(sheet);
         this.validatingSheet.set(false);
-        this.notify.success('Ficha técnica validada exitosamente');
+        this.notify.success(this.translate.instant('projects.page.msg.sheetValidated'));
       },
       error: (err) => {
         this.validatingSheet.set(false);
-        this.notify.error(err?.error?.message || 'Debe definir fechas de inicio y fin para validar');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.sheetDatesRequired'));
       },
     });
   }
@@ -2848,7 +2849,7 @@ export class ProjectListComponent implements OnInit {
     const project = this.selectedProject();
     if (!draft || !project || this.savingFormPeriodId()) return;
     if (draft.start_date && draft.end_date && draft.end_date < draft.start_date) {
-      this.notify.warning('La fecha de fin no puede ser anterior a la fecha de inicio.');
+      this.notify.warning(this.translate.instant('projects.page.msg.endBeforeStart'));
       return;
     }
     this.savingFormPeriodId.set(form.id);
@@ -2856,12 +2857,12 @@ export class ProjectListComponent implements OnInit {
       next: () => {
         this.savingFormPeriodId.set(null);
         this.formPeriodDrafts.update(({ [form.id]: _saved, ...rest }) => rest);
-        this.notify.success(`Fechas de «${form.title}» guardadas.`);
+        this.notify.success(this.translate.instant('projects.page.msg.datesSaved', { title: form.title }));
         this.selectProject(project);
       },
       error: (err) => {
         this.savingFormPeriodId.set(null);
-        this.notify.error(err?.error?.message || 'No se pudieron guardar las fechas.');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.datesFailed'));
       },
     });
   }
@@ -2928,7 +2929,7 @@ export class ProjectListComponent implements OnInit {
     const room = quota === null ? visible.length : Math.max(0, quota - current.length);
     this.selectedEnumeratorIds.set([...current, ...visible.slice(0, room)]);
     if (visible.length > room) {
-      this.notify.info(`Se seleccionaron ${current.length + room} encuestadores: es la cuota de la zona. Aumenta la cuota para incluir más.`);
+      this.notify.info(this.translate.instant('projects.page.msg.quotaReached', { count: current.length + room }));
     }
   }
 
@@ -2955,7 +2956,7 @@ export class ProjectListComponent implements OnInit {
     if (quota !== null && current.length >= quota) {
       // Deshacer la marca del checkbox: la selección no cambió.
       if (event?.target instanceof HTMLInputElement) event.target.checked = false;
-      this.notify.warning(`La zona ya tiene su cuota de ${quota} encuestadores. Aumenta la cuota o quita a alguien.`);
+      this.notify.warning(this.translate.instant('projects.page.msg.quotaFull', { count: quota }));
       return;
     }
     this.selectedEnumeratorIds.set([...current, userId]);
@@ -3017,13 +3018,13 @@ export class ProjectListComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.savingZone.set(false);
-        this.notify.success(currentZone ? 'Zona actualizada' : 'Zona creada exitosamente');
+        this.notify.success(this.translate.instant(currentZone ? 'projects.page.msg.zoneUpdated' : 'projects.page.msg.zoneCreated'));
         this.cancelZoneForm();
         this.loadZones(project.id);
       },
       error: (err) => {
         this.savingZone.set(false);
-        this.notify.error(err?.error?.message || 'Error al guardar zona');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.zoneSaveFailed'));
       },
     });
   }
@@ -3033,20 +3034,20 @@ export class ProjectListComponent implements OnInit {
     if (!project || !zone.id) return;
 
     const confirmed = await this.notify.confirm({
-      title: 'Eliminar zona',
-      message: `¿Eliminar la zona «${zone.name}»? Se quitará su delimitación y las asignaciones de encuestadores.`,
-      confirmText: 'Eliminar zona',
+      title: this.translate.instant('projects.page.msg.deleteZone'),
+      message: this.translate.instant('projects.page.msg.deleteZoneMessage', { name: zone.name }),
+      confirmText: this.translate.instant('projects.page.msg.deleteZone'),
       tone: 'danger',
     });
     if (!confirmed) return;
 
     this.projectService.deleteProjectZone(project.id, zone.id).subscribe({
       next: () => {
-        this.notify.success('Zona eliminada correctamente');
+        this.notify.success(this.translate.instant('projects.page.msg.zoneDeleted'));
         this.loadZones(project.id);
       },
       error: (err) => {
-        this.notify.error(err?.error?.message || 'Error al eliminar zona');
+        this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.zoneDeleteFailed'));
       },
     });
   }
@@ -3109,27 +3110,29 @@ export class ProjectListComponent implements OnInit {
       const ids = new Set(options.map((person) => person.id));
       return [...options, ...(current ?? []).filter((person) => !ids.has(person.id))];
     };
+    this.language.loadedLang(); // recalcula los textos al cambiar de idioma
+    const t = (key: string) => this.translate.instant(key);
     const slots: MemberSlot[] = [];
     if (this.canManageProjects()) {
       slots.push({
-        key: 'leader_ids', label: 'Líder de proyecto', noun: 'líder',
-        help: 'Responsable del proyecto: gestiona formularios, zonas y encuestadores.',
-        empty: 'Sin líder asignado. Solo los administradores podrán gestionarlo.',
+        key: 'leader_ids', label: t('projects.page.msg.slots.leader'), noun: t('projects.page.msg.slots.leaderNoun'),
+        help: t('projects.page.msg.slots.leaderHelp'),
+        empty: t('projects.page.msg.slots.leaderEmpty'),
         options: withCurrent(this.projectLeaders() as EditorPerson[], project.leaders as EditorPerson[] | undefined),
       });
     }
     // Delegados y supervisores dependen de los usuarios asignables del proyecto: solo al editar.
     if (!creating && this.canAssignMembers()) {
       slots.push({
-        key: 'delegate_ids', label: 'Delegados', noun: 'delegado',
-        help: 'Ayudan al líder a crear y gestionar los formularios.',
-        empty: 'Sin delegados.',
+        key: 'delegate_ids', label: t('projects.page.msg.slots.delegates'), noun: t('projects.page.msg.slots.delegateNoun'),
+        help: t('projects.page.msg.slots.delegatesHelp'),
+        empty: t('projects.page.msg.slots.delegatesEmpty'),
         options: withCurrent(this.assignableUsers().filter((user) => user.rol === 'PROJECT') as EditorPerson[], project.delegates as EditorPerson[] | undefined),
       });
       slots.push({
-        key: 'supervisor_ids', label: 'Supervisores', noun: 'supervisor',
-        help: 'Revisan el avance y el recorrido de los encuestadores en Supervisión.',
-        empty: 'Sin supervisores.',
+        key: 'supervisor_ids', label: t('projects.page.msg.slots.supervisors'), noun: t('projects.page.msg.slots.supervisorNoun'),
+        help: t('projects.page.msg.slots.supervisorsHelp'),
+        empty: t('projects.page.msg.slots.supervisorsEmpty'),
         options: withCurrent(this.assignableUsers().filter((user) => user.rol === 'SUPERVISOR') as EditorPerson[], project.supervisors as EditorPerson[] | undefined),
       });
     }
@@ -3144,7 +3147,7 @@ export class ProjectListComponent implements OnInit {
 
   selectionSummary(key: MemberSlot['key']): string {
     const count = (this.projectForm.controls[key].value ?? []).length;
-    return count === 0 ? '' : count === 1 ? '1 seleccionado' : `${count} seleccionados`;
+    return count === 0 ? '' : this.translate.instant(count === 1 ? 'projects.page.msg.selectedOne' : 'projects.page.msg.selectedMany', { count });
   }
 
   removeMember(key: MemberSlot['key'], id: number): void {
@@ -3189,7 +3192,7 @@ export class ProjectListComponent implements OnInit {
     const raw = this.newFormForm.getRawValue();
 
     if (raw.start_date && raw.end_date && raw.start_date > raw.end_date) {
-      this.notify.warning('La fecha de fin no puede ser anterior a la fecha de inicio');
+      this.notify.warning(this.translate.instant('projects.page.msg.endBeforeStart'));
       return;
     }
 
@@ -3210,8 +3213,8 @@ export class ProjectListComponent implements OnInit {
           this.savingNewForm.set(false);
           this.showNewFormModal.set(false);
           this.notify.success(this.technicalSheet()?.status === 'VALIDATED'
-              ? 'Formulario creado en borrador.'
-              : 'Formulario creado en borrador. Complete y valide la ficha técnica del proyecto para editar sus preguntas.');
+              ? this.translate.instant('projects.page.msg.formCreated')
+              : this.translate.instant('projects.page.msg.formCreatedNeedsSheet'));
           this.selectedFormId.set(createdForm.id);
           this.selectedTabIndex = 0;
           const project = this.selectedProject();
@@ -3219,7 +3222,7 @@ export class ProjectListComponent implements OnInit {
         },
         error: (err) => {
           this.savingNewForm.set(false);
-          this.notify.error(err?.error?.message || 'Error al crear el formulario');
+          this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.formCreateFailed'));
         },
       });
   }
@@ -3230,9 +3233,9 @@ export class ProjectListComponent implements OnInit {
     }
 
     const confirmed = await this.notify.confirm({
-      title: 'Eliminar proyecto',
-      message: `¿Eliminar el proyecto «${project.name}»? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar proyecto',
+      title: this.translate.instant('projects.page.msg.deleteProject'),
+      message: this.translate.instant('projects.page.msg.deleteProjectMessage', { name: project.name }),
+      confirmText: this.translate.instant('projects.page.msg.deleteProject'),
       tone: 'danger',
     });
     if (!confirmed) {
@@ -3241,7 +3244,7 @@ export class ProjectListComponent implements OnInit {
 
     this.projectService.deleteProject(project.id).subscribe({
       next: () => {
-        this.notify.success('Proyecto eliminado exitosamente');
+        this.notify.success(this.translate.instant('projects.page.msg.projectDeleted'));
 
         if (this.selectedProject()?.id === project.id) {
           this.selectedProject.set(null);
@@ -3251,7 +3254,7 @@ export class ProjectListComponent implements OnInit {
         this.loadProjects();
       },
       error: (error) => {
-        this.notify.error(error?.error?.message || 'No se pudo eliminar el proyecto');
+        this.notify.error(error?.error?.message || this.translate.instant('projects.page.msg.projectDeleteFailed'));
       },
     });
   }

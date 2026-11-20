@@ -39,22 +39,22 @@ class ProcessResponseMedia
                 }
                 $files++;
                 if ($files > $maxFiles) {
-                    throw new HttpException(413, 'La respuesta supera el número máximo de medios.');
+                    throw new HttpException(413, __('La respuesta supera el número máximo de medios.'));
                 }
                 [$mime, $bytes] = $this->decode($dataUrl, $maxFileBytes);
                 $totalBytes += strlen($bytes);
                 if ($totalBytes > $maxTotalBytes) {
-                    throw new HttpException(413, 'La respuesta supera el presupuesto total de medios.');
+                    throw new HttpException(413, __('La respuesta supera el presupuesto total de medios.'));
                 }
                 if ($questionType === 'SIGNATURE' && ! str_starts_with($mime, 'image/')) {
-                    throw new HttpException(422, 'La firma debe ser una imagen.');
+                    throw new HttpException(422, __('La firma debe ser una imagen.'));
                 }
                 $extension = $this->extensionFor($mime);
                 $path = 'responses/'.$form->id.'/'.Str::uuid().'.'.$extension;
                 try {
                     $this->storage->upload($path, $bytes, $mime);
                 } catch (Throwable $e) {
-                    throw new ServiceUnavailableHttpException(null, 'No se pudo almacenar el medio. Reintente el envío.', $e);
+                    throw new ServiceUnavailableHttpException(null, __('No se pudo almacenar el medio. Reintente el envío.'), $e);
                 }
                 $this->uploadedPaths[] = $path;
 
@@ -95,20 +95,20 @@ class ProcessResponseMedia
     {
         $driver = $answer['storage_driver'] ?? null;
         if (! is_string($driver) || ! is_string($answer['path'] ?? null)) {
-            throw new HttpException(404, 'Medio no encontrado.');
+            throw new HttpException(404, __('Medio no encontrado.'));
         }
         $storage = $driver === $this->storage->driverName()
             ? $this->storage
             : (app()->bound('response-media.storage-for') ? app('response-media.storage-for')($driver) : null);
         if (! $storage) {
-            throw new HttpException(404, 'Medio no encontrado.');
+            throw new HttpException(404, __('Medio no encontrado.'));
         }
 
         try {
             return $storage->temporaryUrl($answer['path'], 300);
         } catch (Throwable $e) {
             Log::warning('No se pudo obtener el enlace de un medio.', ['driver' => $driver, 'error' => $e->getMessage()]);
-            throw new HttpException(404, 'Medio no encontrado.');
+            throw new HttpException(404, __('Medio no encontrado.'));
         }
     }
 
@@ -117,25 +117,25 @@ class ProcessResponseMedia
     {
         $comma = strpos($dataUrl, ',');
         if ($comma === false || ! preg_match('/^data:((?:image|audio|video)\/[a-z0-9.+-]+);base64$/i', substr($dataUrl, 0, $comma), $matches)) {
-            throw new HttpException(422, 'Formato de medio inválido.');
+            throw new HttpException(422, __('Formato de medio inválido.'));
         }
         $encoded = substr($dataUrl, $comma + 1);
         if (strlen($encoded) > (int) ceil($maxBytes * 4 / 3) + 4) {
-            throw new HttpException(413, 'El medio supera el tamaño máximo permitido.');
+            throw new HttpException(413, __('El medio supera el tamaño máximo permitido.'));
         }
         $bytes = base64_decode($encoded, true);
         if ($bytes === false || strlen($bytes) > $maxBytes) {
-            throw new HttpException(422, 'Contenido Base64 inválido o demasiado grande.');
+            throw new HttpException(422, __('Contenido Base64 inválido o demasiado grande.'));
         }
         $declared = strtolower($matches[1]);
         $detected = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
         if (! is_string($detected) || ($detected !== $declared
             && ! ($declared === 'audio/ogg' && $detected === 'application/ogg')
             && ! ($declared === 'audio/wav' && $detected === 'audio/x-wav'))) {
-            throw new HttpException(422, 'El tipo declarado no coincide con el contenido del medio.');
+            throw new HttpException(422, __('El tipo declarado no coincide con el contenido del medio.'));
         }
         if (str_starts_with($declared, 'image/') && @getimagesizefromstring($bytes) === false) {
-            throw new HttpException(422, 'La imagen no es válida.');
+            throw new HttpException(422, __('La imagen no es válida.'));
         }
 
         return [$declared, $bytes];
@@ -148,7 +148,7 @@ class ProcessResponseMedia
             'image/gif' => 'gif', 'audio/mpeg' => 'mp3', 'audio/ogg' => 'ogg',
             'audio/wav', 'audio/x-wav' => 'wav', 'audio/webm' => 'webm',
             'video/mp4' => 'mp4', 'video/webm' => 'webm', 'video/quicktime' => 'mov',
-            'video/ogg' => 'ogv', default => throw new HttpException(422, 'Tipo de medio no admitido.'),
+            'video/ogg' => 'ogv', default => throw new HttpException(422, __('Tipo de medio no admitido.')),
         };
     }
 }

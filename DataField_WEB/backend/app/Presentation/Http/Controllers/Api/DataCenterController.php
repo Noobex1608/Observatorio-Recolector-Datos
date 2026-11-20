@@ -57,7 +57,7 @@ class DataCenterController extends Controller
         ]);
         $response = $this->corrections->correctAnswer($responseId, $data['question_id'], $data['value'], trim($data['reason']), $request->user());
 
-        return response()->json(['message' => 'Respuesta corregida.', 'data' => $this->present($response)]);
+        return response()->json(['message' => __('Respuesta corregida.'), 'data' => $this->present($response)]);
     }
 
     public function void(Request $request, string $responseId): JsonResponse
@@ -66,7 +66,7 @@ class DataCenterController extends Controller
         $data = $request->validate(['reason' => 'required|string|min:5|max:500']);
         $this->corrections->void($responseId, trim($data['reason']), $request->user());
 
-        return response()->json(['message' => 'Respuesta anulada. Ya no cuenta en exportes ni estadísticas; puedes restaurarla desde el Centro de datos.']);
+        return response()->json(['message' => __('Respuesta anulada. Ya no cuenta en exportes ni estadísticas; puedes restaurarla desde el Centro de datos.')]);
     }
 
     public function collectors(Request $request, string $responseId): JsonResponse
@@ -85,7 +85,7 @@ class DataCenterController extends Controller
         ]);
         $response = $this->corrections->reassignCollector($responseId, (int) $data['user_id'], trim($data['reason']), $request->user());
 
-        return response()->json(['message' => 'Encuestador actualizado.', 'data' => $this->present($response)]);
+        return response()->json(['message' => __('Encuestador actualizado.'), 'data' => $this->present($response)]);
     }
 
     /** @return array<string, mixed> */
@@ -96,6 +96,6 @@ class DataCenterController extends Controller
 
     private function authorizeSuperAdmin(Request $request): void
     {
-        abort_unless($request->user()?->isSuperAdmin(), 403, 'Solo el superadministrador usa el Centro de datos.');
+        abort_unless($request->user()?->isSuperAdmin(), 403, __('Solo el superadministrador usa el Centro de datos.'));
     }
 }

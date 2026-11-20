@@ -600,6 +600,63 @@ textarea {
   background: rgba(200, 16, 46, 0.05);
 }
 
+/* Subpregunta condicionada: «mostrar solo si se elige…» */
+.show-if-builder {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+
+  legend {
+    padding: 0 0.25rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+}
+
+.show-if-help {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.show-if-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.show-if-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--primary-600);
+  }
+
+  &:has(input:checked) {
+    border-color: var(--primary-600);
+    background: var(--hover-bg, var(--bg-secondary));
+  }
+}
+
 /* Opciones en cascada: mismo patrón que los saltos, en neutro para distinguirlos. */
 .cascade-builder {
   display: flex;

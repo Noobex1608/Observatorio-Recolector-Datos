@@ -1,20 +1,27 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LanguageService } from '@core/services/language.service';
 import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@core/services/audit-log.service';
+
+interface LogDay {
+  key: string;
+  label: string;
+  items: AuditLogItem[];
+}
+
+/** Módulos con nombre traducido (audit.modules.*). */
+const MODULES = ['descargas', 'permisos', 'formularios', 'usuarios', 'proyectos', 'autenticacion'];
+/** Roles con nombre traducido (audit.roles.*). */
+const ROLES = ['SUPER_ADMIN', 'ADMIN', 'PROJECT', 'SUPERVISOR', 'USER', 'RECOLECTOR'];
 
 @Component({
   selector: 'app-audit-log',
@@ -22,13 +29,8 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
   imports: [
     CommonModule,
     FormsModule,
-    MatCardModule,
     MatIconModule,
     MatButtonModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    MatChipsModule,
     MatTabsModule,
     MatTableModule,
     MatPaginatorModule,
@@ -38,964 +40,966 @@ import { AuditLogItem, AuditLogService, AuditStats, PermissionsSummary } from '@
   ],
   template: `
     <div class="audit-container">
-      <!-- Top Title Header -->
-      <div class="page-header">
-        <div class="header-left">
-          <div class="header-icon-badge">
-            <mat-icon class="primary-icon">shield</mat-icon>
+      <header class="page-header">
+        <div class="page-heading">
+          <div class="title-row">
+            <h1 class="page-title">{{ 'audit.title' | translate }}</h1>
+            <span class="access-tag">
+              <mat-icon aria-hidden="true">lock</mat-icon>
+              {{ 'audit.superOnly' | translate }}
+            </span>
           </div>
-          <div>
-            <div class="header-title-row">
-              <h1 class="page-title">Auditoría & Control de Datos</h1>
-              <span class="super-badge">
-                <mat-icon>lock</mat-icon> Exclusivo SuperAdministrador
-              </span>
-            </div>
-            <p class="page-subtitle">
-              Supervisión en lenguaje natural de quién modifica datos, descargas de información y control de permisos en la plataforma.
-            </p>
-          </div>
+          <p class="page-subtitle">
+            {{ 'audit.subtitle' | translate }}
+          </p>
         </div>
-        <div class="header-actions">
-          <button mat-flat-button color="primary" class="refresh-btn" (click)="loadAllData()">
-            <mat-icon>refresh</mat-icon>
-            <span>Actualizar Registros</span>
+        <button class="btn-secondary" type="button" (click)="loadAllData()" [disabled]="loading()">
+          <mat-icon aria-hidden="true" [class.is-spinning]="loading()">refresh</mat-icon>
+          {{ 'audit.refresh' | translate }}
+        </button>
+      </header>
+
+      @if (stats(); as s) {
+        <section class="summary-strip" [attr.aria-label]="'audit.summaryLabel' | translate">
+          <button type="button" class="stat" [class.is-active]="activeTab() === 0" (click)="selectTab(0)">
+            <span class="stat-label">{{ 'audit.stats.total' | translate }}</span>
+            <strong class="stat-value">{{ s.summary.total_logs | number }} <small>{{ 'audit.stats.events' | translate }}</small></strong>
+            <span class="stat-detail">{{ 'audit.stats.totalDetail' | translate }}</span>
           </button>
-        </div>
-      </div>
-
-      <!-- KPI Summary Cards -->
-      <div class="kpi-grid" *ngIf="stats() as s">
-        <div class="kpi-card download-kpi">
-          <div class="kpi-icon-wrapper">
-            <mat-icon>file_download</mat-icon>
-          </div>
-          <div class="kpi-content">
-            <span class="kpi-label">Archivos generados por el servidor</span>
-            <div class="kpi-value-row">
-              <span class="kpi-number">{{ s.summary.total_downloads }}</span>
-              <span class="kpi-unit">archivos</span>
-            </div>
-            <span class="kpi-detail">
-              Respuestas incluidas: <strong>{{ s.summary.total_responses_exported }}</strong>.
-              PDF declarados por el cliente: {{ s.summary.total_client_reported_exports }}.
-              Registros históricos sin verificación: {{ s.summary.total_legacy_exports }}.
+          <button type="button" class="stat" [class.is-active]="activeTab() === 1" (click)="selectTab(1)">
+            <span class="stat-label">{{ 'audit.stats.permissions' | translate }}</span>
+            <strong class="stat-value">{{ s.summary.total_permission_changes | number }} <small>{{ 'audit.stats.assignments' | translate }}</small></strong>
+            <span class="stat-detail">{{ 'audit.stats.permissionsDetail' | translate }}</span>
+          </button>
+          <button type="button" class="stat" [class.is-active]="activeTab() === 2" (click)="selectTab(2)">
+            <span class="stat-label">{{ 'audit.stats.downloads' | translate }}</span>
+            <strong class="stat-value">{{ s.summary.total_downloads | number }} <small>{{ 'audit.stats.files' | translate }}</small></strong>
+            <span class="stat-detail">
+              {{ 'audit.stats.downloadsDetail' | translate: { responses: (s.summary.total_responses_exported | number), pdf: s.summary.total_client_reported_exports, legacy: s.summary.total_legacy_exports } }}
             </span>
-          </div>
-        </div>
+          </button>
+          <button type="button" class="stat" [class.is-active]="activeTab() === 3" (click)="selectTab(3)">
+            <span class="stat-label">{{ 'audit.stats.changes' | translate }}</span>
+            <strong class="stat-value">{{ s.summary.total_data_modifications | number }} <small>{{ 'audit.stats.changesUnit' | translate }}</small></strong>
+            <span class="stat-detail">{{ 'audit.stats.changesDetail' | translate }}</span>
+          </button>
+        </section>
+      }
 
-        <div class="kpi-card permission-kpi">
-          <div class="kpi-icon-wrapper">
-            <mat-icon>verified_user</mat-icon>
-          </div>
-          <div class="kpi-content">
-            <span class="kpi-label">Control de Permisos</span>
-            <div class="kpi-value-row">
-              <span class="kpi-number">{{ s.summary.total_permission_changes }}</span>
-              <span class="kpi-unit">asignaciones</span>
-            </div>
-            <span class="kpi-detail">
-              Asignación/revocación de roles y cuotas de formulario
-            </span>
-          </div>
-        </div>
-
-        <div class="kpi-card modification-kpi">
-          <div class="kpi-icon-wrapper">
-            <mat-icon>edit_note</mat-icon>
-          </div>
-          <div class="kpi-content">
-            <span class="kpi-label">Tratamiento de Datos</span>
-            <div class="kpi-value-row">
-              <span class="kpi-number">{{ s.summary.total_data_modifications }}</span>
-              <span class="kpi-unit">cambios</span>
-            </div>
-            <span class="kpi-detail">
-              Modificaciones a formularios, usuarios y proyectos
-            </span>
-          </div>
-        </div>
-
-        <div class="kpi-card total-kpi">
-          <div class="kpi-icon-wrapper">
-            <mat-icon>history</mat-icon>
-          </div>
-          <div class="kpi-content">
-            <span class="kpi-label">Actividad Total</span>
-            <div class="kpi-value-row">
-              <span class="kpi-number">{{ s.summary.total_logs }}</span>
-              <span class="kpi-unit">eventos</span>
-            </div>
-            <span class="kpi-detail">
-              Registros auditados en lenguaje natural
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main Content Tabs -->
-      <mat-card class="main-card">
-        <mat-tab-group (selectedTabChange)="onTabChange($event.index)" class="custom-tabs">
-          
-          <!-- TAB 1: LOGS EN LENGUAJE NATURAL -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">record_voice_over</mat-icon>
-              <span>Historial en Lenguaje Natural</span>
-            </ng-template>
-
+      <section class="main-panel">
+        <mat-tab-group
+          class="audit-tabs"
+          animationDuration="0ms"
+          mat-stretch-tabs="false"
+          [selectedIndex]="activeTab()"
+          (selectedIndexChange)="onTabChange($event)"
+        >
+          <!-- Historial -->
+          <mat-tab [label]="'audit.tabs.history' | translate">
             <div class="tab-body">
-              <!-- Filters Bar -->
               <div class="filters-row">
-                <div class="search-field">
-                  <mat-icon class="search-icon">search</mat-icon>
+                <label class="search-field">
+                  <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
                   <input
-                    type="text"
-                    aria-label="Buscar en el registro"
-                    placeholder="Buscar en el registro en lenguaje natural (ej. Juan, descargó, permiso)..."
+                    type="search"
+                    [attr.aria-label]="'audit.search.label' | translate"
+                    [placeholder]="'audit.search.placeholder' | translate"
                     [(ngModel)]="searchQuery"
+                    (ngModelChange)="onSearchInput()"
                     (keyup.enter)="onSearch()"
                   />
-                  <button *ngIf="searchQuery" class="clear-btn" type="button" aria-label="Limpiar búsqueda" (click)="clearSearch()">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                  @if (searchQuery) {
+                    <button class="clear-btn" type="button" [attr.aria-label]="'audit.search.clear' | translate" (click)="clearSearch()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </label>
+
+                <label class="select-field">
+                  <span class="visually-hidden">{{ 'audit.filters.module' | translate }}</span>
+                  <select [attr.aria-label]="'audit.filters.moduleLabel' | translate" [(ngModel)]="selectedModule" (ngModelChange)="onFilterChange()">
+                    <option value="">{{ 'audit.filters.allModules' | translate }}</option>
+                    @for (option of moduleOptions; track option.value) {
+                      <option [value]="option.value">{{ 'audit.modules.' + option.value | translate }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+
+              <p class="results-count" role="status">
+                @if (!loading()) {
+                  {{ (totalLogs() === 1 ? 'audit.results.one' : 'audit.results.many') | translate: { count: (totalLogs() | number) } }}
+                  @if (searchQuery || selectedModule) { {{ 'audit.results.filtered' | translate }} }
+                }
+              </p>
+
+              @if (loading()) {
+                <div class="loading-container">
+                  <mat-spinner diameter="32"></mat-spinner>
+                  <p>{{ 'audit.loading.history' | translate }}</p>
                 </div>
-
-                <div class="select-field">
-                  <mat-select [(ngModel)]="selectedModule" (selectionChange)="onFilterChange()" placeholder="Filtrar por Módulo">
-                    <mat-option value="">Todos los módulos</mat-option>
-                    <mat-option value="descargas">📥 Descargas / Exportaciones</mat-option>
-                    <mat-option value="permisos">🔑 Permisos & Accesos</mat-option>
-                    <mat-option value="formularios">📝 Formularios & Encuestas</mat-option>
-                    <mat-option value="usuarios">👥 Gestión de Usuarios</mat-option>
-                    <mat-option value="proyectos">📁 Proyectos</mat-option>
-                  </mat-select>
+              } @else if (logs().length > 0) {
+                <ng-container [ngTemplateOutlet]="feed" [ngTemplateOutletContext]="{ $implicit: logDays() }" />
+              } @else {
+                <div class="empty-state">
+                  <mat-icon aria-hidden="true">search_off</mat-icon>
+                  <h3>{{ 'audit.empty.history' | translate }}</h3>
+                  <p>{{ 'audit.empty.historyHint' | translate }}</p>
                 </div>
-              </div>
+              }
 
-              <!-- Loading state -->
-              <div *ngIf="loading()" class="loading-container">
-                <mat-spinner diameter="40"></mat-spinner>
-                <p>Cargando registros de auditoría...</p>
-              </div>
-
-              <!-- Log Stream / Activity Feed in Natural Language -->
-              <div *ngIf="!loading() && logs().length > 0" class="log-stream">
-                <div *ngFor="let item of logs()" class="log-item-card" [ngClass]="item.module">
-                  <div class="log-icon-col">
-                    <div class="action-icon-circle" [ngClass]="item.module">
-                      <mat-icon>{{ getActionIcon(item.action, item.module) }}</mat-icon>
-                    </div>
-                  </div>
-
-                  <div class="log-content-col">
-                    <div class="log-header-meta">
-                      <span class="module-chip" [ngClass]="item.module">{{ getModuleLabel(item.module) }}</span>
-                      <span class="user-chip">
-                        <mat-icon class="mini-icon">person</mat-icon> {{ item.user_name }} ({{ item.user_role }})
-                      </span>
-                      <span class="time-stamp">
-                        <mat-icon class="mini-icon">schedule</mat-icon> {{ item.created_at | date: 'medium' }}
-                      </span>
-                    </div>
-
-                    <!-- Natural Language Sentence -->
-                    <div class="log-natural-text">
-                      {{ item.description_es }}
-                    </div>
-
-                    <!-- Additional Details Footer -->
-                    <div class="log-footer-meta">
-                      <span class="ip-info">
-                        <mat-icon class="mini-icon">router</mat-icon> IP: {{ item.ip_address }}
-                      </span>
-                      <span *ngIf="item.metadata?.format" class="format-tag">
-                        Formato: <strong>{{ item.metadata.format }}</strong>
-                      </span>
-                      <span *ngIf="item.metadata?.responses_count" class="count-tag">
-                        Respuestas: <strong>{{ item.metadata.responses_count }}</strong>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Empty state -->
-              <div *ngIf="!loading() && logs().length === 0" class="empty-state">
-                <mat-icon class="empty-icon">search_off</mat-icon>
-                <h3>No se encontraron registros de auditoría</h3>
-                <p>Intenta ajustar el filtro de búsqueda o el módulo seleccionado.</p>
-              </div>
-
-              <!-- Paginator -->
               <mat-paginator
                 [length]="totalLogs()"
                 [pageSize]="pageSize"
+                [pageIndex]="currentPage - 1"
                 [pageSizeOptions]="[10, 20, 50, 100]"
                 (page)="onPageChange($event)"
-                class="custom-paginator"
+                class="audit-paginator"
+                [attr.aria-label]="'audit.pagination' | translate"
               ></mat-paginator>
             </div>
           </mat-tab>
 
-          <!-- TAB 2: MATRIZ DE PERMISOS (¿Quién tiene permiso a qué?) -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">security</mat-icon>
-              <span>Matriz de Permisos y Accesos</span>
-            </ng-template>
-
-            <div class="tab-body" *ngIf="permissions() as p">
-              <div class="section-intro-box">
-                <mat-icon>info</mat-icon>
-                <div>
-                  <strong>Control Centralizado de Permisos</strong>
-                  <p>Revisa qué usuarios tienen acceso a qué formularios y proyectos, qué rol desempeñan y cuántas respuestas tienen asignadas recolectar.</p>
-                </div>
-              </div>
-
-              <!-- Sub-section: Form Permissions Shares -->
-              <div class="permission-section">
-                <h3 class="section-heading">
-                  <mat-icon>assignment_ind</mat-icon> Permisos Asignados por Formulario
-                </h3>
-
-                <table mat-table [dataSource]="p.shares" class="mat-elevation-z1 permission-table">
-                  <ng-container matColumnDef="form">
-                    <th mat-header-cell *matHeaderCellDef>Formulario</th>
-                    <td mat-cell *matCellDef="let element">
-                      <strong class="text-primary">{{ element.form_title }}</strong>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="user">
-                    <th mat-header-cell *matHeaderCellDef>Usuario Asignado</th>
-                    <td mat-cell *matCellDef="let element">
-                      <div>
-                        <strong>{{ element.user_name }}</strong>
-                        <div class="user-subtext">{{ element.user_email }}</div>
-                      </div>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="role">
-                    <th mat-header-cell *matHeaderCellDef>Permiso Concedido</th>
-                    <td mat-cell *matCellDef="let element">
-                      <span class="role-badge" [ngClass]="element.granted_role">
-                        {{ element.granted_role_label }}
-                      </span>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="target">
-                    <th mat-header-cell *matHeaderCellDef>Meta de Respuestas</th>
-                    <td mat-cell *matCellDef="let element">
-                      <span *ngIf="element.target_responses !== null" class="target-badge">
-                        🎯 {{ element.target_responses }} máximo
-                      </span>
-                      <span *ngIf="element.target_responses === null" class="text-muted">
-                        Sin límite
-                      </span>
-                    </td>
-                  </ng-container>
-
-                  <tr mat-header-row *matHeaderRowDef="['form', 'user', 'role', 'target']"></tr>
-                  <tr mat-row *matRowDef="let row; columns: ['form', 'user', 'role', 'target'];"></tr>
-                </table>
-
-                <div *ngIf="p.shares.length === 0" class="mini-empty">
-                  No hay permisos asignados explícitamente en ningún formulario aún.
-                </div>
-              </div>
-
-              <!-- Sub-section: Project Leaders -->
-              <div class="permission-section">
-                <h3 class="section-heading">
-                  <mat-icon>folder_special</mat-icon> Líderes de Proyecto y Formularios
-                </h3>
-
-                <div class="projects-grid">
-                  <div *ngFor="let proj of p.projects" class="project-perm-card">
-                    <div class="proj-header">
-                      <mat-icon class="folder-icon">folder</mat-icon>
-                      <span class="proj-name">{{ proj.name }}</span>
-                      <span class="forms-count-chip">{{ proj.forms_count }} formularios</span>
-                    </div>
-                    <div class="proj-leaders-list">
-                      <span class="leaders-title">Líderes de Proyecto con permiso total:</span>
-                      <div *ngFor="let leader of proj.leaders" class="leader-item">
-                        <mat-icon class="mini-icon">star</mat-icon>
-                        <span>{{ leader.name }} ({{ leader.email }})</span>
-                      </div>
-                      <div *ngIf="proj.leaders.length === 0" class="text-muted small">
-                        Sin líder directo asignado (SuperAdmin / Admin controlan globalmente).
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </mat-tab>
-
-          <!-- TAB 3: AUDITORÍA DE DESCARGAS Y EXPORTACIONES -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">cloud_download</mat-icon>
-              <span>Auditoría de Descargas</span>
-            </ng-template>
-
+          <!-- Permisos -->
+          <mat-tab [label]="'audit.tabs.permissions' | translate">
             <div class="tab-body">
-              <div class="section-intro-box download-intro">
-                <mat-icon>download_done</mat-icon>
-                <div>
-                  <strong>Registro de Descargas y Exportaciones de Datos</strong>
-                  <p>Mantiene la trazabilidad exacta de quién descargó datos de la plataforma, qué encuesta exportó, en qué formato y cuántas respuestas extrajo.</p>
-                </div>
-              </div>
+              <p class="tab-intro">{{ 'audit.permissions.intro' | translate }}</p>
 
-              <div *ngIf="downloadLogs().length > 0" class="log-stream">
-                <div *ngFor="let item of downloadLogs()" class="log-item-card descargas">
-                  <div class="log-icon-col">
-                    <div class="action-icon-circle descargas">
-                      <mat-icon>file_download</mat-icon>
-                    </div>
+              @if (permissions(); as p) {
+                <h2 class="block-title">{{ 'audit.permissions.byForm' | translate }}</h2>
+                @if (p.shares.length > 0) {
+                  <div class="table-frame">
+                    <table mat-table [dataSource]="p.shares" class="permission-table">
+                      <ng-container matColumnDef="form">
+                        <th mat-header-cell *matHeaderCellDef>{{ 'audit.permissions.form' | translate }}</th>
+                        <td mat-cell *matCellDef="let element"><strong>{{ element.form_title }}</strong></td>
+                      </ng-container>
+                      <ng-container matColumnDef="user">
+                        <th mat-header-cell *matHeaderCellDef>{{ 'audit.permissions.person' | translate }}</th>
+                        <td mat-cell *matCellDef="let element">
+                          <span class="person">
+                            <strong>{{ element.user_name }}</strong>
+                            <span>{{ element.user_email }}</span>
+                          </span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="role">
+                        <th mat-header-cell *matHeaderCellDef>{{ 'audit.permissions.role' | translate }}</th>
+                        <td mat-cell *matCellDef="let element">
+                          <span class="role-tag">{{ element.granted_role_label }}</span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="target">
+                        <th mat-header-cell *matHeaderCellDef>{{ 'audit.permissions.target' | translate }}</th>
+                        <td mat-cell *matCellDef="let element" class="numeric">
+                          {{ element.target_responses !== null ? element.target_responses : ('audit.permissions.noTarget' | translate) }}
+                        </td>
+                      </ng-container>
+                      <tr mat-header-row *matHeaderRowDef="['form', 'user', 'role', 'target']"></tr>
+                      <tr mat-row *matRowDef="let row; columns: ['form', 'user', 'role', 'target']"></tr>
+                    </table>
                   </div>
-                  <div class="log-content-col">
-                    <div class="log-header-meta">
-                      <span class="module-chip descargas">DESCARGA REGISTRADA</span>
-                      <span class="user-chip">
-                        <mat-icon class="mini-icon">person</mat-icon> {{ item.user_name }} ({{ item.user_role }})
-                      </span>
-                      <span class="time-stamp">
-                        <mat-icon class="mini-icon">schedule</mat-icon> {{ item.created_at | date: 'medium' }}
-                      </span>
-                    </div>
-                    <div class="log-natural-text font-semibold">
-                      {{ item.description_es }}
-                    </div>
-                    <div class="log-footer-meta">
-                      <span>IP de Descarga: <strong>{{ item.ip_address }}</strong></span>
-                      <span *ngIf="item.metadata?.format">Formato Archivo: <strong>{{ item.metadata.format }}</strong></span>
-                      <span *ngIf="item.metadata?.responses_count">Registros: <strong>{{ item.metadata.responses_count }}</strong></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                } @else {
+                  <p class="mini-empty">{{ 'audit.permissions.empty' | translate }}</p>
+                }
 
-              <div *ngIf="downloadLogs().length === 0" class="empty-state">
-                <mat-icon class="empty-icon">cloud_off</mat-icon>
-                <h3>No hay descargas registradas en este período</h3>
-                <p>Cada vez que un usuario exporte un archivo CSV o XLSX de respuestas, aparecerá detallado aquí.</p>
-              </div>
+                <h2 class="block-title">{{ 'audit.permissions.leaders' | translate }}</h2>
+                <p class="block-note">{{ 'audit.permissions.leadersNote' | translate }}</p>
+                <ul class="project-list">
+                  @for (proj of p.projects; track proj.id) {
+                    <li class="project-row">
+                      <div class="project-name">
+                        <mat-icon aria-hidden="true">folder</mat-icon>
+                        <strong>{{ proj.name }}</strong>
+                        <span>{{ (proj.forms_count === 1 ? 'audit.permissions.formsOne' : 'audit.permissions.formsMany') | translate: { count: proj.forms_count } }}</span>
+                      </div>
+                      <div class="project-leaders">
+                        @for (leader of proj.leaders; track leader.email) {
+                          <span class="person">
+                            <strong>{{ leader.name }}</strong>
+                            <span>{{ leader.email }}</span>
+                          </span>
+                        } @empty {
+                          <span class="muted">{{ 'audit.permissions.noLeader' | translate }}</span>
+                        }
+                      </div>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="loading-container">
+                  <mat-spinner diameter="32"></mat-spinner>
+                  <p>{{ 'audit.loading.permissions' | translate }}</p>
+                </div>
+              }
             </div>
           </mat-tab>
 
-          <!-- TAB 4: TRATAMIENTO Y CAMBIOS DE DATOS -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <mat-icon class="tab-icon">data_thresholding</mat-icon>
-              <span>Tratamiento y Cambios de Datos</span>
-            </ng-template>
-
+          <!-- Descargas -->
+          <mat-tab [label]="'audit.tabs.downloads' | translate">
             <div class="tab-body">
-              <div class="section-intro-box modification-intro">
-                <mat-icon>published_with_changes</mat-icon>
-                <div>
-                  <strong>Integridad y Tratamiento de la Información</strong>
-                  <p>Muestra el historial completo de modificaciones a la estructura de encuestas, publicación de formularios, creación de usuarios y cambios organizacionales.</p>
+              <p class="tab-intro">{{ 'audit.downloads.intro' | translate }}</p>
+              @if (loading()) {
+                <div class="loading-container"><mat-spinner diameter="32"></mat-spinner><p>{{ 'audit.loading.downloads' | translate }}</p></div>
+              } @else if (downloadLogs().length > 0) {
+                <ng-container [ngTemplateOutlet]="feed" [ngTemplateOutletContext]="{ $implicit: downloadDays() }" />
+              } @else {
+                <div class="empty-state">
+                  <mat-icon aria-hidden="true">cloud_off</mat-icon>
+                  <h3>{{ 'audit.downloads.empty' | translate }}</h3>
+                  <p>{{ 'audit.downloads.emptyHint' | translate }}</p>
                 </div>
-              </div>
-
-              <div *ngIf="modificationLogs().length > 0" class="log-stream">
-                <div *ngFor="let item of modificationLogs()" class="log-item-card" [ngClass]="item.module">
-                  <div class="log-icon-col">
-                    <div class="action-icon-circle" [ngClass]="item.module">
-                      <mat-icon>{{ getActionIcon(item.action, item.module) }}</mat-icon>
-                    </div>
-                  </div>
-                  <div class="log-content-col">
-                    <div class="log-header-meta">
-                      <span class="module-chip" [ngClass]="item.module">{{ getModuleLabel(item.module) }}</span>
-                      <span class="user-chip">
-                        <mat-icon class="mini-icon">person</mat-icon> {{ item.user_name }} ({{ item.user_role }})
-                      </span>
-                      <span class="time-stamp">
-                        <mat-icon class="mini-icon">schedule</mat-icon> {{ item.created_at | date: 'medium' }}
-                      </span>
-                    </div>
-                    <div class="log-natural-text">
-                      {{ item.description_es }}
-                    </div>
-                    <div class="log-footer-meta">
-                      <span>Acción: <strong>{{ item.action }}</strong></span>
-                      <span>IP Origen: <strong>{{ item.ip_address }}</strong></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div *ngIf="modificationLogs().length === 0" class="empty-state">
-                <mat-icon class="empty-icon">rule</mat-icon>
-                <h3>Sin modificaciones registradas</h3>
-                <p>Las modificaciones a formularios, usuarios y proyectos se auditan automáticamente aquí.</p>
-              </div>
+              }
             </div>
           </mat-tab>
 
+          <!-- Cambios de datos -->
+          <mat-tab [label]="'audit.stats.changes' | translate">
+            <div class="tab-body">
+              <p class="tab-intro">{{ 'audit.changes.intro' | translate }}</p>
+              @if (loading()) {
+                <div class="loading-container"><mat-spinner diameter="32"></mat-spinner><p>{{ 'audit.loading.changes' | translate }}</p></div>
+              } @else if (modificationLogs().length > 0) {
+                <ng-container [ngTemplateOutlet]="feed" [ngTemplateOutletContext]="{ $implicit: modificationDays() }" />
+              } @else {
+                <div class="empty-state">
+                  <mat-icon aria-hidden="true">rule</mat-icon>
+                  <h3>{{ 'audit.changes.empty' | translate }}</h3>
+                  <p>{{ 'audit.changes.emptyHint' | translate }}</p>
+                </div>
+              }
+            </div>
+          </mat-tab>
         </mat-tab-group>
-      </mat-card>
+      </section>
     </div>
+
+    <!-- Historial agrupado por día: una línea por evento -->
+    <ng-template #feed let-days>
+      <div class="feed">
+        @for (day of days; track day.key) {
+          <section class="feed-day" [attr.aria-label]="day.label | translate">
+            <h3 class="feed-day-title">{{ day.label | translate }}</h3>
+            <ol class="feed-list">
+              @for (item of day.items; track item.id) {
+                <li class="feed-row">
+                  <time class="feed-time" [attr.datetime]="item.created_at">{{ item.created_at | date: 'HH:mm' }}</time>
+                  <span class="feed-icon" [class.is-destructive]="isDestructive(item.action)" aria-hidden="true">
+                    <mat-icon>{{ getActionIcon(item.action, item.module) }}</mat-icon>
+                  </span>
+                  <div class="feed-body">
+                    <p class="feed-text">{{ item.description || item.description_es }}</p>
+                    <p class="feed-meta">
+                      <span class="module-tag">{{ getModuleLabel(item.module) | translate }}</span>
+                      <span>{{ item.user_name }} · {{ getRoleLabel(item.user_role) | translate }}</span>
+                      @if (item.metadata?.format) { <span>{{ 'audit.feed.format' | translate: { format: (item.metadata.format | uppercase) } }}</span> }
+                      @if (item.metadata?.responses_count) { <span>{{ (item.metadata.responses_count == 1 ? 'audit.feed.responsesOne' : 'audit.feed.responsesMany') | translate: { count: (item.metadata.responses_count | number) } }}</span> }
+                      @if (item.ip_address) { <span class="feed-ip">{{ 'audit.feed.ip' | translate: { ip: item.ip_address } }}</span> }
+                    </p>
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+      </div>
+    </ng-template>
   `,
   styles: [
     `
+      :host {
+        display: block;
+      }
+
       .audit-container {
-        --audit-ocean: #005689;
-        --audit-sky: #46a4ff;
-        --audit-main: #0059a8;
-        --audit-deep: #004499;
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 1.25rem;
+        max-width: 1400px;
+        margin: 0 auto;
       }
 
-      :host-context(.dark) .audit-container {
-        --audit-ocean: #46a4ff;
-        --audit-main: #46a4ff;
-        --audit-deep: #46a4ff;
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
       }
 
-      :host-context(.dark) .super-badge {
-        background: #004499;
-      }
-
-      :host-context(.dark) .refresh-btn {
-        background: #0059a8 !important;
-      }
-
+      /* ---- Encabezado ---- */
       .page-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         flex-wrap: wrap;
         gap: 1rem;
-        background: var(--bg-secondary);
-        padding: 1.25rem 1.5rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--border-color);
       }
 
-      .header-left {
+      .title-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 1rem;
-      }
-
-      .header-icon-badge {
-        width: 48px;
-        height: 48px;
-        border-radius: var(--radius-md);
-        background: rgba(70, 164, 255, 0.16);
-        color: var(--audit-ocean);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .header-title-row {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
+        gap: 0.5rem 0.75rem;
       }
 
       .page-title {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: var(--text-primary);
         margin: 0;
+        color: var(--text-primary);
+        font-size: 1.75rem;
+        font-weight: 700;
+        text-wrap: balance;
       }
 
-      .super-badge {
+      .access-tag {
         display: inline-flex;
         align-items: center;
         gap: 0.25rem;
-        background: var(--audit-deep);
-        color: white;
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 0.2rem 0.5rem;
-        border-radius: 9999px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        padding: 0.15rem 0.55rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-full);
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 600;
 
         mat-icon {
-          font-size: 14px;
           width: 14px;
           height: 14px;
+          font-size: 14px;
         }
       }
 
       .page-subtitle {
-        font-size: 0.85rem;
+        max-width: 70ch;
+        margin: 0.35rem 0 0;
         color: var(--text-secondary);
-        margin: 0.25rem 0 0 0;
+        font-size: 0.875rem;
+        line-height: 1.5;
       }
 
-      .refresh-btn {
-        display: flex;
+      .btn-secondary {
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        border-radius: var(--radius-md);
-        background: var(--audit-main) !important;
-        color: #fff !important;
-      }
-
-      /* KPI Cards */
-      .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-      }
-
-      .kpi-card {
-        background: var(--bg-secondary);
+        gap: 0.4rem;
+        min-height: 38px;
+        padding: 0.5rem 0.9rem;
         border: 1px solid var(--border-color);
         border-radius: var(--radius-lg);
-        padding: 1.25rem;
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        box-shadow: var(--shadow-sm);
-        transition: transform var(--transition-fast);
-      }
-
-      .kpi-card:hover {
-        transform: translateY(-2px);
-      }
-
-      .kpi-icon-wrapper {
-        width: 44px;
-        height: 44px;
-        border-radius: var(--radius-md);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .download-kpi .kpi-icon-wrapper { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
-      .permission-kpi .kpi-icon-wrapper { background: rgba(0, 86, 137, 0.13); color: var(--audit-ocean); }
-      .modification-kpi .kpi-icon-wrapper { background: rgba(0, 89, 168, 0.13); color: var(--audit-main); }
-      .total-kpi .kpi-icon-wrapper { background: rgba(0, 68, 153, 0.13); color: var(--audit-deep); }
-
-      .kpi-content {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .kpi-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-tertiary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-
-      .kpi-value-row {
-        display: flex;
-        align-items: baseline;
-        gap: 0.35rem;
-        margin: 0.25rem 0;
-      }
-
-      .kpi-number {
-        font-size: 1.6rem;
-        font-weight: 800;
+        background: var(--card-bg);
         color: var(--text-primary);
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color var(--transition-fast), border-color var(--transition-fast);
+
+        mat-icon {
+          width: 18px;
+          height: 18px;
+          font-size: 18px;
+          color: var(--primary-text-600);
+        }
+
+        &:hover:not(:disabled) {
+          background: var(--hover-bg);
+          border-color: var(--border-hover);
+        }
+
+        &:disabled {
+          cursor: progress;
+          opacity: 0.7;
+        }
+
+        &:focus-visible {
+          outline: 2px solid var(--primary-600);
+          outline-offset: 2px;
+        }
       }
 
-      .kpi-unit {
-        font-size: 0.75rem;
+      .is-spinning {
+        animation: spin 0.9s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* ---- Resumen ---- */
+      .summary-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1px;
+        overflow: hidden;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        background: var(--border-color);
+      }
+
+      .stat {
+        display: grid;
+        align-content: start;
+        gap: 0.3rem;
+        padding: 1rem 1.25rem;
+        border: 0;
+        background: var(--card-bg);
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color var(--transition-fast);
+
+        &:hover {
+          background: var(--hover-bg);
+        }
+
+        &.is-active {
+          background: var(--primary-50);
+
+          .stat-label {
+            color: var(--primary-text-600);
+          }
+        }
+
+        &:focus-visible {
+          outline: 2px solid var(--primary-600);
+          outline-offset: -2px;
+        }
+      }
+
+      .stat-label {
         color: var(--text-secondary);
+        font-size: 0.8125rem;
+        font-weight: 600;
       }
 
-      .kpi-detail {
-        font-size: 0.725rem;
-        color: var(--text-tertiary);
+      .stat-value {
+        color: var(--text-primary);
+        font-size: 1.625rem;
+        font-weight: 700;
+        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
+
+        small {
+          color: var(--text-secondary);
+          font-size: 0.8125rem;
+          font-weight: 500;
+        }
       }
 
-      /* Main Card & Tabs */
-      .main-card {
-        background: var(--bg-secondary) !important;
-        border-radius: var(--radius-lg) !important;
-        border: 1px solid var(--border-color) !important;
-        box-shadow: var(--shadow-sm) !important;
+      .stat-detail {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        line-height: 1.45;
+        font-variant-numeric: tabular-nums;
       }
 
-      .custom-tabs {
-        --mdc-tab-indicator-active-indicator-color: var(--audit-main);
-        --mat-tab-header-active-label-text-color: var(--audit-deep);
-        --mat-tab-header-active-focus-label-text-color: var(--audit-deep);
+      /* ---- Panel y pestañas ---- */
+      .main-panel {
+        overflow: hidden;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        background: var(--card-bg);
+      }
+
+      .audit-tabs {
+        --mat-tab-header-active-label-text-color: var(--primary-text-600);
+        --mat-tab-header-active-focus-label-text-color: var(--primary-text-600);
+        --mat-tab-header-active-hover-label-text-color: var(--primary-text-600);
+        --mat-tab-header-inactive-label-text-color: var(--text-secondary);
+        --mat-tab-header-inactive-hover-label-text-color: var(--text-primary);
+        --mat-tab-header-inactive-focus-label-text-color: var(--text-primary);
+        --mat-tab-header-active-ripple-color: var(--primary-600);
+        --mat-tab-header-inactive-ripple-color: var(--primary-600);
+        --mat-tab-header-label-text-tracking: 0;
+        --mat-tab-header-label-text-weight: 600;
+        --mat-tab-header-label-text-size: 0.875rem;
+        --mat-tab-header-divider-color: var(--border-color);
+        --mat-tab-header-divider-height: 1px;
+        --mdc-tab-indicator-active-indicator-color: var(--primary-600);
+        --mat-tab-header-active-indicator-color: var(--primary-600);
+        --mdc-tab-indicator-active-indicator-height: 2px;
+      }
+
+      ::ng-deep .audit-tabs .mat-mdc-tab-header {
+        padding: 0 0.75rem;
+      }
+
+      ::ng-deep .audit-tabs .mdc-tab__text-label {
+        letter-spacing: 0;
+        font-weight: 600;
       }
 
       .tab-body {
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
+        padding: 1.25rem;
       }
 
-      .tab-icon {
-        margin-right: 0.5rem;
+      .tab-intro {
+        max-width: 72ch;
+        margin: 0 0 1.25rem;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        line-height: 1.5;
       }
 
-      /* Filters Row */
+      /* ---- Filtros ---- */
       .filters-row {
         display: flex;
-        gap: 1rem;
         flex-wrap: wrap;
-        align-items: center;
+        gap: 0.75rem;
       }
 
       .search-field {
-        flex: 1;
-        min-width: 280px;
+        position: relative;
         display: flex;
         align-items: center;
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 0.5rem 0.75rem;
-        gap: 0.5rem;
+        flex: 1 1 320px;
+
+        .search-icon {
+          position: absolute;
+          left: 0.75rem;
+          width: 20px;
+          height: 20px;
+          font-size: 20px;
+          color: var(--text-tertiary);
+          pointer-events: none;
+        }
+
+        input {
+          width: 100%;
+          min-height: 42px;
+          padding: 0.5rem 2.5rem;
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-lg);
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          font: inherit;
+          font-size: 0.875rem;
+
+          &::placeholder {
+            color: var(--text-tertiary);
+          }
+
+          &::-webkit-search-cancel-button {
+            display: none;
+          }
+        }
       }
 
-      .search-field:focus-within {
-        border-color: var(--audit-sky);
-        box-shadow: 0 0 0 2px rgba(70, 164, 255, 0.16);
+      .search-field input:hover,
+      .select-field select:hover {
+        border-color: var(--border-hover);
       }
 
-      .search-field input {
-        border: none;
-        outline: none;
-        background: transparent;
-        width: 100%;
-        color: var(--text-primary);
-        font-size: 0.9rem;
-      }
-
-      .search-icon {
-        color: var(--audit-ocean);
+      .search-field input:focus-visible,
+      .select-field select:focus-visible {
+        outline: 2px solid var(--primary-600);
+        outline-offset: 1px;
+        border-color: var(--primary-600);
       }
 
       .clear-btn {
+        position: absolute;
+        right: 0.4rem;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: var(--radius-md);
         background: transparent;
-        border: none;
+        color: var(--text-secondary);
         cursor: pointer;
-        color: var(--text-tertiary);
+
+        mat-icon {
+          width: 18px;
+          height: 18px;
+          font-size: 18px;
+        }
+
+        &:hover {
+          background: var(--hover-bg);
+        }
       }
 
       .select-field {
-        min-width: 220px;
+        flex: 0 1 240px;
+
+        select {
+          width: 100%;
+          min-height: 42px;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-lg);
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          font: inherit;
+          font-size: 0.875rem;
+          color-scheme: light dark;
+        }
       }
 
-      /* Log Stream Cards */
-      .log-stream {
-        display: flex;
-        flex-direction: column;
-        gap: 0.85rem;
-      }
-
-      .log-item-card {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-left: 4px solid var(--audit-main);
-        border-radius: var(--radius-md);
-        padding: 1rem 1.25rem;
-        transition: background var(--transition-fast);
-      }
-
-      .log-item-card:hover {
-        background: var(--hover-bg);
-      }
-
-      .log-item-card.descargas { border-left-color: var(--audit-sky); }
-      .log-item-card.permisos { border-left-color: var(--audit-ocean); }
-      .log-item-card.formularios { border-left-color: var(--audit-main); }
-      .log-item-card.usuarios { border-left-color: var(--audit-deep); }
-      .log-item-card.proyectos { border-left-color: var(--audit-sky); }
-
-      .action-icon-circle {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 89, 168, 0.12);
-        color: var(--audit-main);
-        flex-shrink: 0;
-      }
-
-      .action-icon-circle.descargas { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
-      .action-icon-circle.permisos { background: rgba(0, 86, 137, 0.13); color: var(--audit-ocean); }
-      .action-icon-circle.formularios { background: rgba(0, 89, 168, 0.13); color: var(--audit-main); }
-      .action-icon-circle.usuarios { background: rgba(0, 68, 153, 0.13); color: var(--audit-deep); }
-      .action-icon-circle.proyectos { background: rgba(70, 164, 255, 0.18); color: var(--audit-deep); }
-
-      .log-content-col {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-      }
-
-      .log-header-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-      }
-
-      .module-chip {
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        padding: 0.15rem 0.45rem;
-        border-radius: 4px;
-        background: var(--bg-tertiary);
+      .results-count {
+        min-height: 1.25rem;
+        margin: 0.75rem 0 0.25rem;
         color: var(--text-secondary);
+        font-size: 0.8125rem;
+        font-variant-numeric: tabular-nums;
       }
 
-      .module-chip.descargas { background: rgba(70, 164, 255, 0.2); color: var(--audit-deep); }
-      .module-chip.permisos { background: rgba(0, 86, 137, 0.14); color: var(--audit-ocean); }
-      .module-chip.formularios { background: rgba(0, 89, 168, 0.14); color: var(--audit-main); }
-      .module-chip.usuarios { background: rgba(0, 68, 153, 0.14); color: var(--audit-deep); }
-      .module-chip.proyectos { background: rgba(70, 164, 255, 0.2); color: var(--audit-deep); }
-
-      .user-chip {
-        font-size: 0.775rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-      }
-
-      .time-stamp {
-        font-size: 0.725rem;
-        color: var(--text-tertiary);
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        margin-left: auto;
-      }
-
-      .mini-icon {
-        font-size: 14px;
-        width: 14px;
-        height: 14px;
-      }
-
-      .log-natural-text {
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: var(--text-primary);
-        line-height: 1.45;
-        background: rgba(255, 255, 255, 0.02);
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-      }
-
-      .log-footer-meta {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.75rem;
-        color: var(--text-tertiary);
-      }
-
-      /* Sections & Permission Matrix */
-      .section-intro-box {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        background: rgba(70, 164, 255, 0.1);
-        border: 1px solid rgba(0, 89, 168, 0.22);
-        border-radius: var(--radius-md);
-        padding: 0.85rem 1rem;
-        color: var(--text-primary);
-
-        mat-icon {
-          color: var(--audit-main);
-        }
-
-        strong {
-          display: block;
-          font-size: 0.9rem;
-        }
-
-        p {
-          font-size: 0.825rem;
-          color: var(--text-secondary);
-          margin: 0.15rem 0 0 0;
-        }
-      }
-
-      .permission-section {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
+      /* ---- Historial ---- */
+      .feed {
+        display: grid;
+        gap: 1.25rem;
         margin-top: 0.5rem;
       }
 
-      .section-heading {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--text-primary);
+      .feed-day-title {
+        position: sticky;
+        top: 0;
+        z-index: 1;
         margin: 0;
+        padding: 0.4rem 0;
+        background: var(--card-bg);
+        color: var(--text-primary);
+        font-size: 0.8125rem;
+        font-weight: 700;
+        border-bottom: 1px solid var(--border-color);
+
+        &::first-letter {
+          text-transform: uppercase;
+        }
+      }
+
+      .feed-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .feed-row {
+        display: grid;
+        grid-template-columns: 3rem 32px minmax(0, 1fr);
+        align-items: start;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border-color);
+
+        &:last-child {
+          border-bottom: 0;
+        }
+      }
+
+      .feed-time {
+        padding-top: 0.4rem;
+        color: var(--text-secondary);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .feed-icon {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-lg);
+        background: var(--primary-50);
+        color: var(--primary-text-600);
 
         mat-icon {
-          color: var(--audit-main);
+          width: 18px;
+          height: 18px;
+          font-size: 18px;
         }
+
+        &.is-destructive {
+          background: var(--error-bg);
+          color: var(--error-color);
+        }
+      }
+
+      .feed-body {
+        min-width: 0;
+      }
+
+      .feed-text {
+        margin: 0;
+        padding-top: 0.3rem;
+        color: var(--text-primary);
+        font-size: 0.9375rem;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .feed-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem 0.9rem;
+        margin: 0.35rem 0 0;
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .module-tag {
+        padding: 0.05rem 0.5rem;
+        border-radius: var(--radius-full);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .feed-ip {
+        color: var(--text-tertiary);
+      }
+
+      .audit-paginator {
+        margin-top: 0.75rem;
+        border-top: 1px solid var(--border-color);
+        background: transparent;
+      }
+
+      /* ---- Permisos ---- */
+      .block-title {
+        margin: 0 0 0.6rem;
+        color: var(--text-primary);
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .block-title + .block-note {
+        margin-top: -0.35rem;
+      }
+
+      .block-note {
+        margin: 0 0 0.75rem;
+        color: var(--text-secondary);
+        font-size: 0.8125rem;
+      }
+
+      .table-frame {
+        margin-bottom: 2rem;
+        overflow-x: auto;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
       }
 
       .permission-table {
         width: 100%;
-        background: var(--bg-primary) !important;
-        border-radius: var(--radius-md);
-        overflow: hidden;
+        background: transparent;
+
+        th {
+          background: var(--bg-secondary);
+          color: var(--text-secondary);
+          font-size: 0.75rem;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+
+        td {
+          color: var(--text-primary);
+          font-size: 0.8125rem;
+        }
+
+        .numeric {
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        .person {
+          min-width: 15rem;
+        }
       }
 
-      .role-badge {
-        padding: 0.2rem 0.6rem;
-        border-radius: 9999px;
-        font-size: 0.725rem;
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-
-      .role-badge.PROJECT { background: rgba(0, 68, 153, 0.14); color: var(--audit-deep); }
-      .role-badge.RECOLECTOR { background: rgba(0, 86, 137, 0.14); color: var(--audit-ocean); }
-
-      .target-badge {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--audit-main);
-      }
-
-      .user-subtext {
-        font-size: 0.75rem;
-        color: var(--text-tertiary);
-      }
-
-      /* Projects Grid */
-      .projects-grid {
+      .person {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1rem;
+        gap: 0.05rem;
+
+        strong {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
+
+        span {
+          color: var(--text-secondary);
+          font-size: 0.78rem;
+          overflow-wrap: anywhere;
+        }
       }
 
-      .project-perm-card {
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        padding: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-
-      .proj-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .folder-icon {
-        color: var(--audit-ocean);
-      }
-
-      .proj-name {
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: var(--text-primary);
-      }
-
-      .forms-count-chip {
-        margin-left: auto;
-        font-size: 0.7rem;
-        background: var(--bg-tertiary);
-        padding: 0.15rem 0.4rem;
-        border-radius: 4px;
-        color: var(--text-secondary);
-      }
-
-      .leaders-title {
+      .role-tag {
+        display: inline-block;
+        padding: 0.1rem 0.55rem;
+        border-radius: var(--radius-full);
+        background: var(--primary-50);
+        color: var(--primary-text-600);
         font-size: 0.75rem;
         font-weight: 600;
-        color: var(--text-tertiary);
-
+        white-space: nowrap;
       }
 
-      .leader-item {
-        display: flex;
+      .project-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+      }
+
+      .project-row {
+        display: grid;
+        grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr);
+        gap: 0.5rem 1.5rem;
+        padding: 0.875rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+
+        &:last-child {
+          border-bottom: 0;
+        }
+      }
+
+      .project-name {
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr);
         align-items: center;
-        gap: 0.35rem;
-        font-size: 0.825rem;
-        color: var(--text-secondary);
-        margin-top: 0.2rem;
+        column-gap: 0.5rem;
 
         mat-icon {
-          color: var(--audit-main);
+          width: 20px;
+          height: 20px;
+          font-size: 20px;
+          color: var(--primary-text-600);
+        }
+
+        strong {
+          color: var(--text-primary);
+          font-size: 0.875rem;
+        }
+
+        span {
+          grid-column: 2;
+          color: var(--text-secondary);
+          font-size: 0.78rem;
         }
       }
 
-      .loading-container, .empty-state {
+      .project-leaders {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.75rem;
+        align-content: center;
+        font-size: 0.8125rem;
+      }
+
+      .muted,
+      .mini-empty {
+        color: var(--text-secondary);
+        font-size: 0.8125rem;
+      }
+
+      .mini-empty {
+        margin: 0 0 2rem;
+        padding: 1rem;
+        border: 1px dashed var(--border-color);
+        border-radius: var(--radius-lg);
+      }
+
+      /* ---- Estados ---- */
+      .loading-container,
+      .empty-state {
+        display: grid;
+        justify-items: center;
+        gap: 0.5rem;
         padding: 3rem 1rem;
+        color: var(--text-secondary);
         text-align: center;
-        color: var(--text-tertiary);
-      }
 
-      .empty-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-        margin-bottom: 0.5rem;
-      }
-
-      .custom-paginator {
-        background: transparent !important;
-        border-top: 1px solid var(--border-color);
-        margin-top: 0.5rem;
-      }
-
-      @media (max-width: 640px) {
-        .page-header {
-          flex-direction: column;
-          align-items: flex-start;
+        p {
+          margin: 0;
+          font-size: 0.875rem;
         }
-        .header-actions {
-          width: 100%;
+      }
+
+      .empty-state {
+        mat-icon {
+          width: 40px;
+          height: 40px;
+          font-size: 40px;
+          color: var(--text-tertiary);
         }
-        .refresh-btn {
+
+        h3 {
+          margin: 0;
+          color: var(--text-primary);
+          font-size: 1rem;
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .summary-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .page-title {
+          font-size: 1.4rem;
+        }
+
+        .btn-secondary {
           width: 100%;
           justify-content: center;
+        }
+
+        .stat-detail {
+          display: none;
+        }
+
+        .tab-body {
+          padding: 1rem;
+        }
+
+        .select-field {
+          flex: 1 1 100%;
+        }
+
+        .feed-row {
+          grid-template-columns: 32px minmax(0, 1fr);
+        }
+
+        .feed-time {
+          grid-column: 2;
+          grid-row: 1;
+          padding: 0;
+        }
+
+        .feed-icon {
+          grid-row: 1 / span 2;
+        }
+
+        .feed-body {
+          grid-column: 2;
+        }
+
+        .project-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .is-spinning {
+          animation: none;
         }
       }
     `,
   ],
 })
-export class AuditLogComponent implements OnInit {
+export class AuditLogComponent implements OnInit, OnDestroy {
   private readonly auditService = inject(AuditLogService);
+  private readonly translate = inject(TranslateService);
+  private readonly language = inject(LanguageService);
 
   logs = signal<AuditLogItem[]>([]);
   downloadLogs = signal<AuditLogItem[]>([]);
@@ -1004,14 +1008,26 @@ export class AuditLogComponent implements OnInit {
   permissions = signal<PermissionsSummary | null>(null);
   loading = signal<boolean>(true);
   totalLogs = signal<number>(0);
+  activeTab = signal(0);
+
+  readonly logDays = computed(() => this.groupByDay(this.logs()));
+  readonly downloadDays = computed(() => this.groupByDay(this.downloadLogs()));
+  readonly modificationDays = computed(() => this.groupByDay(this.modificationLogs()));
+
+  readonly moduleOptions = MODULES.map((value) => ({ value }));
 
   searchQuery = '';
   selectedModule = '';
   currentPage = 1;
   pageSize = 20;
+  private searchTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.loadAllData();
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.searchTimer);
   }
 
   loadAllData(): void {
@@ -1044,7 +1060,6 @@ export class AuditLogComponent implements OnInit {
           this.totalLogs.set(res.meta.total);
           this.loading.set(false);
 
-          // Separate logs for quick tab filtering
           this.downloadLogs.set(res.data.filter((item) => item.module === 'descargas'));
           this.modificationLogs.set(
             res.data.filter((item) => ['formularios', 'proyectos', 'usuarios'].includes(item.module))
@@ -1057,26 +1072,32 @@ export class AuditLogComponent implements OnInit {
       });
   }
 
+  selectTab(index: number): void {
+    if (index !== this.activeTab()) this.onTabChange(index);
+  }
+
   onTabChange(index: number): void {
-    if (index === 0) {
-      this.selectedModule = '';
-    } else if (index === 2) {
-      this.selectedModule = 'descargas';
-    } else if (index === 3) {
-      this.selectedModule = 'formularios';
-    }
+    this.activeTab.set(index);
+    if (index === 1) return; // Los permisos no dependen del historial.
+    this.selectedModule = index === 2 ? 'descargas' : index === 3 ? 'formularios' : '';
+    this.currentPage = 1;
     this.loadLogs();
   }
 
+  onSearchInput(): void {
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.onSearch(), 350);
+  }
+
   onSearch(): void {
+    clearTimeout(this.searchTimer);
     this.currentPage = 1;
     this.loadLogs();
   }
 
   clearSearch(): void {
     this.searchQuery = '';
-    this.currentPage = 1;
-    this.loadLogs();
+    this.onSearch();
   }
 
   onFilterChange(): void {
@@ -1090,31 +1111,61 @@ export class AuditLogComponent implements OnInit {
     this.loadLogs();
   }
 
+  /** Clave de traducción del módulo; un módulo desconocido se muestra tal cual. */
   getModuleLabel(module: string): string {
-    switch (module) {
-      case 'descargas':
-        return '📥 Descargas';
-      case 'permisos':
-        return '🔑 Permisos';
-      case 'formularios':
-        return '📝 Formularios';
-      case 'usuarios':
-        return '👥 Usuarios';
-      case 'proyectos':
-        return '📁 Proyectos';
-      default:
-        return module.toUpperCase();
-    }
+    return MODULES.includes(module) ? `audit.modules.${module}` : module.charAt(0).toUpperCase() + module.slice(1);
+  }
+
+  /** Clave de traducción del rol; un rol desconocido se muestra tal cual. */
+  getRoleLabel(role: string): string {
+    return ROLES.includes(role) ? `audit.roles.${role}` : role;
+  }
+
+  isDestructive(action: string): boolean {
+    return action.includes('DELETE') || action.includes('REVOKE');
   }
 
   getActionIcon(action: string, module: string): string {
+    if (action.includes('LOGIN') || module === 'autenticacion') return 'login';
     if (action.includes('EXPORT') || module === 'descargas') return 'file_download';
     if (action.includes('PERMISSION') || module === 'permisos') return 'verified_user';
+    if (action.includes('DELETE')) return 'delete';
+    if (action.includes('RESTORE')) return 'restore';
     if (action.includes('USER')) return 'person';
     if (action.includes('PROJECT')) return 'folder';
     if (action.includes('DEPLOY')) return 'rocket_launch';
     if (action.includes('ARCHIVE')) return 'inventory_2';
-    if (action.includes('DELETE')) return 'delete';
     return 'edit_note';
+  }
+
+  /** Agrupa los eventos por día local, con "Hoy" y "Ayer" para los recientes. */
+  private groupByDay(items: AuditLogItem[]): LogDay[] {
+    const lang = this.language.currentLang(); // recalcula las etiquetas al cambiar de idioma
+    const locale = lang === 'en' ? 'en-US' : 'es-EC';
+    const days: LogDay[] = [];
+    const today = this.dayKey(new Date());
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = this.dayKey(yesterdayDate);
+
+    for (const item of items) {
+      const date = new Date(item.created_at);
+      const key = Number.isNaN(date.getTime()) ? 'sin-fecha' : this.dayKey(date);
+      let day = days.find((entry) => entry.key === key);
+      if (!day) {
+        const label = key === 'sin-fecha' ? 'audit.days.unknown'
+          : key === today ? 'audit.days.today'
+          : key === yesterday ? 'audit.days.yesterday'
+          : date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        day = { key, label, items: [] };
+        days.push(day);
+      }
+      day.items.push(item);
+    }
+    return days;
+  }
+
+  private dayKey(date: Date): string {
+    return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
   }
 }

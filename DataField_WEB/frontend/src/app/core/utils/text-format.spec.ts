@@ -11,9 +11,9 @@ describe('Formatos de texto', () => {
     expect(textFormatError('cedula_ec', '1710034065')).toBeNull();
     expect(textFormatError('cedula_ec', '171003406-5')).toBeNull();
     expect(textFormatError('cedula_ec', '1300000005')).toBeNull();
-    expect(textFormatError('cedula_ec', '1710034066')).toBe('La cédula no es válida: revise el último dígito.');
-    expect(textFormatError('cedula_ec', '2510034065')).toBe('La cédula no es válida: revise los primeros dígitos.');
-    expect(textFormatError('cedula_ec', '12345')).toBe('La cédula debe tener 10 dígitos.');
+    expect(textFormatError('cedula_ec', '1710034066')).toBe('forms.textFormats.errors.cedulaCheck');
+    expect(textFormatError('cedula_ec', '2510034065')).toBe('forms.textFormats.errors.cedulaPrefix');
+    expect(textFormatError('cedula_ec', '12345')).toBe('forms.textFormats.errors.cedulaLength');
   });
 
   it('valida y normaliza teléfonos', () => {

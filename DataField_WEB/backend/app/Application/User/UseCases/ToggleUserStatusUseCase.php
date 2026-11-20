@@ -24,26 +24,26 @@ class ToggleUserStatusUseCase
             $admin = User::findOrFail($adminId);
 
             if (! $admin->canManageUsers()) {
-                throw new AccessDeniedHttpException('Solo los administradores pueden cambiar el estado de usuarios');
+                throw new AccessDeniedHttpException(__('Solo los administradores pueden cambiar el estado de usuarios'));
             }
 
             // No permitir auto-desactivación
             if ($userId === $adminId) {
-                throw new BadRequestHttpException('No puedes desactivarte a ti mismo');
+                throw new BadRequestHttpException(__('No puedes desactivarte a ti mismo'));
             }
 
             // Buscar el usuario
             $user = User::find($userId);
 
             if (! $user) {
-                throw new NotFoundHttpException('Usuario no encontrado');
+                throw new NotFoundHttpException(__('Usuario no encontrado'));
             }
 
             if (! $admin->canManageRole($user->rol)) {
-                throw new AccessDeniedHttpException('No tienes permisos para activar o desactivar usuarios con ese rol');
+                throw new AccessDeniedHttpException(__('No tienes permisos para activar o desactivar usuarios con ese rol'));
             }
             if ($user->hasAccessRequest()) {
-                throw new BadRequestHttpException('Esta cuenta es una solicitud de acceso: apruébala o recházala desde la bandeja de solicitudes.');
+                throw new BadRequestHttpException(__('Esta cuenta es una solicitud de acceso: apruébala o recházala desde la bandeja de solicitudes.'));
             }
 
             app(ProtectAdministrator::class)->check($user, $adminId, $user->rol, $isActive ?? ! $user->is_active);

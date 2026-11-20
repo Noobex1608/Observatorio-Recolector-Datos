@@ -14,10 +14,10 @@ class ProtectAdministrator
 
     public function check(User $user, int $actorId, string $role, bool $active, bool $deleting = false): void
     {
-        abort_if((int) $user->id === $actorId && (! $active || $deleting), 422, 'No puedes desactivar tu propia cuenta.');
+        abort_if((int) $user->id === $actorId && (! $active || $deleting), 422, __('No puedes desactivar tu propia cuenta.'));
         if ($user->isSuperAdmin() && $user->isActive() && ($role !== User::ROLE_SUPER_ADMIN || ! $active || $deleting)) {
             abort_unless(User::where('rol', User::ROLE_SUPER_ADMIN)->where('is_active', true)
-                ->where('id', '!=', $user->id)->exists(), 422, 'Debe conservarse al menos un superadministrador activo.');
+                ->where('id', '!=', $user->id)->exists(), 422, __('Debe conservarse al menos un superadministrador activo.'));
         }
     }
 }

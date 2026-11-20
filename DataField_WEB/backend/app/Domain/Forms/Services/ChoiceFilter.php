@@ -75,23 +75,23 @@ final class ChoiceFilter
         if ($filter === null) {
             return is_array($question->properties) && array_key_exists('choice_filter', $question->properties)
                 && $question->properties['choice_filter'] !== null
-                ? 'Las opciones en cascada no tienen un formato válido.' : null;
+                ? __('Las opciones en cascada no tienen un formato válido.') : null;
         }
         if (! in_array($question->type, self::CHILD_TYPES, true)) {
-            return 'Las opciones en cascada solo se usan en preguntas de opción única o múltiple.';
+            return __('Las opciones en cascada solo se usan en preguntas de opción única o múltiple.');
         }
         $source = $byId[$filter['question_id']] ?? null;
         if (! $source || $positions[$source->id] >= $positions[$question->id] || ! in_array($source->type, self::SOURCE_TYPES, true)) {
-            return 'Las opciones en cascada deben depender de una pregunta de opciones anterior del mismo formulario.';
+            return __('Las opciones en cascada deben depender de una pregunta de opciones anterior del mismo formulario.');
         }
         $options = is_array($question->options) ? array_values($question->options) : [];
         if (count($filter['parents']) !== count($options)) {
-            return 'Cada opción debe indicar de qué respuestas depende.';
+            return __('Cada opción debe indicar de qué respuestas depende.');
         }
         $sourceOptions = array_map('strval', is_array($source->options) ? array_values($source->options) : []);
         foreach ($filter['parents'] as $parents) {
             if (array_diff($parents, $sourceOptions) !== []) {
-                return 'Las opciones en cascada mencionan respuestas que no existen en la pregunta de la que dependen.';
+                return __('Las opciones en cascada mencionan respuestas que no existen en la pregunta de la que dependen.');
             }
         }
 

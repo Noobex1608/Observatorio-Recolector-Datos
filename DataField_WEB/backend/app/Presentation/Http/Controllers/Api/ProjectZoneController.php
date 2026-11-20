@@ -28,7 +28,7 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $this->canViewProject($project, $user)) {
-            return response()->json(['message' => 'No tienes permisos para ver las zonas de este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para ver las zonas de este proyecto')], 403);
         }
 
         $zones = ProjectZone::with(['assignedUsers:id,name,email,rol'])
@@ -49,16 +49,16 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $user->leadsProject($project->id)) {
-            return response()->json(['message' => 'No tienes permisos para crear zonas en este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para crear zonas en este proyecto')], 403);
         }
 
         $data = $request->validated();
         $form = isset($data['form_id']) ? Form::where('project_id', $project->id)->find($data['form_id']) : null;
         if (! $form) {
-            return response()->json(['message' => 'Seleccione primero un formulario del proyecto'], 422);
+            return response()->json(['message' => __('Seleccione primero un formulario del proyecto')], 422);
         }
         if (! app(\App\Domain\Projects\Services\ProjectSurveyPeriod::class)->isValidated($project->id)) {
-            return response()->json(['message' => 'La ficha técnica del proyecto debe estar validada antes de delimitar'], 422);
+            return response()->json(['message' => __('La ficha técnica del proyecto debe estar validada antes de delimitar')], 422);
         }
 
         $zone = DB::transaction(function () use ($project, $form, $data, $user) {
@@ -67,7 +67,7 @@ class ProjectZoneController extends Controller
                 ? (int) $data['assigned_count']
                 : (! empty($data['assigned_user_ids']) ? count($data['assigned_user_ids']) : 0);
             abort_if($assignedCount > 0 && count($data['assigned_user_ids'] ?? []) > $assignedCount,
-                422, 'La asignación supera la cuota de encuestadores de la zona.');
+                422, __('La asignación supera la cuota de encuestadores de la zona.'));
 
             $zone = ProjectZone::create([
                 'project_id' => $project->id,
@@ -86,9 +86,9 @@ class ProjectZoneController extends Controller
             ]);
 
             $this->syncZoneCollectors($zone, $data['assigned_user_ids'] ?? []);
-            AuditLogService::log($user, 'CREATE_ZONE', 'zonas', "Creó la zona {$zone->name}.", [
+            AuditLogService::log($user, 'CREATE_ZONE', 'zonas', 'Creó la zona :name.', [
                 'project_id' => $project->id, 'form_id' => $form->id, 'zone_id' => $zone->id,
-            ]);
+            ], params: ['name' => $zone->name]);
 
             return $zone;
         });
@@ -104,7 +104,7 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $this->canViewProject($project, $user)) {
-            return response()->json(['message' => 'No tienes permisos para ver esta zona'], 403);
+            return response()->json(['message' => __('No tienes permisos para ver esta zona')], 403);
         }
 
         $zone = ProjectZone::with(['assignedUsers:id,name,email,rol'])
@@ -123,7 +123,7 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $user->leadsProject($project->id)) {
-            return response()->json(['message' => 'No tienes permisos para editar zonas en este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para editar zonas en este proyecto')], 403);
         }
 
         $data = $request->validated();
@@ -132,7 +132,7 @@ class ProjectZoneController extends Controller
                 ->lockForUpdate()->firstOrFail();
             $this->assertActiveCollectors($project, $data['assigned_user_ids'] ?? [], $zone);
             abort_if(isset($data['form_id']) && $data['form_id'] !== $zone->form_id,
-                422, 'No se puede mover una zona a otro formulario');
+                422, __('No se puede mover una zona a otro formulario'));
             $before = $zone->only(['name', 'form_id', 'target_responses', 'assigned_count']);
             $assignedCount = isset($data['assigned_count'])
                 ? (int) $data['assigned_count']
@@ -140,7 +140,7 @@ class ProjectZoneController extends Controller
             $usersCount = array_key_exists('assigned_user_ids', $data)
                 ? count($data['assigned_user_ids'] ?? []) : $zone->assignedUsers()->count();
             abort_if($assignedCount > 0 && $usersCount > $assignedCount,
-                422, 'La cuota no puede ser menor que el número de encuestadores asignados.');
+                422, __('La cuota no puede ser menor que el número de encuestadores asignados.'));
 
             $zone->update([
                 'name' => $data['name'],
@@ -158,10 +158,10 @@ class ProjectZoneController extends Controller
             if (array_key_exists('assigned_user_ids', $data)) {
                 $this->syncZoneCollectors($zone, $data['assigned_user_ids'] ?? []);
             }
-            AuditLogService::log($user, 'UPDATE_ZONE', 'zonas', "Actualizó la zona {$zone->name}.", [
+            AuditLogService::log($user, 'UPDATE_ZONE', 'zonas', 'Actualizó la zona :name.', [
                 'zone_id' => $zone->id, 'before' => $before,
                 'after' => $zone->only(['name', 'form_id', 'target_responses', 'assigned_count']),
-            ]);
+            ], params: ['name' => $zone->name]);
 
             return $zone;
         });
@@ -177,7 +177,7 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $user->leadsProject($project->id)) {
-            return response()->json(['message' => 'No tienes permisos para eliminar zonas de este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para eliminar zonas de este proyecto')], 403);
         }
 
         $zone = ProjectZone::where('project_id', $project->id)->findOrFail($zoneId);
@@ -189,9 +189,9 @@ class ProjectZoneController extends Controller
             $zone->delete();
             // Quien se queda sin ninguna zona del formulario ya no puede enviar encuestas: se le retira el acceso.
             $this->revokeFormAccessWithoutZone($zone->form_id, $userIds);
-            AuditLogService::log($user, 'DELETE_ZONE', 'zonas', "Eliminó la zona {$zone->name}.", [
+            AuditLogService::log($user, 'DELETE_ZONE', 'zonas', 'Eliminó la zona :name.', [
                 'zone_id' => $zone->id, 'project_id' => $zone->project_id, 'form_id' => $zone->form_id,
-            ]);
+            ], params: ['name' => $zone->name]);
         });
 
         return response()->json(null, 204);
@@ -203,7 +203,7 @@ class ProjectZoneController extends Controller
         $user = $request->user();
 
         if (! $user->leadsProject($project->id)) {
-            return response()->json(['message' => 'No tienes permisos para asignar encuestadores'], 403);
+            return response()->json(['message' => __('No tienes permisos para asignar encuestadores')], 403);
         }
 
         $data = $request->validated();
@@ -212,14 +212,14 @@ class ProjectZoneController extends Controller
                 $zone = ProjectZone::where('project_id', $project->id)
                     ->whereKey($item['zone_id'])->lockForUpdate()->first();
                 abort_unless($zone && $zone->form_id && Form::where('project_id', $project->id)->whereKey($zone->form_id)->exists(), 422,
-                    'La zona debe pertenecer a un formulario de este proyecto.');
+                    __('La zona debe pertenecer a un formulario de este proyecto.'));
                 $this->assertActiveCollectors($project, $item['user_ids'], $zone);
                 abort_if($zone->assigned_count && count($item['user_ids']) > $zone->assigned_count,
-                    422, 'La asignación supera la cuota de encuestadores de la zona.');
+                    422, __('La asignación supera la cuota de encuestadores de la zona.'));
                 $this->syncZoneCollectors($zone, $item['user_ids']);
-                AuditLogService::log($user, 'ASSIGN_ZONE', 'zonas', "Asignó encuestadores a la zona {$zone->name}.", [
+                AuditLogService::log($user, 'ASSIGN_ZONE', 'zonas', 'Asignó encuestadores a la zona :name.', [
                     'zone_id' => $zone->id, 'user_ids' => $item['user_ids'],
-                ]);
+                ], params: ['name' => $zone->name]);
             }
         });
 
@@ -243,16 +243,16 @@ class ProjectZoneController extends Controller
             'expected_user_ids' => 'sometimes|array',
             'expected_user_ids.*' => 'integer',
         ], [
-            'count.required' => 'Indique cuántos encuestadores desea sortear.',
-            'count.min' => 'Indique al menos 1 encuestador.',
+            'count.required' => __('Indique cuántos encuestadores desea sortear.'),
+            'count.min' => __('Indique al menos 1 encuestador.'),
         ]);
         $form = Form::where('project_id', $project->id)->findOrFail($data['form_id']);
         $zones = $form->zones()->withCount('assignedUsers')->orderBy('id')->get();
         if ($zones->isEmpty()) {
-            return response()->json(['message' => 'Delimite las zonas antes de asignar encuestadores'], 422);
+            return response()->json(['message' => __('Delimite las zonas antes de asignar encuestadores')], 422);
         }
         if ($zones->contains(fn ($zone) => $zone->assigned_users_count > 0)) {
-            return response()->json(['message' => 'Ya existen asignaciones. Revísalas antes de hacer un nuevo sorteo'], 422);
+            return response()->json(['message' => __('Ya existen asignaciones. Revísalas antes de hacer un nuevo sorteo')], 422);
         }
 
         // Sorteo entre todo el equipo activo del proyecto: se eligen `count` al azar y se reparten.
@@ -261,14 +261,14 @@ class ProjectZoneController extends Controller
             ->get(['users.id', 'users.name', 'users.email']);
         $count = (int) $data['count'];
         if ($pool->isEmpty()) {
-            return response()->json(['message' => 'El proyecto no tiene encuestadores activos. Agrégalos en la pestaña Encuestadores.'], 422);
+            return response()->json(['message' => __('El proyecto no tiene encuestadores activos. Agrégalos en la pestaña Encuestadores.')], 422);
         }
         if ($count > $pool->count()) {
-            return response()->json(['message' => "Solo hay {$pool->count()} encuestadores activos en el proyecto."], 422);
+            return response()->json(['message' => __('Solo hay :count encuestadores activos en el proyecto.', ['count' => $pool->count()])], 422);
         }
         $capacity = $zones->contains(fn ($zone) => ! $zone->assigned_count) ? null : $zones->sum('assigned_count');
         if ($capacity !== null && $count > $capacity) {
-            return response()->json(['message' => "Las zonas admiten como máximo {$capacity} encuestadores en total."], 422);
+            return response()->json(['message' => __('Las zonas admiten como máximo :capacity encuestadores en total.', ['capacity' => $capacity])], 422);
         }
 
         $seed = $data['seed'] ?? (string) Str::uuid();
@@ -276,7 +276,7 @@ class ProjectZoneController extends Controller
         if (array_key_exists('expected_user_ids', $data)) {
             $expected = collect($data['expected_user_ids'])->map(fn ($id) => (int) $id)->sort()->values()->all();
             if ($expected !== $ids->sort()->values()->all()) {
-                return response()->json(['message' => 'El equipo del proyecto cambió desde la vista previa. Vuelve a sortear antes de confirmar.'], 409);
+                return response()->json(['message' => __('El equipo del proyecto cambió desde la vista previa. Vuelve a sortear antes de confirmar.')], 409);
             }
         }
         $assignments = $zones->mapWithKeys(fn ($zone) => [$zone->id => []])->all();
@@ -284,7 +284,7 @@ class ProjectZoneController extends Controller
             $candidate = $zones->sortBy(fn ($zone) => count($assignments[$zone->id]))
                 ->first(fn ($zone) => ! $zone->assigned_count || count($assignments[$zone->id]) < $zone->assigned_count);
             if (! $candidate) {
-                return response()->json(['message' => 'La capacidad total de las zonas es menor al número de encuestadores'], 422);
+                return response()->json(['message' => __('La capacidad total de las zonas es menor al número de encuestadores')], 422);
             }
             $assignments[$candidate->id][] = $userId;
         }
@@ -294,9 +294,9 @@ class ProjectZoneController extends Controller
                 foreach ($zones as $zone) {
                     $lockedZone = ProjectZone::whereKey($zone->id)->lockForUpdate()->firstOrFail();
                     abort_if($lockedZone->assignedUsers()->exists(), 422,
-                        'Ya existen asignaciones. Revísalas antes de hacer un nuevo sorteo.');
+                        __('Ya existen asignaciones. Revísalas antes de hacer un nuevo sorteo.'));
                     abort_if($lockedZone->assigned_count && count($assignments[$zone->id]) > $lockedZone->assigned_count,
-                        422, 'La asignación supera la cuota de encuestadores de la zona.');
+                        422, __('La asignación supera la cuota de encuestadores de la zona.'));
                     $sync = [];
                     foreach ($assignments[$zone->id] as $userId) {
                         $sync[$userId] = ['role' => 'RECOLECTOR'];
@@ -350,7 +350,7 @@ class ProjectZoneController extends Controller
         $users = User::whereIn('id', $ids)->lockForUpdate()->get();
         abort_if($users->count() !== count($ids)
             || $users->contains(fn (User $user) => $user->rol !== User::ROLE_USER || ! $user->is_active), 422,
-            'Solo se pueden asignar encuestadores activos.');
+            __('Solo se pueden asignar encuestadores activos.'));
 
         $members = $project->collectors()->wherePivot('is_active', true)
             ->whereIn('users.id', $ids)->pluck('users.id')->map(fn ($id) => (int) $id)->all();
@@ -358,7 +358,7 @@ class ProjectZoneController extends Controller
             ? $zone->assignedUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->all()
             : [];
         abort_if(array_diff($ids, $members, $alreadyInZone) !== [], 422,
-            'Solo puedes asignar encuestadores registrados y activos en este proyecto. Agrégalos en la pestaña Encuestadores.');
+            __('Solo puedes asignar encuestadores registrados y activos en este proyecto. Agrégalos en la pestaña Encuestadores.'));
     }
 
     private function syncZoneCollectors(ProjectZone $zone, array $ids): void

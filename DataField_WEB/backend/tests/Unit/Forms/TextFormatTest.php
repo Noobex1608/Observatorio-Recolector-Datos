@@ -4,7 +4,7 @@ namespace Tests\Unit\Forms;
 
 use App\Domain\Forms\Services\TextFormat;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class TextFormatTest extends TestCase
 {

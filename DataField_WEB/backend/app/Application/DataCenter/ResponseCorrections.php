@@ -40,9 +40,9 @@ final class ResponseCorrections
             $questions = $form->questions()->orderBy('order')->get();
             /** @var FormQuestion|null $question */
             $question = $questions->firstWhere('id', $questionId);
-            abort_unless($question, 422, 'La pregunta no pertenece a este formulario.');
+            abort_unless($question, 422, __('La pregunta no pertenece a este formulario.'));
             abort_unless(in_array($question->type, self::EDITABLE_TYPES, true), 422,
-                'Este tipo de pregunta (archivos, firma, GPS, matriz o cálculo) no se corrige desde aquí.');
+                __('Este tipo de pregunta (archivos, firma, GPS, matriz o cálculo) no se corrige desde aquí.'));
 
             $data = is_array($response->data) ? $response->data : [];
             $before = $data[$questionId] ?? null;
@@ -66,7 +66,7 @@ final class ResponseCorrections
             $data = $this->calculator->calculate($questions, $data);
 
             $after = $data[$questionId] ?? null;
-            abort_if($after === $before && $cleared === [], 422, 'El valor nuevo es igual al actual.');
+            abort_if($after === $before && $cleared === [], 422, __('El valor nuevo es igual al actual.'));
 
             $response->data = $data;
             $response->corrections = [...($response->corrections ?? []), $this->entry($admin, 'answer', $reason, [
@@ -78,12 +78,13 @@ final class ResponseCorrections
             ])];
             $response->save();
 
-            $extra = $cleared !== [] ? ' Se vaciaron por depender de ella: '.implode(', ', array_column($cleared, 'question')).'.' : '';
-            AuditLogService::log($admin, 'CORRECT_RESPONSE', 'respuestas',
-                "Corrigió «{$question->label}» en una respuesta de «{$form->title}». Motivo: {$reason}.{$extra}", [
-                    'form_id' => $form->id, 'response_id' => $response->id, 'question_id' => $questionId,
-                    'before' => $before, 'after' => $after,
-                ]);
+            $template = $cleared !== []
+                ? 'Corrigió «:label» en una respuesta de «:title». Motivo: :reason. Se vaciaron por depender de ella: :cleared.'
+                : 'Corrigió «:label» en una respuesta de «:title». Motivo: :reason.';
+            AuditLogService::log($admin, 'CORRECT_RESPONSE', 'respuestas', $template, [
+                'form_id' => $form->id, 'response_id' => $response->id, 'question_id' => $questionId,
+                'before' => $before, 'after' => $after,
+            ], params: ['label' => $question->label, 'title' => $form->title, 'reason' => $reason, 'cleared' => implode(', ', array_column($cleared, 'question'))]);
             $this->sync->enqueue($response);
 
             return $response;
@@ -102,9 +103,9 @@ final class ResponseCorrections
             $response->delete();
 
             AuditLogService::log($admin, 'VOID_RESPONSE', 'respuestas',
-                "Anuló una respuesta de «{$response->form?->title}». Motivo: {$reason}.", [
+                'Anuló una respuesta de «:title». Motivo: :reason.', [
                     'form_id' => $response->form_id, 'response_id' => $response->id,
-                ]);
+                ], params: ['title' => $response->form?->title, 'reason' => $reason]);
 
             return $response;
         });
@@ -128,8 +129,8 @@ final class ResponseCorrections
         return DB::transaction(function () use ($responseId, $userId, $reason, $admin) {
             $response = FormResponse::lockForUpdate()->findOrFail($responseId);
             $collector = $this->collectorCandidates($response)->firstWhere('id', $userId);
-            abort_unless($collector, 422, 'Esa persona no está asignada a este formulario ni a su proyecto.');
-            abort_if($response->user_id === $userId, 422, 'La respuesta ya está a nombre de esa persona.');
+            abort_unless($collector, 422, __('Esa persona no está asignada a este formulario ni a su proyecto.'));
+            abort_if($response->user_id === $userId, 422, __('La respuesta ya está a nombre de esa persona.'));
 
             $previous = $response->user()->withTrashed()->first();
             $response->forceFill([
@@ -141,10 +142,10 @@ final class ResponseCorrections
             ])->save();
 
             AuditLogService::log($admin, 'REASSIGN_RESPONSE', 'respuestas',
-                "Cambió el encuestador de una respuesta de «{$response->form?->title}» a {$collector->email}. Motivo: {$reason}.", [
+                'Cambió el encuestador de una respuesta de «:title» a :email. Motivo: :reason.', [
                     'form_id' => $response->form_id, 'response_id' => $response->id,
                     'before_user_id' => $previous?->id, 'after_user_id' => $userId,
-                ]);
+                ], params: ['title' => $response->form?->title, 'email' => $collector->email, 'reason' => $reason]);
             $this->sync->enqueue($response);
 
             return $response;

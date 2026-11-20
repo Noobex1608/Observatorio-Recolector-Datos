@@ -78,14 +78,14 @@ final class SimpleFormImporter
         }
 
         if ($rows === []) {
-            $this->error(0, "La hoja «{$this->sheetName}» no tiene preguntas. Escríbelas debajo de los encabezados (la hoja «Ejemplo» no se importa).");
+            $this->error(0, __('La hoja «:sheetname» no tiene preguntas. Escríbelas debajo de los encabezados (la hoja «Ejemplo» no se importa).', ['sheetname' => $this->sheetName]));
 
             return $this->result();
         }
 
         $this->readRows($rows);
         if (count($this->questions) > XlsFormImporter::MAX_QUESTIONS) {
-            $this->error(0, 'El formulario admite como máximo '.XlsFormImporter::MAX_QUESTIONS.' preguntas; el archivo tiene '.count($this->questions).'.');
+            $this->error(0, __('El formulario admite como máximo :max preguntas; el archivo tiene :count.', ['max' => XlsFormImporter::MAX_QUESTIONS, 'count' => count($this->questions)]));
         }
 
         return $this->result();
@@ -107,13 +107,13 @@ final class SimpleFormImporter
                 continue;
             }
             if ($typeLabel === '') {
-                $this->error($line, 'Falta el «Tipo» de la pregunta.');
+                $this->error($line, __('Falta el «Tipo» de la pregunta.'));
 
                 continue;
             }
             $type = SimpleFormat::typeOf($typeLabel);
             if ($type === null) {
-                $this->error($line, "El tipo «{$typeLabel}» no existe. Elígelo de la lista desplegable.");
+                $this->error($line, __('El tipo «:typelabel» no existe. Elígelo de la lista desplegable.', ['typelabel' => $typeLabel]));
 
                 continue;
             }
@@ -122,7 +122,7 @@ final class SimpleFormImporter
                 if ($matrix === null) {
                     $this->error($line, '«Fila de matriz» debe ir debajo de una fila de tipo «Matriz».');
                 } elseif ($text === '') {
-                    $this->error($line, 'La fila de la matriz no tiene texto en «Pregunta».');
+                    $this->error($line, __('La fila de la matriz no tiene texto en «Pregunta».'));
                 } else {
                     $this->questions[$matrix]['options']['rows'][] = Str::limit($text, 500, '');
                     if (in_array(SimpleFormat::key($row['required'] ?? ''), ['si', 'yes', 's', 'x', '1'], true)) {
@@ -135,7 +135,7 @@ final class SimpleFormImporter
             $matrix = null;
 
             if ($text === '' && $type[0] !== 'CALCULATE') {
-                $this->error($line, 'Falta el texto de la «Pregunta».');
+                $this->error($line, __('Falta el texto de la «Pregunta».'));
 
                 continue;
             }
@@ -144,7 +144,7 @@ final class SimpleFormImporter
             $autoNumber++;
             $number = $number !== '' ? preg_replace('/\.0+$/', '', $number) : (string) $autoNumber;
             if (isset($this->byNumber[$number])) {
-                $this->error($line, "El N.º {$number} está repetido.");
+                $this->error($line, __('El N.º :number está repetido.', ['number' => $number]));
 
                 continue;
             }
@@ -153,7 +153,7 @@ final class SimpleFormImporter
             if ($section !== null && ! in_array($section, $this->sections, true)) {
                 $this->sections[] = $section;
             } elseif ($section !== null && ($last = end($this->questions)) && $last['section_name'] !== $section) {
-                $this->warn($line, "La sección «{$section}» aparece en filas separadas; sus preguntas se agrupan juntas.");
+                $this->warn($line, __('La sección «:section» aparece en filas separadas; sus preguntas se agrupan juntas.', ['section' => $section]));
             }
 
             $question = $this->buildQuestion($row, $type[0], $type[1], $text, $section, $number);
@@ -166,14 +166,15 @@ final class SimpleFormImporter
             if ($type[0] === 'LIKERT') {
                 $matrix = $index;
             }
-            if (($row['jumps'] ?? '') !== '' || ($row['parent'] ?? '') !== '' || ($row['depends'] ?? '') !== '' || $type[0] === 'CALCULATE') {
+            if (($row['jumps'] ?? '') !== '' || ($row['parent'] ?? '') !== '' || ($row['depends'] ?? '') !== ''
+                || ($row['show_if'] ?? '') !== '' || $type[0] === 'CALCULATE') {
                 $pending[] = ['index' => $index, 'row' => $row];
             }
         }
 
         foreach ($this->questions as $question) {
             if ($question['type'] === 'LIKERT' && $question['options']['rows'] === []) {
-                $this->error($question['row'], "La matriz «{$question['label']}» no tiene filas: agrega debajo filas de tipo «Fila de matriz».");
+                $this->error($question['row'], __('La matriz «:label» no tiene filas: agrega debajo filas de tipo «Fila de matriz».', ['label' => $question['label']]));
             }
         }
 
@@ -202,12 +203,12 @@ final class SimpleFormImporter
                     $options = SimpleFormat::splitOptions($rawOptions);
                 }
                 if ($options === []) {
-                    $this->error($line, 'Escribe las «Opciones» separadas por punto y coma (ej. Sí; No).');
+                    $this->error($line, __('Escribe las «Opciones» separadas por punto y coma (ej. Sí; No).'));
 
                     return null;
                 }
                 if (count($options) === 1 && str_contains($rawOptions, ',')) {
-                    $this->warn($line, 'Las opciones parecen separadas por comas; sepáralas con «;» para que sean opciones distintas.');
+                    $this->warn($line, __('Las opciones parecen separadas por comas; sepáralas con «;» para que sean opciones distintas.'));
                 }
                 break;
             case 'LIKERT':
@@ -217,7 +218,7 @@ final class SimpleFormImporter
             case 'RATING':
                 $levels = $rawOptions === '' ? 5 : (int) $rawOptions;
                 if ($levels < 3 || $levels > 10) {
-                    $this->warn($line, 'La calificación admite de 3 a 10 niveles; se usó 5.');
+                    $this->warn($line, __('La calificación admite de 3 a 10 niveles; se usó 5.'));
                     $levels = 5;
                 }
                 $properties = ['max_rating' => $levels, 'icon_type' => 'star'];
@@ -248,9 +249,9 @@ final class SimpleFormImporter
                 }
             }
             if ($type !== 'TEXT') {
-                $this->warn($line, '«Formato» solo se aplica a preguntas de tipo Texto; se ignoró.');
+                $this->warn($line, __('«Formato» solo se aplica a preguntas de tipo Texto; se ignoró.'));
             } elseif ($code === null) {
-                $this->warn($line, "El formato «{$format}» no existe (Cédula, Correo o Teléfono); quedó como texto libre.");
+                $this->warn($line, __('El formato «:format» no existe (Cédula, Correo o Teléfono); quedó como texto libre.', ['format' => $format]));
             } else {
                 $properties['text_format'] = $code;
             }
@@ -261,10 +262,10 @@ final class SimpleFormImporter
 
         $required = SimpleFormat::key($row['required'] ?? '');
         if (! in_array($required, ['', 'si', 'no', 'yes', 's', 'n', 'x', '1', '0'], true)) {
-            $this->warn($line, '«Obligatoria» debe ser Sí o No; se tomó como No.');
+            $this->warn($line, __('«Obligatoria» debe ser Sí o No; se tomó como No.'));
         }
         if (($row['depends'] ?? '') !== '' && ! in_array($type, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
-            $this->warn($line, '«Opciones según» solo se aplica a Opción única u Opción múltiple; se ignoró.');
+            $this->warn($line, __('«Opciones según» solo se aplica a Opción única u Opción múltiple; se ignoró.'));
         }
 
         $tempId = (string) Str::uuid();
@@ -306,10 +307,14 @@ final class SimpleFormImporter
                 $parentId = $this->byNumber[$parentNumber] ?? null;
                 if ($parentId === null || $position[$parentId] >= $index
                     || $this->questions[$position[$parentId]]['section_name'] !== $question['section_name']) {
-                    $this->warn($line, "«Subpregunta de» indica la {$parentNumber}, que no está antes en la misma sección; se importó como pregunta normal.");
+                    $this->warn($line, __('«Subpregunta de» indica la :parentnumber, que no está antes en la misma sección; se importó como pregunta normal.', ['parentnumber' => $parentNumber]));
                 } else {
                     $question['parent_temp_id'] = $parentId;
                 }
+            }
+
+            if (($row['show_if'] ?? '') !== '') {
+                $this->showIf($row['show_if'], $question, $position);
             }
 
             $groups = $this->optionGroups[$question['temp_id']] ?? null;
@@ -343,12 +348,12 @@ final class SimpleFormImporter
         $sourceId = $this->byNumber[$number] ?? null;
         $source = $sourceId !== null ? $this->questions[$position[$sourceId]] : null;
         if (! $source || $position[$sourceId] >= $index || ! in_array($source['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
-            $this->warn($line, "«Opciones según» indica la {$number}, que no es una pregunta de opciones anterior; se muestran todas las opciones.");
+            $this->warn($line, __('«Opciones según» indica la :number, que no es una pregunta de opciones anterior; se muestran todas las opciones.', ['number' => $number]));
 
             return null;
         }
         if (! collect($groups)->contains(fn ($group) => $group[0] !== null)) {
-            $this->warn($line, "Para que las opciones dependan de la pregunta {$number}, agrúpalas así: «Manabí: Portoviejo; Manta | Guayas: Guayaquil». Se muestran todas.");
+            $this->warn($line, __('Para que las opciones dependan de la pregunta :number, agrúpalas así: «Manabí: Portoviejo; Manta | Guayas: Guayaquil». Se muestran todas.', ['number' => $number]));
 
             return null;
         }
@@ -371,21 +376,51 @@ final class SimpleFormImporter
             }
         }
         if ($unknown !== []) {
-            $this->warn($line, 'Los grupos «'.implode('», «', array_slice($unknown, 0, 5))."» no son opciones de la pregunta {$number}; sus opciones se mostrarán siempre.");
+            $this->warn($line, __('Los grupos «:groups» no son opciones de la pregunta :number; sus opciones se mostrarán siempre.', ['groups' => implode('», «', array_slice($unknown, 0, 5)), 'number' => $number]));
         }
         $always = count(array_filter($parentsByOption, fn ($parents) => $parents === []));
         if ($always > 0 && $unknown === []) {
-            $this->warn($line, "{$always} opción(es) no pertenecen a ningún grupo; se mostrarán siempre.");
+            $this->warn($line, __(':always opción(es) no pertenecen a ningún grupo; se mostrarán siempre.', ['always' => $always]));
         }
 
         return ['question_id' => $sourceId, 'parents' => array_values($parentsByOption)];
+    }
+
+    /** «Solo si elige»: la subpregunta se muestra solo si en su pregunta padre se elige alguna de estas opciones. */
+    private function showIf(string $text, array &$question, array $position): void
+    {
+        $line = $question['row'];
+        $parentId = $question['parent_temp_id'];
+        $parent = $parentId !== null ? $this->questions[$position[$parentId]] : null;
+        if (! $parent || ! in_array($parent['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $this->warn($line, __('«Solo si elige» necesita «Subpregunta de» con una pregunta de Opción única u Opción múltiple; se ignoró.'));
+
+            return;
+        }
+        $labels = [];
+        foreach ($parent['options'] as $label) {
+            $labels[SimpleFormat::key((string) $label)] = (string) $label;
+        }
+        $options = [];
+        foreach (SimpleFormat::splitOptions($text) as $item) {
+            $label = $labels[SimpleFormat::key($item)] ?? null;
+            if ($label === null) {
+                $this->warn($line, __('«Solo si elige» menciona «:item», que no es una opción de la pregunta :name; se ignoró esa opción.', ['item' => $item, 'name' => $parent['name']]));
+
+                continue;
+            }
+            $options[] = $label;
+        }
+        if ($options !== []) {
+            $question['properties']['show_if'] = ['options' => array_values(array_unique($options))];
+        }
     }
 
     private function jumps(string $text, array $question, int $index, array $position): array
     {
         $line = $question['row'];
         if ($question['type'] !== 'SINGLE_CHOICE') {
-            $this->warn($line, 'Los saltos solo funcionan en preguntas de «Opción única»; se ignoraron.');
+            $this->warn($line, __('Los saltos solo funcionan en preguntas de «Opción única»; se ignoraron.'));
 
             return [];
         }
@@ -398,13 +433,13 @@ final class SimpleFormImporter
             }
             $pieces = preg_split('/\s*(?:→|->|=>|⇒)\s*/u', trim($part));
             if (count($pieces) !== 2) {
-                $this->warn($line, 'No se entendió el salto «'.trim($part).'». Escríbelo así: No → 12  o  No → fin.');
+                $this->warn($line, __('No se entendió el salto «:skip». Escríbelo así: No → 12  o  No → fin.', ['skip' => trim($part)]));
 
                 continue;
             }
             $option = array_search(SimpleFormat::key($pieces[0]), $options, true);
             if ($option === false) {
-                $this->warn($line, "El salto menciona la opción «{$pieces[0]}», que no está en «Opciones».");
+                $this->warn($line, __('El salto menciona la opción «:pieces», que no está en «Opciones».', ['pieces' => $pieces[0]]));
 
                 continue;
             }
@@ -417,7 +452,7 @@ final class SimpleFormImporter
             }
             $targetId = $this->byNumber[$target] ?? null;
             if ($targetId === null || $position[$targetId] <= $index) {
-                $this->warn($line, "El salto va a la pregunta «{$target}», que no existe o está antes; se ignoró.");
+                $this->warn($line, __('El salto va a la pregunta «:target», que no existe o está antes; se ignoró.', ['target' => $target]));
 
                 continue;
             }
@@ -443,7 +478,7 @@ final class SimpleFormImporter
 
         $test = preg_replace('/\$\{[^}]+\}/', '1', $converted) ?? '';
         if (! $valid || (new ArithmeticExpressionEvaluator)->evaluate($test) === null) {
-            $this->warn($line, 'El «Cálculo» usa + - * / y paréntesis con números de preguntas anteriores entre corchetes, ej. [3] + [4]; revísalo antes de guardar.');
+            $this->warn($line, __('El «Cálculo» usa + - * / y paréntesis con números de preguntas anteriores entre corchetes, ej. [3] + [4]; revísalo antes de guardar.'));
         }
 
         return $converted;

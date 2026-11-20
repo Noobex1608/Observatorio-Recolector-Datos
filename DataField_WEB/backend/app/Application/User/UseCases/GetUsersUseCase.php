@@ -20,7 +20,7 @@ class GetUsersUseCase
         $admin = User::findOrFail($adminId);
 
         if (! $admin->canManageUsers()) {
-            throw new AccessDeniedHttpException('Solo los administradores pueden ver la lista de usuarios');
+            throw new AccessDeniedHttpException(__('Solo los administradores pueden ver la lista de usuarios'));
         }
 
         // Las solicitudes de acceso (pendientes o rechazadas) tienen su propia bandeja.

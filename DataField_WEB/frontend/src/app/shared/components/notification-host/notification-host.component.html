@@ -1,10 +1,10 @@
 <div class="toast-stack">
-  <div class="toast-region" aria-live="assertive" aria-relevant="additions" aria-label="Errores y advertencias">
+  <div class="toast-region" aria-live="assertive" aria-relevant="additions" [attr.aria-label]="'common.notifications.alertsRegion' | translate">
     @for (item of urgent(); track item.id) {
       <ng-container *ngTemplateOutlet="toast; context: { $implicit: item }"></ng-container>
     }
   </div>
-  <div class="toast-region" aria-live="polite" aria-relevant="additions" aria-label="Notificaciones">
+  <div class="toast-region" aria-live="polite" aria-relevant="additions" [attr.aria-label]="'common.notifications.region' | translate">
     @for (item of polite(); track item.id) {
       <ng-container *ngTemplateOutlet="toast; context: { $implicit: item }"></ng-container>
     }
@@ -24,7 +24,7 @@
       <strong>{{ titleOf(item) }}</strong>
       <span>{{ item.message }}</span>
     </div>
-    <button type="button" class="toast-close" aria-label="Cerrar notificación" (click)="notify.dismiss(item.id)">
+    <button type="button" class="toast-close" [attr.aria-label]="'common.notifications.dismiss' | translate" (click)="notify.dismiss(item.id)">
       <span class="material-icons" aria-hidden="true">close</span>
     </button>
     @if (item.duration > 0) {

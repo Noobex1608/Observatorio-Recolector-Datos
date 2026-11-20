@@ -6,6 +6,10 @@ import { DataCenterService } from '@core/services/data-center.service';
 import { FormService } from '@core/services/form.service';
 import { NotificationService } from '@core/services/notification.service';
 import { DataCenterComponent } from './data-center.component';
+import { provideSpanishTranslations } from '../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const items = [
   { id: 'f1', name: 'Hogares 2026', context: 'Proyecto «Manabí»', deleted_at: '2026-11-18T10:00:00Z', deleted_by: 'Ana', can_purge: true },

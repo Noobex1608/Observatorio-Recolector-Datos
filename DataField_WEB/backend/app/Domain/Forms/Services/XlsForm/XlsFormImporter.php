@@ -71,13 +71,13 @@ final class XlsFormImporter
             $reader->setReadDataOnly(true);
             $spreadsheet = $reader->load($path);
         } catch (\Throwable) {
-            return $this->fail('El archivo no se pudo leer. Usa un .xlsx con las hojas «survey» y «choices».');
+            return $this->fail(__('El archivo no se pudo leer. Usa un .xlsx con las hojas «survey» y «choices».'));
         }
 
         try {
             $survey = $this->sheet($spreadsheet->getAllSheets(), 'survey');
             if (! $survey) {
-                return $this->fail('Falta la hoja «survey». Descarga la plantilla para ver el formato.');
+                return $this->fail(__('Falta la hoja «survey». Descarga la plantilla para ver el formato.'));
             }
             $choicesSheet = $this->sheet($spreadsheet->getAllSheets(), 'choices');
             $settingsSheet = $this->sheet($spreadsheet->getAllSheets(), 'settings');
@@ -87,7 +87,7 @@ final class XlsFormImporter
             }
             $surveyRows = $this->rows($survey);
             if (count($surveyRows) > self::MAX_ROWS) {
-                return $this->fail('La hoja «survey» tiene más de '.self::MAX_ROWS.' filas.');
+                return $this->fail(__('La hoja «survey» tiene más de :max filas.', ['max' => self::MAX_ROWS]));
             }
             $this->readSurvey($surveyRows);
             $title = $settingsSheet ? $this->readTitle($this->rows($settingsSheet)) : null;
@@ -96,13 +96,13 @@ final class XlsFormImporter
         }
 
         if (count($this->questions) === 0 && count($this->errors) === 0) {
-            $this->error(0, 'survey', 'No se encontró ninguna pregunta para importar.');
+            $this->error(0, 'survey', __('No se encontró ninguna pregunta para importar.'));
         }
         if (count($this->questions) > self::MAX_QUESTIONS) {
-            $this->error(0, 'survey', 'El formulario admite como máximo '.self::MAX_QUESTIONS.' preguntas; el archivo tiene '.count($this->questions).'.');
+            $this->error(0, 'survey', __('El formulario admite como máximo :max preguntas; el archivo tiene :count.', ['max' => self::MAX_QUESTIONS, 'count' => count($this->questions)]));
         }
         if ($this->skippedMetadata > 0) {
-            $this->warn(0, 'survey', "Se omitieron {$this->skippedMetadata} campo(s) de metadatos (start, end, deviceid…): el sistema ya registra fecha, usuario y dispositivo.");
+            $this->warn(0, 'survey', __('Se omitieron :skippedmetadata campo(s) de metadatos (start, end, deviceid…): el sistema ya registra fecha, usuario y dispositivo.', ['skippedmetadata' => $this->skippedMetadata]));
         }
 
         return [
@@ -138,7 +138,7 @@ final class XlsFormImporter
                 $appearance = Str::lower($row['appearance'] ?? '');
                 $kind = str_contains($appearance, 'table-list') ? 'likert' : 'group';
                 if ($type === 'begin_repeat') {
-                    $this->warn($line, 'survey', 'Los grupos repetibles no existen en el sistema; sus preguntas se importan una sola vez.');
+                    $this->warn($line, 'survey', __('Los grupos repetibles no existen en el sistema; sus preguntas se importan una sola vez.'));
                     $kind = 'group';
                 }
                 $groups[] = ['kind' => $kind, 'label' => $label !== '' ? $label : $name, 'name' => $name, 'row' => $line, 'buffer' => []];
@@ -149,7 +149,7 @@ final class XlsFormImporter
                         $this->sections[] = $section;
                     }
                 } elseif ($kind === 'group') {
-                    $this->warn($line, 'survey', "El grupo «{$label}» está dentro de otro grupo; sus preguntas quedan en la sección «{$section}».");
+                    $this->warn($line, 'survey', __('El grupo «:label» está dentro de otro grupo; sus preguntas quedan en la sección «:section».', ['label' => $label, 'section' => $section]));
                 }
 
                 continue;
@@ -158,7 +158,7 @@ final class XlsFormImporter
             if ($type === 'end_group' || $type === 'end_repeat') {
                 $group = array_pop($groups);
                 if (! $group) {
-                    $this->error($line, 'survey', 'Hay un «end_group» sin su «begin_group».');
+                    $this->error($line, 'survey', __('Hay un «end_group» sin su «begin_group».'));
 
                     continue;
                 }
@@ -183,7 +183,7 @@ final class XlsFormImporter
         }
 
         foreach ($groups as $group) {
-            $this->error($group['row'], 'survey', "El grupo «{$group['label']}» no tiene «end_group».");
+            $this->error($group['row'], 'survey', __('El grupo «:label» no tiene «end_group».', ['label' => $group['label']]));
         }
 
         $this->resolveLinks($pendingLinks);
@@ -230,8 +230,8 @@ final class XlsFormImporter
 
         if ($mapped === null) {
             $message = in_array($type, ['geotrace', 'geoshape'], true)
-                ? 'Las líneas y áreas en el mapa (geotrace / geoshape) no se pueden capturar; la fila se omitió.'
-                : ($type === '' ? 'La fila no tiene tipo; se omitió.' : "El tipo «{$type}» no existe en el sistema; la fila se omitió.");
+                ? __('Las líneas y áreas en el mapa (geotrace / geoshape) no se pueden capturar; la fila se omitió.')
+                : ($type === '' ? __('La fila no tiene tipo; se omitió.') : __('El tipo «:type» no existe en el sistema; la fila se omitió.', ['type' => $type]));
             $this->warn($line, 'survey', $message);
 
             return;
@@ -239,7 +239,7 @@ final class XlsFormImporter
 
         $choiceFilter = trim($row['choice_filter'] ?? '');
         if ($choiceFilter !== '' && ! in_array($mapped, ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
-            $this->warn($line, 'survey', 'El filtro de opciones («choice_filter») solo se aplica a preguntas de opción única o múltiple; se ignoró.');
+            $this->warn($line, 'survey', __('El filtro de opciones («choice_filter») solo se aplica a preguntas de opción única o múltiple; se ignoró.'));
             $choiceFilter = '';
         }
         $this->lastGroups = [];
@@ -251,7 +251,7 @@ final class XlsFormImporter
         }
 
         if ($label === '' && $mapped !== 'CALCULATE') {
-            $this->error($line, 'survey', 'La pregunta no tiene texto en la columna «label».');
+            $this->error($line, 'survey', __('La pregunta no tiene texto en la columna «label».'));
 
             return;
         }
@@ -263,13 +263,13 @@ final class XlsFormImporter
                     if (in_array($format, TextFormat::FORMATS, true)) {
                         $properties['text_format'] = $format;
                     } else {
-                        $this->warn($line, 'survey', "El formato «{$format}» no existe (usa email, cedula_ec o telefono_ec); quedó como texto libre.");
+                        $this->warn($line, 'survey', __('El formato «:format» no existe (usa email, cedula_ec o telefono_ec); quedó como texto libre.', ['format' => $format]));
                     }
                 }
                 break;
             case 'NOTE':
                 if ($type === 'acknowledge') {
-                    $this->warn($line, 'survey', '«acknowledge» se importó como nota informativa.');
+                    $this->warn($line, 'survey', __('«acknowledge» se importó como nota informativa.'));
                 }
                 break;
             case 'MULTIMEDIA':
@@ -291,7 +291,7 @@ final class XlsFormImporter
                 $end = $this->rangeEnd($row['parameters'] ?? '');
                 $max = max(3, min(10, $end ?? 5));
                 if ($end !== null && $end !== $max) {
-                    $this->warn($line, 'survey', "La escala va de 3 a 10 niveles; se ajustó a {$max}.");
+                    $this->warn($line, 'survey', __('La escala va de 3 a 10 niveles; se ajustó a :max.', ['max' => $max]));
                 }
                 $properties += ['max_rating' => $max, 'icon_type' => 'number'];
                 break;
@@ -306,11 +306,8 @@ final class XlsFormImporter
         if ($hint !== '') {
             $properties['help_text'] = $hint;
         }
-        if (trim($row['relevant'] ?? '') !== '') {
-            $this->warn($line, 'survey', 'La condición «relevant» (mostrar solo si…) no se importó; configúrala con los saltos por opción.');
-        }
         if (trim($row['constraint'] ?? '') !== '') {
-            $this->warn($line, 'survey', 'La restricción «constraint» no se importó.');
+            $this->warn($line, 'survey', __('La restricción «constraint» no se importó.'));
         }
 
         $tempId = (string) Str::uuid();
@@ -319,7 +316,7 @@ final class XlsFormImporter
         }
         if ($name !== '') {
             if (isset($this->nameToTempId[$name])) {
-                $this->error($line, 'survey', "El nombre «{$name}» está repetido.");
+                $this->error($line, 'survey', __('El nombre «:name» está repetido.', ['name' => $name]));
             }
             $this->nameToTempId[$name] = $tempId;
         }
@@ -344,8 +341,9 @@ final class XlsFormImporter
 
         $jumps = trim($row['saltos'] ?? '');
         $parent = trim($row['subpregunta_de'] ?? '');
-        if ($jumps !== '' || $parent !== '' || $choiceFilter !== '' || $mapped === 'CALCULATE') {
-            $pendingLinks[] = ['index' => count($this->questions) - 1, 'jumps' => $jumps, 'parent' => $parent, 'filter' => $choiceFilter];
+        $relevant = trim($row['relevant'] ?? '');
+        if ($jumps !== '' || $parent !== '' || $choiceFilter !== '' || $relevant !== '' || $mapped === 'CALCULATE') {
+            $pendingLinks[] = ['index' => count($this->questions) - 1, 'jumps' => $jumps, 'parent' => $parent, 'filter' => $choiceFilter, 'relevant' => $relevant];
         }
     }
 
@@ -360,7 +358,7 @@ final class XlsFormImporter
         $rows = $group['buffer'];
         $allSelectOne = $rows !== [] && collect($rows)->every(fn ($row) => $row['__type'] === 'select_one');
         if (! $allSelectOne) {
-            $this->warn($group['row'], 'survey', "El grupo «{$group['label']}» no es una matriz (todas sus filas deben ser select_one); sus preguntas se importaron por separado.");
+            $this->warn($group['row'], 'survey', __('El grupo «:label» no es una matriz (todas sus filas deben ser select_one); sus preguntas se importaron por separado.', ['label' => $group['label']]));
             foreach ($rows as $row) {
                 $this->addQuestion($row, $row['__type'], $row['__list'], $section, $pendingLinks);
             }
@@ -370,7 +368,7 @@ final class XlsFormImporter
 
         $list = $rows[0]['__list'];
         if (collect($rows)->contains(fn ($row) => $row['__list'] !== $list)) {
-            $this->warn($group['row'], 'survey', "Las filas de la matriz «{$group['label']}» usan listas distintas; se tomaron las columnas de «{$list}».");
+            $this->warn($group['row'], 'survey', __('Las filas de la matriz «:label» usan listas distintas; se tomaron las columnas de «:list».', ['label' => $group['label'], 'list' => $list]));
         }
         $columns = $this->optionsFor($list, (int) $rows[0]['__row']);
         if ($columns === null) {
@@ -415,10 +413,14 @@ final class XlsFormImporter
                 $parentId = $this->nameToTempId[$link['parent']] ?? null;
                 $parent = $parentId !== null ? $this->questions[$position[$parentId]] : null;
                 if (! $parent || $position[$parentId] >= $link['index'] || $parent['section_name'] !== $question['section_name']) {
-                    $this->warn($line, 'survey', "«subpregunta_de» apunta a «{$link['parent']}», que no existe antes en la misma sección; se importó como pregunta normal.");
+                    $this->warn($line, 'survey', __('«subpregunta_de» apunta a «:parent», que no existe antes en la misma sección; se importó como pregunta normal.', ['parent' => $link['parent']]));
                 } else {
                     $question['parent_temp_id'] = $parentId;
                 }
+            }
+
+            if (($link['relevant'] ?? '') !== '') {
+                $this->convertRelevant($link['relevant'], $question, $link['index'], $position);
             }
 
             if ($link['jumps'] !== '') {
@@ -441,12 +443,82 @@ final class XlsFormImporter
         }
     }
 
+    /**
+     * `relevant` del tipo «se eligió X en tal pregunta» se convierte en subpregunta condicionada:
+     * `selected(${p}, 'otro')`, `${p} = 'otro'` o varias unidas con `or` (todas sobre la misma pregunta).
+     * Cualquier otra expresión se avisa y la pregunta queda visible siempre.
+     */
+    private function convertRelevant(string $expression, array &$question, int $index, array $position): void
+    {
+        $line = $question['row'];
+        $text = trim($expression);
+        $fail = fn (string $why) => $this->warn($line, 'survey', __('La condición «relevant» «:text» no se importó (:why); la pregunta se muestra siempre.', ['text' => $text, 'why' => $why]));
+
+        $source = null;
+        $names = [];
+        foreach (preg_split('/\s+or\s+/i', $text) ?: [] as $part) {
+            $part = trim($part);
+            if (preg_match('/^selected\(\s*\$\{\s*([^}]+?)\s*\}\s*,\s*[\'"]([^\'"]+)[\'"]\s*\)$/u', $part, $m)
+                || preg_match('/^\$\{\s*([^}]+?)\s*\}\s*=\s*[\'"]([^\'"]+)[\'"]$/u', $part, $m)) {
+                if ($source !== null && $source !== $m[1]) {
+                    $fail('menciona varias preguntas');
+
+                    return;
+                }
+                $source = $m[1];
+                $names[] = $m[2];
+            } else {
+                $fail(__('solo se admite «se eligió una opción» de una pregunta'));
+
+                return;
+            }
+        }
+
+        $sourceId = $source !== null ? ($this->nameToTempId[$source] ?? null) : null;
+        $sourceIndex = $sourceId !== null ? ($position[$sourceId] ?? null) : null;
+        $parent = $sourceIndex !== null ? $this->questions[$sourceIndex] : null;
+        if (! $parent || $sourceIndex >= $index || ! in_array($parent['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
+            $fail("«{$source}» no es una pregunta de opciones anterior");
+
+            return;
+        }
+        if ($parent['section_name'] !== $question['section_name']) {
+            $fail(__('«:source» está en otra sección', ['source' => $source]));
+
+            return;
+        }
+        if ($question['parent_temp_id'] !== null && $question['parent_temp_id'] !== $sourceId) {
+            $fail('ya es subpregunta de otra pregunta');
+
+            return;
+        }
+
+        // Las respuestas guardan el texto de la opción: se traduce el name de choices a su label.
+        $labels = [];
+        foreach ($this->choices[$this->questionLists[$sourceIndex] ?? ''] ?? [] as $choice) {
+            $labels[Str::lower($choice['name'])] = $choice['label'] !== '' ? $choice['label'] : $choice['name'];
+        }
+        $options = [];
+        foreach ($names as $name) {
+            $label = $labels[Str::lower($name)] ?? null;
+            if ($label === null) {
+                $fail(__('«:name» no es una opción de «:source»', ['name' => $name, 'source' => $source]));
+
+                return;
+            }
+            $options[] = $label;
+        }
+
+        $question['parent_temp_id'] = $sourceId;
+        $question['properties']['show_if'] = ['options' => array_values(array_unique($options))];
+    }
+
     /** @return list<array{option_index:int, action:string, next_temp_id:?string}> */
     private function parseJumps(string $text, array $question, int $index, array $position): array
     {
         $line = $question['row'];
         if ($question['type'] !== 'SINGLE_CHOICE') {
-            $this->warn($line, 'survey', 'Los saltos solo se aplican a preguntas de opción única; se ignoraron.');
+            $this->warn($line, 'survey', __('Los saltos solo se aplican a preguntas de opción única; se ignoraron.'));
 
             return [];
         }
@@ -460,14 +532,14 @@ final class XlsFormImporter
             }
             $pieces = preg_split('/=>|->|→/u', $part);
             if (count($pieces) !== 2) {
-                $this->warn($line, 'survey', 'No se entendió el salto «'.trim($part).'» (usa «opción => destino»).');
+                $this->warn($line, 'survey', __('No se entendió el salto «:skip» (usa «opción => destino»).', ['skip' => trim($part)]));
 
                 continue;
             }
             $optionIndex = array_search(Str::lower(trim($pieces[0])), $options, true);
             $target = trim($pieces[1]);
             if ($optionIndex === false) {
-                $this->warn($line, 'survey', 'El salto menciona la opción «'.trim($pieces[0]).'», que no está en la lista.');
+                $this->warn($line, 'survey', __('El salto menciona la opción «:option», que no está en la lista.', ['option' => trim($pieces[0])]));
 
                 continue;
             }
@@ -478,7 +550,7 @@ final class XlsFormImporter
             }
             $targetId = $this->nameToTempId[$target] ?? null;
             if ($targetId === null || $position[$targetId] <= $index) {
-                $this->warn($line, 'survey', "El destino «{$target}» no existe o está antes de la pregunta; el salto se ignoró.");
+                $this->warn($line, 'survey', __('El destino «:target» no existe o está antes de la pregunta; el salto se ignoró.', ['target' => $target]));
 
                 continue;
             }
@@ -505,7 +577,7 @@ final class XlsFormImporter
 
         $test = preg_replace('/\$\{[^}]+\}/', '1', $converted) ?? '';
         if (! $valid || $expression === '' || (new ArithmeticExpressionEvaluator)->evaluate($test) === null) {
-            $this->warn($line, 'survey', 'El cálculo solo admite + - * / y paréntesis con números de preguntas anteriores; revisa la expresión antes de guardar.');
+            $this->warn($line, 'survey', __('El cálculo solo admite + - * / y paréntesis con números de preguntas anteriores; revisa la expresión antes de guardar.'));
         }
 
         return $converted;
@@ -531,7 +603,7 @@ final class XlsFormImporter
             [$sourceName, $column] = [$match[1], $match[2]];
         }
         if ($column === null) {
-            $this->warn($line, 'survey', "El filtro de opciones «{$text}» no se pudo convertir (usa «columna=\${pregunta}»); se muestran todas las opciones.");
+            $this->warn($line, 'survey', __('El filtro de opciones «:text» no se pudo convertir (usa «columna=${pregunta}»); se muestran todas las opciones.', ['text' => $text]));
 
             return null;
         }
@@ -540,7 +612,7 @@ final class XlsFormImporter
         $sourceIndex = $sourceId !== null ? ($position[$sourceId] ?? null) : null;
         $source = $sourceIndex !== null ? $this->questions[$sourceIndex] : null;
         if (! $source || $sourceIndex >= $index || ! in_array($source['type'], ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'], true)) {
-            $this->warn($line, 'survey', "El filtro de opciones depende de «{$sourceName}», que no es una pregunta de opciones anterior; se muestran todas las opciones.");
+            $this->warn($line, 'survey', __('El filtro de opciones depende de «:sourcename», que no es una pregunta de opciones anterior; se muestran todas las opciones.', ['sourcename' => $sourceName]));
 
             return null;
         }
@@ -548,7 +620,7 @@ final class XlsFormImporter
         $key = Str::lower($column);
         $groups = $this->choiceGroups[$question['temp_id']] ?? [];
         if ($groups === [] || ! array_key_exists($key, $groups[0][0]['row'] ?? [])) {
-            $this->warn($line, 'survey', "La hoja «choices» no tiene la columna «{$column}» que usa el filtro de opciones; se muestran todas las opciones.");
+            $this->warn($line, 'survey', __('La hoja «choices» no tiene la columna «:column» que usa el filtro de opciones; se muestran todas las opciones.', ['column' => $column]));
 
             return null;
         }
@@ -582,10 +654,10 @@ final class XlsFormImporter
         }
 
         if ($unknown !== []) {
-            $this->warn($line, 'survey', "En la columna «{$column}» hay valores que no son opciones de «{$sourceName}»: ".implode(', ', array_slice(array_keys($unknown), 0, 5)).'.');
+            $this->warn($line, 'survey', __('En la columna «:column» hay valores que no son opciones de «:sourcename»: :values.', ['column' => $column, 'sourcename' => $sourceName, 'values' => implode(', ', array_slice(array_keys($unknown), 0, 5))]));
         }
         if ($unassigned > 0) {
-            $this->warn($line, 'survey', "{$unassigned} opción(es) no indican a qué «{$sourceName}» pertenecen; se mostrarán siempre.");
+            $this->warn($line, 'survey', __(':unassigned opción(es) no indican a qué «:sourcename» pertenecen; se mostrarán siempre.', ['unassigned' => $unassigned, 'sourcename' => $sourceName]));
         }
 
         return ['question_id' => $sourceId, 'parents' => $parents];
@@ -595,13 +667,13 @@ final class XlsFormImporter
     private function optionsFor(?string $listName, int $line, bool $merge = false): ?array
     {
         if ($listName === null || $listName === '') {
-            $this->error($line, 'survey', 'Falta el nombre de la lista de opciones (ej. «select_one provincias»).');
+            $this->error($line, 'survey', __('Falta el nombre de la lista de opciones (ej. «select_one provincias»).'));
 
             return null;
         }
         $options = $this->choices[$listName] ?? null;
         if (! $options) {
-            $this->error($line, 'survey', "La lista «{$listName}» no existe en la hoja «choices» o está vacía.");
+            $this->error($line, 'survey', __('La lista «:listname» no existe en la hoja «choices» o está vacía.', ['listname' => $listName]));
 
             return null;
         }

@@ -49,9 +49,9 @@ class MicrosoftAuthController extends Controller
 
     public function redirect(Request $request): RedirectResponse|JsonResponse
     {
-        abort_unless($this->microsoft->enabled(), 404, 'El inicio de sesión con Microsoft no está configurado.');
+        abort_unless($this->microsoft->enabled(), 404, __('El inicio de sesión con Microsoft no está configurado.'));
         $return = $this->allowedReturnUrl((string) $request->query('return', ''));
-        abort_if($return === null, 422, 'La página de retorno no está permitida.');
+        abort_if($return === null, 422, __('La página de retorno no está permitida.'));
 
         $flow = $this->microsoft->beginAuthorization();
         Cache::put("ms-oidc:{$flow['state']}", [
@@ -120,7 +120,7 @@ class MicrosoftAuthController extends Controller
             'email_verified_at' => $user->email_verified_at ?? now(),
             'must_change_password' => false,
         ])->save();
-        AuditLogService::log($user, 'LOGIN_MICROSOFT', 'autenticacion', "{$user->name} inició sesión con Microsoft 365.");
+        AuditLogService::log($user, 'LOGIN_MICROSOFT', 'autenticacion', ':name inició sesión con Microsoft 365.', [], params: ['name' => $user->name]);
 
         $code = Str::random(64);
         Cache::put("ms-login:{$code}", $user->id, self::LOGIN_CODE_TTL_SECONDS);
@@ -133,7 +133,7 @@ class MicrosoftAuthController extends Controller
         $data = $request->validate(['code' => ['required', 'string', 'size:64']]);
         $userId = Cache::pull("ms-login:{$data['code']}");
         $user = $userId ? User::find($userId) : null;
-        abort_unless($user && $user->is_active, 401, 'El código de inicio de sesión expiró. Vuelve a intentarlo.');
+        abort_unless($user && $user->is_active, 401, __('El código de inicio de sesión expiró. Vuelve a intentarlo.'));
 
         return response()->json(new AuthResource($this->sessions->issue($user)));
     }
@@ -158,7 +158,7 @@ class MicrosoftAuthController extends Controller
             'access_requested_at' => now(),
         ]);
         $user->forceFill(['email_verified_at' => now()])->save();
-        AuditLogService::log($user, 'ACCESS_REQUESTED', 'usuarios', "{$user->name} solicitó acceso al iniciar sesión con Microsoft 365.");
+        AuditLogService::log($user, 'ACCESS_REQUESTED', 'usuarios', ':name solicitó acceso al iniciar sesión con Microsoft 365.', [], params: ['name' => $user->name]);
     }
 
     /** Solo se vuelve a orígenes del frontend autorizados en CORS (evita redirecciones abiertas). */

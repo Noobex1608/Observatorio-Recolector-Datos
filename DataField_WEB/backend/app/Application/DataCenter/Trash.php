@@ -40,7 +40,7 @@ final class Trash
                 ->latest('deleted_at')->limit(self::LIMIT)->get()
                 ->map(fn (Form $f) => [
                     'id' => $f->id, 'name' => $f->title,
-                    'context' => trim(($f->project ? "Proyecto «{$f->project->name}»" : '').' · '.$f->responses_count.' respuesta(s)', ' ·'),
+                    'context' => trim(($f->project ? __('Proyecto «:name»', ['name' => $f->project->name]) : '').' · '.__(':count respuesta(s)', ['count' => $f->responses_count]), ' ·'),
                     'deleted_at' => $f->deleted_at, 'deleted_by' => $f->deleted_by,
                 ]),
             'zones' => ProjectZone::onlyTrashed()->with(['project' => fn ($q) => $q->withTrashed(), 'form' => fn ($q) => $q->withTrashed()])
@@ -48,8 +48,8 @@ final class Trash
                 ->map(fn (ProjectZone $z) => [
                     'id' => $z->id, 'name' => $z->name,
                     'context' => implode(' · ', array_filter([
-                        $z->project ? "Proyecto «{$z->project->name}»" : null,
-                        $z->form ? "Formulario «{$z->form->title}»" : null,
+                        $z->project ? __('Proyecto «:name»', ['name' => $z->project->name]) : null,
+                        $z->form ? __('Formulario «:title»', ['title' => $z->form->title]) : null,
                     ])),
                     'deleted_at' => $z->deleted_at, 'deleted_by' => $z->deleted_by,
                 ]),
@@ -57,10 +57,10 @@ final class Trash
                 ->latest('deleted_at')->limit(self::LIMIT)->get()
                 ->map(fn (FormResponse $r) => [
                     'id' => $r->id,
-                    'name' => 'Respuesta del '.$r->created_at?->timezone('America/Guayaquil')->format('d/m/Y H:i'),
+                    'name' => __('Respuesta del :date', ['date' => $r->created_at?->timezone('America/Guayaquil')->format('d/m/Y H:i')]),
                     'context' => implode(' · ', array_filter([
-                        $r->form ? "Formulario «{$r->form->title}»" : null,
-                        $r->user ? "Encuestador {$r->user->name}" : 'Enlace público',
+                        $r->form ? __('Formulario «:title»', ['title' => $r->form->title]) : null,
+                        $r->user ? __('Encuestador :name', ['name' => $r->user->name]) : __('Enlace público'),
                     ])),
                     'reason' => $r->void_reason,
                     'deleted_at' => $r->deleted_at, 'deleted_by' => $r->voided_by,
@@ -85,17 +85,17 @@ final class Trash
 
             if ($model instanceof Form) {
                 abort_if(Project::onlyTrashed()->whereKey($model->project_id)->exists(), 422,
-                    'Su proyecto está en la papelera: restaura primero el proyecto.');
+                    __('Su proyecto está en la papelera: restaura primero el proyecto.'));
             }
             if ($model instanceof ProjectZone) {
                 abort_if(Project::onlyTrashed()->whereKey($model->project_id)->exists(), 422,
-                    'Su proyecto está en la papelera: restaura primero el proyecto.');
+                    __('Su proyecto está en la papelera: restaura primero el proyecto.'));
                 abort_if($model->form_id && Form::onlyTrashed()->whereKey($model->form_id)->exists(), 422,
-                    'Su formulario está en la papelera: restaura primero el formulario.');
+                    __('Su formulario está en la papelera: restaura primero el formulario.'));
             }
             if ($model instanceof FormResponse) {
                 abort_if(Form::onlyTrashed()->whereKey($model->form_id)->exists(), 422,
-                    'Su formulario está en la papelera: restaura primero el formulario.');
+                    __('Su formulario está en la papelera: restaura primero el formulario.'));
                 $model->forceFill([
                     'void_reason' => null, 'voided_by' => null,
                     'corrections' => [...($model->corrections ?? []), [
@@ -111,7 +111,18 @@ final class Trash
                 $this->formSync->enqueue($model);
             }
             AuditLogService::log($admin, 'RESTORE_'.strtoupper(rtrim($type, 's')), 'centro-de-datos',
-                "Restauró {$label} desde el Centro de datos.", ['type' => $type, 'id' => $id]);
+                match ($type) {
+                    'projects' => 'Restauró el proyecto «:name» desde el Centro de datos.',
+                    'forms' => 'Restauró el formulario «:name» desde el Centro de datos.',
+                    'zones' => 'Restauró la zona «:name» desde el Centro de datos.',
+                    'responses' => 'Restauró la respuesta desde el Centro de datos.',
+                }, ['type' => $type, 'id' => $id], params: ['name' => $this->itemName($type, $model)]);
+
+            if (app()->getLocale() === 'en') {
+                return $type === 'zones'
+                    ? "Zone “{$model->name}” restored. Assign collectors to it again."
+                    : $this->englishLabel($type, $model).' restored.';
+            }
 
             return $type === 'zones'
                 ? "Zona «{$model->name}» restaurada. Vuelve a asignarle encuestadores."
@@ -126,7 +137,7 @@ final class Trash
      */
     public function purge(string $type, string $id, User $admin, ?string $confirm = null): string
     {
-        abort_if($type === 'responses', 422, 'Las respuestas anuladas se conservan como registro; puedes restaurarlas.');
+        abort_if($type === 'responses', 422, __('Las respuestas anuladas se conservan como registro; puedes restaurarlas.'));
 
         $media = [];
         $message = DB::transaction(function () use ($type, $id, $admin, $confirm, &$media) {
@@ -135,11 +146,11 @@ final class Trash
             $context = [];
             if ($model instanceof Project) {
                 abort_if(Form::withTrashed()->where('project_id', $model->id)->exists(), 422,
-                    'El proyecto tiene formularios en la papelera: elimínalos definitivamente primero.');
+                    __('El proyecto tiene formularios en la papelera: elimínalos definitivamente primero.'));
             }
             if ($model instanceof Form) {
                 abort_unless(trim((string) $confirm) === trim((string) $model->title), 422,
-                    'Para eliminarlo definitivamente escribe el nombre exacto del formulario.');
+                    __('Para eliminarlo definitivamente escribe el nombre exacto del formulario.'));
                 $media = $this->mediaOf($model);
                 $context = [
                     'responses' => FormResponse::withTrashed()->where('form_id', $model->id)->count(),
@@ -148,12 +159,19 @@ final class Trash
             }
 
             AuditLogService::log($admin, 'PURGE_'.strtoupper(rtrim($type, 's')), 'centro-de-datos',
-                "Eliminó definitivamente {$label} desde el Centro de datos."
-                .($context ? " Incluía {$context['responses']} respuesta(s) y {$context['media_files']} archivo(s)." : ''),
-                ['type' => $type, 'id' => $id, ...$context]);
+                match ($type) {
+                    'projects' => 'Eliminó definitivamente el proyecto «:name» desde el Centro de datos.',
+                    'forms' => $context
+                        ? 'Eliminó definitivamente el formulario «:name» desde el Centro de datos. Incluía :responses respuesta(s) y :media_files archivo(s).'
+                        : 'Eliminó definitivamente el formulario «:name» desde el Centro de datos.',
+                    'zones' => 'Eliminó definitivamente la zona «:name» desde el Centro de datos.',
+                },
+                ['type' => $type, 'id' => $id, ...$context], params: ['name' => $this->itemName($type, $model), ...$context]);
             $model->forceDelete();
 
-            return ucfirst($label).' eliminado definitivamente.';
+            return app()->getLocale() === 'en'
+                ? $this->englishLabel($type, $model).' permanently deleted.'
+                : ucfirst($label).' eliminado definitivamente.';
         });
 
         // Los archivos se borran después de confirmar la base: si algo falla aquí, los datos ya no existen
@@ -169,9 +187,13 @@ final class Trash
             }
         }
         if ($media !== []) {
-            $message .= $failed === 0
-                ? ' Se borraron también sus '.count($media).' archivo(s).'
-                : ' No se pudieron borrar '.$failed.' de sus '.count($media).' archivo(s); quedó registrado.';
+            $message .= app()->getLocale() === 'en'
+                ? ($failed === 0
+                    ? ' Its '.count($media).' file(s) were deleted too.'
+                    : ' '.$failed.' of its '.count($media).' file(s) could not be deleted; it was logged.')
+                : ($failed === 0
+                    ? ' Se borraron también sus '.count($media).' archivo(s).'
+                    : ' No se pudieron borrar '.$failed.' de sus '.count($media).' archivo(s); quedó registrado.');
         }
 
         return $message;
@@ -200,6 +222,27 @@ final class Trash
         };
 
         return $class::onlyTrashed()->lockForUpdate()->findOrFail($id);
+    }
+
+    /** Nombre propio del elemento (proyecto, formulario o zona) para las plantillas de auditoría. */
+    private function itemName(string $type, Model $model): string
+    {
+        return match ($type) {
+            'forms' => (string) $model->title,
+            'responses' => '',
+            default => (string) $model->name,
+        };
+    }
+
+    /** Nombre del elemento para los mensajes en inglés (los de español usan label()). */
+    private function englishLabel(string $type, Model $model): string
+    {
+        return match ($type) {
+            'projects' => "Project “{$model->name}”",
+            'forms' => "Form “{$model->title}”",
+            'zones' => "Zone “{$model->name}”",
+            'responses' => 'Response',
+        };
     }
 
     private function label(string $type, Model $model): string

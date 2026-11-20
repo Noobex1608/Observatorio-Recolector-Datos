@@ -8,6 +8,10 @@ import { FormService } from '@core/services/form.service';
 import { NotificationService } from '@core/services/notification.service';
 import { ProjectService } from '@core/services/project.service';
 import { ProjectListComponent } from './project-list.component';
+import { provideSpanishTranslations } from '../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -24,12 +28,12 @@ function setup(result: () => Observable<unknown>, confirm = true) {
   TestBed.overrideComponent(ProjectListComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
+      ...provideSpanishTranslations(),
       { provide: Router, useValue: { navigate: vi.fn().mockResolvedValue(true) } },
       { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
       { provide: AuthService, useValue: { isAdmin: () => true, isSupervisor: () => false, user: () => ({ id: 1, rol: 'ADMIN' }), isSuperAdmin: () => true } },
       { provide: ProjectService, useValue: fakeService(result) },
       { provide: FormService, useValue: fakeService(result) },
-      { provide: TranslateService, useValue: { instant: (key: string) => key, get: (key: string) => of(key), onLangChange: of() } },
       { provide: NotificationService, useValue: notify },
     ],
   });

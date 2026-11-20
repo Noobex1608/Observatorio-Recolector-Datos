@@ -36,9 +36,9 @@ class ProjectSurveyPeriod
         $to = $sheet->end_date->format('Y-m-d');
         $outside = ($startDate && ($startDate < $from || $startDate > $to))
             || ($endDate && ($endDate < $from || $endDate > $to));
-        abort_if($outside, 422, sprintf(
-            'Las fechas del formulario deben estar dentro del periodo del proyecto (%s al %s).',
-            $sheet->start_date->format('d/m/Y'), $sheet->end_date->format('d/m/Y'),
+        abort_if($outside, 422, __(
+            'Las fechas del formulario deben estar dentro del periodo del proyecto (:from al :to).',
+            ['from' => $sheet->start_date->format('d/m/Y'), 'to' => $sheet->end_date->format('d/m/Y')],
         ));
     }
 }

@@ -20,6 +20,8 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { GisService, GisSelection, DpaCanton, DpaParroquia } from '@core/services/gis.service';
 import { NotificationService } from '@core/services/notification.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { LanguageService } from '@core/services/language.service';
 
 export interface GeofenceSelectionEvent {
   zone_name: string;
@@ -114,7 +116,7 @@ export function parseCoordinates(text: string): { lat: number; lng: number } | n
 @Component({
   selector: 'app-map-geofence-selector',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './map-geofence-selector.component.html',
   styleUrl: './map-geofence-selector.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -123,6 +125,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly http = inject(HttpClient);
   private readonly notify = inject(NotificationService);
+  private readonly i18n = inject(TranslateService);
+  private readonly language = inject(LanguageService);
   readonly gisService = inject(GisService);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
 
@@ -202,15 +206,16 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
 
   // Banner status text 100% en vivo según DPA oficial 2026 (Estado y Serialización Limpia)
   readonly bannerStatusText = computed(() => {
+    this.language.loadedLang(); // recalcula el texto al cambiar de idioma
     if (this.isManzanaGeofence()) {
       const codes = this.selectedManzanas();
       const parCode = this.selectedParroquia();
       const parName = this.gisService.getParroquiaName(parCode);
       const secCode = this.selectedSector();
-      const locName = parName || (secCode ? `Sector ${secCode}` : 'Sector INEC');
+      const locName = parName || (secCode ? this.i18n.instant('geofence.msg.sector', { code: secCode }) : this.i18n.instant('geofence.msg.sectorInec'));
       const label = codes.length === 1
-        ? `Manzana INEC: ${codes[0]}`
-        : `${codes.length} manzanas INEC: ${codes.slice(0, 3).join(', ')}${codes.length > 3 ? ` y ${codes.length - 3} más` : ''}`;
+        ? this.i18n.instant('geofence.msg.blockOne', { code: codes[0] })
+        : this.i18n.instant(codes.length > 3 ? 'geofence.msg.blocksMore' : 'geofence.msg.blocksMany', { count: codes.length, codes: codes.slice(0, 3).join(', '), more: codes.length - 3 });
       return `${label} | ${locName}`;
     } else {
       const r = this.localRadius();
@@ -221,9 +226,9 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       const cantCode = this.selectedCanton();
       const cantObj = this.allCantones.find((c) => c.code === cantCode);
       const cantName = cantObj ? cantObj.name : cantCode;
-      const parStr = parName || 'Parroquia';
-      const cantStr = cantName || 'Cantón';
-      return `Cobertura Circular: Radio ${r}m | Centroide: [${lat}, ${lng}] en ${parStr}, ${cantStr}`;
+      const parStr = parName || this.i18n.instant('geofence.msg.parish');
+      const cantStr = cantName || this.i18n.instant('geofence.msg.canton');
+      return this.i18n.instant('geofence.msg.circleBanner', { radius: r, lat, lng, parish: parStr, canton: cantStr });
     }
   });
 
@@ -455,7 +460,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
           this.parroquiaLayersMap.set(code, l);
         }
 
-        l.bindTooltip(`<b>Parroquia:</b> ${name}`, { sticky: true });
+        l.bindTooltip(`<b>${this.i18n.instant('geofence.msg.tipParish')}</b> ${name}`, { sticky: true });
       },
     });
 
@@ -700,7 +705,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
           this.sectorLayersMap.set(code, l);
         }
 
-        l.bindTooltip(`<b>Sector:</b> ${name}`, { sticky: true });
+        l.bindTooltip(`<b>${this.i18n.instant('geofence.msg.tipSector')}</b> ${name}`, { sticky: true });
       },
     });
 
@@ -778,7 +783,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
           this.manzanaLayersMap.set(code, l);
         }
 
-        l.bindTooltip(`<b>Manzana:</b> ${name}<br><small>Cod: ${code}</small>`, { sticky: true });
+        l.bindTooltip(`<b>${this.i18n.instant('geofence.msg.tipBlock')}</b> ${name}<br><small>${this.i18n.instant('geofence.msg.tipCode')} ${code}</small>`, { sticky: true });
         l.on('click', (e: any) => {
           if (this.LInstance?.DomEvent) {
             this.LInstance.DomEvent.stopPropagation(e);
@@ -1003,7 +1008,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
           fillOpacity: 0.35,
         },
         onEachFeature: (_f: any, l: any) => {
-          l.bindTooltip(`<b>Manzana:</b> ${name}<br><small>Cod: ${code}</small><br><small>Clic para quitarla</small>`, { sticky: true });
+          l.bindTooltip(`<b>${this.i18n.instant('geofence.msg.tipBlock')}</b> ${name}<br><small>${this.i18n.instant('geofence.msg.tipCode')} ${code}</small><br><small>${this.i18n.instant('geofence.msg.tipRemove')}</small>`, { sticky: true });
           l.on('click', (e: any) => {
             if (this.LInstance?.DomEvent) {
               this.LInstance.DomEvent.stopPropagation(e);
@@ -1090,7 +1095,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
 
   useCurrentLocation(): void {
     if (!this.isBrowser || !('geolocation' in navigator)) {
-      this.notify.error('La geolocalización no está disponible en este dispositivo.');
+      this.notify.error(this.i18n.instant('geofence.msg.noGeolocation'));
       return;
     }
 
@@ -1106,7 +1111,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
         }
       },
       (err) => {
-        this.notify.error(`No se pudo obtener la ubicación: ${err.message}`);
+        this.notify.error(this.i18n.instant('geofence.msg.locationFailed', { reason: err.message }));
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -1261,7 +1266,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
     try {
       const area = this.searchViewbox();
       // Photon primero (tolera palabras incompletas); si ya hay algo dentro del área, basta.
-      this.searchStatus.set('Buscando lugares…');
+      this.searchStatus.set(this.i18n.instant('geofence.msg.searchingPlaces'));
       const photon = await this.queryPhoton(query).catch(() => [] as LocationSuggestion[]);
       if (seq !== this.searchSeq) return;
       const photonNear = photon.some((s) =>
@@ -1277,8 +1282,8 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       for (const [index, attempt] of attempts.entries()) {
         if (seq !== this.searchSeq) return;
         this.searchStatus.set(index > 0
-          ? `Buscando en OpenStreetMap (intento ${index + 1} de ${attempts.length})…`
-          : 'Buscando en OpenStreetMap…');
+          ? this.i18n.instant('geofence.msg.searchingOsmAttempt', { attempt: index + 1, total: attempts.length })
+          : this.i18n.instant('geofence.msg.searchingOsm'));
         for (const result of await this.queryNominatim(attempt)) {
           found.set(`${result.lat},${result.lon}`, result);
         }
@@ -1298,16 +1303,16 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
       const merged = this.mergeSuggestions(local, [...osm, ...photon]);
       this.searchResults.set(merged);
       if (!merged.length) {
-        this.searchError.set('Sin resultados. Pruebe solo el nombre (ej. «Altamira»), una calle cercana o pegue coordenadas como «-0.95, -80.74».');
+        this.searchError.set(this.i18n.instant('geofence.msg.noResults'));
       }
     } catch (error) {
       if (seq !== this.searchSeq) return;
       const status = (error as { status?: number })?.status;
       this.searchError.set(status === 429
-        ? 'OpenStreetMap está limitando las consultas. Espere unos segundos y vuelva a intentar.'
+        ? this.i18n.instant('geofence.msg.osmRateLimited')
         : status === 0 || !navigator.onLine
-          ? 'Sin conexión con OpenStreetMap. Revise la red; puede elegir parroquias o localidades INEC o pegar coordenadas.'
-          : 'Ocurrió un error al consultar OpenStreetMap. Intente de nuevo.');
+          ? this.i18n.instant('geofence.msg.osmOffline')
+          : this.i18n.instant('geofence.msg.osmFailed'));
     } finally {
       if (seq === this.searchSeq) {
         this.isSearching.set(false);
@@ -1338,7 +1343,7 @@ export class MapGeofenceSelectorComponent implements AfterViewInit, OnDestroy {
   private coordinateSuggestion(coords: { lat: number; lng: number }): LocationSuggestion {
     return {
       kind: 'coords', label: `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
-      detail: 'Coordenadas (latitud, longitud)', lat: coords.lat, lng: coords.lng,
+      detail: this.i18n.instant('geofence.msg.coordinates'), lat: coords.lat, lng: coords.lng,
     };
   }
 

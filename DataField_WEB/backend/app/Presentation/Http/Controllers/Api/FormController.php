@@ -186,7 +186,7 @@ class FormController extends Controller
         $data = $request->input('data', []);
         $response = $this->storeFormResponse->submit($form, $currentUser, is_array($data) ? $data : [], $request->string('client_submission_id')->toString());
 
-        return response()->json(['message' => 'Respuesta guardada', 'id' => $response->id], 201);
+        return response()->json(['message' => __('Respuesta guardada'), 'id' => $response->id], 201);
     }
 
     #[OA\Post(path: '/forms', summary: 'Crear formulario en borrador', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -207,12 +207,12 @@ class FormController extends Controller
         $user = $request->user();
 
         if ($user->isUser()) {
-            return response()->json(['message' => 'Los usuarios recolectores no pueden crear formularios'], 403);
+            return response()->json(['message' => __('Los usuarios recolectores no pueden crear formularios')], 403);
         }
 
         if (! $user->isSuperAdmin() && ! $user->isAdmin() && ! $user->leadsProject($projectId)
             && ! $user->isProjectDelegate($projectId)) {
-            return response()->json(['message' => 'No tienes permisos para crear formularios en este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para crear formularios en este proyecto')], 403);
         }
 
         $startDate = $request->input('start_date');
@@ -264,7 +264,7 @@ class FormController extends Controller
         $form = $this->findEditableForm($id, $request->user());
 
         if ($form->state === 'DEPLOYED') {
-            return response()->json(['message' => 'No se puede editar un formulario implementado'], 403);
+            return response()->json(['message' => __('No se puede editar un formulario implementado')], 403);
         }
 
         $request->validate([
@@ -280,7 +280,7 @@ class FormController extends Controller
         if ($form->instrument_locked) {
             foreach (['title', 'description', 'step_by_step', 'consent_text'] as $field) {
                 abort_if($request->has($field) && $request->input($field) != $form->$field, 409,
-                    'El instrumento ya fue publicado. Duplique el formulario para cambiar sus preguntas o consentimiento y conservar el historial.');
+                    __('El instrumento ya fue publicado. Duplique el formulario para cambiar sus preguntas o consentimiento y conservar el historial.'));
             }
         }
         $this->projectPeriod->assertWithin(
@@ -309,11 +309,11 @@ class FormController extends Controller
         $user = $request->user();
 
         if (! $this->canDeleteForm($form, $user)) {
-            return response()->json(['message' => 'No tienes permisos para eliminar este formulario'], 403);
+            return response()->json(['message' => __('No tienes permisos para eliminar este formulario')], 403);
         }
 
         if ($form->state === 'DEPLOYED') {
-            return response()->json(['message' => 'Archiva el formulario antes de eliminarlo permanentemente'], 422);
+            return response()->json(['message' => __('Archiva el formulario antes de eliminarlo permanentemente')], 422);
         }
 
         $formId = $form->id;
@@ -393,7 +393,7 @@ class FormController extends Controller
         $copy->load(['owner:id,name,email,rol', 'project:id,name']);
         $copy->loadCount('responses');
 
-        \App\Services\AuditLogService::logFormAction($request->user(), $copy, 'CLONE', "Clonado de '{$source->title}'");
+        \App\Services\AuditLogService::logFormAction($request->user(), $copy, 'CLONE', $source->title);
         $this->enqueueFormSchemaSync->enqueue($copy->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($copy, 201);
@@ -405,12 +405,12 @@ class FormController extends Controller
         $form = $this->findLifecycleManageableForm($id, $request->user());
 
         if (! in_array($form->state, ['DRAFT', 'ARCHIVED'], true)) {
-            return response()->json(['message' => 'El formulario ya está implementado'], 422);
+            return response()->json(['message' => __('El formulario ya está implementado')], 422);
         }
 
         $sheet = $this->projectPeriod->sheet($form->project_id);
         if ($sheet?->status !== 'VALIDATED') {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto'], 422);
+            return response()->json(['message' => __('El líder debe validar la ficha técnica del proyecto')], 422);
         }
         // Sin fechas propias, el formulario toma el periodo del proyecto.
         $form->start_date ??= $sheet->start_date;
@@ -418,17 +418,17 @@ class FormController extends Controller
         $this->projectPeriod->assertWithin($form->project_id, $form->start_date?->format('Y-m-d'), $form->end_date?->format('Y-m-d'));
         $today = now('America/Guayaquil')->toDateString();
         if ($form->end_date && $form->end_date->format('Y-m-d') < $today) {
-            return response()->json(['message' => 'La fecha de fin del formulario ya pasó. Actualice sus fechas (dentro del periodo del proyecto) antes de publicar.'], 422);
+            return response()->json(['message' => __('La fecha de fin del formulario ya pasó. Actualice sus fechas (dentro del periodo del proyecto) antes de publicar.')], 422);
         }
         if (! $form->zones()->exists()) {
-            return response()->json(['message' => 'Delimite al menos una zona antes de publicar'], 422);
+            return response()->json(['message' => __('Delimite al menos una zona antes de publicar')], 422);
         }
         if (! $form->questions()->exists()) {
-            return response()->json(['message' => 'Agregue al menos una pregunta antes de publicar'], 422);
+            return response()->json(['message' => __('Agregue al menos una pregunta antes de publicar')], 422);
         }
         $this->formSchemaValidator->validateForPublication($form->questions()->orderBy('order')->get());
         if (! $form->consent_text || mb_strlen(trim($form->consent_text)) < 10) {
-            return response()->json(['message' => 'Complete el consentimiento informado antes de publicar'], 422);
+            return response()->json(['message' => __('Complete el consentimiento informado antes de publicar')], 422);
         }
 
         $form->update([
@@ -451,7 +451,7 @@ class FormController extends Controller
         $form = $this->findLifecycleManageableForm($id, $request->user());
 
         if ($form->state !== 'DEPLOYED') {
-            return response()->json(['message' => 'Solo se puede archivar un formulario implementado'], 422);
+            return response()->json(['message' => __('Solo se puede archivar un formulario implementado')], 422);
         }
 
         $form->update(['state' => 'ARCHIVED']);
@@ -476,10 +476,10 @@ class FormController extends Controller
         $form = $this->findEditableForm($id, $request->user());
 
         if ($form->state === 'DEPLOYED') {
-            return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
+            return response()->json(['message' => __('No se puede cambiar preguntas de un formulario implementado')], 403);
         }
         if (! $this->projectPeriod->isValidated($form->project_id)) {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
+            return response()->json(['message' => __('El líder debe validar la ficha técnica del proyecto antes de editar preguntas')], 422);
         }
 
         $request->validate([
@@ -524,11 +524,11 @@ class FormController extends Controller
         $this->abortUnlessCanEdit($question->form, $request->user());
 
         if ($question->form->state === 'DEPLOYED') {
-            return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
+            return response()->json(['message' => __('No se puede cambiar preguntas de un formulario implementado')], 403);
         }
-        abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
+        abort_if($question->form->instrument_locked, 409, __('Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.'));
         if (! $this->projectPeriod->isValidated($question->form->project_id)) {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
+            return response()->json(['message' => __('El líder debe validar la ficha técnica del proyecto antes de editar preguntas')], 422);
         }
 
         $request->validate([
@@ -573,11 +573,11 @@ class FormController extends Controller
         $this->abortUnlessCanEdit($question->form, $request->user());
 
         if ($question->form->state === 'DEPLOYED') {
-            return response()->json(['message' => 'No se puede cambiar preguntas de un formulario implementado'], 403);
+            return response()->json(['message' => __('No se puede cambiar preguntas de un formulario implementado')], 403);
         }
-        abort_if($question->form->instrument_locked, 409, 'Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.');
+        abort_if($question->form->instrument_locked, 409, __('Duplique el formulario publicado para editar sus preguntas sin alterar respuestas históricas.'));
         if (! $this->projectPeriod->isValidated($question->form->project_id)) {
-            return response()->json(['message' => 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas'], 422);
+            return response()->json(['message' => __('El líder debe validar la ficha técnica del proyecto antes de editar preguntas')], 422);
         }
 
         $form = $question->form;
@@ -633,15 +633,15 @@ class FormController extends Controller
 
         $user = User::where('email', $request->email)->first();
         if (! $user) {
-            return response()->json(['message' => 'No existe un usuario con ese correo'], 404);
+            return response()->json(['message' => __('No existe un usuario con ese correo')], 404);
         }
 
         if ((int) $user->id === (int) $form->user_id) {
-            return response()->json(['message' => 'No puedes compartir el formulario contigo mismo'], 422);
+            return response()->json(['message' => __('No puedes compartir el formulario contigo mismo')], 422);
         }
 
         if (! $user->isUser()) {
-            return response()->json(['message' => 'Solo usuarios recolectores pueden recibir permisos por formulario'], 422);
+            return response()->json(['message' => __('Solo usuarios recolectores pueden recibir permisos por formulario')], 422);
         }
 
         $share = FormUserShare::updateOrCreate(
@@ -691,7 +691,7 @@ class FormController extends Controller
 
         $share = FormUserShare::where('form_id', $form->id)->findOrFail($share_id);
         if ($share->role !== 'RECOLECTOR') {
-            return response()->json(['message' => 'Solo los recolectores pueden tener respuestas objetivo'], 422);
+            return response()->json(['message' => __('Solo los recolectores pueden tener respuestas objetivo')], 422);
         }
 
         DB::transaction(function () use ($share, $request, $form) {
@@ -749,7 +749,7 @@ class FormController extends Controller
         $response = $this->storeFormResponse->submit($form, $request->user(), $dataArray, $request->string('client_submission_id')->toString());
 
         return response()->json([
-            'message' => 'Respuesta guardada',
+            'message' => __('Respuesta guardada'),
             'id' => $response->id,
             'response' => new FormResponseResource($response),
         ], 201);
@@ -793,7 +793,7 @@ class FormController extends Controller
         $this->formResponseValidator->validate($active, $data, null, $questions);
 
         return response()->json([
-            'message' => 'La respuesta de prueba es válida. No se guardó.',
+            'message' => __('La respuesta de prueba es válida. No se guardó.'),
             'answered' => $active->filter(fn ($q) => ($data[$q->id] ?? null) !== null && ($data[$q->id] ?? null) !== '' && ($data[$q->id] ?? null) !== [])->count(),
             'active_questions' => $active->count(),
         ]);
@@ -805,7 +805,10 @@ class FormController extends Controller
         $form = $this->findResponsesReadableForm($id, $request->user());
         $form->load('questions');
         $pageSize = max(1, min(100, (int) $request->query('per_page', 50)));
-        $page = $form->responses()->orderByDesc('created_at')->orderByDesc('id')->paginate($pageSize);
+        $filters = $this->responseFilters($request);
+        $query = $form->responses()->orderByDesc('created_at')->orderByDesc('id');
+        $this->applyResponseFilters($query, $filters);
+        $page = $query->paginate($pageSize);
 
         return response()->json([
             'questions' => $form->questions,
@@ -841,6 +844,7 @@ class FormController extends Controller
     {
         $form = $this->findResponsesReadableForm($id, $request->user());
         $form->load('questions');
+        $filters = $this->responseFilters($request);
         $stats = [];
 
         foreach ($form->questions as $q) {
@@ -857,7 +861,7 @@ class FormController extends Controller
 
         if (DB::connection()->getDriverName() === 'pgsql') {
             // PostgreSQL agrupa y cuenta dentro de la base: no se transfiere ni decodifica el JSON de cada respuesta.
-            foreach ($this->aggregateChoiceAnswers($form->id, array_keys($stats)) as $row) {
+            foreach ($this->aggregateChoiceAnswers($form->id, array_keys($stats), $filters) as $row) {
                 $value = json_decode($row->answer, true);
                 $stats[$row->question_id][$value] = ($stats[$row->question_id][$value] ?? 0) + (int) $row->total;
             }
@@ -866,7 +870,9 @@ class FormController extends Controller
         }
 
         // Respaldo para otros motores (SQLite en las pruebas): mismo resultado, recorriendo en PHP.
-        foreach ($form->responses()->select(['id', 'form_id', 'data'])->cursor() as $r) {
+        $responses = $form->responses()->select(['id', 'form_id', 'data']);
+        $this->applyResponseFilters($responses, $filters);
+        foreach ($responses->cursor() as $r) {
             foreach ($form->questions as $q) {
                 if (! isset($stats[$q->id])) {
                     continue;
@@ -891,9 +897,25 @@ class FormController extends Controller
      * @param  array<int, string>  $questionIds
      * @return array<int, object{question_id: string, answer: string, total: int}> answer = valor en JSON
      */
-    private function aggregateChoiceAnswers(string $formId, array $questionIds): array
+    private function aggregateChoiceAnswers(string $formId, array $questionIds, array $filters = []): array
     {
         $placeholders = implode(', ', array_fill(0, count($questionIds), '?'));
+        $extra = '';
+        $bindings = [];
+        if (isset($filters['from'])) {
+            $extra .= ' AND r.created_at >= ?';
+            $bindings[] = $filters['from'];
+        }
+        if (isset($filters['to'])) {
+            $extra .= ' AND r.created_at <= ?';
+            $bindings[] = $filters['to'];
+        }
+        if (($filters['collector'] ?? null) === 'public') {
+            $extra .= ' AND r.user_id IS NULL';
+        } elseif (isset($filters['collector'])) {
+            $extra .= ' AND r.user_id = ?';
+            $bindings[] = $filters['collector'];
+        }
 
         return DB::select(<<<SQL
             SELECT q.key AS question_id, x.value::text AS answer, COUNT(*) AS total
@@ -909,9 +931,52 @@ class FormController extends Controller
             WHERE r.form_id = ?
               AND q.key IN ({$placeholders})
               AND jsonb_typeof(x.value) IN ('string', 'number', 'boolean')
-              AND x.value <> '""'::jsonb
+              AND x.value <> '""'::jsonb{$extra}
             GROUP BY q.key, x.value
-            SQL, [$formId, ...$questionIds]);
+            SQL, [$formId, ...$questionIds, ...$bindings]);
+    }
+
+    /**
+     * Filtros opcionales de la pantalla de resultados: desde/hasta (fecha y hora ISO) y recolector
+     * (id de usuario, o "public" para las respuestas sin cuenta).
+     *
+     * @return array{from?: \Illuminate\Support\Carbon, to?: \Illuminate\Support\Carbon, collector?: string}
+     */
+    private function responseFilters(Request $request): array
+    {
+        $validated = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
+            'collector' => ['nullable', 'string', 'max:64'],
+        ]);
+        $filters = [];
+        if (! empty($validated['from'])) {
+            $filters['from'] = \Illuminate\Support\Carbon::parse($validated['from'])->utc();
+        }
+        if (! empty($validated['to'])) {
+            $filters['to'] = \Illuminate\Support\Carbon::parse($validated['to'])->utc();
+        }
+        if (! empty($validated['collector'])) {
+            $filters['collector'] = $validated['collector'];
+        }
+
+        return $filters;
+    }
+
+    /** @param  array{from?: \Illuminate\Support\Carbon, to?: \Illuminate\Support\Carbon, collector?: string}  $filters */
+    private function applyResponseFilters($query, array $filters): void
+    {
+        if (isset($filters['from'])) {
+            $query->where('created_at', '>=', $filters['from']);
+        }
+        if (isset($filters['to'])) {
+            $query->where('created_at', '<=', $filters['to']);
+        }
+        if (($filters['collector'] ?? null) === 'public') {
+            $query->whereNull('user_id');
+        } elseif (isset($filters['collector'])) {
+            $query->where('user_id', $filters['collector']);
+        }
     }
 
     #[OA\Get(path: '/forms/{id}/export', summary: 'Exportar respuestas CSV/XLSX', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -938,10 +1003,10 @@ class FormController extends Controller
         $form->load(['questions' => fn ($q) => $q->orderBy('order')]);
 
         $format = strtolower($request->query('format', 'csv'));
-        abort_unless(in_array($format, ['csv', 'xlsx', 'excel'], true), 422, 'Formato de exportación no admitido.');
+        abort_unless(in_array($format, ['csv', 'xlsx', 'excel'], true), 422, __('Formato de exportación no admitido.'));
         $responseCount = $form->responses()->count();
         abort_if(($format === 'xlsx' || $format === 'excel') && $responseCount > 1000, 422,
-            'Para más de 1.000 respuestas use CSV; XLSX excedería el límite de memoria.');
+            __('Para más de 1.000 respuestas use CSV; XLSX excedería el límite de memoria.'));
         $exportData = app(ResponseExportMatrixBuilder::class)->build($form);
         $filename = Str::slug($form->title).'_respuestas_'.now()->format('Y-m-d');
 
@@ -1014,7 +1079,7 @@ class FormController extends Controller
     public function logExport(Request $request, string $id): JsonResponse
     {
         $form = $this->findResponsesReadableForm($id, $request->user());
-        abort_unless(strtolower($request->input('format', 'pdf')) === 'pdf', 422, 'Formato no admitido.');
+        abort_unless(strtolower($request->input('format', 'pdf')) === 'pdf', 422, __('Formato no admitido.'));
         \App\Services\AuditLogService::logClientReportedExport(
             $request->user(), $form, $form->responses()->count()
         );
@@ -1044,8 +1109,8 @@ class FormController extends Controller
             $form = Form::whereKey($id)->lockForUpdate()->firstOrFail();
             $this->abortUnlessCanEdit($form, $request->user());
             abort_if($form->state === 'DEPLOYED' || $form->instrument_locked, 409,
-                'Duplique el formulario publicado para modificar el instrumento.');
-            abort_unless($this->projectPeriod->isValidated($form->project_id), 422, 'El líder debe validar la ficha técnica del proyecto.');
+                __('Duplique el formulario publicado para modificar el instrumento.'));
+            abort_unless($this->projectPeriod->isValidated($form->project_id), 422, __('El líder debe validar la ficha técnica del proyecto.'));
             $this->projectPeriod->assertWithin(
                 $form->project_id,
                 array_key_exists('start_date', $input) ? $input['start_date'] : $form->start_date?->format('Y-m-d'),
@@ -1053,13 +1118,13 @@ class FormController extends Controller
             );
             if ($form->draft_revision !== $input['expected_revision']) {
                 throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
-                    'message' => 'El formulario cambió desde que se abrió. Recargue antes de guardar.',
+                    'message' => __('El formulario cambió desde que se abrió. Recargue antes de guardar.'),
                     'expected_revision' => $input['expected_revision'],
                     'current_revision' => $form->draft_revision,
                 ], 409));
             }
             $ids = array_column($input['questions'], 'id');
-            abort_if(FormQuestion::whereIn('id', $ids)->where('form_id', '!=', $id)->exists(), 422, 'Las preguntas pertenecen a otro formulario.');
+            abort_if(FormQuestion::whereIn('id', $ids)->where('form_id', '!=', $id)->exists(), 422, __('Las preguntas pertenecen a otro formulario.'));
             $form->fill(collect($input)->except(['questions', 'expected_revision'])->all());
             $form->require_consent = true;
             $form->draft_revision++;
@@ -1075,7 +1140,7 @@ class FormController extends Controller
                 $question->save();
             }
             foreach ($input['questions'] as $row) {
-                abort_if(! empty($row['parent_question_id']) && ! in_array($row['parent_question_id'], $ids, true), 422, 'La pregunta padre pertenece a otro formulario.');
+                abort_if(! empty($row['parent_question_id']) && ! in_array($row['parent_question_id'], $ids, true), 422, __('La pregunta padre pertenece a otro formulario.'));
                 $form->questions()->whereKey($row['id'])->update(['parent_question_id' => $row['parent_question_id'] ?? null]);
             }
             $this->formSchemaValidator->validateForPublication($form->questions()->get());
@@ -1093,7 +1158,7 @@ class FormController extends Controller
         // por ejemplo antes de eliminarlo definitivamente.
         $form = ($user->isSuperAdmin() ? Form::withTrashed() : Form::query())->findOrFail($id);
         abort_unless(app(\App\Policies\FormPolicy::class)->viewResponses($user, $form), 403,
-            'No tienes permisos para consultar o exportar las respuestas de este formulario.');
+            __('No tienes permisos para consultar o exportar las respuestas de este formulario.'));
 
         return $form;
     }
@@ -1138,7 +1203,7 @@ class FormController extends Controller
             return;
         }
 
-        abort(response()->json(['message' => 'No tienes permisos para ver este formulario'], 403));
+        abort(response()->json(['message' => __('No tienes permisos para ver este formulario')], 403));
     }
 
     private function abortUnlessCanEdit(Form $form, User $user): void
@@ -1148,7 +1213,7 @@ class FormController extends Controller
             return;
         }
 
-        abort(response()->json(['message' => 'No tienes permisos para editar este formulario'], 403));
+        abort(response()->json(['message' => __('No tienes permisos para editar este formulario')], 403));
     }
 
     private function abortUnlessCanManageShares(Form $form, User $user): void
@@ -1157,7 +1222,7 @@ class FormController extends Controller
             return;
         }
 
-        abort(response()->json(['message' => 'No tienes permisos para gestionar accesos de este formulario'], 403));
+        abort(response()->json(['message' => __('No tienes permisos para gestionar accesos de este formulario')], 403));
     }
 
     private function abortUnlessCanManageLifecycle(Form $form, User $user): void
@@ -1166,7 +1231,7 @@ class FormController extends Controller
             return;
         }
 
-        abort(response()->json(['message' => 'No tienes permisos para implementar o archivar este formulario'], 403));
+        abort(response()->json(['message' => __('No tienes permisos para implementar o archivar este formulario')], 403));
     }
 
     private function canDeleteForm(Form $form, User $user): bool

@@ -76,7 +76,7 @@
           (input)="vm.onSearchInput($event)"
         />
         @if (vm.searchQuery()) {
-          <button class="search-clear-btn" type="button" aria-label="Limpiar búsqueda" (click)="vm.searchQuery.set('')">
+          <button class="search-clear-btn" type="button" [attr.aria-label]="'forms.dashboard.clearSearch' | translate" (click)="vm.searchQuery.set('')">
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -111,11 +111,11 @@
           <div class="project-category-header">
             <div class="category-title">
               <mat-icon class="folder-icon">folder_special</mat-icon>
-              <h2>Categoría Proyecto: <span>{{ group.projectName }}</span></h2>
+              <h2>{{ 'forms.dashboard.projectCategory' | translate }} <span>{{ group.projectName }}</span></h2>
             </div>
             <span class="category-count-badge">
               <mat-icon>inventory_2</mat-icon>
-              {{ group.forms.length }} formulario(s) archivado(s)
+              {{ 'forms.dashboard.archivedCount' | translate: { count: group.forms.length } }}
             </span>
           </div>
 
@@ -276,27 +276,21 @@
             }
 
             @if (form.state === 'DEPLOYED') {
-              <button class="btn-action" (click)="vm.showPublicLink(form)" type="button">
-                <mat-icon>link</mat-icon>
-                {{ 'forms.dashboard.actions.viewLink' | translate }}
-              </button>
               @if (vm.canViewResults()) {
-                <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action">
-                  <mat-icon>bar_chart</mat-icon>
+                <a [routerLink]="['/admin/forms', form.id, 'responses']" class="btn-action btn-primary">
+                  <mat-icon aria-hidden="true">bar_chart</mat-icon>
                   {{ 'common.buttons.results' | translate }}
                 </a>
               }
-              @if (vm.canManageForm(form)) {
-                <button
-                  class="btn-action"
-                  (click)="vm.archiveForm(form.id)"
-                  [disabled]="vm.actionLoading() === form.id"
-                  type="button"
-                >
-                  <mat-icon>archive</mat-icon>
-                  {{ 'common.buttons.archive' | translate }}
-                </button>
-              }
+              <button
+                class="btn-action"
+                [class.btn-primary]="!vm.canViewResults()"
+                (click)="vm.showPublicLink(form)"
+                type="button"
+              >
+                <mat-icon aria-hidden="true">link</mat-icon>
+                {{ 'forms.dashboard.actions.viewLink' | translate }}
+              </button>
             }
 
             @if (vm.canManageForm(form) || vm.canEditForm(form)) {
@@ -329,8 +323,15 @@
                   </button>
                 }
 
+                @if (form.state === 'DEPLOYED' && vm.canManageForm(form)) {
+                  <button mat-menu-item type="button" class="menu-separated" (click)="vm.archiveForm(form.id)" [disabled]="vm.actionLoading() === form.id">
+                    <mat-icon>archive</mat-icon>
+                    <span>{{ 'common.buttons.archive' | translate }}</span>
+                  </button>
+                }
+
                 @if ((form.state === 'DRAFT' || form.state === 'ARCHIVED') && vm.canManageForm(form)) {
-                  <button mat-menu-item type="button" class="menu-danger" (click)="vm.deleteForm(form)" [disabled]="vm.actionLoading() === form.id">
+                  <button mat-menu-item type="button" class="menu-danger menu-separated" (click)="vm.deleteForm(form)" [disabled]="vm.actionLoading() === form.id">
                     <mat-icon>delete</mat-icon>
                     <span>{{ 'common.buttons.delete' | translate }}</span>
                   </button>
@@ -350,7 +351,7 @@
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="dashboard-share-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3 id="dashboard-share-title">{{ 'forms.dashboard.shareTitle' | translate }}</h3>
-        <button class="modal-close" (click)="vm.closeShareModal()" type="button" aria-label="Cerrar">&times;</button>
+        <button class="modal-close" (click)="vm.closeShareModal()" type="button" [attr.aria-label]="'common.buttons.close' | translate">&times;</button>
       </div>
 
       <div class="modal-body">
@@ -456,7 +457,7 @@
                       <div class="inline-edit">
                         <input
                           type="number"
-                          aria-label="Meta de respuestas"
+                          [attr.aria-label]="'forms.dashboard.responseTarget' | translate"
                           [ngModel]="vm.editTargetValue()"
                           (ngModelChange)="vm.setEditTargetFromInput($event)"
                           min="1"
@@ -504,18 +505,18 @@
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dashboard-link-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2 id="dashboard-link-title">{{ 'forms.dashboard.publicLinkTitle' | translate }}</h2>
-        <button class="modal-close" (click)="vm.closeLinkModal()" type="button" aria-label="Cerrar">&times;</button>
+        <button class="modal-close" (click)="vm.closeLinkModal()" type="button" [attr.aria-label]="'common.buttons.close' | translate">&times;</button>
       </div>
 
       <p class="modal-subtitle">
         {{ 'forms.dashboard.publicLinkSubtitle' | translate }}
       </p>
       @if (vm.linkAvailableFrom(); as availableFrom) {
-        <p role="status">Este formulario está programado. El enlace mostrará la fecha de apertura y permitirá responder a partir del {{ availableFrom | date:'dd/MM/yyyy' }}.</p>
+        <p role="status">{{ 'forms.dashboard.scheduledLink' | translate: { date: (availableFrom | date:'dd/MM/yyyy') } }}</p>
       }
 
       <div class="link-box">
-        <input type="text" readonly aria-label="Enlace público del formulario" [value]="vm.linkUrl()" />
+        <input type="text" readonly [attr.aria-label]="'forms.dashboard.publicLinkLabel' | translate" [value]="vm.linkUrl()" />
         <button class="btn-primary" (click)="copyLink()" type="button">
           <mat-icon>content_copy</mat-icon>
           {{ 'common.buttons.copy' | translate }}

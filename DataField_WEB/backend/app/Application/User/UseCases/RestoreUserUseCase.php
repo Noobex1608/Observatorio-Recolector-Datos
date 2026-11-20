@@ -20,22 +20,22 @@ class RestoreUserUseCase
         return DB::transaction(function () use ($userId, $adminId) {
             $admin = User::findOrFail($adminId);
             if (! $admin->canManageUsers()) {
-                throw new AccessDeniedHttpException('Solo los administradores pueden restaurar usuarios.');
+                throw new AccessDeniedHttpException(__('Solo los administradores pueden restaurar usuarios.'));
             }
 
             $user = User::onlyTrashed()->lockForUpdate()->findOrFail($userId);
             if (! $admin->canManageRole($user->rol)) {
-                throw new AccessDeniedHttpException('No tienes permisos para restaurar una cuenta con ese rol.');
+                throw new AccessDeniedHttpException(__('No tienes permisos para restaurar una cuenta con ese rol.'));
             }
 
             $user->restore();
             $user->forceFill(['is_active' => true])->save();
 
             AuditLogService::log($admin, 'RESTORE_USER', 'usuarios',
-                "Restauró la cuenta del usuario {$user->email}.", [
+                'Restauró la cuenta del usuario :email.', [
                     'target_user_id' => $user->id,
                     'target_role' => $user->rol,
-                ]);
+                ], params: ['email' => $user->email]);
 
             return $user->load('perfil');
         });

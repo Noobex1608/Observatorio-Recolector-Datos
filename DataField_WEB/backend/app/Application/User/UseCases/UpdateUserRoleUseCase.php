@@ -24,23 +24,23 @@ class UpdateUserRoleUseCase
             $admin = User::findOrFail($dto->adminId);
 
             if (! $admin->canManageUsers()) {
-                throw new AccessDeniedHttpException('Solo los administradores pueden cambiar roles de usuarios');
+                throw new AccessDeniedHttpException(__('Solo los administradores pueden cambiar roles de usuarios'));
             }
 
             // Buscar el usuario a modificar
             $user = User::find($dto->userId);
 
             if (! $user) {
-                throw new NotFoundHttpException('Usuario no encontrado');
+                throw new NotFoundHttpException(__('Usuario no encontrado'));
             }
 
             // Validar que el rol sea válido
             if (! in_array($dto->rol, User::ROLES, true)) {
-                throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR');
+                throw new \InvalidArgumentException(__('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR'));
             }
 
             if (! $admin->canManageRole($user->rol) || ! $admin->canManageRole($dto->rol)) {
-                throw new AccessDeniedHttpException('No tienes permisos para administrar ese rol');
+                throw new AccessDeniedHttpException(__('No tienes permisos para administrar ese rol'));
             }
 
             \App\Application\Auth\Services\InstitutionalEmail::assertRoleAllowed($user->email, $dto->rol);

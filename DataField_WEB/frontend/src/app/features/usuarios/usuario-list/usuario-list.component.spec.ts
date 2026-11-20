@@ -7,6 +7,10 @@ import { AuthService } from '@core/services/auth.service';
 import { NotificationService } from '@core/services/notification.service';
 import { UserService } from '@core/services/user.service';
 import { UsuarioListComponent } from './usuario-list.component';
+import { provideSpanishTranslations } from '../../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const requests = [
   { id: 1, name: 'Ana Zambrano', email: 'ana@uleam.edu.ec', status: 'PENDING', requested_at: null },
@@ -30,7 +34,6 @@ function setup(role: 'ADMIN' | 'SUPER_ADMIN' = 'ADMIN') {
       { provide: UserService, useValue: users },
       { provide: MatDialog, useValue: dialog },
       { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
-      { provide: TranslateService, useValue: { instant: (key: string) => key } },
       { provide: AuthService, useValue: { userRole: () => role, isSuperAdmin: () => role === 'SUPER_ADMIN' } },
     ],
   });
