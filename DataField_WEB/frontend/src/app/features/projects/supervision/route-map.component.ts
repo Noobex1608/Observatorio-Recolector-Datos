@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, PLATFORM_ID, effect, inject, input, output, viewChild } from '@angular/core';
 import type * as Leaflet from 'leaflet';
 import { RouteSurvey, RouteZone } from '@core/services/project.service';
+import { TranslateService } from '@ngx-translate/core';
 
 export const ROUTE_COLORS = { inside: '#16805c', outside: '#bc1421', unknown: '#0059a8', weak: '#8a99ab', zone: '#2563eb' };
 
@@ -23,6 +24,7 @@ export const ROUTE_COLORS = { inside: '#16805c', outside: '#bc1421', unknown: '#
 })
 export class RouteMapComponent implements AfterViewInit, OnDestroy {
   private platformId = inject(PLATFORM_ID);
+  private i18n = inject(TranslateService);
   private canvas = viewChild<ElementRef<HTMLDivElement>>('canvas');
 
   zones = input<RouteZone[]>([]);
@@ -39,7 +41,7 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
 
   label(): string {
     const count = this.surveys().length;
-    return `Mapa del recorrido con ${count} encuesta${count === 1 ? '' : 's'}. La lista de encuestas tiene el mismo detalle.`;
+    return this.i18n.instant(count === 1 ? 'supervision.map.labelOne' : 'supervision.map.labelMany', { count });
   }
 
   constructor() {
@@ -90,7 +92,7 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
         shape = L.circle([zone.target_lat, zone.target_lng], { radius: zone.radius_meters || 500, color: ROUTE_COLORS.zone, weight: 2, fillOpacity: 0.07 });
       }
       if (shape) {
-        shape.bindTooltip(`Zona: ${zone.name}`);
+        shape.bindTooltip(this.i18n.instant('supervision.map.zone', { name: zone.name }));
         shape.addTo(this.layer);
         all.extend(shape.getBounds());
       }
@@ -106,7 +108,7 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
       const end: Leaflet.LatLngTuple = [path[path.length - 1][0], path[path.length - 1][1]];
       if (previousEnd) {
         L.polyline([previousEnd, start], { color: ROUTE_COLORS.weak, weight: 2, dashArray: '6 8', opacity: dimmed ? 0.2 : 0.8 })
-          .bindTooltip('Traslado entre encuestas (no registrado)').addTo(this.layer!);
+          .bindTooltip(this.i18n.instant('supervision.map.transfer')).addTo(this.layer!);
       }
       for (let i = 1; i < path.length; i++) {
         const a = path[i - 1];
@@ -117,24 +119,24 @@ export class RouteMapComponent implements AfterViewInit, OnDestroy {
       }
       // Puntos intermedios: cada vez que se retomó el borrador.
       for (const point of path.slice(1, -1)) {
-        const where = point[4] === false ? 'fuera de zona' : point[4] === true ? 'dentro de la zona' : 'sin zona';
+        const where = this.i18n.instant(point[4] === false ? 'supervision.map.outside' : point[4] === true ? 'supervision.map.inside' : 'supervision.map.noZone');
         L.circleMarker([point[0], point[1]], {
           radius: 6, color: point[4] === false ? ROUTE_COLORS.outside : ROUTE_COLORS.unknown, fillColor: '#fff', fillOpacity: 1, weight: 3, opacity,
         })
-          .bindTooltip(`Encuesta ${index + 1} · ${point[6] === 'reanudar' ? 'retomó el borrador' : 'punto'} ${new Date(point[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${where}${point[2] != null ? ` · ±${point[2]} m` : ''}`)
+          .bindTooltip(`${this.i18n.instant('supervision.map.survey', { n: index + 1 })} · ${this.i18n.instant(point[6] === 'reanudar' ? 'supervision.map.resumed' : 'supervision.map.point')} ${new Date(point[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${where}${point[2] != null ? ` · ±${point[2]} m` : ''}`)
           .on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       }
       const pinColor = survey.alerts.some((a) => a.code === 'fuera_de_zona' || a.code === 'salio_de_zona' || a.code === 'excepcion_zona')
         ? ROUTE_COLORS.outside : ROUTE_COLORS.inside;
       const startTime = new Date(survey.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       L.marker(start, { opacity, icon: L.divIcon({ className: '', html: `<span class="route-pin" style="background:${pinColor}">${index + 1}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] }) })
-        .bindTooltip(`Encuesta ${index + 1} · inicio ${startTime}`)
+        .bindTooltip(`${this.i18n.instant('supervision.map.survey', { n: index + 1 })} · ${this.i18n.instant('supervision.map.start')} ${startTime}`)
         .on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       if (path.length > 1) {
         const last = path[path.length - 1];
         const endColor = last[4] === false ? ROUTE_COLORS.outside : '#24384f';
         L.marker(end, { opacity, icon: L.divIcon({ className: '', html: `<span class="route-pin end" style="background:${endColor}">■</span>`, iconSize: [24, 24], iconAnchor: [12, 12] }) })
-          .bindTooltip(`Encuesta ${index + 1} · ${last[6] === 'fin' ? 'fin' : 'último punto'} ${new Date(last[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${last[4] === false ? ' · fuera de zona' : ''}`).on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
+          .bindTooltip(`${this.i18n.instant('supervision.map.survey', { n: index + 1 })} · ${this.i18n.instant(last[6] === 'fin' ? 'supervision.map.end' : 'supervision.map.lastPoint')} ${new Date(last[3]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${last[4] === false ? ' · ' + this.i18n.instant('supervision.map.outside') : ''}`).on('click', () => this.surveySelect.emit(survey.id)).addTo(this.layer!);
       }
       const bounds = L.latLngBounds(path.map((p) => [p[0], p[1]] as Leaflet.LatLngTuple));
       this.boundsBySurvey.set(survey.id, bounds);

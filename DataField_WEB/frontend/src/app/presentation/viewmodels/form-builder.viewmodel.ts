@@ -4,7 +4,7 @@ import { Project, ProjectService } from '@core/services/project.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { TEXT_FORMATS, TextFormat } from '@core/utils/text-format';
-import { choiceFilterOf } from '@core/utils/choice-filter';
+import { choiceFilterOf, showIfOf } from '@core/utils/choice-filter';
 
 /** Tipos que pueden tener (o ser origen de) opciones en cascada. */
 const CASCADE_TYPES: FormQuestion['type'][] = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE'];
@@ -266,7 +266,7 @@ export class FormBuilderViewModel {
     if (!this.canEditQuestions()) return;
 
     const section = this.sections().find((item) => item.tempId === tempId);
-    this.remember(`Sección «${section?.title.trim() || 'Sin título'}» eliminada; sus preguntas pasaron a «Sin sección».`);
+    this.remember(this.translate.instant('forms.builder.page.msg.sectionRemoved', { title: section?.title.trim() || this.translate.instant('forms.builder.page.msg.untitledSection') }));
 
     this.sections.update((sections) =>
       sections.filter((section) => section.tempId !== tempId).map((section, index) => ({ ...section, order: index })),
@@ -493,7 +493,7 @@ export class FormBuilderViewModel {
     if (!this.canEditQuestions() || preview.questions.length === 0) return [];
 
     if (mode === 'replace') {
-      this.remember(`Se reemplazaron ${this.questions().length} pregunta(s) por las del Excel.`);
+      this.remember(this.translate.instant('forms.builder.page.msg.replacedFromExcel', { count: this.questions().length }));
       const persisted = this.questions().filter((question) => question.id).map((question) => question.id as string);
       this.deletedQuestionIds.update((ids) => [...ids, ...persisted]);
     }
@@ -569,8 +569,9 @@ export class FormBuilderViewModel {
 
     const removedIds = new Set([tempId, ...this.getDescendantTempIds(tempId)]);
     const label = current.label.trim() || this.translate.instant('forms.builder.untitledQuestion');
-    const extra = removedIds.size > 1 ? ` y ${removedIds.size - 1} subpregunta(s)` : '';
-    this.remember(`Pregunta «${label}»${extra} eliminada.`);
+    this.remember(removedIds.size > 1
+      ? this.translate.instant('forms.builder.page.msg.questionRemovedWithChildren', { label, count: removedIds.size - 1 })
+      : this.translate.instant('forms.builder.page.msg.questionRemoved', { label }));
 
     const persistedIds = this.questions()
       .filter((question) => removedIds.has(question.tempId) && question.id)
@@ -657,14 +658,14 @@ export class FormBuilderViewModel {
     if (question.type === 'LIKERT') {
       const rows = question.likertRows.filter((row) => row.trim().length > 0);
       const columns = question.likertColumns.filter((column) => column.trim().length > 0);
-      return rows.length > 0 && columns.length > 0 ? null : 'Faltan filas o columnas';
+      return rows.length > 0 && columns.length > 0 ? null : this.translate.instant('forms.builder.page.msg.issueLikert');
     }
-    if (question.label.trim().length === 0) return 'Falta el enunciado';
+    if (question.label.trim().length === 0) return this.translate.instant('forms.builder.page.msg.issueLabel');
     if (SELECT_TYPES.includes(question.type) && !question.options.some((option) => option.trim().length > 0)) {
-      return 'Faltan opciones';
+      return this.translate.instant('forms.builder.page.msg.issueOptions');
     }
     if (BRANCHABLE_TYPES.includes(question.type) && question.branchRules.some((rule) => rule.action === 'GO_TO' && !rule.nextQuestionTempId)) {
-      return 'Falta el destino de un salto';
+      return this.translate.instant('forms.builder.page.msg.issueJump');
     }
     return null;
   }
@@ -837,9 +838,18 @@ export class FormBuilderViewModel {
           options[optionIndex] = value;
           return { ...question, options };
         }
+        if (previous === undefined || previous.trim() === '') return question;
+        // Subpregunta condicionada a esta opción («mostrar solo si se elige…»): se renombra también.
+        const showIf = question.parentTempId === tempId ? showIfOf(question.properties) : null;
+        if (showIf?.includes(previous)) {
+          question = {
+            ...question,
+            properties: { ...question.properties, show_if: { options: showIf.map((label) => (label === previous ? value : label)) } },
+          };
+        }
         // Si otra pregunta depende de esta opción, se renombra también allí.
         const filter = choiceFilterOf(question.properties);
-        if (!filter || filter.question_id !== tempId || previous === undefined || previous.trim() === '') return question;
+        if (!filter || filter.question_id !== tempId) return question;
         return {
           ...question,
           properties: {
@@ -852,8 +862,18 @@ export class FormBuilderViewModel {
   }
 
   removeOption(tempId: string, optionIndex: number): void {
+    const removed = this.questions().find((question) => question.tempId === tempId)?.options[optionIndex];
     this.questions.update((questions) =>
       questions.map((question) => {
+        // Las subpreguntas que se mostraban con esa opción dejan de mencionarla.
+        const showIf = question.parentTempId === tempId ? showIfOf(question.properties) : null;
+        if (showIf && removed !== undefined && showIf.includes(removed)) {
+          const rest = showIf.filter((label) => label !== removed);
+          const properties = { ...question.properties };
+          if (rest.length > 0) properties.show_if = { options: rest };
+          else delete properties.show_if;
+          return { ...question, properties };
+        }
         if (question.tempId !== tempId || question.options.length <= 1) return question;
 
         const filter = choiceFilterOf(question.properties);
@@ -980,6 +1000,9 @@ export class FormBuilderViewModel {
         if (typeof properties.expression === 'string') {
           for (const [temp, id] of ids) properties.expression = properties.expression.split('${' + temp + '}').join('${' + id + '}');
         }
+        const showIf = this.showIfPayload(q);
+        if (showIf) properties.show_if = { options: showIf };
+        else delete properties.show_if;
         const filter = this.cascadePayload(q);
         if (filter) properties.choice_filter = { question_id: ids.get(filter.question_id) ?? filter.question_id, parents: filter.parents };
         else delete properties.choice_filter;
@@ -1304,6 +1327,44 @@ export class FormBuilderViewModel {
         label: `${question.order + 1}. ${this.getQuestionDisplayLabel(question)}`,
       })),
     ];
+  }
+
+  // ---- Subpregunta condicionada («mostrar solo si se elige…») ----
+
+  /** Pregunta padre de opciones (única o múltiple) de una subpregunta; null si no aplica la condición. */
+  showIfParent(question: FormQuestionDraft): FormQuestionDraft | null {
+    const parent = question.parentTempId ? this.questions().find((item) => item.tempId === question.parentTempId) : null;
+    return parent && CASCADE_TYPES.includes(parent.type) ? parent : null;
+  }
+
+  showIfParentOptions(question: FormQuestionDraft): string[] {
+    return [...new Set(this.showIfParent(question)?.options.map((option) => option.trim()).filter(Boolean) ?? [])];
+  }
+
+  showIfSelected(question: FormQuestionDraft, option: string): boolean {
+    return showIfOf(question.properties)?.includes(option) ?? false;
+  }
+
+  toggleShowIf(tempId: string, option: string, checked: boolean): void {
+    if (!this.canEditQuestions()) return;
+    this.questions.update((questions) => questions.map((question) => {
+      if (question.tempId !== tempId) return question;
+      const current = showIfOf(question.properties) ?? [];
+      const next = checked ? [...current.filter((label) => label !== option), option] : current.filter((label) => label !== option);
+      const properties = { ...question.properties };
+      if (next.length > 0) properties.show_if = { options: next };
+      else delete properties.show_if;
+      return { ...question, properties };
+    }));
+  }
+
+  /** Condición lista para guardar: solo opciones que existen en el padre; sin padre de opciones, nada. */
+  private showIfPayload(question: FormQuestionDraft): string[] | null {
+    const options = showIfOf(question.properties);
+    if (!options) return null;
+    const valid = new Set(this.showIfParentOptions(question));
+    const kept = options.map((label) => label.trim()).filter((label) => valid.has(label));
+    return kept.length > 0 ? [...new Set(kept)] : null;
   }
 
   // ---- Opciones en cascada (provincia → cantón) ----

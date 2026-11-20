@@ -10,12 +10,13 @@ import { DataCenterService, TrashItem, TrashType } from '@core/services/data-cen
 import { FormService } from '@core/services/form.service';
 import { NotificationService } from '@core/services/notification.service';
 import { ConfirmDialogComponent } from '@shared/components/confirm-dialog/confirm-dialog.component';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string }> = [
-  { type: 'forms', label: 'Formularios', icon: 'description', empty: 'No hay formularios eliminados.' },
-  { type: 'responses', label: 'Respuestas anuladas', icon: 'block', empty: 'No hay respuestas anuladas.' },
-  { type: 'zones', label: 'Zonas', icon: 'map', empty: 'No hay zonas eliminadas.' },
-  { type: 'projects', label: 'Proyectos', icon: 'folder', empty: 'No hay proyectos eliminados.' },
+  { type: 'forms', label: 'dataCenter.tabs.forms', icon: 'description', empty: 'dataCenter.empty.forms' },
+  { type: 'responses', label: 'dataCenter.tabs.responses', icon: 'block', empty: 'dataCenter.empty.responses' },
+  { type: 'zones', label: 'dataCenter.tabs.zones', icon: 'map', empty: 'dataCenter.empty.zones' },
+  { type: 'projects', label: 'dataCenter.tabs.projects', icon: 'folder', empty: 'dataCenter.empty.projects' },
 ];
 
 /**
@@ -25,35 +26,34 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
 @Component({
   selector: 'app-data-center',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatButtonModule, MatDialogModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, RouterLink, MatButtonModule, MatDialogModule, MatIconModule, MatProgressSpinnerModule, TranslateModule],
   template: `
     <div class="dc-page">
       <header class="dc-header">
-        <h1>Centro de datos</h1>
+        <h1>{{ 'dataCenter.title' | translate }}</h1>
         <p>
-          Corrige datos sin entrar a la base de datos. Lo eliminado llega aquí y se puede restaurar; cada acción
-          queda en <a routerLink="/admin/auditoria">Auditoría</a> con quién la hizo.
+          {{ 'dataCenter.introBefore' | translate }} <a routerLink="/admin/auditoria">{{ 'dataCenter.auditLink' | translate }}</a> {{ 'dataCenter.introAfter' | translate }}
         </p>
       </header>
 
-      <section class="dc-guide" aria-label="Otras correcciones">
+      <section class="dc-guide" [attr.aria-label]="'dataCenter.guideLabel' | translate">
         <div>
           <mat-icon aria-hidden="true">edit_note</mat-icon>
-          <p><strong>Corregir o anular una respuesta:</strong> abre el formulario en <em>Respuestas</em>, pulsa <em>Ver</em> en la respuesta y usa <em>Corregir</em>, <em>Cambiar encuestador</em> o <em>Anular respuesta</em>.</p>
+          <p><strong>{{ 'dataCenter.guideResponsesTitle' | translate }}</strong> {{ 'dataCenter.guideResponses' | translate }}</p>
         </div>
         <div>
           <mat-icon aria-hidden="true">person_off</mat-icon>
-          <p><strong>Usuarios eliminados:</strong> se restauran en <a routerLink="/admin/usuarios">Usuarios</a>, pestaña <em>Eliminados</em>.</p>
+          <p><strong>{{ 'dataCenter.guideUsersTitle' | translate }}</strong> {{ 'dataCenter.guideUsersBefore' | translate }} <a routerLink="/admin/usuarios">{{ 'dataCenter.usersLink' | translate }}</a>{{ 'dataCenter.guideUsersAfter' | translate }}</p>
         </div>
       </section>
 
       <section class="dc-card" aria-labelledby="trash-title">
         <div class="dc-card-header">
-          <h2 id="trash-title">Papelera</h2>
-          <div class="dc-tabs" role="tablist" aria-label="Tipo de elemento">
+          <h2 id="trash-title">{{ 'dataCenter.trash' | translate }}</h2>
+          <div class="dc-tabs" role="tablist" [attr.aria-label]="'dataCenter.typeLabel' | translate">
             @for (tab of tabs; track tab.type) {
               <button type="button" role="tab" [attr.aria-selected]="type() === tab.type" [class.active]="type() === tab.type" (click)="select(tab.type)">
-                <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>{{ tab.label }}
+                <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>{{ tab.label | translate }}
               </button>
             }
           </div>
@@ -61,22 +61,22 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
 
         <label class="dc-search">
           <mat-icon aria-hidden="true">search</mat-icon>
-          <span class="visually-hidden">Buscar en la papelera</span>
-          <input type="search" placeholder="Buscar por nombre, proyecto o formulario" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+          <span class="visually-hidden">{{ 'dataCenter.searchLabel' | translate }}</span>
+          <input type="search" [placeholder]="'dataCenter.searchPlaceholder' | translate" [ngModel]="search()" (ngModelChange)="search.set($event)" />
         </label>
 
         @if (loading()) {
           <div class="dc-state"><mat-spinner diameter="32"></mat-spinner></div>
         } @else if (filtered().length === 0) {
-          <p class="dc-state">{{ search() ? 'Nada coincide con «' + search() + '».' : currentTab().empty }}</p>
+          <p class="dc-state">{{ search() ? ('dataCenter.noMatch' | translate: { term: search() }) : (currentTab().empty | translate) }}</p>
         } @else {
           <div class="dc-table-wrap">
             <table class="dc-table">
               <thead>
                 <tr>
-                  <th scope="col">Elemento</th>
-                  <th scope="col">Eliminado</th>
-                  <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                  <th scope="col">{{ 'dataCenter.item' | translate }}</th>
+                  <th scope="col">{{ 'dataCenter.deleted' | translate }}</th>
+                  <th scope="col"><span class="visually-hidden">{{ 'common.labels.actions' | translate }}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -85,20 +85,20 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
                     <td>
                       <strong>{{ item.name }}</strong>
                       @if (item.context) { <span>{{ item.context }}</span> }
-                      @if (item.reason) { <span class="dc-reason">Motivo: {{ item.reason }}</span> }
+                      @if (item.reason) { <span class="dc-reason">{{ 'dataCenter.reason' | translate: { reason: item.reason } }}</span> }
                     </td>
                     <td class="dc-when">
                       {{ item.deleted_at ? (item.deleted_at | date: 'dd/MM/yyyy HH:mm') : '—' }}
-                      @if (item.deleted_by) { <span>por {{ item.deleted_by }}</span> }
+                      @if (item.deleted_by) { <span>{{ 'dataCenter.by' | translate: { name: item.deleted_by } }}</span> }
                     </td>
                     <td class="dc-actions">
                       <button mat-stroked-button color="primary" type="button" (click)="restore(item)" [disabled]="busy() === item.id">
-                        <mat-icon>restore</mat-icon> Restaurar
+                        <mat-icon>restore</mat-icon> {{ 'dataCenter.restore' | translate }}
                       </button>
                       @if (item.can_purge) {
                         <button mat-button color="warn" type="button" (click)="purge(item)" [disabled]="busy() === item.id"
                           [attr.aria-expanded]="type() === 'forms' ? purging()?.id === item.id : null">
-                          Eliminar definitivamente
+                          {{ 'dataCenter.purge' | translate }}
                         </button>
                       }
                     </td>
@@ -107,13 +107,13 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
                     <!-- Borrar un formulario se lleva todas sus respuestas: se ofrece exportarlas y se pide su nombre exacto. -->
                     <tr class="dc-purge-row">
                       <td colspan="3">
-                        <div class="dc-purge" role="group" [attr.aria-label]="'Eliminar definitivamente ' + item.name">
+                        <div class="dc-purge" role="group" [attr.aria-label]="'dataCenter.purgeNamed' | translate: { name: item.name }">
                           <p>
-                            <strong>No se puede deshacer.</strong> Se borrarán para siempre el formulario, todas sus respuestas
-                            (también las anuladas), sus trazas GPS y asignaciones, y sus fotos, audios y videos.
+                            <strong>{{ 'dataCenter.cannotUndo' | translate }}</strong> {{ 'dataCenter.purgeWarning1' | translate }}
+                            {{ 'dataCenter.purgeWarning2' | translate }}
                           </p>
                           <div class="dc-purge-export">
-                            <span>Antes, guarda una copia de las respuestas:</span>
+                            <span>{{ 'dataCenter.exportFirst' | translate }}</span>
                             <button mat-stroked-button type="button" (click)="exportResponses(item, 'xlsx')" [disabled]="exporting()">
                               <mat-icon>download</mat-icon> Excel
                             </button>
@@ -122,14 +122,14 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
                             </button>
                           </div>
                           <label class="dc-purge-confirm">
-                            <span>Para confirmar, escribe el nombre del formulario: <strong>{{ item.name }}</strong></span>
+                            <span>{{ 'dataCenter.typeName' | translate }} <strong>{{ item.name }}</strong></span>
                             <input type="text" autocomplete="off" [ngModel]="purgeConfirm()" (ngModelChange)="purgeConfirm.set($event)" />
                           </label>
                           <div class="dc-purge-actions">
-                            <button mat-stroked-button type="button" (click)="cancelPurge()">Cancelar</button>
+                            <button mat-stroked-button type="button" (click)="cancelPurge()">{{ 'common.buttons.cancel' | translate }}</button>
                             <button mat-flat-button color="warn" type="button" (click)="confirmPurgeForm(item)"
                               [disabled]="purgeConfirm().trim() !== item.name.trim() || busy() === item.id">
-                              Eliminar definitivamente
+                              {{ 'dataCenter.purge' | translate }}
                             </button>
                           </div>
                         </div>
@@ -140,7 +140,7 @@ const TABS: Array<{ type: TrashType; label: string; icon: string; empty: string 
               </tbody>
             </table>
           </div>
-          @if (items().length >= 200) { <p class="dc-note">Se muestran los 200 más recientes.</p> }
+          @if (items().length >= 200) { <p class="dc-note">{{ 'dataCenter.latest200' | translate }}</p> }
         }
       </section>
     </div>
@@ -230,6 +230,7 @@ export class DataCenterComponent implements OnInit {
   private readonly notify = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
   private readonly forms = inject(FormService);
+  private readonly i18n = inject(TranslateService);
 
   readonly tabs = TABS;
   readonly type = signal<TrashType>('forms');
@@ -271,7 +272,7 @@ export class DataCenterComponent implements OnInit {
       error: (err) => {
         this.items.set([]);
         this.loading.set(false);
-        this.notify.error(err?.error?.message || 'No se pudo cargar la papelera.');
+        this.notify.error(err?.error?.message || this.i18n.instant('dataCenter.errors.load'));
       },
     });
   }
@@ -289,10 +290,10 @@ export class DataCenterComponent implements OnInit {
     }
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: 'Eliminar definitivamente',
-        message: `«${item.name}» se borrará para siempre y no se podrá restaurar.`,
-        confirmText: 'Eliminar definitivamente',
-        cancelText: 'Cancelar',
+        title: this.i18n.instant('dataCenter.purge'),
+        message: this.i18n.instant('dataCenter.purgeMessage', { name: item.name }),
+        confirmText: this.i18n.instant('dataCenter.purge'),
+        cancelText: this.i18n.instant('common.buttons.cancel'),
         confirmColor: 'warn',
       },
     }).afterClosed().subscribe((confirmed) => {
@@ -324,7 +325,7 @@ export class DataCenterComponent implements OnInit {
       },
       error: () => {
         this.exporting.set(false);
-        this.notify.error('No se pudo descargar las respuestas.');
+        this.notify.error(this.i18n.instant('dataCenter.errors.export'));
       },
     });
   }
@@ -340,7 +341,7 @@ export class DataCenterComponent implements OnInit {
       },
       error: (err) => {
         this.busy.set(null);
-        this.notify.error(err?.error?.message || 'No se pudo completar la acción.');
+        this.notify.error(err?.error?.message || this.i18n.instant('dataCenter.errors.action'));
       },
     });
   }

@@ -5,6 +5,10 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { FormService } from '@core/services/form.service';
 import { FormCollectComponent } from './form-collect.component';
+import { provideSpanishTranslations } from '../../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const form = {
   id: 'f1', title: 'Encuesta pública', step_by_step: true,
@@ -19,9 +23,9 @@ function open(formService: Record<string, unknown>, route: { params?: Record<str
   TestBed.overrideComponent(FormCollectComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
+      ...provideSpanishTranslations(),
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(route.params ?? { uuid: 'abc' }), data: route.data ?? {} } } },
       { provide: FormService, useValue: formService },
-      { provide: TranslateService, useValue: { instant: (key: string) => key } },
     ],
   });
   const fixture = TestBed.createComponent(FormCollectComponent);
@@ -153,7 +157,7 @@ describe('Opciones en cascada y modo de prueba', () => {
     const canton = cascade.questions[1] as never;
 
     expect(component.getChoiceOptions(canton)).toEqual([]);
-    expect(component.cascadeHint(canton)).toBe('forms.collect.answerFirst');
+    expect(component.cascadeHint(canton)).toBe('Primero responde «Provincia» para ver las opciones.');
 
     component.setAnswer('prov', 'Manabí');
     expect(component.getChoiceOptions(canton)).toEqual(['Portoviejo', 'Manta']);
@@ -203,5 +207,47 @@ describe('Opciones en cascada y modo de prueba', () => {
     expect(component.submitted()).toBe(false);
     expect(component.questionError('canton')).toBe('No corresponde a la provincia.');
     expect(component.submitError()).toBe('Revise las respuestas.');
+  });
+});
+
+const otro = {
+  id: 'f3', title: 'Recinto electoral', step_by_step: true,
+  questions: [
+    { id: 'actores', type: 'MULTIPLE_CHOICE', label: '¿Quién obstaculizó?', order: 0, required: true, options: ['Fuerzas Armadas', 'Otro'] },
+    { id: 'cual', type: 'TEXT', label: 'Especifique', order: 1, required: true, parent_question_id: 'actores', properties: { show_if: { options: ['Otro'] } } },
+    { id: 'fin', type: 'TEXT', label: 'Comentario', order: 2, required: false },
+  ],
+};
+
+describe('Subpregunta «solo si se elige Otro»', () => {
+  beforeEach(() => sessionStorage.clear());
+  afterEach(() => sessionStorage.clear());
+
+  it('se oculta y se salta en el paso a paso si no se marcó Otro; lo escrito no se envía', () => {
+    const submitResponse = vi.fn(() => of({ message: 'ok', id: 'r1' }));
+    const { component } = open({ fetchPublicForm: () => of(otro), submitResponse });
+    const cual = otro.questions[1] as never;
+    component.acceptConsent();
+
+    component.toggleMulti('actores', 'Fuerzas Armadas', true);
+    expect(component.isQuestionActive(cual)).toBe(false);
+    component.advanceStep();
+    expect(component.currentQuestion()?.id).toBe('fin');
+
+    component.goBack();
+    component.toggleMulti('actores', 'Otro', true);
+    expect(component.isQuestionActive(cual)).toBe(true);
+    component.advanceStep();
+    expect(component.currentQuestion()?.id).toBe('cual');
+    component.setAnswer('cual', 'Delegados');
+
+    // Si después desmarca «Otro», la especificación ya no se envía.
+    component.toggleMulti('actores', 'Otro', false);
+    component.currentStepIndex.set(2);
+    component.stepHistory.set([0, 2]);
+    component.advanceStep();
+    const sent = (submitResponse.mock.calls[0] as unknown[])[1] as Record<string, unknown>;
+    expect(sent['actores']).toEqual(['Fuerzas Armadas']);
+    expect('cual' in sent).toBe(false);
   });
 });

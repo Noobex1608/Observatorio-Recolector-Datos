@@ -173,7 +173,7 @@ class FormInstrumentExcelTest extends TestCase
     {
         $book = new Spreadsheet;
         $book->getActiveSheet()->setTitle('Mi encuesta')->fromArray([
-            ['N.º', 'Sección', 'Pregunta', 'Tipo', 'Opciones', 'Obligatoria', 'Formato', 'Ayuda', 'Si responde… ir a', 'Subpregunta de (N.º)', 'Cálculo', 'Opciones según (N.º)'],
+            ['N.º', 'Sección', 'Pregunta', 'Tipo', 'Opciones', 'Obligatoria', 'Formato', 'Ayuda', 'Si responde… ir a', 'Subpregunta de (N.º)', 'Cálculo', 'Opciones según (N.º)', 'Solo si elige'],
             ...$rows,
         ], null, 'A1', true);
 
@@ -203,8 +203,11 @@ class FormInstrumentExcelTest extends TestCase
         $this->assertSame($q['8']['temp_id'], $q['9']['parent_temp_id']);
         $this->assertSame('LIKERT', $q['10']['type']);
         $this->assertSame(['Los servicios públicos funcionan bien', 'Me siento seguro en mi barrio'], $q['10']['options']['rows']);
-        $this->assertSame(5, $q['12']['properties']['max_rating']);
-        $this->assertSame('NOTE', $q['13']['type']);
+        // «¿Cuál otro medio?» solo aparece si en la 11 se marca «Otro».
+        $this->assertSame($q['11']['temp_id'], $q['12']['parent_temp_id']);
+        $this->assertSame(['options' => ['Otro']], $q['12']['properties']['show_if']);
+        $this->assertSame(5, $q['13']['properties']['max_rating']);
+        $this->assertSame('NOTE', $q['14']['type']);
         $this->assertTrue($q['1']['required']);
         $this->assertFalse($q['3']['required']);
     }

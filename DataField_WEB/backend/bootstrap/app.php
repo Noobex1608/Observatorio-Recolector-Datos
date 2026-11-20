@@ -32,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Agregar middleware ForceJsonResponse y CorrelationIdMiddleware a TODAS las rutas API
         $middleware->prependToGroup('api', \App\Http\Middleware\ForceJsonResponse::class);
+        // Idioma de los mensajes según X-App-Language (es por defecto).
+        $middleware->prependToGroup('api', \App\Http\Middleware\SetRequestLocale::class);
         $middleware->prependToGroup('api', \App\Presentation\Http\Middleware\CorrelationIdMiddleware::class);
 
         // Para API: NO redirigir a login, sino devolver JSON 401
@@ -52,7 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // no un error del servidor: PostgreSQL lo reporta como 22P02.
         $exceptions->render(function (QueryException $e) {
             if (($e->errorInfo[0] ?? $e->getCode()) === '22P02') {
-                return response()->json(['message' => 'Recurso no encontrado.'], 404);
+                return response()->json(['message' => __('Recurso no encontrado.')], 404);
             }
         });
 
@@ -67,7 +69,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
-                    'message' => 'No autenticado.',
+                    'message' => __('No autenticado.'),
                 ], 401);
             }
 

@@ -9,88 +9,89 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CollectorRoute, ProjectService, RouteSurvey } from '@core/services/project.service';
 import { ROUTE_COLORS, RouteMapComponent } from './route-map.component';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 /** Pantalla de supervisión de un encuestador: recorrido GPS del día y verificación contra su zona. */
 @Component({
   selector: 'app-collector-route',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatProgressSpinnerModule, MatSelectModule, MatTooltipModule, RouteMapComponent],
+  imports: [DatePipe, DecimalPipe, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatProgressSpinnerModule, MatSelectModule, MatTooltipModule, RouteMapComponent, TranslateModule],
   template: `
     <div class="page">
       <header class="page-head">
         <a mat-stroked-button [routerLink]="['/admin/proyectos']" [queryParams]="backParams()">
-          <mat-icon aria-hidden="true">arrow_back</mat-icon> Volver a Supervisión
+          <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ 'supervision.back' | translate }}
         </a>
         <div class="title">
-          <span class="eyebrow">Recorrido del encuestador</span>
-          <h1>{{ route()?.collector?.name ?? 'Cargando…' }}</h1>
+          <span class="eyebrow">{{ 'supervision.routeTitle' | translate }}</span>
+          <h1>{{ route()?.collector?.name ?? ('supervision.loadingShort' | translate) }}</h1>
           @if (route()?.collector; as c) { <p>{{ c.email }}@if (c.cedula) { · {{ c.cedula }} }</p> }
         </div>
       </header>
 
       @if (route(); as data) {
-        <section class="filters" aria-label="Filtros del recorrido">
+        <section class="filters" [attr.aria-label]="'supervision.filtersLabel' | translate">
           <mat-form-field appearance="outline">
-            <mat-label>Formulario</mat-label>
+            <mat-label>{{ 'supervision.form' | translate }}</mat-label>
             <mat-select [value]="formId()" (selectionChange)="changeForm($event.value)">
-              <mat-option [value]="null">Todos los formularios</mat-option>
+              <mat-option [value]="null">{{ 'supervision.allForms' | translate }}</mat-option>
               @for (form of data.forms; track form.id) { <mat-option [value]="form.id">{{ form.title }}</mat-option> }
             </mat-select>
           </mat-form-field>
           <div class="day-picker">
-            <button mat-icon-button type="button" [disabled]="!olderDay()" (click)="changeDate(olderDay())" aria-label="Día anterior con encuestas" matTooltip="Día anterior con encuestas">
+            <button mat-icon-button type="button" [disabled]="!olderDay()" (click)="changeDate(olderDay())" [attr.aria-label]="'supervision.prevDay' | translate" matTooltip="Día anterior con encuestas">
               <mat-icon aria-hidden="true">chevron_left</mat-icon>
             </button>
             <mat-form-field appearance="outline">
-              <mat-label>Día</mat-label>
+              <mat-label>{{ 'supervision.day' | translate }}</mat-label>
               <mat-select [value]="data.date" (selectionChange)="changeDate($event.value)">
-                @if (!hasDay(data.date)) { <mat-option [value]="data.date">{{ data.date | date:'EEEE dd/MM/yyyy' }} · sin encuestas</mat-option> }
+                @if (!hasDay(data.date)) { <mat-option [value]="data.date">{{ data.date | date:'EEEE dd/MM/yyyy' }} · {{ 'supervision.noSurveys' | translate }}</mat-option> }
                 @for (day of data.days; track day.date) {
-                  <mat-option [value]="day.date">{{ day.date | date:'EEEE dd/MM/yyyy' }} · {{ day.surveys }} encuesta{{ day.surveys === 1 ? '' : 's' }}</mat-option>
+                  <mat-option [value]="day.date">{{ day.date | date:'EEEE dd/MM/yyyy' }} · {{ (day.surveys === 1 ? 'supervision.surveyOne' : 'supervision.surveyMany') | translate: { count: day.surveys } }}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
-            <button mat-icon-button type="button" [disabled]="!newerDay()" (click)="changeDate(newerDay())" aria-label="Día siguiente con encuestas" matTooltip="Día siguiente con encuestas">
+            <button mat-icon-button type="button" [disabled]="!newerDay()" (click)="changeDate(newerDay())" [attr.aria-label]="'supervision.nextDay' | translate" matTooltip="Día siguiente con encuestas">
               <mat-icon aria-hidden="true">chevron_right</mat-icon>
             </button>
           </div>
         </section>
 
-        <section class="kpis" aria-label="Resumen del día">
-          <div class="kpi"><span>Encuestas</span><strong>{{ data.summary.surveys }}</strong>
-            <small>{{ data.summary.with_trace }} con trazado GPS</small></div>
-          <div class="kpi"><span>Dentro de la zona</span>
+        <section class="kpis" [attr.aria-label]="'supervision.daySummary' | translate">
+          <div class="kpi"><span>{{ 'supervision.surveys' | translate }}</span><strong>{{ data.summary.surveys }}</strong>
+            <small>{{ 'supervision.withTrace' | translate: { count: data.summary.with_trace } }}</small></div>
+          <div class="kpi"><span>{{ 'supervision.insideZone' | translate }}</span>
             <strong [class.bad]="data.summary.inside_ratio !== null && data.summary.inside_ratio < 0.9">
               {{ data.summary.inside_ratio === null ? '—' : (data.summary.inside_ratio * 100 | number:'1.0-0') + '%' }}</strong>
-            <small>{{ data.summary.outside_surveys }} encuesta{{ data.summary.outside_surveys === 1 ? '' : 's' }} con salida de zona</small></div>
-          <div class="kpi"><span>Tiempo encuestando</span><strong>{{ duration(data.summary.surveying_seconds) }}</strong>
+            <small>{{ (data.summary.outside_surveys === 1 ? 'supervision.leftZoneOne' : 'supervision.leftZoneMany') | translate: { count: data.summary.outside_surveys } }}</small></div>
+          <div class="kpi"><span>{{ 'supervision.surveyingTime' | translate }}</span><strong>{{ duration(data.summary.surveying_seconds) }}</strong>
             <small>@if (data.summary.first_start) { {{ data.summary.first_start | date:'HH:mm' }} – {{ data.summary.last_end | date:'HH:mm' }} } @else { — }</small></div>
-          <div class="kpi"><span>Distancia en encuestas</span><strong>{{ distance(data.summary.distance_meters) }}</strong>
-            <small>Entre los puntos de inicio, reanudación y fin</small></div>
-          <div class="kpi"><span>Alertas</span><strong [class.bad]="data.summary.alerts > 0">{{ data.summary.alerts }}</strong>
-            <small>Revisa el detalle en la lista</small></div>
+          <div class="kpi"><span>{{ 'supervision.surveyDistance' | translate }}</span><strong>{{ distance(data.summary.distance_meters) }}</strong>
+            <small>{{ 'supervision.distanceHint' | translate }}</small></div>
+          <div class="kpi"><span>{{ 'supervision.alerts' | translate }}</span><strong [class.bad]="data.summary.alerts > 0">{{ data.summary.alerts }}</strong>
+            <small>{{ 'supervision.alertsHint' | translate }}</small></div>
         </section>
 
         @if (data.surveys.length === 0) {
-          <p class="empty">Este encuestador no tiene encuestas en el día seleccionado.</p>
+          <p class="empty">{{ 'supervision.noSurveysDay' | translate }}</p>
         } @else {
           <section class="layout">
             <div class="map-panel">
               <app-route-map [zones]="data.zones" [surveys]="data.surveys" [selectedId]="selectedId()" (surveySelect)="toggle($event)" />
-              <ul class="legend" aria-label="Leyenda del mapa">
-                <li><span class="swatch" [style.background]="colors.inside"></span>Dentro de la zona</li>
-                <li><span class="swatch" [style.background]="colors.outside"></span>Fuera de la zona</li>
-                <li><span class="swatch" [style.background]="colors.zone" style="opacity:.6"></span>Zona asignada</li>
-                <li><span class="pin-sample" aria-hidden="true">1</span>Inicio de la encuesta</li>
-                <li><span class="dot-sample" aria-hidden="true"></span>Retomó el borrador</li>
-                <li><span class="pin-sample end" aria-hidden="true">■</span>Fin de la encuesta</li>
-                <li><span class="swatch dashed"></span>Traslado entre encuestas</li>
-                <li><span class="swatch" [style.background]="colors.weak"></span>GPS impreciso</li>
+              <ul class="legend" [attr.aria-label]="'supervision.legend' | translate">
+                <li><span class="swatch" [style.background]="colors.inside"></span>{{ 'supervision.insideZone' | translate }}</li>
+                <li><span class="swatch" [style.background]="colors.outside"></span>{{ 'supervision.outsideZone' | translate }}</li>
+                <li><span class="swatch" [style.background]="colors.zone" style="opacity:.6"></span>{{ 'supervision.assignedZone' | translate }}</li>
+                <li><span class="pin-sample" aria-hidden="true">1</span>{{ 'supervision.surveyStart' | translate }}</li>
+                <li><span class="dot-sample" aria-hidden="true"></span>{{ 'supervision.resumedDraft' | translate }}</li>
+                <li><span class="pin-sample end" aria-hidden="true">■</span>{{ 'supervision.surveyEnd' | translate }}</li>
+                <li><span class="swatch dashed"></span>{{ 'supervision.transfer' | translate }}</li>
+                <li><span class="swatch" [style.background]="colors.weak"></span>{{ 'supervision.weakGps' | translate }}</li>
               </ul>
             </div>
 
-            <ol class="timeline" aria-label="Encuestas del día">
+            <ol class="timeline" [attr.aria-label]="'supervision.daySurveys' | translate">
               @for (survey of data.surveys; track survey.id; let i = $index) {
                 <li [class.selected]="selectedId() === survey.id">
                   <button type="button" class="survey" (click)="toggle(survey.id)" [attr.aria-pressed]="selectedId() === survey.id">
@@ -104,10 +105,10 @@ import { ROUTE_COLORS, RouteMapComponent } from './route-map.component';
                       </span>
                       <span class="row2">{{ survey.form_title }}@if (survey.zone) { · {{ survey.zone.name }} }</span>
                       <span class="row3">
-                        <span>{{ survey.summary.duration_seconds === null ? 'Duración desconocida' : duration(survey.summary.duration_seconds) }}</span>
+                        <span>{{ survey.summary.duration_seconds === null ? ('supervision.unknownDuration' | translate) : duration(survey.summary.duration_seconds) }}</span>
                         <span>{{ distance(survey.summary.distance_meters) }}</span>
-                        <span>{{ survey.summary.points }} punto{{ survey.summary.points === 1 ? '' : 's' }} GPS</span>
-                        @if (survey.resumed > 0) { <span>Retomada {{ survey.resumed }} {{ survey.resumed === 1 ? 'vez' : 'veces' }}</span> }
+                        <span>{{ (survey.summary.points === 1 ? 'supervision.pointOne' : 'supervision.pointMany') | translate: { count: survey.summary.points } }}</span>
+                        @if (survey.resumed > 0) { <span>{{ (survey.resumed === 1 ? 'supervision.resumedOne' : 'supervision.resumedMany') | translate: { count: survey.resumed } }}</span> }
                         @if (survey.summary.average_accuracy !== null) { <span>±{{ survey.summary.average_accuracy | number:'1.0-0' }} m</span> }
                       </span>
                       @if (survey.alerts.length) {
@@ -117,11 +118,11 @@ import { ROUTE_COLORS, RouteMapComponent } from './route-map.component';
                           }
                         </span>
                       }
-                      @if (survey.justification) { <span class="justification">Justificación: «{{ survey.justification }}»</span> }
+                      @if (survey.justification) { <span class="justification">{{ 'supervision.justification' | translate: { text: survey.justification } }}</span> }
                     </span>
                   </button>
                   @if (selectedId() === survey.id) {
-                    <a class="open-response" [routerLink]="['/admin/forms', survey.form_id, 'responses']">Ver respuestas del formulario</a>
+                    <a class="open-response" [routerLink]="['/admin/forms', survey.form_id, 'responses']">{{ 'supervision.viewResponses' | translate }}</a>
                   }
                 </li>
               }
@@ -131,7 +132,7 @@ import { ROUTE_COLORS, RouteMapComponent } from './route-map.component';
       } @else if (error()) {
         <p class="empty error" role="alert">{{ error() }}</p>
       } @else {
-        <div class="empty"><mat-spinner diameter="32" /> Cargando recorrido…</div>
+        <div class="empty"><mat-spinner diameter="32" /> {{ 'supervision.loadingRoute' | translate }}</div>
       }
     </div>
   `,
@@ -191,6 +192,7 @@ export class CollectorRouteComponent {
   private projects = inject(ProjectService);
   private activated = inject(ActivatedRoute);
   private router = inject(Router);
+  private i18n = inject(TranslateService);
 
   readonly colors = ROUTE_COLORS;
   private projectId = this.activated.snapshot.paramMap.get('projectId') ?? '';
@@ -248,11 +250,11 @@ export class CollectorRouteComponent {
   }
 
   zoneStatus(survey: RouteSurvey): string {
-    if (survey.declared_outside) return 'Excepción: fuera de zona';
+    if (survey.declared_outside) return this.i18n.instant('supervision.zone.exception');
     const ratio = survey.summary.inside_ratio;
-    if (ratio === null) return 'Sin verificación de zona';
-    if (ratio === 1) return 'Dentro de la zona';
-    return `${Math.round(ratio * 100)}% dentro de la zona`;
+    if (ratio === null) return this.i18n.instant('supervision.zone.unverified');
+    if (ratio === 1) return this.i18n.instant('supervision.insideZone');
+    return this.i18n.instant('supervision.zone.partial', { percent: Math.round(ratio * 100) });
   }
 
   duration(seconds: number): string {
@@ -279,7 +281,7 @@ export class CollectorRouteComponent {
       },
       error: (err) => {
         this.route.set(null);
-        this.error.set(err?.error?.message || 'No se pudo cargar el recorrido del encuestador.');
+        this.error.set(err?.error?.message || this.i18n.instant('supervision.errors.route'));
       },
     });
   }

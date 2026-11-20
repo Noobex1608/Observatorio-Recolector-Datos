@@ -21,48 +21,48 @@
       <div class="requests-header">
         <h2 id="requests-title">
           <mat-icon aria-hidden="true">how_to_reg</mat-icon>
-          Solicitudes de acceso
+          {{ 'users.page.requests.title' | translate }}
           @if (pendingCount() > 0) { <span class="requests-badge">{{ pendingCount() }}</span> }
         </h2>
-        <div class="requests-tabs" role="group" aria-label="Estado de las solicitudes">
+        <div class="requests-tabs" role="group" [attr.aria-label]="'users.page.requests.statusLabel' | translate">
           <button mat-button type="button" [class.active]="requestStatus() === 'PENDING'"
-            [attr.aria-pressed]="requestStatus() === 'PENDING'" (click)="loadAccessRequests('PENDING')">Pendientes</button>
+            [attr.aria-pressed]="requestStatus() === 'PENDING'" (click)="loadAccessRequests('PENDING')">{{ 'users.page.requests.pending' | translate }}</button>
           <button mat-button type="button" [class.active]="requestStatus() === 'REJECTED'"
-            [attr.aria-pressed]="requestStatus() === 'REJECTED'" (click)="loadAccessRequests('REJECTED')">Rechazadas</button>
+            [attr.aria-pressed]="requestStatus() === 'REJECTED'" (click)="loadAccessRequests('REJECTED')">{{ 'users.page.requests.rejected' | translate }}</button>
         </div>
       </div>
-      <p class="requests-help">Entraron con su cuenta de Microsoft de ULEAM. Revisa el rol de cada persona (por defecto, Recolector) y aprueba una por una, las seleccionadas o todas.</p>
+      <p class="requests-help">{{ 'users.page.requests.help' | translate }}</p>
 
       @if (accessRequests().length > 0) {
         <div class="requests-toolbar">
           <label class="requests-search">
             <mat-icon aria-hidden="true">search</mat-icon>
-            <span class="visually-hidden">Buscar solicitudes</span>
-            <input type="search" placeholder="Buscar por nombre o correo" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
+            <span class="visually-hidden">{{ 'users.page.requests.searchLabel' | translate }}</span>
+            <input type="search" [placeholder]="'users.page.requests.searchPlaceholder' | translate" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
           </label>
 
-          <div class="requests-bulk" role="group" aria-label="Acciones con varias solicitudes">
+          <div class="requests-bulk" role="group" [attr.aria-label]="'users.page.requests.bulkLabel' | translate">
             @if (selectedList().length > 0) {
-              <span class="requests-count" aria-live="polite">{{ selectedList().length }} seleccionada{{ selectedList().length === 1 ? '' : 's' }}</span>
+              <span class="requests-count" aria-live="polite">{{ (selectedList().length === 1 ? 'users.page.requests.selectedOne' : 'users.page.requests.selectedMany') | translate: { count: selectedList().length } }}</span>
               <label class="request-role request-role--inline">
-                <span>Rol para la selección</span>
+                <span>{{ 'users.page.requests.roleForSelection' | translate }}</span>
                 <select #bulkRole (change)="setRoleForSelected($any(bulkRole.value)); bulkRole.value = ''" [disabled]="bulkBusy()">
-                  <option value="" selected>Elegir…</option>
+                  <option value="" selected>{{ 'users.page.requests.choose' | translate }}</option>
                   @for (role of requestableRoles(); track role) {
                     <option [value]="role">{{ getRoleLabel(role) }}</option>
                   }
                 </select>
               </label>
               <button mat-flat-button color="primary" type="button" (click)="approveSelected()" [disabled]="bulkBusy()">
-                Aprobar seleccionadas
+                {{ 'users.page.requests.approveSelected' | translate }}
               </button>
               @if (requestStatus() === 'PENDING') {
-                <button mat-stroked-button color="warn" type="button" (click)="rejectSelected()" [disabled]="bulkBusy()">Rechazar seleccionadas</button>
+                <button mat-stroked-button color="warn" type="button" (click)="rejectSelected()" [disabled]="bulkBusy()">{{ 'users.page.requests.rejectSelected' | translate }}</button>
               }
             } @else {
               <button mat-stroked-button color="primary" type="button" (click)="approveAllFiltered()" [disabled]="bulkBusy() || filteredRequests().length === 0">
                 <mat-icon>done_all</mat-icon>
-                Aprobar {{ requestSearch() ? 'las ' + filteredRequests().length + ' encontradas' : 'todas (' + filteredRequests().length + ')' }}
+                {{ (requestSearch() ? 'users.page.requests.approveFound' : 'users.page.requests.approveAll') | translate: { count: filteredRequests().length } }}
               </button>
             }
           </div>
@@ -73,22 +73,22 @@
             <thead>
               <tr>
                 <th scope="col" class="col-check">
-                  <input type="checkbox" aria-label="Seleccionar todas las solicitudes visibles"
+                  <input type="checkbox" [attr.aria-label]="'users.page.requests.selectAllVisible' | translate"
                     [checked]="allFilteredSelected()" [indeterminate]="someFilteredSelected()"
                     [disabled]="filteredRequests().length === 0"
                     (change)="toggleAllFiltered($any($event.target).checked)" />
                 </th>
-                <th scope="col">Persona</th>
-                <th scope="col" class="col-date">Solicitó</th>
-                <th scope="col" class="col-role">Rol</th>
-                <th scope="col" class="col-actions"><span class="visually-hidden">Acciones</span></th>
+                <th scope="col">{{ 'users.page.requests.person' | translate }}</th>
+                <th scope="col" class="col-date">{{ 'users.page.requests.requested' | translate }}</th>
+                <th scope="col" class="col-role">{{ 'users.page.requests.role' | translate }}</th>
+                <th scope="col" class="col-actions"><span class="visually-hidden">{{ 'common.labels.actions' | translate }}</span></th>
               </tr>
             </thead>
             <tbody>
               @for (request of filteredRequests(); track request.id) {
                 <tr [class.selected]="selectedRequests().has(request.id)">
                   <td class="col-check">
-                    <input type="checkbox" [attr.aria-label]="'Seleccionar a ' + request.name"
+                    <input type="checkbox" [attr.aria-label]="'users.page.requests.selectPerson' | translate: { name: request.name }"
                       [checked]="selectedRequests().has(request.id)" (change)="toggleRequest(request.id, $any($event.target).checked)" />
                   </td>
                   <td>
@@ -99,7 +99,7 @@
                   </td>
                   <td class="col-date">{{ request.requested_at ? (request.requested_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
                   <td class="col-role">
-                    <select class="request-select" [attr.aria-label]="'Rol para ' + request.name"
+                    <select class="request-select" [attr.aria-label]="'users.page.requests.roleFor' | translate: { name: request.name }"
                       (change)="setRequestRole(request.id, $any($event.target).value)" [disabled]="bulkBusy()">
                       @for (role of requestableRoles(); track role) {
                         <option [value]="role" [selected]="roleOf(request.id) === role">{{ getRoleLabel(role) }}</option>
@@ -109,36 +109,36 @@
                   <td class="col-actions">
                     <div class="request-actions">
                       <button mat-flat-button color="primary" type="button" (click)="approveRequest(request)"
-                        [disabled]="busyRequest() === request.id || bulkBusy()">Aprobar</button>
+                        [disabled]="busyRequest() === request.id || bulkBusy()">{{ 'users.page.requests.approve' | translate }}</button>
                       @if (request.status === 'PENDING') {
                         <button mat-stroked-button color="warn" type="button" (click)="rejectRequest(request)"
-                          [disabled]="busyRequest() === request.id || bulkBusy()">Rechazar</button>
+                          [disabled]="busyRequest() === request.id || bulkBusy()">{{ 'users.page.requests.reject' | translate }}</button>
                       }
                     </div>
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="5" class="requests-empty">Ninguna solicitud coincide con «{{ requestSearch() }}».</td></tr>
+                <tr><td colspan="5" class="requests-empty">{{ 'users.page.requests.noMatch' | translate: { term: requestSearch() } }}</td></tr>
               }
             </tbody>
           </table>
         </div>
       } @else {
-        <p class="requests-empty">No hay solicitudes {{ requestStatus() === 'PENDING' ? 'pendientes' : 'rechazadas' }}.</p>
+        <p class="requests-empty">{{ (requestStatus() === 'PENDING' ? 'users.page.requests.nonePending' : 'users.page.requests.noneRejected') | translate }}</p>
       }
     </mat-card>
   }
 
   <!-- Content -->
   <mat-card class="users-card">
-    <div class="users-view-tabs requests-tabs" role="group" aria-label="Usuarios vigentes o eliminados">
+    <div class="users-view-tabs requests-tabs" role="group" [attr.aria-label]="'users.page.viewLabel' | translate">
       <button mat-button type="button" [class.active]="userView() === 'active'" [attr.aria-pressed]="userView() === 'active'"
-        (click)="setUserView('active')">Usuarios</button>
+        (click)="setUserView('active')">{{ 'users.page.viewActive' | translate }}</button>
       <button mat-button type="button" [class.active]="userView() === 'deleted'" [attr.aria-pressed]="userView() === 'deleted'"
-        (click)="setUserView('deleted')">Eliminados</button>
+        (click)="setUserView('deleted')">{{ 'users.page.viewDeleted' | translate }}</button>
     </div>
     @if (userView() === 'deleted') {
-      <p class="requests-help users-view-help">Cuentas eliminadas. Al restaurarlas vuelven activas, con su rol y sus asignaciones de antes.</p>
+      <p class="requests-help users-view-help">{{ 'users.page.deletedHelp' | translate }}</p>
     }
     @if (loading()) {
       <div class="loading-container">
@@ -156,7 +156,7 @@
               <div class="user-info">
                 <div class="user-avatar">
                   @if (user.perfil?.avatar) {
-                    <img [src]="user.perfil.avatar" alt="Avatar" crossorigin="anonymous" />
+                    <img [src]="user.perfil.avatar" [alt]="'profile.avatarAlt' | translate" crossorigin="anonymous" />
                   } @else {
                     <span class="avatar-initial">{{ user.name?.charAt(0)?.toUpperCase() || 'U' }}</span>
                   }
@@ -178,11 +178,11 @@
               <div class="email-cell">
                 <span>{{ user.email }}</span>
                 @if (user.is_institutional) {
-                  <span class="account-badge account-badge--microsoft" title="Entra con su cuenta de Microsoft de ULEAM">Microsoft 365</span>
+                  <span class="account-badge account-badge--microsoft" [title]="'users.page.badges.microsoftTitle' | translate">Microsoft 365</span>
                 } @else if (user.invitation_pending) {
-                  <span class="account-badge account-badge--pending" title="Aún no confirma su correo desde la invitación">Pendiente de confirmar</span>
+                  <span class="account-badge account-badge--pending" [title]="'users.page.badges.pendingTitle' | translate">{{ 'users.page.badges.pending' | translate }}</span>
                 } @else {
-                  <span class="account-badge account-badge--external" title="Entra con correo y contraseña">Externo</span>
+                  <span class="account-badge account-badge--external" [title]="'users.page.badges.externalTitle' | translate">{{ 'users.page.badges.external' | translate }}</span>
                 }
               </div>
             </td>
@@ -220,16 +220,16 @@
 
           <!-- Eliminados: fecha y restaurar -->
           <ng-container matColumnDef="deleted_at">
-            <th mat-header-cell *matHeaderCellDef>Eliminado</th>
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.page.deletedAt' | translate }}</th>
             <td mat-cell *matCellDef="let user">{{ formatDate(user.deleted_at) }}</td>
           </ng-container>
           <ng-container matColumnDef="restore">
             <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">{{ 'common.labels.actions' | translate }}</span></th>
             <td mat-cell *matCellDef="let user">
               <button mat-stroked-button color="primary" type="button" (click)="restoreUser(user)"
-                [disabled]="restoringUser() === user.id" [attr.aria-label]="'Restaurar a ' + user.name">
+                [disabled]="restoringUser() === user.id" [attr.aria-label]="'users.page.restorePerson' | translate: { name: user.name }">
                 <mat-icon>restore</mat-icon>
-                Restaurar
+                {{ 'users.page.restore' | translate }}
               </button>
             </td>
           </ng-container>
@@ -261,7 +261,7 @@
                 @if (user.microsoft_linked) {
                   <button mat-menu-item (click)="unlinkMicrosoft(user)">
                     <mat-icon>link_off</mat-icon>
-                    <span>Restablecer vinculación con Microsoft</span>
+                    <span>{{ 'users.page.unlinkMicrosoft' | translate }}</span>
                   </button>
                 }
                 <button mat-menu-item [matMenuTriggerFor]="roleMenu">

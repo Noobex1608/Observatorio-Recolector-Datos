@@ -24,7 +24,7 @@ final class SimpleFormExporter
 
     private const BLUE = '0059A8';
 
-    private const WIDTHS = ['A' => 7, 'B' => 24, 'C' => 52, 'D' => 22, 'E' => 42, 'F' => 13, 'G' => 13, 'H' => 30, 'I' => 22, 'J' => 14, 'K' => 18, 'L' => 16];
+    private const WIDTHS = ['A' => 7, 'B' => 24, 'C' => 52, 'D' => 22, 'E' => 42, 'F' => 13, 'G' => 13, 'H' => 30, 'I' => 22, 'J' => 14, 'K' => 18, 'L' => 16, 'M' => 22];
 
     private const PROMPTS = [
         'A' => ['N.º', 'Número de la pregunta. Se usa en los saltos (No → 5). Vacío = se numera solo.'],
@@ -39,6 +39,7 @@ final class SimpleFormExporter
         'J' => ['Subpregunta de', 'Opcional: N.º de la pregunta de la que depende.'],
         'K' => ['Cálculo', 'Solo en Cálculo: números de preguntas entre corchetes, ej. [3] + [4].'],
         'L' => ['Opciones según', 'Opcional, en Opción única o múltiple: N.º de la pregunta anterior que decide qué opciones se ven (ej. la provincia para el cantón).'],
+        'M' => ['Solo si elige', 'Opcional, con «Subpregunta de»: opciones de la pregunta padre que muestran esta pregunta (ej. Otro). Varias separadas por «;».'],
     ];
 
     public function template(): Spreadsheet
@@ -109,11 +110,12 @@ final class SimpleFormExporter
                     ? (preg_replace_callback('/\$\{([^}]+)\}/', fn ($m) => '['.($numbers[$m[1]] ?? '?').']', (string) ($properties['expression'] ?? '')) ?? '')
                     : '',
                 $dependsOn,
+                $this->showIf($question, $properties),
             ];
 
             if ($question->type === 'LIKERT' && is_array($options)) {
                 foreach ($options['rows'] ?? [] as $statement) {
-                    $rows[] = ['', (string) ($question->section_name ?? ''), '↳ '.$statement, SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''];
+                    $rows[] = ['', (string) ($question->section_name ?? ''), '↳ '.$statement, SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', '', ''];
                 }
             }
         }
@@ -147,6 +149,12 @@ final class SimpleFormExporter
             fn ($group) => ($group[0] !== null ? $group[0].': ' : '').implode('; ', $group[1]),
             $groups,
         ));
+    }
+
+    /** Opciones del padre que muestran la subpregunta, separadas por «;». */
+    private function showIf(object $question, array $properties): string
+    {
+        return empty($question->parent_question_id) ? '' : implode('; ', \App\Domain\Forms\Services\ShowIf::optionsOf($properties) ?? []);
     }
 
     private function jumps(object $question, array $numbers): string
@@ -187,9 +195,10 @@ final class SimpleFormExporter
             ['10', $s2, '¿Qué tan de acuerdo está con lo siguiente?', 'Matriz', implode('; ', SimpleFormat::DEFAULT_SCALE), 'Sí', '', '', '', '', '', ''],
             ['', $s2, '↳ Los servicios públicos funcionan bien', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''],
             ['', $s2, '↳ Me siento seguro en mi barrio', SimpleFormat::MATRIX_ROW, '', '', '', '', '', '', '', ''],
-            ['11', $s2, '¿Por qué medios se informa?', 'Opción múltiple', 'Televisión; Radio; Redes sociales; Prensa escrita', 'No', '', 'Marque todas las que apliquen', '', '', '', ''],
-            ['12', $s2, 'Califique la atención recibida', 'Calificación', '5', 'No', '', '', '', '', '', ''],
-            ['13', $s2, 'Gracias por su tiempo.', 'Nota', '', '', '', '', '', '', '', ''],
+            ['11', $s2, '¿Por qué medios se informa?', 'Opción múltiple', 'Televisión; Radio; Redes sociales; Prensa escrita; Otro', 'No', '', 'Marque todas las que apliquen', '', '', '', ''],
+            ['12', $s2, '¿Cuál otro medio?', 'Texto', '', 'Sí', '', 'Solo aparece si marcó «Otro»', '', '11', '', '', 'Otro'],
+            ['13', $s2, 'Califique la atención recibida', 'Calificación', '5', 'No', '', '', '', '', '', ''],
+            ['14', $s2, 'Gracias por su tiempo.', 'Nota', '', '', '', '', '', '', '', ''],
         ];
     }
 
@@ -199,28 +208,28 @@ final class SimpleFormExporter
         $sheet->fromArray([array_values(SimpleFormat::COLUMNS), ...$rows], null, 'A1', true);
         $last = self::ROWS + 1;
 
-        $header = $sheet->getStyle('A1:L1');
+        $header = $sheet->getStyle('A1:M1');
         $header->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $header->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(self::BLUE);
         $header->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
         $sheet->getRowDimension(1)->setRowHeight(32);
         // Columnas avanzadas con encabezado más claro
-        $sheet->getStyle('I1:L1')->getFill()->getStartColor()->setRGB('3D7CC0');
+        $sheet->getStyle('I1:M1')->getFill()->getStartColor()->setRGB('3D7CC0');
 
         foreach (self::WIDTHS as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
-        $sheet->getStyle("A2:L{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle("A2:M{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
         foreach (['B', 'C', 'E', 'H', 'I'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$last}")->getAlignment()->setWrapText(true);
         }
-        $sheet->getStyle("A2:L{$last}")->getBorders()->getAllBorders()
+        $sheet->getStyle("A2:M{$last}")->getBorders()->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9E2EC');
         foreach (['A', 'F', 'G', 'L'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$last}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:L1');
+        $sheet->setAutoFilter('A1:M1');
 
         // Mensajes de ayuda al seleccionar cada columna y listas desplegables
         foreach (self::PROMPTS as $column => [$title, $prompt]) {
@@ -243,6 +252,7 @@ final class SimpleFormExporter
         $this->highlight($sheet, "K2:K{$last}", 'AND($D2="Cálculo",TRIM($K2)="")');
         $this->highlight($sheet, "G2:G{$last}", 'AND($G2<>"",$D2<>"Texto")');
         $this->highlight($sheet, "L2:L{$last}", 'AND($L2<>"",$D2<>"Opción única",$D2<>"Opción múltiple")');
+        $this->highlight($sheet, "M2:M{$last}", 'AND($M2<>"",TRIM($J2)="")');
     }
 
     private function highlight(Worksheet $sheet, string $range, string $formula): void
@@ -293,6 +303,7 @@ final class SimpleFormExporter
             ['Si responde… ir a', 'Solo en Opción única: «No → 12» salta a la pregunta 12; «No → fin» termina la encuesta. Varios separados por «;».'],
             ['Subpregunta de', 'N.º de la pregunta de la que depende (debe estar antes y en la misma sección).'],
             ['Cálculo', 'Solo en tipo Cálculo: + - * / con números de preguntas anteriores entre corchetes, ej. [3] + [4].'],
+            ['Solo si elige', 'Con «Subpregunta de»: la pregunta aparece solo si en la pregunta padre se elige alguna de estas opciones (ej. «Otro (especifique)»). Varias separadas por «;».'],
             ['Opciones según', 'Opciones en cascada (provincia → cantón). Escriba el N.º de la pregunta anterior y, en «Opciones», agrupe por su respuesta: «Manabí: Portoviejo; Manta | Guayas: Guayaquil». Un grupo sin «:» se muestra siempre.'],
             [''],
             ['Matriz (escala Likert): escriba una fila de tipo «Matriz» con la pregunta y la escala en «Opciones»; debajo, una fila «Fila de matriz» por cada afirmación.'],

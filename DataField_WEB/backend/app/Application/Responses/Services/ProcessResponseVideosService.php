@@ -82,7 +82,7 @@ class ProcessResponseVideosService
                 'exception' => $e,
             ]);
 
-            throw new ServiceUnavailableHttpException(null, 'No se pudo almacenar el video. Reintente el envío.', $e);
+            throw new ServiceUnavailableHttpException(null, __('No se pudo almacenar el video. Reintente el envío.'), $e);
         }
     }
 
@@ -101,7 +101,7 @@ class ProcessResponseVideosService
                 'exception' => $e,
             ]);
 
-            throw new ServiceUnavailableHttpException(null, 'No se pudo almacenar el video. Reintente el envío.', $e);
+            throw new ServiceUnavailableHttpException(null, __('No se pudo almacenar el video. Reintente el envío.'), $e);
         }
     }
 

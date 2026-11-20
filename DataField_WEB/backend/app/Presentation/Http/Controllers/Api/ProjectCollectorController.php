@@ -116,9 +116,9 @@ class ProjectCollectorController extends Controller
             'user_ids.*' => ['integer', 'distinct'],
         ]);
         $users = User::whereIn('id', $data['user_ids'])->where('rol', User::ROLE_USER)->where('is_active', true)->pluck('id');
-        abort_unless($users->count() === count($data['user_ids']), 422, 'Solo se pueden agregar usuarios encuestadores activos.');
+        abort_unless($users->count() === count($data['user_ids']), 422, __('Solo se pueden agregar usuarios encuestadores activos.'));
         $already = $project->collectors()->whereIn('users.id', $users)->pluck('users.id');
-        abort_if($already->isNotEmpty(), 422, 'Algunos usuarios ya pertenecen a este proyecto.');
+        abort_if($already->isNotEmpty(), 422, __('Algunos usuarios ya pertenecen a este proyecto.'));
 
         DB::transaction(function () use ($project, $users, $request) {
             $project->collectors()->attach($users->mapWithKeys(fn ($userId) => [$userId => ['is_active' => true]])->all());
@@ -173,11 +173,11 @@ class ProjectCollectorController extends Controller
             $rows = $spreadsheet->getActiveSheet()->toArray(null, false, true, false);
             $spreadsheet->disconnectWorksheets();
         } catch (\Throwable) {
-            abort(422, 'El archivo Excel no se pudo leer. Descarga y completa la plantilla oficial.');
+            abort(422, __('El archivo Excel no se pudo leer. Descarga y completa la plantilla oficial.'));
         }
-        abort_if(count($rows) > 501, 422, 'Máximo 500 encuestadores por archivo.');
+        abort_if(count($rows) > 501, 422, __('Máximo 500 encuestadores por archivo.'));
         $header = array_map(fn ($value) => Str::ascii(Str::lower(trim((string) $value))), array_slice($rows[0] ?? [], 0, 4));
-        abort_unless($header === ['cedula', 'nombres', 'apellidos', 'correo electronico'], 422, 'Utiliza la plantilla oficial sin cambiar las columnas.');
+        abort_unless($header === ['cedula', 'nombres', 'apellidos', 'correo electronico'], 422, __('Utiliza la plantilla oficial sin cambiar las columnas.'));
 
         $preview = [];
         $seenEmails = [];
@@ -192,19 +192,19 @@ class ProjectCollectorController extends Controller
             $email = Str::lower(trim((string) ($row[3] ?? '')));
             $errors = [];
             if (! preg_match('/^[0-9]{10}$/', $cedula)) {
-                $errors[] = 'Cédula: deben ser 10 dígitos.';
+                $errors[] = __('Cédula: deben ser 10 dígitos.');
             }
             if ($nombres === '' || $apellidos === '' || mb_strlen($nombres.' '.$apellidos) > 255) {
-                $errors[] = 'Nombres y apellidos obligatorios (máximo 255 caracteres).';
+                $errors[] = __('Nombres y apellidos obligatorios (máximo 255 caracteres).');
             }
             if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255) {
-                $errors[] = 'Correo electrónico inválido.';
+                $errors[] = __('Correo electrónico inválido.');
             }
             if (isset($seenEmails[$email])) {
-                $errors[] = 'Correo duplicado en el archivo.';
+                $errors[] = __('Correo duplicado en el archivo.');
             }
             if (isset($seenCedulas[$cedula])) {
-                $errors[] = 'Cédula duplicada en el archivo.';
+                $errors[] = __('Cédula duplicada en el archivo.');
             }
             $seenEmails[$email] = true;
             $seenCedulas[$cedula] = true;
@@ -216,21 +216,21 @@ class ProjectCollectorController extends Controller
                 if (($existingByEmail && $existingByCedula && $existingByEmail->id !== $existingByCedula->id)
                     || $existing->trashed() || ! $existing->is_active || $existing->rol !== User::ROLE_USER
                     || strcasecmp($existing->email, $email) !== 0 || ($existing->cedula && $existing->cedula !== $cedula)) {
-                    $errors[] = 'Correo o cédula ya pertenece a otra cuenta.';
+                    $errors[] = __('Correo o cédula ya pertenece a otra cuenta.');
                 } elseif ($project->collectors()->whereKey($existing->id)->exists()) {
-                    $errors[] = 'Ya pertenece a este proyecto.';
+                    $errors[] = __('Ya pertenece a este proyecto.');
                 } else {
                     $status = 'existente';
                 }
             }
             $preview[] = ['row' => $index + 1, 'cedula' => $cedula, 'name' => trim($nombres.' '.$apellidos), 'email' => $email, 'status' => $status, 'errors' => $errors];
         }
-        abort_if(count($preview) === 0, 422, 'La plantilla no contiene encuestadores.');
+        abort_if(count($preview) === 0, 422, __('La plantilla no contiene encuestadores.'));
         $hasErrors = collect($preview)->contains(fn ($row) => count($row['errors']) > 0);
         if ($request->boolean('preview')) {
             return response()->json(['rows' => $preview, 'valid' => ! $hasErrors]);
         }
-        abort_if($hasErrors, 422, 'Corrige las filas señaladas antes de importar.');
+        abort_if($hasErrors, 422, __('Corrige las filas señaladas antes de importar.'));
 
         $credentials = [];
         $invited = [];
@@ -301,7 +301,7 @@ class ProjectCollectorController extends Controller
                 ['project_id' => $project->id, 'user_id' => $user->id]);
         });
 
-        return response()->json(['message' => 'Encuestador actualizado.']);
+        return response()->json(['message' => __('Encuestador actualizado.')]);
     }
 
     public function destroy(Request $request, string $id, int $userId): JsonResponse
@@ -328,7 +328,7 @@ class ProjectCollectorController extends Controller
         $members = $project->collectors()->wherePivot('is_active', true)->whereIn('users.id', $data['user_ids'])->pluck('users.id');
         $forms = $project->forms()->whereIn('id', $data['form_ids'])->pluck('id');
         abort_unless($members->count() === count($data['user_ids']) && $forms->count() === count($data['form_ids']), 422,
-            'Selecciona solo encuestadores activos y formularios de este proyecto.');
+            __('Selecciona solo encuestadores activos y formularios de este proyecto.'));
         $created = 0;
         DB::transaction(function () use ($members, $forms, &$created, $request, $project) {
             foreach ($forms as $formId) {

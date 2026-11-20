@@ -8,61 +8,60 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { ProjectService, SupervisionCollector, SupervisionCollectorPage } from '@core/services/project.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 /** Pestaña Supervisión: encuestadores del proyecto; cada uno abre la pantalla de su recorrido. */
 @Component({
   selector: 'app-supervision-collectors',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatSelectModule],
+  imports: [DatePipe, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatProgressSpinnerModule, MatSelectModule, TranslateModule],
   template: `
     <p class="intro">
-      Elige un encuestador para ver el recorrido GPS de sus encuestas por día y si las hizo dentro de la zona asignada.
-      La app toma un punto GPS al iniciar cada encuesta, cada vez que se retoma su borrador y al finalizarla,
-      también sin internet; los puntos llegan al sincronizar.
+      {{ 'supervision.intro' | translate }}
     </p>
     <div class="filters">
       <mat-form-field appearance="outline">
-        <mat-label>Formulario</mat-label>
+        <mat-label>{{ 'supervision.form' | translate }}</mat-label>
         <mat-select [value]="formId()" (selectionChange)="setForm($event.value)">
-          <mat-option [value]="null">Todos los formularios</mat-option>
+          <mat-option [value]="null">{{ 'supervision.allForms' | translate }}</mat-option>
           @for (form of forms(); track form.id) { <mat-option [value]="form.id">{{ form.title }}</mat-option> }
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline">
-        <mat-label>Buscar encuestador</mat-label>
-        <input matInput [value]="query()" (input)="search($any($event.target).value)" placeholder="Nombre, correo o cédula" />
+        <mat-label>{{ 'supervision.searchCollector' | translate }}</mat-label>
+        <input matInput [value]="query()" (input)="search($any($event.target).value)" [placeholder]="'supervision.searchPlaceholder' | translate" />
         <mat-icon matSuffix aria-hidden="true">search</mat-icon>
       </mat-form-field>
     </div>
 
     @if (loading() && !page()) {
-      <div class="state"><mat-spinner diameter="28" /> Cargando encuestadores…</div>
+      <div class="state"><mat-spinner diameter="28" /> {{ 'supervision.loadingCollectors' | translate }}</div>
     } @else if (error()) {
       <p class="state error" role="alert">{{ error() }}</p>
     } @else if (page(); as data) {
       @if (data.data.length === 0) {
-        <p class="state">No hay encuestadores {{ query() ? 'que coincidan con la búsqueda' : 'en este proyecto' }}.</p>
+        <p class="state">{{ (query() ? 'supervision.noMatch' : 'supervision.noCollectors') | translate }}</p>
       } @else {
         <ul class="collector-list" [attr.aria-busy]="loading()">
           @for (collector of data.data; track collector.id) {
             <li>
               <a class="collector-card" [routerLink]="['/admin/proyectos', projectId(), 'supervision', collector.id]"
-                 [queryParams]="formId() ? { form: formId() } : {}" [attr.aria-label]="'Ver recorrido de ' + collector.name">
+                 [queryParams]="formId() ? { form: formId() } : {}" [attr.aria-label]="'supervision.viewRoute' | translate: { name: collector.name }">
                 <span class="avatar" aria-hidden="true">{{ initials(collector) }}</span>
                 <span class="who">
                   <strong>{{ collector.name }}</strong>
                   <small>{{ collector.email }}</small>
-                  @if (collector.zones.length) { <small class="zones">Zonas: {{ collector.zones.join(', ') }}</small> }
+                  @if (collector.zones.length) { <small class="zones">{{ 'supervision.zones' | translate: { zones: collector.zones.join(', ') } }}</small> }
                 </span>
                 <span class="stats">
-                  <span><b>{{ collector.responses }}</b> encuestas</span>
-                  <span><b>{{ collector.today }}</b> hoy</span>
+                  <span><b>{{ collector.responses }}</b> {{ 'supervision.surveysWord' | translate }}</span>
+                  <span><b>{{ collector.today }}</b> {{ 'supervision.today' | translate }}</span>
                   @if (collector.outside > 0) {
-                    <span class="warn"><mat-icon aria-hidden="true">warning</mat-icon>{{ collector.outside }} fuera de zona</span>
+                    <span class="warn"><mat-icon aria-hidden="true">warning</mat-icon>{{ 'supervision.outsideCount' | translate: { count: collector.outside } }}</span>
                   }
                   <span class="muted">
-                    @if (collector.last_activity) { Última: {{ collector.last_activity | date:'dd/MM/yyyy HH:mm' }} } @else { Sin encuestas }
+                    @if (collector.last_activity) { {{ 'supervision.lastActivity' | translate: { date: (collector.last_activity | date:'dd/MM/yyyy HH:mm') } }} } @else { {{ 'supervision.noSurveysYet' | translate }} }
                   </span>
                 </span>
                 <mat-icon class="go" aria-hidden="true">chevron_right</mat-icon>
@@ -71,10 +70,10 @@ import { ProjectService, SupervisionCollector, SupervisionCollectorPage } from '
           }
         </ul>
         @if (data.pagination.last_page > 1) {
-          <nav class="pager" aria-label="Paginación de encuestadores">
-            <button mat-stroked-button type="button" [disabled]="data.pagination.current_page <= 1" (click)="go(data.pagination.current_page - 1)">Anterior</button>
-            <span>Página {{ data.pagination.current_page }} de {{ data.pagination.last_page }} · {{ data.pagination.total }} encuestadores</span>
-            <button mat-stroked-button type="button" [disabled]="data.pagination.current_page >= data.pagination.last_page" (click)="go(data.pagination.current_page + 1)">Siguiente</button>
+          <nav class="pager" [attr.aria-label]="'supervision.pagination' | translate">
+            <button mat-stroked-button type="button" [disabled]="data.pagination.current_page <= 1" (click)="go(data.pagination.current_page - 1)">{{ 'projects.page.collectors.previous' | translate }}</button>
+            <span>{{ 'projects.page.collectors.page' | translate: { page: data.pagination.current_page, pages: data.pagination.last_page, total: data.pagination.total } }}</span>
+            <button mat-stroked-button type="button" [disabled]="data.pagination.current_page >= data.pagination.last_page" (click)="go(data.pagination.current_page + 1)">{{ 'projects.page.collectors.next' | translate }}</button>
           </nav>
         }
       }
@@ -119,6 +118,7 @@ import { ProjectService, SupervisionCollector, SupervisionCollectorPage } from '
 })
 export class SupervisionCollectorsComponent implements OnDestroy {
   private projects = inject(ProjectService);
+  private i18n = inject(TranslateService);
 
   projectId = input.required<string>();
   forms = input<{ id: string; title: string }[]>([]);
@@ -173,7 +173,7 @@ export class SupervisionCollectorsComponent implements OnDestroy {
       next: (data) => { this.page.set(data); this.loading.set(false); },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err?.error?.message || 'No se pudo cargar la lista de encuestadores.');
+        this.error.set(err?.error?.message || this.i18n.instant('supervision.errors.list'));
       },
     });
   }

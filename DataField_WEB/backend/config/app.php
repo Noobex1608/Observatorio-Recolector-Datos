@@ -78,7 +78,8 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    // Español por defecto (idioma del producto); el panel web pide inglés por petición con X-App-Language.
+    'locale' => env('APP_LOCALE', 'es'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

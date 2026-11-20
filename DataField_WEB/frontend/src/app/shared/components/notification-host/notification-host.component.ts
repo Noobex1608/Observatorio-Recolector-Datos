@@ -2,20 +2,28 @@ import { A11yModule } from '@angular/cdk/a11y';
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, OnDestroy } from '@angular/core';
 import { AppNotification, NotificationKind, NotificationService } from '@core/services/notification.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 const ICONS: Record<NotificationKind, string> = { success: 'check_circle', error: 'error', warning: 'warning', info: 'info' };
-const LABELS: Record<NotificationKind, string> = { success: 'Listo', error: 'Error', warning: 'Atención', info: 'Aviso' };
+/** Título por tipo (common.notifications.kinds.*). */
+const LABELS: Record<NotificationKind, string> = {
+  success: 'common.notifications.kinds.success',
+  error: 'common.notifications.kinds.error',
+  warning: 'common.notifications.kinds.warning',
+  info: 'common.notifications.kinds.info',
+};
 
 /** Muestra las notificaciones y el diálogo de confirmación del NotificationService. */
 @Component({
   selector: 'app-notification-host',
   standalone: true,
-  imports: [A11yModule, NgTemplateOutlet],
+  imports: [A11yModule, NgTemplateOutlet, TranslateModule],
   templateUrl: './notification-host.component.html',
   styleUrl: './notification-host.component.scss',
 })
 export class NotificationHostComponent implements OnDestroy {
   readonly notify = inject(NotificationService);
+  private readonly i18n = inject(TranslateService);
   /** Éxitos y avisos se anuncian con cortesía; errores y advertencias, de inmediato. */
   readonly polite = computed(() => this.notify.notifications().filter((item) => item.kind === 'success' || item.kind === 'info'));
   readonly urgent = computed(() => this.notify.notifications().filter((item) => item.kind === 'error' || item.kind === 'warning'));
@@ -56,7 +64,7 @@ export class NotificationHostComponent implements OnDestroy {
   }
 
   titleOf(item: AppNotification): string {
-    return item.title || LABELS[item.kind];
+    return item.title || this.i18n.instant(LABELS[item.kind]);
   }
 
   answer(accepted: boolean): void {

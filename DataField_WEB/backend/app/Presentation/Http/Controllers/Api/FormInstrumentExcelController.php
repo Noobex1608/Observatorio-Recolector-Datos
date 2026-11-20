@@ -19,7 +19,7 @@ class FormInstrumentExcelController extends Controller
 {
     public function template(Request $request): StreamedResponse
     {
-        abort_if($request->user()->isUser(), 403, 'No tienes permisos para crear formularios.');
+        abort_if($request->user()->isUser(), 403, __('No tienes permisos para crear formularios.'));
 
         $kobo = $request->query('formato') === 'xlsform';
 
@@ -32,12 +32,12 @@ class FormInstrumentExcelController extends Controller
 
     public function preview(Request $request): JsonResponse
     {
-        abort_if($request->user()->isUser(), 403, 'No tienes permisos para crear formularios.');
+        abort_if($request->user()->isUser(), 403, __('No tienes permisos para crear formularios.'));
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
         ], [
-            'file.mimes' => 'El archivo debe ser un Excel (.xlsx o .xls).',
-            'file.max' => 'El archivo no puede superar 5 MB.',
+            'file.mimes' => __('El archivo debe ser un Excel (.xlsx o .xls).'),
+            'file.max' => __('El archivo no puede superar 5 MB.'),
         ]);
 
         return response()->json((new QuestionnaireImporter)->import($data['file']->getRealPath()));

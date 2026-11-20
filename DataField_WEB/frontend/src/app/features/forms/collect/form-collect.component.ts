@@ -9,7 +9,7 @@ import { Form, FormQuestion, FormService } from '@core/services/form.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { normalizeTextFormat, textFormatError, textFormatInput, textFormatOf } from '@core/utils/text-format';
 import { maxVideoSeconds, readVideoDuration } from '@core/utils/video-duration';
-import { allowedOptions, choiceFilterOf, pruneCascadeAnswers } from '@core/utils/choice-filter';
+import { allowedOptions, choiceFilterOf, pruneCascadeAnswers, showIfMatches, showIfOf } from '@core/utils/choice-filter';
 
 /** Avance de una encuesta pública guardado en la pestaña para sobrevivir a una recarga. */
 interface SavedProgress {
@@ -66,7 +66,7 @@ interface QuestionVisualMeta {
         <div class="state-box">
           <mat-icon>event</mat-icon>
           <h1>{{ form()!.title }}</h1>
-          <p>Este formulario estará disponible a partir del {{ form()!.start_date | date:'dd/MM/yyyy' }}.</p>
+          <p>{{ 'forms.collect.page.availableFrom' | translate: { date: (form()!.start_date | date:'dd/MM/yyyy') } }}</p>
         </div>
       } @else if (submitted() && testMode) {
         <div class="state-box success">
@@ -96,14 +96,14 @@ interface QuestionVisualMeta {
           </header>
 
           @if (!consentAccepted()) {
-            <section class="collect-form" aria-label="Consentimiento informado">
-              <h2>Consentimiento informado</h2>
+            <section class="collect-form" [attr.aria-label]="'forms.collect.page.consent' | translate">
+              <h2>{{ 'forms.collect.page.consent' | translate }}</h2>
               <p style="white-space:pre-line">{{ form()!.consent_text || 'Su participación es voluntaria. ¿Acepta responder esta encuesta?' }}</p>
-              @if (consentDeclined()) { <p>La encuesta terminó porque no se aceptó el consentimiento.</p> }
+              @if (consentDeclined()) { <p>{{ 'forms.collect.page.consentDeclined' | translate }}</p> }
               @else {
                 <div class="consent-actions">
-                  <button mat-raised-button color="primary" type="button" (click)="acceptConsent()">Acepto participar</button>
-                  <button mat-stroked-button type="button" (click)="consentDeclined.set(true)">No acepto</button>
+                  <button mat-raised-button color="primary" type="button" (click)="acceptConsent()">{{ 'forms.collect.page.accept' | translate }}</button>
+                  <button mat-stroked-button type="button" (click)="consentDeclined.set(true)">{{ 'forms.collect.page.decline' | translate }}</button>
                 </div>
               }
             </section>
@@ -117,7 +117,7 @@ interface QuestionVisualMeta {
             }
 
             @for (question of orderedQuestions(); track question.id; let i = $index) {
-              @if (!form()!.step_by_step || i === currentStepIndex()) {
+              @if ((!form()!.step_by_step || i === currentStepIndex()) && isQuestionActive(question)) {
                 @if (shouldShowSectionHeader(i, question)) {
                   <div class="section-divider">
                     <span class="section-divider__line"></span>
@@ -303,21 +303,21 @@ interface QuestionVisualMeta {
                     @case ('BARCODE') {
                       <input class="text-input" type="text" [name]="question.id" maxlength="512" [attr.aria-label]="question.label"
                         [ngModel]="answers()[question.id]" (ngModelChange)="setAnswer(question.id, $event)"
-                        placeholder="Escriba o escanee el código" />
+                        [placeholder]="'forms.collect.page.scanPlaceholder' | translate" />
                     }
                     @case ('MULTIMEDIA') {
                       <input class="text-input" type="file" accept="image/*,audio/*,video/*" [attr.aria-label]="question.label"
                         (change)="captureMedia(question, $event)" />
                       @if (['all', 'video'].includes(question.properties?.allowed_media || 'all')) {
-                        <p class="question-help">Videos de hasta {{ maxVideoSeconds(question) }} segundos.</p>
+                        <p class="question-help">{{ 'forms.collect.page.videoLimit' | translate: { seconds: maxVideoSeconds(question) } }}</p>
                       }
                     }
                     @case ('SIGNATURE') {
                       <input class="text-input" type="file" accept="image/*" capture="user"
-                        (change)="captureMedia(question, $event)" aria-label="Adjuntar imagen de firma" />
+                        (change)="captureMedia(question, $event)" [attr.aria-label]="'forms.collect.page.signatureFile' | translate" />
                     }
                     @case ('CALCULATE') {
-                      <p class="question-help">Resultado calculado al enviar las respuestas.</p>
+                      <p class="question-help">{{ 'forms.collect.page.calculated' | translate }}</p>
                     }
                     @case ('GPS') {
                       <div class="gps-answer" role="group" [attr.aria-label]="question.label">
@@ -326,13 +326,13 @@ interface QuestionVisualMeta {
                           <div class="gps-point">
                             <mat-icon aria-hidden="true">place</mat-icon>
                             <div>
-                              <p class="gps-coords">Latitud {{ point.latitude }} · Longitud {{ point.longitude }}</p>
+                              <p class="gps-coords">{{ 'forms.collect.page.coords' | translate: { lat: point.latitude, lng: point.longitude } }}</p>
                               <p class="gps-meta">
-                                <span class="gps-accuracy" [class.gps-accuracy--low]="point.accuracy > 30">Precisión ±{{ point.accuracy }} m</span>
-                                @if (point.capturedAt) { · capturada {{ point.capturedAt | date: 'short' }} }
+                                <span class="gps-accuracy" [class.gps-accuracy--low]="point.accuracy > 30">{{ 'forms.collect.page.accuracy' | translate: { meters: point.accuracy } }}</span>
+                                @if (point.capturedAt) { · {{ 'forms.collect.page.capturedAt' | translate: { date: (point.capturedAt | date: 'short') } }} }
                               </p>
                               @if (point.accuracy > 30) {
-                                <p class="gps-meta">Señal débil: si puede, acérquese a una ventana o al aire libre y vuelva a capturar.</p>
+                                <p class="gps-meta">{{ 'forms.collect.page.weakSignal' | translate }}</p>
                               }
                             </div>
                           </div>
@@ -345,7 +345,7 @@ interface QuestionVisualMeta {
                         <div class="gps-actions">
                           <button mat-stroked-button type="button" [disabled]="gps?.state === 'locating'" (click)="captureGps(question.id)">
                             <mat-icon>my_location</mat-icon>
-                            {{ gpsAnswer(question.id) ? 'Volver a capturar' : (gps?.state === 'error' ? 'Reintentar' : 'Capturar ubicación') }}
+                            {{ gpsAnswer(question.id) ? ('forms.collect.page.recapture' | translate) : (gps?.state === 'error' ? ('forms.collect.page.retry' | translate) : ('forms.collect.page.capture' | translate)) }}
                           </button>
                           @if (gpsAnswer(question.id) && !question.required) {
                             <button mat-button type="button" (click)="clearGps(question.id)">Quitar</button>
@@ -1024,16 +1024,16 @@ export class FormCollectComponent implements OnInit {
     };
 
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      fail('Este navegador no permite obtener la ubicación.');
+      fail(this.translate.instant('forms.collect.page.gps.unsupported'));
       return;
     }
     if (typeof window !== 'undefined' && window.isSecureContext === false) {
-      fail('La ubicación solo está disponible en páginas seguras (https).');
+      fail(this.translate.instant('forms.collect.page.gps.insecure'));
       return;
     }
 
     this.clearQuestionError(questionId);
-    setState('locating', highAccuracy ? 'Buscando señal GPS…' : 'Sin señal satelital; probando con la red…');
+    setState('locating', this.translate.instant(highAccuracy ? 'forms.collect.page.gps.searching' : 'forms.collect.page.gps.network'));
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setState(null);
@@ -1052,10 +1052,10 @@ export class FormCollectComponent implements OnInit {
         }
         fail(
           error.code === error.PERMISSION_DENIED
-            ? 'Permiso de ubicación denegado. Habilítelo en el candado de la barra de direcciones y pulse Reintentar.'
+            ? this.translate.instant('forms.collect.page.gps.denied')
             : error.code === error.POSITION_UNAVAILABLE
-              ? 'No hay señal de ubicación. Active el GPS o la ubicación del dispositivo y reintente.'
-              : 'Se agotó el tiempo para obtener la ubicación. Reintente en un lugar abierto.',
+              ? this.translate.instant('forms.collect.page.gps.unavailable')
+              : this.translate.instant('forms.collect.page.gps.timeout'),
         );
       },
       highAccuracy
@@ -1111,7 +1111,7 @@ export class FormCollectComponent implements OnInit {
     const maxBytes = Math.min(30, Math.max(1, Number(question.properties?.max_file_size_mb ?? 10))) * 1024 * 1024;
     if (file.size > maxBytes || !/^(image|audio|video)\//.test(file.type)
       || (question.type === 'SIGNATURE' && !file.type.startsWith('image/'))) {
-      this.validationErrors.update((errors) => ({ ...errors, [question.id]: 'Archivo no permitido o demasiado grande.' }));
+      this.validationErrors.update((errors) => ({ ...errors, [question.id]: this.translate.instant('forms.collect.page.media.invalid') }));
       input.value = '';
       return;
     }
@@ -1120,7 +1120,7 @@ export class FormCollectComponent implements OnInit {
       const duration = await readVideoDuration(file);
       if (duration !== null && duration > limit + 0.5) {
         this.validationErrors.update((errors) => ({
-          ...errors, [question.id]: `El video dura ${Math.round(duration)} s; el máximo para esta pregunta es ${limit} s.`,
+          ...errors, [question.id]: this.translate.instant('forms.collect.page.media.tooLong', { duration: Math.round(duration), limit }),
         }));
         input.value = '';
         return;
@@ -1128,7 +1128,7 @@ export class FormCollectComponent implements OnInit {
     }
     const reader = new FileReader();
     reader.onload = () => this.setAnswer(question.id, reader.result);
-    reader.onerror = () => this.validationErrors.update((errors) => ({ ...errors, [question.id]: 'No se pudo leer el archivo.' }));
+    reader.onerror = () => this.validationErrors.update((errors) => ({ ...errors, [question.id]: this.translate.instant('forms.collect.page.media.readFailed') }));
     reader.readAsDataURL(file);
   }
 
@@ -1290,7 +1290,8 @@ export class FormCollectComponent implements OnInit {
 
   /** Al salir del campo avisa de inmediato si el correo, la cédula o el teléfono no son válidos. */
   checkTextFormat(question: FormQuestion): void {
-    const message = textFormatError(textFormatOf(question.properties), this.answers()[question.id]);
+    const errorKey = textFormatError(textFormatOf(question.properties), this.answers()[question.id]);
+    const message = errorKey ? this.translate.instant(errorKey) : null;
     const errors = { ...this.validationErrors() };
     if (message) errors[question.id] = message;
     else if (errors[question.id] && !this.answerErrorFor(question)) delete errors[question.id];
@@ -1412,15 +1413,19 @@ export class FormCollectComponent implements OnInit {
         ? this.translate.instant('forms.collect.errors.requiredLikert')
         : this.translate.instant('forms.collect.errors.required');
     }
-    return question.type === 'TEXT'
-      ? textFormatError(textFormatOf(question.properties), this.answers()[question.id])
-      : null;
+    const formatError = question.type === 'TEXT' ? textFormatError(textFormatOf(question.properties), this.answers()[question.id]) : null;
+    return formatError ? this.translate.instant(formatError) : null;
   }
 
   /** Respuestas listas para enviar: correo en minúsculas, cédula y teléfono solo con dígitos. */
   private normalizedAnswers(): Record<string, unknown> {
     const answers = { ...this.answers() };
     for (const question of this.form()?.questions ?? []) {
+      // Lo respondido en una subpregunta que quedó oculta (se desmarcó «Otro») no se envía.
+      if (!this.isQuestionActive(question)) {
+        delete answers[question.id];
+        continue;
+      }
       const format = question.type === 'TEXT' ? textFormatOf(question.properties) : null;
       const value = answers[question.id];
       if (format && typeof value === 'string' && value.trim() !== '') answers[question.id] = normalizeTextFormat(format, value);
@@ -1531,7 +1536,10 @@ export class FormCollectComponent implements OnInit {
       return sequentialNextIndex;
     }
 
-    return branchTargetIndex;
+    // Si el destino es una subpregunta que no aplica, se sigue con la siguiente que sí.
+    return this.isQuestionActive(questions[branchTargetIndex])
+      ? branchTargetIndex
+      : this.getSequentialNextIndex(branchTargetIndex, questions, conditionalTargetIds);
   }
 
   private getConditionalTargetIds(questions: FormQuestion[]): Set<string> {
@@ -1562,7 +1570,9 @@ export class FormCollectComponent implements OnInit {
   ): number {
     let nextIndex = currentIndex + 1;
 
-    while (nextIndex < questions.length && conditionalTargetIds.has(questions[nextIndex].id)) {
+    // Se saltan los destinos de saltos y las subpreguntas que no corresponden a lo respondido.
+    while (nextIndex < questions.length
+      && (conditionalTargetIds.has(questions[nextIndex].id) || !this.isQuestionActive(questions[nextIndex]))) {
       nextIndex += 1;
     }
 
@@ -1591,9 +1601,13 @@ export class FormCollectComponent implements OnInit {
     return answer !== undefined && answer !== null && String(answer).trim() !== '';
   }
 
-  private isQuestionActive(question: FormQuestion): boolean {
+  /**
+   * Una subpregunta se muestra si su padre está visible y tiene respuesta; con «mostrar solo si se
+   * elige…», además, si entre lo elegido en el padre está alguna de esas opciones (ej. «Otro»).
+   */
+  isQuestionActive(question: FormQuestion, depth = 0): boolean {
     const parentId = question.parent_question_id;
-    if (!parentId) {
+    if (!parentId || depth > 20) {
       return true;
     }
 
@@ -1601,8 +1615,12 @@ export class FormCollectComponent implements OnInit {
     if (!parent) {
       return true;
     }
+    if (!this.isQuestionActive(parent, depth + 1) || !this.hasRequiredAnswer(parent)) {
+      return false;
+    }
 
-    return this.hasRequiredAnswer(parent);
+    const options = showIfOf(question.properties);
+    return !options || showIfMatches(options, this.answers()[parent.id]);
   }
 
   private clearQuestionError(questionId: string): void {

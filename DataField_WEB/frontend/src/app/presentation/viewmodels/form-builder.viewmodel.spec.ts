@@ -3,6 +3,10 @@ import { TranslateService } from '@ngx-translate/core';
 import { FormBuilderViewModel } from './form-builder.viewmodel';
 import { FormService } from '@core/services/form.service';
 import { ProjectService } from '@core/services/project.service';
+import { provideSpanishTranslations } from '../../testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 describe('FormBuilderViewModel sections', () => {
   beforeEach(() => {
@@ -19,12 +23,6 @@ describe('FormBuilderViewModel sections', () => {
           provide: ProjectService,
           useValue: {
             getProjects: () => []
-          },
-        },
-        {
-          provide: TranslateService,
-          useValue: {
-            instant: (key: string) => key,
           },
         },
       ],

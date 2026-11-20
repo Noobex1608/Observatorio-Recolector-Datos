@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Forms\Services\XlsForm;
 
 use App\Domain\Forms\Services\ChoiceFilter;
+use App\Domain\Forms\Services\ShowIf;
 use App\Domain\Forms\Services\TextFormat;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
@@ -21,7 +22,7 @@ final class XlsFormExporter
 {
     public const SURVEY_COLUMNS = [
         'type', 'name', 'label', 'hint', 'required', 'appearance', 'calculation', 'parameters',
-        'choice_filter', 'formato', 'saltos', 'subpregunta_de',
+        'choice_filter', 'relevant', 'formato', 'saltos', 'subpregunta_de',
     ];
 
     /** Tipos sugeridos en la lista desplegable de la plantilla (se puede escribir cualquier otro). */
@@ -73,6 +74,7 @@ final class XlsFormExporter
                 'hint' => $properties['help_text'] ?? '',
                 'required' => ! empty($question->required) ? 'yes' : '',
                 'subpregunta_de' => ! empty($question->parent_question_id) ? ($names[$question->parent_question_id] ?? '') : '',
+                'relevant' => $this->relevant($question, $properties, $names, $byId),
             ];
 
             switch ($question->type) {
@@ -231,9 +233,10 @@ final class XlsFormExporter
                 ['formato: en preguntas text valida email, cedula_ec o telefono_ec.'],
                 ['saltos: en select_one, «opción => name_destino» separados por «;». Use «fin» para terminar la encuesta.'],
                 ['subpregunta_de: name de la pregunta padre (debe estar antes, en la misma sección).'],
+                ["relevant: «mostrar solo si se elige…» de una pregunta de opciones, ej. selected(\${medios}, 'otro'); varias con «or»."],
                 ['calculation: solo + - * / y paréntesis con ${name} de preguntas numéricas anteriores.'],
                 [''],
-                ['No se importan: relevant, constraint, grupos repetibles, geotrace / geoshape ni listas desde archivo.'],
+                ['No se importan: otras condiciones relevant, constraint, grupos repetibles, geotrace / geoshape ni listas desde archivo.'],
             ];
             $help->fromArray($lines, null, 'A1');
             $help->getStyle('A1')->getFont()->setBold(true)->setSize(13);
@@ -292,6 +295,26 @@ final class XlsFormExporter
         foreach (array_values($labels) as $i => $label) {
             $choices[] = ['list_name' => $list, 'name' => 'op'.($i + 1), 'label' => (string) $label];
         }
+    }
+
+    /** «Mostrar solo si se elige…» como `relevant` estándar: selected(${p1}, 'op3') or selected(${p1}, 'op4'). */
+    private function relevant(object $question, array $properties, array $names, \Illuminate\Support\Collection $byId): string
+    {
+        $options = ShowIf::optionsOf($properties);
+        $parent = $options && ! empty($question->parent_question_id) ? $byId->get($question->parent_question_id) : null;
+        if (! $parent || ! isset($names[$parent->id])) {
+            return '';
+        }
+        $parentOptions = array_map('strval', is_array($parent->options) ? array_values($parent->options) : []);
+        $parts = [];
+        foreach ($options as $label) {
+            $index = array_search($label, $parentOptions, true);
+            if ($index !== false) {
+                $parts[] = 'selected(${'.$names[$parent->id]."}, 'op".($index + 1)."')";
+            }
+        }
+
+        return implode(' or ', $parts);
     }
 
     private function jumps(object $question, array $names): string

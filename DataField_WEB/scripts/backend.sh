@@ -62,6 +62,7 @@ dev_mount_args() {
     -v "$BACKEND_PATH/bootstrap:/var/www/html/bootstrap"
     -v "$BACKEND_PATH/config:/var/www/html/config"
     -v "$BACKEND_PATH/database:/var/www/html/database"
+    -v "$BACKEND_PATH/lang:/var/www/html/lang"
     -v "$BACKEND_PATH/resources:/var/www/html/resources"
     -v "$BACKEND_PATH/routes:/var/www/html/routes"
     -v "$BACKEND_PATH/storage:/var/www/html/storage"

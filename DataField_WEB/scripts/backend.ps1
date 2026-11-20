@@ -55,6 +55,7 @@ function Get-DevMountArgs {
         '-v', "$BackendPath/bootstrap:/var/www/html/bootstrap",
         '-v', "$BackendPath/config:/var/www/html/config",
         '-v', "$BackendPath/database:/var/www/html/database",
+        '-v', "$BackendPath/lang:/var/www/html/lang",
         '-v', "$BackendPath/resources:/var/www/html/resources",
         '-v', "$BackendPath/routes:/var/www/html/routes",
         '-v', "$BackendPath/storage:/var/www/html/storage",

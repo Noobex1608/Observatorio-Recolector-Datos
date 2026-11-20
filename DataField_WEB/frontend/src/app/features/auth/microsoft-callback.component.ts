@@ -2,34 +2,35 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '@core/services/auth.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 /** Mensajes para los errores que devuelve el servidor tras el inicio de sesión con Microsoft 365. */
 const MICROSOFT_ERRORS: Record<string, string> = {
-  cancelled: 'Cancelaste el inicio de sesión con Microsoft.',
-  expired: 'El inicio de sesión tardó demasiado. Vuelve a intentarlo.',
-  not_institutional: 'Esa cuenta de Microsoft no es institucional de ULEAM. Los usuarios externos ingresan con correo y contraseña.',
-  not_registered: 'Tu cuenta de ULEAM aún no tiene acceso a DataField. Pide a un administrador que te registre.',
-  inactive: 'Tu cuenta está desactivada. Contacta al administrador.',
-  pending_approval: 'Tu solicitud de acceso quedó registrada. Un administrador debe aprobarla y asignarte un rol; luego vuelve a iniciar sesión con Microsoft.',
-  rejected: 'Tu solicitud de acceso fue rechazada. Si crees que es un error, contacta al administrador.',
-  account_mismatch: 'Este correo quedó vinculado a otra cuenta de Microsoft. Pide a un administrador que, en Usuarios, use «Restablecer vinculación con Microsoft» sobre tu cuenta y vuelve a entrar.',
-  failed: 'Microsoft no pudo validar el inicio de sesión. Vuelve a intentarlo.',
+  cancelled: 'auth.microsoft.errors.cancelled',
+  expired: 'auth.microsoft.errors.expired',
+  not_institutional: 'auth.microsoft.errors.not_institutional',
+  not_registered: 'auth.microsoft.errors.not_registered',
+  inactive: 'auth.microsoft.errors.inactive',
+  pending_approval: 'auth.microsoft.errors.pending_approval',
+  rejected: 'auth.microsoft.errors.rejected',
+  account_mismatch: 'auth.microsoft.errors.account_mismatch',
+  failed: 'auth.microsoft.errors.failed',
 };
 
 @Component({
   standalone: true,
   selector: 'app-microsoft-callback',
-  imports: [MatProgressSpinnerModule, RouterLink],
+  imports: [MatProgressSpinnerModule, RouterLink, TranslateModule],
   template: `
     <main class="callback-page">
       <section class="callback-card" aria-live="polite">
         @if (error()) {
-          <h1>{{ pendingApproval() ? 'Solicitud de acceso enviada' : 'No se pudo iniciar sesión' }}</h1>
+          <h1>{{ pendingApproval() ? ('auth.microsoft.requestSent' | translate) : ('auth.microsoft.failedTitle' | translate) }}</h1>
           <p [attr.role]="pendingApproval() ? 'status' : 'alert'">{{ error() }}</p>
-          <a routerLink="/auth/login" class="btn-back">Volver al inicio de sesión</a>
+          <a routerLink="/auth/login" class="btn-back">{{ 'auth.microsoft.backToLogin' | translate }}</a>
         } @else {
           <mat-spinner diameter="36" aria-hidden="true"></mat-spinner>
-          <p>Completando el inicio de sesión con Microsoft…</p>
+          <p>{{ 'auth.microsoft.completing' | translate }}</p>
         }
       </section>
     </main>
@@ -52,6 +53,7 @@ export class MicrosoftCallbackComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(TranslateService);
   readonly error = signal('');
   /** La persona quedó registrada como solicitud de acceso: no es un error. */
   readonly pendingApproval = signal(false);
@@ -65,12 +67,12 @@ export class MicrosoftCallbackComponent implements OnInit {
 
     if (error || !code) {
       this.pendingApproval.set(error === 'pending_approval');
-      this.error.set(MICROSOFT_ERRORS[error ?? ''] ?? MICROSOFT_ERRORS['failed']);
+      this.error.set(this.i18n.instant(MICROSOFT_ERRORS[error ?? ''] ?? MICROSOFT_ERRORS['failed']));
       return;
     }
     this.auth.completeMicrosoftLogin(code).subscribe({
       next: () => void this.router.navigateByUrl(this.auth.takeReturnUrl(), { replaceUrl: true }),
-      error: (err) => this.error.set(err?.error?.message || MICROSOFT_ERRORS['failed']),
+      error: (err) => this.error.set(err?.error?.message || this.i18n.instant(MICROSOFT_ERRORS['failed'])),
     });
   }
 }

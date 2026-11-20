@@ -25,10 +25,16 @@ export class LanguageService {
   ];
   
   currentLang = signal<Language>('es');
+  /**
+   * Idioma cuyas traducciones ya están cargadas. Los computed que usan `instant()` lo leen para
+   * recalcularse cuando el texto nuevo ya está disponible (currentLang cambia antes de cargarlo).
+   */
+  readonly loadedLang = signal<string>('');
 
   constructor() {
     this.translateService.addLangs(this.availableLanguages.map((language) => language.code));
     this.translateService.setFallbackLang('es');
+    this.translateService.onLangChange.subscribe((event) => this.loadedLang.set(event.lang));
   }
 
   initialize(): void {

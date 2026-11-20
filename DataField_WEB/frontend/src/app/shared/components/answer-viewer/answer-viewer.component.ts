@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { A11yModule } from '@angular/cdk/a11y';
 import { MatIconModule } from '@angular/material/icon';
 import { FormQuestion, FormService } from '@core/services/form.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 interface GpsCoords {
   lat: number;
@@ -25,14 +26,14 @@ export interface GeofenceResult {
 @Component({
   selector: 'app-answer-viewer',
   standalone: true,
-  imports: [A11yModule, CommonModule, MatIconModule, MatButtonModule, DatePipe],
+  imports: [A11yModule, CommonModule, MatIconModule, MatButtonModule, DatePipe, TranslateModule],
   template: `
     <div class="answer-viewer-root">
       @switch (questionType) {
         @case ('NOTE') {
           <span class="note-placeholder">
             <mat-icon class="inline-icon">info_outline</mat-icon>
-            (Texto informativo, sin respuesta)
+            {{ 'answerViewer.note' | translate }}
           </span>
         }
 
@@ -80,7 +81,7 @@ export interface GeofenceResult {
                     target="_blank"
                     rel="noopener noreferrer"
                     class="btn-maps-subtle"
-                    title="Abrir en Google Maps"
+                    [title]="'answerViewer.openMaps' | translate"
                   >
                     <mat-icon>open_in_new</mat-icon>
                   </a>
@@ -121,7 +122,7 @@ export interface GeofenceResult {
                     target="_blank"
                     rel="noopener noreferrer"
                     class="btn-maps-link"
-                    title="Abrir en Google Maps"
+                    [title]="'answerViewer.openMaps' | translate"
                   >
                     <mat-icon>open_in_new</mat-icon>
                     <span>Google Maps</span>
@@ -154,7 +155,7 @@ export interface GeofenceResult {
                 @if (gpsNotes) {
                   <div class="gps-notes-badge">
                     <mat-icon class="notes-icon">edit_note</mat-icon>
-                    <span>Observación: <em>"{{ gpsNotes }}"</em></span>
+                    <span>{{ 'answerViewer.observation' | translate }} <em>"{{ gpsNotes }}"</em></span>
                   </div>
                 }
               </div>
@@ -192,7 +193,7 @@ export interface GeofenceResult {
                   <div class="transcription-header">
                     <span class="transcription-title">
                       <mat-icon>graphic_eq</mat-icon>
-                      Transcripción de video
+                      {{ 'answerViewer.videoTranscript' | translate }}
                     </span>
                     <div class="transcription-actions">
                       <button type="button" class="btn-copy-transcription" (click)="isEditing = !isEditing">
@@ -208,7 +209,7 @@ export interface GeofenceResult {
                   <div class="transcription-content">
                     @if (isEditing) {
                       <textarea
-                        aria-label="Transcripción"
+                        [attr.aria-label]="'answerViewer.transcript' | translate"
                         class="transcription-textarea"
                         [value]="transcriptionText"
                         (input)="transcriptionText = $any($event.target).value"
@@ -243,7 +244,7 @@ export interface GeofenceResult {
                   <div class="transcription-header">
                     <span class="transcription-title">
                       <mat-icon>graphic_eq</mat-icon>
-                      Transcripción de audio
+                      {{ 'answerViewer.audioTranscript' | translate }}
                     </span>
                     <div class="transcription-actions">
                       <button type="button" class="btn-copy-transcription" (click)="isEditing = !isEditing">
@@ -259,7 +260,7 @@ export interface GeofenceResult {
                   <div class="transcription-content">
                     @if (isEditing) {
                       <textarea
-                        aria-label="Transcripción"
+                        [attr.aria-label]="'answerViewer.transcript' | translate"
                         class="transcription-textarea"
                         [value]="transcriptionText"
                         (input)="transcriptionText = $any($event.target).value"
@@ -276,11 +277,11 @@ export interface GeofenceResult {
             <div class="media-thumbnail-container">
               <img
                 [src]="mediaUrl"
-                alt="Vista previa multimedia"
+                [alt]="'answerViewer.mediaPreview' | translate"
                 class="media-thumbnail"
                 (click)="openImageModal(mediaUrl)"
               />
-              <button type="button" class="btn-zoom" aria-label="Ampliar imagen" (click)="openImageModal(mediaUrl)">
+              <button type="button" class="btn-zoom" [attr.aria-label]="'answerViewer.zoomImage' | translate" (click)="openImageModal(mediaUrl)">
                 <mat-icon>zoom_in</mat-icon>
               </button>
             </div>
@@ -298,11 +299,11 @@ export interface GeofenceResult {
           } @else if (signatureUrl) {
             <div class="signature-container">
               <div class="signature-thumbnail-box" (click)="openImageModal(signatureUrl)">
-                <img [src]="signatureUrl" alt="Firma digital" class="signature-img" />
+                <img [src]="signatureUrl" [alt]="'answerViewer.signature' | translate" class="signature-img" />
               </div>
               <button type="button" class="btn-signature-view" (click)="openImageModal(signatureUrl)">
                 <mat-icon>draw</mat-icon>
-                <span>Ver firma completa</span>
+                <span>{{ 'answerViewer.viewSignature' | translate }}</span>
               </button>
             </div>
           } @else {
@@ -363,7 +364,7 @@ export interface GeofenceResult {
             <span class="calculate-badge">
               <mat-icon class="inline-icon">calculate</mat-icon>
               <strong>{{ formattedValue }}</strong>
-              <small class="calc-tag">(Cálculo automático)</small>
+              <small class="calc-tag">{{ 'answerViewer.calculated' | translate }}</small>
             </span>
           } @else {
             <span class="text-value">-</span>
@@ -378,11 +379,11 @@ export interface GeofenceResult {
       <!-- Lightbox Modal para Firma e Imágenes -->
       @if (activeModalUrl()) {
         <div class="lightbox-overlay" (click)="closeModal()" (keydown.escape)="closeModal()">
-          <div class="lightbox-content" role="dialog" aria-modal="true" aria-label="Vista ampliada" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
-            <button type="button" class="lightbox-close" aria-label="Cerrar vista ampliada" (click)="closeModal()">
+          <div class="lightbox-content" role="dialog" aria-modal="true" [attr.aria-label]="'answerViewer.enlarged' | translate" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
+            <button type="button" class="lightbox-close" [attr.aria-label]="'answerViewer.closeEnlarged' | translate" (click)="closeModal()">
               <mat-icon>close</mat-icon>
             </button>
-            <img [src]="activeModalUrl()" alt="Vista ampliada" class="lightbox-img" />
+            <img [src]="activeModalUrl()" [alt]="'answerViewer.enlarged' | translate" class="lightbox-img" />
           </div>
         </div>
       }
@@ -443,16 +444,16 @@ export interface GeofenceResult {
       display: inline-flex;
       align-items: center;
       gap: 0.2rem;
-      font-family: 'SFMono-Regular', Consolas, monospace;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #334155;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
 
       .icon-pin {
         font-size: 0.95rem;
         width: 0.95rem;
         height: 0.95rem;
-        color: #ef4444;
+        color: var(--primary-text-600);
       }
     }
 
@@ -883,10 +884,10 @@ export interface GeofenceResult {
       display: flex;
       align-items: center;
       gap: 0.35rem;
-      background-color: #f8fafc;
+      background-color: var(--primary-50);
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
-      border-left: 3px solid #3b82f6;
+      border: 1px solid var(--primary-100);
     }
 
     .ranking-badge {
@@ -1031,13 +1032,7 @@ export interface GeofenceResult {
 
     /* --- Adaptación Modo Oscuro WCAG AAA --- */
     :host-context(.dark) {
-      .gps-compact-coords {
-        color: #e2e8f0;
 
-        .icon-pin {
-          color: #f87171;
-        }
-      }
 
       .btn-maps-subtle {
         color: #94a3b8;
@@ -1139,8 +1134,6 @@ export interface GeofenceResult {
       }
 
       .ranking-item {
-        background-color: #1e293b;
-        border-left-color: #3b82f6;
 
         .ranking-label {
           color: #e2e8f0;
@@ -1161,6 +1154,7 @@ export interface GeofenceResult {
 })
 export class AnswerViewerComponent {
   private readonly formService = inject(FormService);
+  private readonly i18n = inject(TranslateService);
 
   @Input({ required: true }) question!: FormQuestion;
   @Input() formId: string | null = null;
@@ -1199,7 +1193,7 @@ export class AnswerViewerComponent {
       ));
       this.privateMediaUrl.set(result.url);
     } catch {
-      this.privateMediaError.set('No se pudo abrir el medio privado. Inténtalo de nuevo.');
+      this.privateMediaError.set(this.i18n.instant('answerViewer.mediaError'));
     } finally {
       this.loadingPrivateMedia.set(false);
     }
@@ -1264,7 +1258,7 @@ export class AnswerViewerComponent {
       const isInside = Boolean(gf.is_inside);
       const dist = typeof gf.distance_meters === 'number' ? gf.distance_meters : null;
       const radius = typeof gf.allowed_radius_meters === 'number' ? gf.allowed_radius_meters : 500;
-      const name = gf.zone_name || 'Zona Asignada';
+      const name = gf.zone_name || this.i18n.instant('answerViewer.assignedZone');
 
       return {
         hasZone: true,
@@ -1281,7 +1275,7 @@ export class AnswerViewerComponent {
       const dist = typeof valObj.distance_to_zone_center_meters === 'number'
         ? valObj.distance_to_zone_center_meters
         : null;
-      const name = valObj.zone_name || 'Zona Asignada';
+      const name = valObj.zone_name || this.i18n.instant('answerViewer.assignedZone');
       const radius = this.question?.properties?.radius_meters || 500;
 
       return {
@@ -1298,7 +1292,7 @@ export class AnswerViewerComponent {
     const targetLat = props.target_lat ?? props.geofencing?.lat ?? null;
     const targetLng = props.target_lng ?? props.geofencing?.lng ?? null;
     const radius = props.radius_meters ?? props.geofencing?.radius ?? 500;
-    const name = props.zone_name ?? props.geofencing?.name ?? 'Zona Asignada';
+    const name = props.zone_name ?? props.geofencing?.name ?? this.i18n.instant('answerViewer.assignedZone');
 
     if (targetLat !== null && targetLng !== null && !Number.isNaN(Number(targetLat)) && !Number.isNaN(Number(targetLng))) {
       const dist = this.calculateDistanceMeters(coords.lat, coords.lng, targetLat, targetLng);
@@ -1398,13 +1392,13 @@ export class AnswerViewerComponent {
 
     this.isTranscribing = true;
     this.showTranscription = true;
-    this.transcriptionText = 'Escuchando y transcribiendo audio...';
+    this.transcriptionText = this.i18n.instant('answerViewer.transcribing');
 
     try {
       const text = await this.transcribeMediaSpeech(mediaEl, this.mediaUrl);
       this.transcriptionText = text;
     } catch {
-      this.transcriptionText = 'No se detectaron palabras en la grabación. Haz clic en Editar para ingresar una nota.';
+      this.transcriptionText = this.i18n.instant('answerViewer.noWords');
     } finally {
       this.isTranscribing = false;
     }
@@ -1501,7 +1495,7 @@ export class AnswerViewerComponent {
   }
 
   private async fallbackAudioBufferAnalysis(mediaUrl?: string): Promise<string> {
-    const questionLabel = this.question?.label || 'Respuesta multimedia';
+    const questionLabel = this.question?.label || this.i18n.instant('answerViewer.mediaAnswer');
     try {
       if (mediaUrl && (mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('http'))) {
         const res = await fetch(mediaUrl);
@@ -1532,15 +1526,15 @@ export class AnswerViewerComponent {
           const formattedTime = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
           if (activeFrames > 1) {
-            return `[${this.isVideoMedia ? 'Video' : 'Audio'} - ${formattedTime} min] Grabación procesada para "${questionLabel}". (Presiona Editar para agregar notas)`;
+            return this.i18n.instant('answerViewer.recordingProcessed', { kind: this.isVideoMedia ? 'Video' : 'Audio', time: formattedTime, question: questionLabel });
           } else {
-            return `[${this.isVideoMedia ? 'Video' : 'Audio'} - ${formattedTime} min] Archivo procesado correctamente para "${questionLabel}".`;
+            return this.i18n.instant('answerViewer.fileProcessed', { kind: this.isVideoMedia ? 'Video' : 'Audio', time: formattedTime, question: questionLabel });
           }
         }
       }
     } catch {}
 
-    return `[${this.isVideoMedia ? 'Video' : 'Audio'}] Evidencia registrada para "${questionLabel}".`;
+    return this.i18n.instant('answerViewer.evidence', { kind: this.isVideoMedia ? 'Video' : 'Audio', question: questionLabel });
   }
 
   private getEmbeddedTranscript(): string | null {

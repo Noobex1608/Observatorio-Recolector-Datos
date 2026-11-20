@@ -105,7 +105,7 @@ class UserController extends Controller
         \App\Services\AuditLogService::logUserRoleChange($request->user(), $user, $oldRole, $user->rol);
 
         return response()->json([
-            'message' => 'Rol actualizado exitosamente',
+            'message' => __('Rol actualizado exitosamente'),
             'user' => new UserResource($user),
         ]);
     }
@@ -171,7 +171,7 @@ class UserController extends Controller
         \App\Services\AuditLogService::logUserCreation($request->user(), $user);
 
         return response()->json([
-            'message' => 'Usuario creado exitosamente',
+            'message' => __('Usuario creado exitosamente'),
             'data' => new UserResource($user),
         ], 201);
     }
@@ -214,7 +214,7 @@ class UserController extends Controller
         $user = $this->updateUserUseCase->execute($dto);
 
         return response()->json([
-            'message' => 'Usuario actualizado exitosamente',
+            'message' => __('Usuario actualizado exitosamente'),
             'data' => new UserResource($user),
         ]);
     }
@@ -239,7 +239,7 @@ class UserController extends Controller
         $this->deleteUserUseCase->execute($id, $request->user()->id);
 
         return response()->json([
-            'message' => 'Usuario eliminado exitosamente',
+            'message' => __('Usuario eliminado exitosamente'),
         ]);
     }
 
@@ -251,18 +251,18 @@ class UserController extends Controller
     public function unlinkMicrosoft(Request $request, int $id): JsonResponse
     {
         $admin = $request->user();
-        abort_unless($admin->canManageUsers(), 403, 'Solo los administradores restablecen la vinculación con Microsoft.');
+        abort_unless($admin->canManageUsers(), 403, __('Solo los administradores restablecen la vinculación con Microsoft.'));
         $user = \App\Models\User::findOrFail($id);
-        abort_unless($admin->canManageRole($user->rol), 403, 'No tienes permisos sobre una cuenta con ese rol.');
-        abort_if($user->microsoft_oid === null, 422, 'La cuenta no está vinculada a Microsoft.');
+        abort_unless($admin->canManageRole($user->rol), 403, __('No tienes permisos sobre una cuenta con ese rol.'));
+        abort_if($user->microsoft_oid === null, 422, __('La cuenta no está vinculada a Microsoft.'));
 
         $user->forceFill(['microsoft_oid' => null])->save();
         $user->tokens()->delete();
         \App\Services\AuditLogService::log($admin, 'UNLINK_MICROSOFT', 'usuarios',
-            "Restableció la vinculación con Microsoft de {$user->email}.", ['target_user_id' => $user->id]);
+            'Restableció la vinculación con Microsoft de :email.', ['target_user_id' => $user->id], params: ['email' => $user->email]);
 
         return response()->json([
-            'message' => "Vinculación restablecida. {$user->email} queda vinculado a la cuenta de Microsoft con la que entre la próxima vez.",
+            'message' => __('Vinculación restablecida. :email queda vinculado a la cuenta de Microsoft con la que entre la próxima vez.', ['email' => $user->email]),
             'data' => new UserResource($user->load('perfil')),
         ]);
     }
@@ -273,7 +273,7 @@ class UserController extends Controller
         $user = $this->restoreUserUseCase->execute($id, $request->user()->id);
 
         return response()->json([
-            'message' => "Cuenta de {$user->email} restaurada. Ya puede volver a entrar.",
+            'message' => __('Cuenta de :email restaurada. Ya puede volver a entrar.', ['email' => $user->email]),
             'data' => new UserResource($user),
         ]);
     }

@@ -141,6 +141,32 @@ class FormQueryOptimizationTest extends TestCase
         $this->assertArrayNotHasKey($text->id, $stats);
     }
 
+    public function test_responses_and_stats_honor_date_and_collector_filters(): void
+    {
+        $owner = User::factory()->create(['rol' => User::ROLE_PROJECT]);
+        $collector = User::factory()->create(['rol' => User::ROLE_USER]);
+        $form = $this->deployedForm($owner);
+        $single = $form->questions()->create(['type' => 'SINGLE_CHOICE', 'label' => 'Sexo', 'order' => 1, 'options' => ['Hombre', 'Mujer']]);
+
+        $old = $this->response($form, $collector, [$single->id => 'Hombre']);
+        $old->forceFill(['created_at' => '2026-11-01 15:00:00'])->save();
+        $this->response($form, $collector, [$single->id => 'Mujer'])->forceFill(['created_at' => '2026-11-17 15:00:00'])->save();
+        $this->response($form, null, [$single->id => 'Mujer'])->forceFill(['created_at' => '2026-11-17 16:00:00'])->save();
+
+        Sanctum::actingAs($owner);
+        $base = "/api/forms/{$form->id}";
+
+        $this->getJson("{$base}/responses?from=2026-11-10T00:00:00Z")->assertOk()->assertJsonPath('pagination.total', 2);
+        $this->getJson("{$base}/responses?to=2026-11-10T00:00:00Z")->assertOk()->assertJsonPath('pagination.total', 1);
+        $this->getJson("{$base}/responses?collector={$collector->id}")->assertOk()->assertJsonPath('pagination.total', 2);
+        $this->getJson("{$base}/responses?collector=public")->assertOk()->assertJsonPath('pagination.total', 1);
+
+        $stats = $this->getJson("{$base}/stats?from=2026-11-10T00:00:00Z&collector={$collector->id}")->assertOk()->json();
+        $this->assertEquals(['Hombre' => 0, 'Mujer' => 1], $stats[$single->id]);
+
+        $this->getJson("{$base}/responses?from=no-es-fecha")->assertUnprocessable();
+    }
+
     public function test_lifecycle_sync_from_requests_runs_at_most_once_per_minute(): void
     {
         $owner = User::factory()->create(['rol' => User::ROLE_PROJECT]);

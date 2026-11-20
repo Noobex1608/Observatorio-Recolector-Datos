@@ -26,7 +26,7 @@ class ProjectTechnicalSheetController extends Controller
         $user = $request->user();
 
         if (! $this->canViewProject($project, $user)) {
-            return response()->json(['message' => 'No tienes permisos para ver la ficha técnica de este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para ver la ficha técnica de este proyecto')], 403);
         }
 
         $sheet = ProjectTechnicalSheet::with(['validator:id,name,email', 'creator:id,name,email'])
@@ -59,7 +59,7 @@ class ProjectTechnicalSheetController extends Controller
         $user = $request->user();
 
         if (! $user->canManageProjects() && ! $user->leadsProject($project->id) && ! $user->isProjectDelegate($project->id)) {
-            return response()->json(['message' => 'No tienes permisos para gestionar la ficha técnica de este proyecto'], 403);
+            return response()->json(['message' => __('No tienes permisos para gestionar la ficha técnica de este proyecto')], 403);
         }
 
         $data = $request->safe()->only(['description', 'start_date', 'end_date', 'target_sample_size']);
@@ -75,9 +75,9 @@ class ProjectTechnicalSheetController extends Controller
             $sheet->validated_at = null;
             $sheet->save();
             AuditLogService::log($user, 'TECHNICAL_SHEET_SAVE', 'proyectos',
-                "Ficha técnica guardada para el proyecto '{$project->name}'.", [
+                'Ficha técnica guardada para el proyecto \':name\'.', [
                     'project_id' => $project->id, 'approval_revoked' => $wasValidated,
-                ]);
+                ], params: ['name' => $project->name]);
 
             return $sheet;
         });
@@ -89,14 +89,14 @@ class ProjectTechnicalSheetController extends Controller
     {
         $project = Project::findOrFail($projectId);
         $user = $request->user();
-        abort_unless($user->leadsProject($project->id), 403, 'Solo el líder asignado puede validar la ficha.');
+        abort_unless($user->leadsProject($project->id), 403, __('Solo el líder asignado puede validar la ficha.'));
 
         $sheet = ProjectTechnicalSheet::where('project_id', $project->id)->first();
-        abort_unless($sheet, 422, 'Primero guarde la ficha técnica.');
+        abort_unless($sheet, 422, __('Primero guarde la ficha técnica.'));
         abort_if(! $sheet->start_date || ! $sheet->end_date || ! $sheet->description,
-            422, 'La descripción y las fechas de inicio y fin son obligatorias para validar.');
+            422, __('La descripción y las fechas de inicio y fin son obligatorias para validar.'));
         abort_if($sheet->end_date->lessThan($sheet->start_date), 422,
-            'La fecha de fin no puede ser anterior a la fecha de inicio.');
+            __('La fecha de fin no puede ser anterior a la fecha de inicio.'));
 
         // Los formularios vigentes (borrador o publicados) deben quedar dentro del periodo validado.
         $from = $sheet->start_date->format('Y-m-d');
@@ -106,12 +106,12 @@ class ProjectTechnicalSheetController extends Controller
                 ->orWhere('end_date', '<', $from)->orWhere('end_date', '>', $to))
             ->orderBy('title')->pluck('title');
         abort_if($outside->isNotEmpty(), 422,
-            'Estos formularios tienen fechas fuera del periodo de la ficha: '.$outside->implode(', ').'. Ajuste sus fechas o el periodo antes de validar.');
+            __('Estos formularios tienen fechas fuera del periodo de la ficha: :forms. Ajuste sus fechas o el periodo antes de validar.', ['forms' => $outside->implode(', ')]));
 
         DB::transaction(function () use ($sheet, $project, $user) {
             $sheet->update(['status' => 'VALIDATED', 'validated_by' => $user->id, 'validated_at' => now()]);
             AuditLogService::log($user, 'TECHNICAL_SHEET_VALIDATE', 'proyectos',
-                "Ficha técnica validada para el proyecto '{$project->name}'.", ['project_id' => $project->id]);
+                'Ficha técnica validada para el proyecto \':name\'.', ['project_id' => $project->id], params: ['name' => $project->name]);
         });
 
         return response()->json(new ProjectTechnicalSheetResource($sheet->load(['validator:id,name,email', 'creator:id,name,email'])));

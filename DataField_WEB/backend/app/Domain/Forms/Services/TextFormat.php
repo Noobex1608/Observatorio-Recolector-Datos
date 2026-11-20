@@ -43,10 +43,10 @@ final class TextFormat
     public static function error(string $format, string $value): ?string
     {
         return match ($format) {
-            self::EMAIL => self::validEmail($value) ? null : 'Ingrese un correo electrónico válido (ej. nombre@dominio.com).',
+            self::EMAIL => self::validEmail($value) ? null : __('Ingrese un correo electrónico válido (ej. nombre@dominio.com).'),
             self::CEDULA_EC => self::cedulaError($value),
             self::TELEFONO_EC => preg_match('/^(09\d{8}|0[2-7]\d{7})$/', $value) === 1
-                ? null : 'Ingrese un celular de 10 dígitos (09…) o un teléfono fijo de 9 dígitos (02… a 07…).',
+                ? null : __('Ingrese un celular de 10 dígitos (09…) o un teléfono fijo de 9 dígitos (02… a 07…).'),
             default => null,
         };
     }
@@ -76,11 +76,11 @@ final class TextFormat
     private static function cedulaError(string $value): ?string
     {
         if (preg_match('/^\d{10}$/', $value) !== 1) {
-            return 'La cédula debe tener 10 dígitos.';
+            return __('La cédula debe tener 10 dígitos.');
         }
         $province = (int) substr($value, 0, 2);
         if (! (($province >= 1 && $province <= 24) || $province === 30) || (int) $value[2] >= 6) {
-            return 'La cédula no es válida: revise los primeros dígitos.';
+            return __('La cédula no es válida: revise los primeros dígitos.');
         }
         $sum = 0;
         for ($i = 0; $i < 9; $i++) {
@@ -89,6 +89,6 @@ final class TextFormat
         }
         $check = (10 - $sum % 10) % 10;
 
-        return $check === (int) $value[9] ? null : 'La cédula no es válida: revise el último dígito.';
+        return $check === (int) $value[9] ? null : __('La cédula no es válida: revise el último dígito.');
     }
 }

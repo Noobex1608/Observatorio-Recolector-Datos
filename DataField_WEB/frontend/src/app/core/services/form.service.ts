@@ -110,6 +110,8 @@ export interface FormQuestionProperties {
   expression?: string;
   /** Opciones en cascada: qué respuestas de una pregunta anterior muestran cada opción. */
   choice_filter?: ChoiceFilter | null;
+  /** Subpregunta que se muestra solo si en su pregunta padre se elige alguna de estas opciones. */
+  show_if?: { options: string[] } | null;
 }
 
 /** `parents[i]` son las opciones de la pregunta `question_id` que muestran la opción i; vacío = siempre. */
@@ -143,6 +145,13 @@ export interface FormQuestionBranchRule {
 export interface LikertOptions {
   rows: string[];
   columns: string[];
+}
+
+/** Filtros de la pantalla de resultados: fechas en ISO y recolector (id de usuario o "public"). */
+export interface ResponseFilters {
+  from?: string | null;
+  to?: string | null;
+  collector?: string | null;
 }
 
 export interface FormShare {
@@ -255,10 +264,19 @@ export class FormService {
     return this.http.delete<void>(`${this.apiUrl}/${formId}/shares/${shareId}`);
   }
 
-  getResponses(id: string, page = 1): Observable<{ questions: FormQuestion[]; responses: any[]; pagination?: { current_page: number; last_page: number; total: number } }> {
+  getResponses(id: string, page = 1, filters: ResponseFilters = {}): Observable<{ questions: FormQuestion[]; responses: any[]; pagination?: { current_page: number; last_page: number; total: number } }> {
     return this.http.get<{ questions: FormQuestion[]; responses: any[]; pagination?: { current_page: number; last_page: number; total: number } }>(
-      `${this.apiUrl}/${id}/responses`, { params: new HttpParams().set('page', page).set('per_page', 50) },
+      `${this.apiUrl}/${id}/responses`, { params: this.filterParams(filters).set('page', page).set('per_page', 50) },
     );
+  }
+
+  /** Parámetros de los filtros de resultados; los vacíos no se envían. */
+  private filterParams(filters: ResponseFilters): HttpParams {
+    let params = new HttpParams();
+    if (filters.from) params = params.set('from', filters.from);
+    if (filters.to) params = params.set('to', filters.to);
+    if (filters.collector) params = params.set('collector', filters.collector);
+    return params;
   }
 
   getResponseMediaUrl(formId: string, responseId: string, questionId: string): Observable<{ url: string; expires_in: number }> {
@@ -267,8 +285,8 @@ export class FormService {
     );
   }
 
-  getStats(id: string): Observable<Record<string, Record<string, number>>> {
-    return this.http.get<Record<string, Record<string, number>>>(`${this.apiUrl}/${id}/stats`);
+  getStats(id: string, filters: ResponseFilters = {}): Observable<Record<string, Record<string, number>>> {
+    return this.http.get<Record<string, Record<string, number>>>(`${this.apiUrl}/${id}/stats`, { params: this.filterParams(filters) });
   }
 
   exportResponses(id: string, format: 'csv' | 'xlsx'): Observable<Blob> {

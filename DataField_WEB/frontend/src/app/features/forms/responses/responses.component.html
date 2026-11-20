@@ -11,11 +11,11 @@
       </div>
       <div class="export-actions">
         <button
-          class="btn-export btn-pdf"
+          class="btn-export"
           (click)="vm.exportPdfSummary()"
           [disabled]="vm.isExporting() || vm.responses().length === 0"
           type="button"
-          title="Exportar informe resumen en PDF con estadísticas"
+          [title]="'forms.responses.page.exportPdfHint' | translate"
         >
           <mat-icon>picture_as_pdf</mat-icon>
           <span>{{ 'forms.responses.exportPdf' | translate }}</span>
@@ -23,6 +23,7 @@
         <button
           class="btn-export"
           (click)="vm.exportData('csv')"
+          [attr.title]="vm.hasActiveFilters() ? ('forms.responses.page.exportUnfiltered' | translate) : null"
           [disabled]="vm.isExporting() || vm.responses().length === 0"
           type="button"
         >
@@ -30,8 +31,9 @@
           {{ 'forms.responses.exportCsv' | translate }}
         </button>
         <button
-          class="btn-export btn-excel"
+          class="btn-export"
           (click)="vm.exportData('xlsx')"
+          [attr.title]="vm.hasActiveFilters() ? ('forms.responses.page.exportUnfiltered' | translate) : null"
           [disabled]="vm.isExporting() || vm.responses().length === 0"
           type="button"
         >
@@ -52,149 +54,330 @@
       <p>{{ 'forms.responses.loading' | translate }}</p>
     </div>
   } @else {
-    <section class="responses-kpis">
-      <article class="kpi-card kpi-primary">
-        <span class="kpi-icon"><mat-icon>fact_check</mat-icon></span>
-        <div>
-          <span>Total respuestas</span>
-          <strong>{{ vm.totalResponses() }}</strong>
+    @if (publicUrl()) {
+      <section class="public-link" aria-labelledby="public-link-title">
+        <div class="public-link-text">
+          <h2 id="public-link-title">{{ 'forms.responses.page.publicSurvey' | translate }}</h2>
+          <a [href]="publicUrl()" target="_blank" rel="noopener noreferrer">{{ publicUrl() }}</a>
         </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon"><mat-icon>quiz</mat-icon></span>
-        <div>
-          <span>Preguntas</span>
-          <strong>{{ vm.questions().length }}</strong>
+        <div class="public-link-actions">
+          <button class="btn-export" type="button" (click)="copyLink()">
+            <mat-icon aria-hidden="true">{{ linkCopied() ? 'check' : 'content_copy' }}</mat-icon>
+            {{ linkCopied() ? ('forms.responses.page.linkCopied' | translate) : ('forms.responses.page.copyLink' | translate) }}
+          </button>
+          <button class="btn-export" type="button" (click)="toggleQr()" [attr.aria-expanded]="!!qrImage">
+            <mat-icon aria-hidden="true">qr_code_2</mat-icon>
+            {{ qrImage ? ('forms.responses.page.hideQr' | translate) : ('forms.responses.page.showQr' | translate) }}
+          </button>
         </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon"><mat-icon>insert_chart</mat-icon></span>
-        <div>
-          <span>Graficables</span>
-          <strong>{{ vm.chartableQuestions().length }}</strong>
-        </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon"><mat-icon>groups</mat-icon></span>
-        <div>
-          <span>Recolectores</span>
-          <strong>{{ vm.shareProgress().length }}</strong>
-        </div>
-      </article>
+        @if (qrImage) {
+          <div class="public-qr">
+            <img [src]="qrImage" [alt]="'forms.responses.page.qrAlt' | translate" width="180" height="180" />
+            <button class="btn-export" type="button" (click)="downloadQr()">
+              <mat-icon aria-hidden="true">download</mat-icon>
+              {{ 'forms.responses.page.downloadQr' | translate }}
+            </button>
+          </div>
+        }
+      </section>
+    }
+
+    <section class="filter-bar" [attr.aria-label]="'forms.responses.page.filters.label' | translate" [attr.aria-busy]="vm.isFiltering()">
+      <label class="filter-field">
+        <span>{{ 'forms.responses.page.filters.from' | translate }}</span>
+        <input type="date" [attr.aria-label]="'forms.responses.page.filters.from' | translate" [value]="vm.filters().from" [max]="vm.filters().to || null" (change)="setFilter('from', $any($event.target).value)" />
+      </label>
+      <label class="filter-field">
+        <span>{{ 'forms.responses.page.filters.to' | translate }}</span>
+        <input type="date" [attr.aria-label]="'forms.responses.page.filters.to' | translate" [value]="vm.filters().to" [min]="vm.filters().from || null" (change)="setFilter('to', $any($event.target).value)" />
+      </label>
+      <label class="filter-field filter-field-wide">
+        <span>{{ 'forms.responses.page.filters.collector' | translate }}</span>
+        <select [attr.aria-label]="'forms.responses.page.filters.collector' | translate" [value]="vm.filters().collector" (change)="setFilter('collector', $any($event.target).value)">
+          <option value="">{{ 'forms.responses.page.filters.all' | translate }}</option>
+          @for (option of collectorFilterOptions(); track option.value) {
+            <option [value]="option.value" [selected]="option.value === vm.filters().collector">{{ option.label | translate }}</option>
+          }
+        </select>
+      </label>
+      <div class="filter-status" role="status">
+        @if (vm.isFiltering()) {
+          <mat-spinner diameter="16" aria-hidden="true"></mat-spinner>
+          <span>{{ 'forms.responses.page.filters.applying' | translate }}</span>
+        } @else if (vm.hasActiveFilters()) {
+          <span>{{ (vm.totalResponses() === 1 ? 'forms.responses.page.filters.matchOne' : 'forms.responses.page.filters.matchMany') | translate: { count: vm.totalResponses() } }}</span>
+          <button class="link-action" type="button" (click)="clearFilters()">
+            <mat-icon aria-hidden="true">close</mat-icon> {{ 'forms.responses.page.filters.clear' | translate }}
+          </button>
+        }
+      </div>
     </section>
 
-    @if (vm.shareProgress().length > 0) {
-      <section class="shares-counter">
-        <div class="section-heading">
-          <div>
-            <span>Seguimiento</span>
-            <h2>Respuestas por asignación</h2>
-          </div>
-          <p>Avance de los usuarios asignados a la recolección.</p>
+    <section class="summary-strip" [attr.aria-label]="'forms.responses.page.summary.label' | translate">
+      <div class="stat">
+        <span class="stat-label">{{ vm.hasActiveFilters() ? ('forms.responses.page.summary.filtered' | translate) : ('forms.responses.page.summary.responses' | translate) }}</span>
+        <strong class="stat-value">{{ vm.totalResponses() }}</strong>
+      </div>
+      @if (vm.shareProgress().length > 0) {
+        <div class="stat">
+          <span class="stat-label">{{ 'forms.responses.page.summary.activeCollectors' | translate }}</span>
+          <strong class="stat-value">{{ activeCollectors() }} <small>{{ 'forms.responses.page.summary.ofTotal' | translate: { total: vm.shareProgress().length } }}</small></strong>
         </div>
-        <div class="shares-grid">
-          @for (share of vm.shareProgress(); track share.id) {
-            <div class="share-counter-card">
-              <div class="share-counter-header">
-                <span class="share-name">{{ share.user_name || share.user_email || 'Usuario' }}</span>
-                <span class="share-role">{{ share.role }}</span>
-              </div>
-              @if (share.target_responses) {
-                <div class="share-progress">
-                  <div class="progress-bar">
-                    <div class="progress-fill" [class.full]="(share.responses_count ?? 0) >= share.target_responses!" [style.width.%]="share.progress"></div>
-                  </div>
-                  <span class="progress-text">{{ share.responses_count ?? 0 }} / {{ share.target_responses }} respuestas</span>
-                </div>
-              } @else {
-                <span class="share-count">{{ share.responses_count ?? 0 }} respuestas</span>
+      }
+      <div class="stat">
+        <span class="stat-label">{{ 'forms.responses.page.summary.lastResponse' | translate }}</span>
+        <strong class="stat-value stat-date">
+          @if (lastSubmittedAt(); as last) { {{ last | date: 'dd/MM/yyyy HH:mm' }} } @else { — }
+        </strong>
+      </div>
+      <div class="stat">
+        <span class="stat-label">{{ 'forms.responses.page.summary.questions' | translate }}</span>
+        <strong class="stat-value">{{ vm.questions().length }} <small>· {{ 'forms.responses.page.summary.withChart' | translate: { count: vm.chartableQuestions().length } }}</small></strong>
+      </div>
+    </section>
+
+    @if (vm.responses().length > 0) {
+      <section class="page-section" aria-labelledby="quality-title">
+        <div class="section-heading">
+          <h2 id="quality-title">{{ 'forms.responses.page.quality.title' | translate }}</h2>
+          <p>
+            {{ (vm.nextResponsePage() ? 'forms.responses.page.quality.scopePartial' : 'forms.responses.page.quality.scope') | translate: { count: vm.responses().length } }}
+          </p>
+        </div>
+
+        @if (qualityIssues().length === 0) {
+          <p class="quality-clear">
+            <mat-icon aria-hidden="true">check_circle</mat-icon>
+            {{ 'forms.responses.page.quality.clear' | translate }}
+          </p>
+        } @else {
+          <div class="quality-panel">
+            <div class="quality-tabs" role="group" [attr.aria-label]="'forms.responses.page.quality.filterLabel' | translate">
+              <button type="button" class="quality-tab" [class.is-active]="qualityKind() === null" [attr.aria-pressed]="qualityKind() === null" (click)="qualityKind.set(null)">
+                {{ 'forms.responses.page.quality.all' | translate }} <span>{{ qualityIssues().length }}</span>
+              </button>
+              @for (kind of qualityKinds; track kind.id) {
+                @if (qualityCount(kind.id) > 0) {
+                  <button type="button" class="quality-tab" [class.is-active]="qualityKind() === kind.id" [attr.aria-pressed]="qualityKind() === kind.id" (click)="qualityKind.set(kind.id)">
+                    {{ kind.label | translate }} <span>{{ qualityCount(kind.id) }}</span>
+                  </button>
+                }
               }
             </div>
-          }
+
+            <ul class="quality-list">
+              @for (issue of visibleIssues(); track issue.responseId + issue.kind + $index) {
+                <li class="quality-row">
+                  <mat-icon class="quality-icon" [attr.data-kind]="issue.kind" aria-hidden="true">{{ qualityIcon(issue.kind) }}</mat-icon>
+                  <div class="quality-body">
+                    <strong>{{ issue.detail.key | translate: issue.detail.params }}</strong>
+                    <span>{{ issue.submittedAt | date: 'dd/MM/yyyy HH:mm' }} · {{ vm.collectorLabel(issue.userId) || ('forms.responses.page.publicSurvey' | translate) }}</span>
+                  </div>
+                  <button class="btn-preview-response" type="button" (click)="openResponseById(issue.responseId)">
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                    <span>{{ 'forms.responses.page.viewResponse' | translate }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+
+            @if (filteredIssues().length > visibleIssues().length) {
+              <button class="quality-more" type="button" (click)="showAllIssues.set(true)">
+                {{ 'forms.responses.page.quality.showRest' | translate: { count: filteredIssues().length - visibleIssues().length } }}
+              </button>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @if (collectorRows().length > 0) {
+      <section class="page-section" aria-labelledby="collectors-title">
+        <div class="section-heading">
+          <h2 id="collectors-title">{{ 'forms.responses.page.collectors.title' | translate }}</h2>
+          <p>{{ vm.hasActiveFilters() ? ('forms.responses.page.collectors.unfiltered' | translate) : hasTargets() ? ('forms.responses.page.collectors.withTargets' | translate) : ('forms.responses.page.collectors.relative' | translate) }}</p>
         </div>
+        <ol class="collector-list">
+          @for (row of collectorRows(); track row.id) {
+            <li class="collector-row" [class.is-idle]="row.count === 0">
+              <span class="collector-name">
+                {{ row.name }}
+                @if (showRoles()) { <span class="collector-role">{{ (row.role === 'PROJECT' ? 'forms.responses.page.collectors.roleProject' : 'forms.responses.page.filters.collector') | translate }}</span> }
+              </span>
+              <span class="collector-bar" aria-hidden="true">
+                <span [style.width.%]="row.width" [class.is-complete]="row.complete"></span>
+              </span>
+              <span class="collector-count">
+                @if (row.target) { {{ row.count }} / {{ row.target }} } @else { {{ row.count }} }
+                <small>{{ row.count === 1 && !row.target ? 'respuesta' : 'respuestas' }}</small>
+              </span>
+            </li>
+          }
+        </ol>
       </section>
     }
 
     @if (vm.chartableQuestions().length > 0) {
-      <section class="charts-section">
+      <section class="page-section" aria-labelledby="charts-title">
         <div class="section-heading">
-          <div>
-            <span>Visualización</span>
-            <h2>{{ 'forms.responses.chartsTitle' | translate }}</h2>
-          </div>
-          <p>Distribuciones listas para analizar patrones de respuesta.</p>
+          <h2 id="charts-title">{{ 'forms.responses.chartsTitle' | translate }}</h2>
+          <p>{{ 'forms.responses.page.charts.subtitle' | translate }}</p>
         </div>
         <div class="charts-grid">
           @for (chart of vm.chartableQuestions(); track chart.questionId) {
-            <div class="chart-card">
-              <div class="chart-card-header">
-                <div>
-                  <span>{{ 'forms.responses.distribution' | translate }}</span>
-                  <h3>{{ chart.label }}</h3>
-                </div>
-              </div>
-              <app-pie-chart [categories]="chart.categories" [values]="chart.values" [isDonut]="true" height="280px" />
-              @if (chart.type === 'MULTIPLE_CHOICE') { <small>Porcentaje calculado sobre menciones, no sobre personas.</small> }
-            </div>
+            <article class="chart-card">
+              <header class="chart-card-header">
+                <h3>{{ chart.label }}</h3>
+                <p>{{ ('forms.responses.chartTypes.' + chart.type) | translate }}</p>
+              </header>
+              <app-pie-chart [categories]="chart.categories" [values]="chart.values" [isDonut]="true" height="200px" />
+              @if (chart.type === 'MULTIPLE_CHOICE') { <p class="chart-note">{{ 'forms.responses.page.charts.multipleNote' | translate }}</p> }
+            </article>
           }
         </div>
       </section>
     }
 
-    @if (vm.form()?.state === 'DEPLOYED' && vm.form()?.link_uuid) {
-      <section class="charts-section">
-        <h2>Compartir encuesta pública</h2>
-        <button mat-stroked-button type="button" (click)="showQr()">Mostrar código QR</button>
-        @if (qrImage) {
-          <div class="chart-card">
-            <img [src]="qrImage" alt="Código QR para abrir la encuesta pública" width="260" height="260" />
-            <p><a [href]="collectUrl" target="_blank" rel="noopener noreferrer">{{ collectUrl }}</a></p>
-            <button mat-stroked-button type="button" (click)="downloadQr()">Descargar QR</button>
-          </div>
-        }
-      </section>
-    }
-
     @if (vm.numericSummaries().length || vm.textSummaries().length) {
-      <section class="charts-section">
-        <h2>Resumen de otras preguntas</h2>
-        @for (summary of vm.numericSummaries(); track summary.label) {
-          <div class="chart-card"><h3>{{ summary.label }}</h3>
-            <p>{{ summary.count }} respuestas · Promedio: {{ summary.mean?.toFixed(2) ?? '—' }} · Mediana: {{ summary.count ? summary.median : '—' }} · Mínimo: {{ summary.count ? summary.min : '—' }} · Máximo: {{ summary.count ? summary.max : '—' }}</p>
+      <section class="page-section" aria-labelledby="other-title">
+        <div class="section-heading">
+          <h2 id="other-title">{{ 'forms.responses.page.other.title' | translate }}</h2>
+          <p>{{ 'forms.responses.page.other.subtitle' | translate }}</p>
+        </div>
+        @if (vm.numericSummaries().length) {
+          <div class="data-frame">
+            <table class="plain-table">
+              <thead>
+                <tr><th scope="col">{{ 'forms.responses.page.other.numericQuestion' | translate }}</th><th scope="col">{{ 'forms.responses.page.summary.responses' | translate }}</th><th scope="col">{{ 'forms.responses.page.other.mean' | translate }}</th><th scope="col">{{ 'forms.responses.page.other.median' | translate }}</th><th scope="col">{{ 'forms.responses.page.other.min' | translate }}</th><th scope="col">{{ 'forms.responses.page.other.max' | translate }}</th></tr>
+              </thead>
+              <tbody>
+                @for (summary of vm.numericSummaries(); track summary.label) {
+                  <tr>
+                    <th scope="row">{{ summary.label }}</th>
+                    <td>{{ summary.count }}</td>
+                    <td>{{ summary.mean?.toFixed(2) ?? '—' }}</td>
+                    <td>{{ summary.count ? summary.median : '—' }}</td>
+                    <td>{{ summary.count ? summary.min : '—' }}</td>
+                    <td>{{ summary.count ? summary.max : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         }
-        @for (summary of vm.textSummaries(); track summary.label) {
-          <div class="chart-card"><h3>{{ summary.label }}</h3><p>{{ summary.answered }} respuestas con texto. Consulte el detalle en la tabla.</p></div>
+        @if (vm.textSummaries().length) {
+          <div class="data-frame">
+            <table class="plain-table">
+              <thead>
+                <tr><th scope="col">{{ 'forms.responses.page.other.textQuestion' | translate }}</th><th scope="col">{{ 'forms.responses.page.other.textAnswers' | translate }}</th></tr>
+              </thead>
+              <tbody>
+                @for (summary of vm.textSummaries(); track summary.label) {
+                  <tr><th scope="row">{{ summary.label }}</th><td>{{ summary.answered }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       </section>
     }
 
     @if (vm.gpsPoints().length > 0 || vm.gpsZones().length > 0) {
-      <section class="charts-section">
-        <h2>Ubicación de edificaciones y zonas delimitadas</h2>
-        <app-gps-results-map [points]="vm.gpsPoints()" [zones]="vm.gpsZones()" />
-        <div class="chart-card">
-          @for (point of vm.gpsPoints(); track point.responseId + point.question) {
-            <p>{{ point.question }} · X: {{ point.longitude }} · Y: {{ point.latitude }} · Precisión: {{ point.accuracy ?? '—' }} m</p>
-          }
+      <section class="page-section" aria-labelledby="map-title">
+        <div class="section-heading">
+          <h2 id="map-title">{{ 'forms.responses.page.map.title' | translate }}</h2>
+          <p>
+            {{ (vm.gpsPoints().length === 1 ? 'forms.responses.page.map.pointsOne' : 'forms.responses.page.map.pointsMany') | translate: { count: vm.gpsPoints().length } }}
+            · {{ (vm.gpsZones().length === 1 ? 'forms.responses.page.map.zonesOne' : 'forms.responses.page.map.zonesMany') | translate: { count: vm.gpsZones().length } }}
+          </p>
+        </div>
+
+        <div class="gps-panel">
+          <div class="gps-map-area">
+            <app-gps-results-map
+              #gpsMap
+              [points]="vm.gpsPoints()"
+              [zones]="vm.gpsZones()"
+              [selectedKey]="selectedPointKey()"
+              (pointSelected)="selectPoint($event)"
+            />
+            <div class="gps-map-toolbar">
+              <ul class="gps-legend" [attr.aria-label]="'forms.responses.page.map.legend' | translate">
+                <li><span class="legend-pin" aria-hidden="true">1</span> {{ 'forms.responses.page.map.legendPoint' | translate }}</li>
+                <li><span class="legend-zone" aria-hidden="true"></span> {{ 'forms.responses.page.map.legendZone' | translate }}</li>
+                <li><span class="legend-accuracy" aria-hidden="true"></span> {{ 'forms.responses.page.map.legendAccuracy' | translate }}</li>
+              </ul>
+              <button class="btn-export" type="button" (click)="gpsMap.fitAll()">
+                <mat-icon aria-hidden="true">fit_screen</mat-icon>
+                {{ 'forms.responses.page.map.fitAll' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <aside class="gps-points" aria-labelledby="gps-points-title">
+            <h3 id="gps-points-title">{{ 'forms.responses.page.map.points' | translate }}</h3>
+            @if (vm.gpsPoints().length > 0) {
+              <ol class="gps-point-list">
+                @for (point of vm.gpsPoints(); track point.key; let i = $index) {
+                  <li class="gps-point" [id]="'gps-point-' + point.key" [class.is-selected]="point.key === selectedPointKey()">
+                    <button
+                      class="gps-point-select"
+                      type="button"
+                      (click)="selectPoint(point.key)"
+                      [attr.aria-pressed]="point.key === selectedPointKey()"
+                    >
+                      <span class="gps-point-number" aria-hidden="true">{{ i + 1 }}</span>
+                      <span class="gps-point-body">
+                        <strong>{{ point.collector || ('forms.responses.page.publicSurvey' | translate) }}</strong>
+                        <span class="gps-point-meta">
+                          @if (point.submittedAt) { {{ point.submittedAt | date: 'dd/MM/yyyy HH:mm' }} · }
+                          {{ point.accuracy != null ? '±' + point.accuracy + ' m' : ('forms.responses.page.map.unknownAccuracy' | translate) }}
+                        </span>
+                        @if (hasManyGpsQuestions()) { <span class="gps-point-meta">{{ point.question }}</span> }
+                        <span class="gps-point-coords">{{ point.latitude.toFixed(6) }}, {{ point.longitude.toFixed(6) }}</span>
+                      </span>
+                    </button>
+                    @if (point.key === selectedPointKey()) {
+                      <div class="gps-point-actions">
+                        <button class="link-action" type="button" (click)="openResponseById(point.responseId)">
+                          <mat-icon aria-hidden="true">visibility</mat-icon> {{ 'forms.responses.page.viewResponse' | translate }}
+                        </button>
+                        <a class="link-action" [href]="'https://www.google.com/maps?q=' + point.latitude + ',' + point.longitude" target="_blank" rel="noopener noreferrer">
+                          <mat-icon aria-hidden="true">open_in_new</mat-icon> {{ 'forms.responses.page.map.openMaps' | translate }}
+                        </a>
+                      </div>
+                    }
+                  </li>
+                }
+              </ol>
+            } @else {
+              <div class="gps-empty">
+                <mat-icon aria-hidden="true">location_off</mat-icon>
+                <p>{{ 'forms.responses.page.map.empty' | translate }}</p>
+                <p class="hint">{{ 'forms.responses.page.map.emptyHint' | translate }}</p>
+              </div>
+            }
+          </aside>
         </div>
       </section>
     }
 
-    <section class="table-section">
+    <section class="page-section" aria-labelledby="table-title">
       <div class="section-heading">
-        <div>
-          <span>Datos</span>
-          <h2>{{ 'forms.responses.tableTitle' | translate }}</h2>
-        </div>
-        <p>Registro detallado de cada envío recibido.</p>
+        <h2 id="table-title">{{ 'forms.responses.tableTitle' | translate }}</h2>
+        <p>{{ 'forms.responses.page.table.subtitle' | translate }}</p>
       </div>
 
       @if (vm.responses().length === 0) {
         <div class="empty-state">
           <mat-icon>inbox</mat-icon>
-          <p>{{ 'forms.responses.empty' | translate }}</p>
-          <p class="hint">{{ 'forms.responses.emptyHint' | translate }}</p>
+          @if (vm.hasActiveFilters()) {
+            <p>{{ 'forms.responses.page.table.noMatch' | translate }}</p>
+            <button class="btn-export" type="button" (click)="clearFilters()">{{ 'forms.responses.page.filters.clear' | translate }}</button>
+          } @else {
+            <p>{{ 'forms.responses.empty' | translate }}</p>
+            <p class="hint">{{ 'forms.responses.emptyHint' | translate }}</p>
+          }
         </div>
       } @else {
         <div class="table-wrapper">
@@ -245,8 +428,10 @@
           </table>
         </div>
         @if (vm.nextResponsePage()) {
-          <p>Mostrando {{ vm.responses().length }} de {{ vm.totalResponses() }} respuestas. Los resúmenes numéricos y el PDF reflejan las respuestas cargadas.</p>
-          <button mat-stroked-button type="button" (click)="vm.loadMoreResponses()" [disabled]="vm.isLoadingMore()">Cargar más respuestas</button>
+          <div class="load-more">
+            <p>{{ 'forms.responses.page.table.showing' | translate: { loaded: vm.responses().length, total: vm.totalResponses() } }}</p>
+            <button class="btn-export" type="button" (click)="vm.loadMoreResponses()" [disabled]="vm.isLoadingMore()">{{ 'forms.responses.page.table.loadMore' | translate }}</button>
+          </div>
         }
       }
     </section>
@@ -299,18 +484,18 @@
             @if (field.question && canCorrect(field.question)) {
               @let q = field.question;
               @if (editingField() === field.key) {
-                <form class="correction-form" (ngSubmit)="saveEdit(q)" [attr.aria-label]="'Corregir ' + field.label">
+                <form class="correction-form" (ngSubmit)="saveEdit(q)" [attr.aria-label]="('forms.responses.page.correction.correctField' | translate: { field: field.label })">
                   @switch (q.type) {
                     @case ('SINGLE_CHOICE') {
-                      <select name="value" [(ngModel)]="editValue" aria-label="Valor corregido">
-                        <option [ngValue]="null">(sin respuesta)</option>
+                      <select name="value" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate">
+                        <option [ngValue]="null">{{ 'forms.responses.page.correction.noAnswer' | translate }}</option>
                         @for (option of correctionOptions(q); track option) {
                           <option [ngValue]="option">{{ option }}</option>
                         }
                       </select>
                     }
                     @case ('MULTIPLE_CHOICE') {
-                      <div class="correction-options" role="group" aria-label="Valor corregido">
+                      <div class="correction-options" role="group" [attr.aria-label]="'forms.responses.page.correction.value' | translate">
                         @for (option of correctionOptions(q); track option) {
                           <label>
                             <input type="checkbox" [checked]="editValue?.includes(option)" (change)="toggleEditOption(option, $any($event.target).checked)" />
@@ -319,26 +504,26 @@
                         }
                       </div>
                     }
-                    @case ('NUMBER') { <input name="value" type="number" step="any" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
-                    @case ('RATING') { <input name="value" type="number" min="1" [max]="q.properties?.max_rating ?? 5" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
-                    @case ('DATE') { <input name="value" type="date" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
-                    @case ('TIME') { <input name="value" type="time" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
-                    @case ('DATETIME') { <input name="value" type="text" [(ngModel)]="editValue" placeholder="AAAA-MM-DDTHH:MM" aria-label="Valor corregido" /> }
-                    @default { <input name="value" type="text" [(ngModel)]="editValue" aria-label="Valor corregido" /> }
+                    @case ('NUMBER') { <input name="value" type="number" step="any" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
+                    @case ('RATING') { <input name="value" type="number" min="1" [max]="q.properties?.max_rating ?? 5" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
+                    @case ('DATE') { <input name="value" type="date" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
+                    @case ('TIME') { <input name="value" type="time" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
+                    @case ('DATETIME') { <input name="value" type="text" [(ngModel)]="editValue" placeholder="AAAA-MM-DDTHH:MM" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
+                    @default { <input name="value" type="text" [(ngModel)]="editValue" [attr.aria-label]="'forms.responses.page.correction.value' | translate" /> }
                   }
                   <label class="correction-reason">
-                    <span>Motivo de la corrección</span>
-                    <textarea name="reason" rows="2" [(ngModel)]="editReason" placeholder="Ej.: el encuestado aclaró su edad por teléfono"></textarea>
+                    <span>{{ 'forms.responses.page.correction.reason' | translate }}</span>
+                    <textarea name="reason" rows="2" [(ngModel)]="editReason" [placeholder]="'forms.responses.page.correction.reasonPlaceholder' | translate"></textarea>
                   </label>
                   @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
                   <div class="correction-actions">
-                    <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="correctionBusy()">Cancelar</button>
-                    <button mat-flat-button color="primary" type="submit" [disabled]="correctionBusy()">Guardar corrección</button>
+                    <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="correctionBusy()">{{ 'common.buttons.cancel' | translate }}</button>
+                    <button mat-flat-button color="primary" type="submit" [disabled]="correctionBusy()">{{ 'forms.responses.page.correction.save' | translate }}</button>
                   </div>
                 </form>
               } @else {
                 <button class="correction-link" type="button" (click)="startEdit(field)">
-                  <mat-icon aria-hidden="true">edit</mat-icon> Corregir
+                  <mat-icon aria-hidden="true">edit</mat-icon> {{ 'forms.responses.page.correction.edit' | translate }}
                 </button>
               }
             }
@@ -346,53 +531,53 @@
         }
 
       @if (isSuperAdmin()) {
-        <section class="correction-tools" aria-label="Correcciones de la respuesta">
+        <section class="correction-tools" [attr.aria-label]="'forms.responses.page.correction.toolsLabel' | translate">
           <div class="correction-tools-actions">
             <button mat-stroked-button type="button" (click)="openPanel('collector')" [attr.aria-expanded]="panel() === 'collector'">
-              <mat-icon>person_search</mat-icon> Cambiar encuestador
+              <mat-icon>person_search</mat-icon> {{ 'forms.responses.page.correction.changeCollector' | translate }}
             </button>
             <button mat-stroked-button color="warn" type="button" (click)="openPanel('void')" [attr.aria-expanded]="panel() === 'void'">
-              <mat-icon>block</mat-icon> Anular respuesta
+              <mat-icon>block</mat-icon> {{ 'forms.responses.page.correction.void' | translate }}
             </button>
           </div>
 
           @if (panel() === 'collector') {
             <div class="correction-form">
               <label class="correction-reason">
-                <span>Nuevo encuestador</span>
+                <span>{{ 'forms.responses.page.correction.newCollector' | translate }}</span>
                 <select [(ngModel)]="chosenCollector" name="collector">
-                  <option [ngValue]="null">Elegir…</option>
+                  <option [ngValue]="null">{{ 'forms.responses.page.correction.choose' | translate }}</option>
                   @for (user of collectorOptions(); track user.id) {
                     <option [ngValue]="user.id">{{ user.name }} · {{ user.email }}</option>
                   }
                 </select>
               </label>
               @if (collectorOptions().length === 0) {
-                <p class="correction-hint">No hay otras personas asignadas a este formulario o a su proyecto.</p>
+                <p class="correction-hint">{{ 'forms.responses.page.correction.noCollectors' | translate }}</p>
               }
               <label class="correction-reason">
-                <span>Motivo</span>
-                <textarea rows="2" [(ngModel)]="panelReason" name="collectorReason" placeholder="Ej.: la encuesta se registró con la cuenta de otra persona"></textarea>
+                <span>{{ 'forms.responses.page.correction.reasonShort' | translate }}</span>
+                <textarea rows="2" [(ngModel)]="panelReason" name="collectorReason" [placeholder]="'forms.responses.page.correction.collectorPlaceholder' | translate"></textarea>
               </label>
               @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
               <div class="correction-actions">
-                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">Cancelar</button>
-                <button mat-flat-button color="primary" type="button" (click)="confirmReassign()" [disabled]="correctionBusy()">Cambiar encuestador</button>
+                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">{{ 'common.buttons.cancel' | translate }}</button>
+                <button mat-flat-button color="primary" type="button" (click)="confirmReassign()" [disabled]="correctionBusy()">{{ 'forms.responses.page.correction.changeCollector' | translate }}</button>
               </div>
             </div>
           }
 
           @if (panel() === 'void') {
             <div class="correction-form">
-              <p class="correction-hint">La respuesta deja de contar en la lista, los exportes y las estadísticas. No se borra: puedes restaurarla desde el Centro de datos.</p>
+              <p class="correction-hint">{{ 'forms.responses.page.correction.voidHint' | translate }}</p>
               <label class="correction-reason">
-                <span>Motivo de la anulación</span>
-                <textarea rows="2" [(ngModel)]="panelReason" name="voidReason" placeholder="Ej.: encuesta de prueba o duplicada"></textarea>
+                <span>{{ 'forms.responses.page.correction.voidReason' | translate }}</span>
+                <textarea rows="2" [(ngModel)]="panelReason" name="voidReason" [placeholder]="'forms.responses.page.correction.voidPlaceholder' | translate"></textarea>
               </label>
               @if (correctionError()) { <p class="correction-error" role="alert">{{ correctionError() }}</p> }
               <div class="correction-actions">
-                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">Cancelar</button>
-                <button mat-flat-button color="warn" type="button" (click)="confirmVoid()" [disabled]="correctionBusy()">Anular respuesta</button>
+                <button mat-stroked-button type="button" (click)="panel.set(null)" [disabled]="correctionBusy()">{{ 'common.buttons.cancel' | translate }}</button>
+                <button mat-flat-button color="warn" type="button" (click)="confirmVoid()" [disabled]="correctionBusy()">{{ 'forms.responses.page.correction.void' | translate }}</button>
               </div>
             </div>
           }
@@ -401,7 +586,7 @@
 
       @if (selectedResponse.corrections?.length) {
         <section class="correction-history" aria-labelledby="correction-history-title">
-          <h3 id="correction-history-title">Historial de correcciones</h3>
+          <h3 id="correction-history-title">{{ 'forms.responses.page.correction.history' | translate }}</h3>
           <ol>
             @for (entry of selectedResponse.corrections; track $index) {
               <li>
@@ -410,9 +595,9 @@
                   <span>{{ describeValue(entry.before) }} → {{ describeValue(entry.after) }}</span>
                 }
                 @if (entry.cleared?.length) {
-                  <span>Se vaciaron: {{ entry.cleared!.map(item => item.question).join(', ') }}</span>
+                  <span>{{ 'forms.responses.page.correction.cleared' | translate: { questions: entry.cleared!.map(item => item.question).join(', ') } }}</span>
                 }
-                <small>{{ entry.by }} · {{ entry.at | date: 'dd/MM/yyyy HH:mm' }} · Motivo: {{ entry.reason }}</small>
+                <small>{{ entry.by }} · {{ entry.at | date: 'dd/MM/yyyy HH:mm' }} · {{ 'forms.responses.page.correction.reasonValue' | translate: { reason: entry.reason } }}</small>
               </li>
             }
           </ol>

@@ -57,7 +57,7 @@ import { BaseChartComponent, CHART_COLORS } from './base-chart.component';
     `
       .modern-pie-chart {
         display: grid;
-        grid-template-columns: minmax(170px, 0.7fr) minmax(0, 1fr);
+        grid-template-columns: 170px minmax(0, 1fr);
         align-items: center;
         gap: 1.15rem;
       }
@@ -71,25 +71,17 @@ import { BaseChartComponent, CHART_COLORS } from './base-chart.component';
 
       .donut {
         display: grid;
-        width: min(190px, 100%);
+        width: min(160px, 100%);
         aspect-ratio: 1;
         place-items: center;
         border-radius: 50%;
-        box-shadow:
-          inset 0 0 0 40px var(--card-bg),
-          0 14px 32px rgba(15, 23, 42, 0.1);
-      }
-
-      .donut.full-pie {
-        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
       }
 
       .donut span {
         display: grid;
         place-items: center;
-        width: 86px;
-        height: 86px;
-        border: 1px solid var(--border-color);
+        width: 104px;
+        height: 104px;
         border-radius: var(--radius-full);
         background: var(--card-bg);
       }
@@ -97,7 +89,7 @@ import { BaseChartComponent, CHART_COLORS } from './base-chart.component';
       .donut strong {
         color: var(--text-primary);
         font-size: 1.35rem;
-        font-weight: 900;
+        font-weight: 700;
         line-height: 1;
       }
 

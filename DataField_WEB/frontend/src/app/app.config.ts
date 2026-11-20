@@ -7,6 +7,7 @@ import { provideTranslateService } from '@ngx-translate/core';
 import { provideEchartsCore } from 'ngx-echarts';
 import { routes } from './app.routes';
 import { authInterceptor, retryInterceptor } from './core/interceptors';
+import { languageInterceptor } from './core/interceptors/language.interceptor';
 import { provideTranslateBrowserLoader } from './core/loaders/translate-browser.loader';
 import { LanguageService } from './core/services/language.service';
 import { TranslatedTitleStrategy } from './core/services/translated-title.strategy';
@@ -44,7 +45,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     { provide: TitleStrategy, useClass: TranslatedTitleStrategy },
     provideClientHydration(withEventReplay()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor, retryInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([languageInterceptor, authInterceptor, retryInterceptor])),
     provideAnimationsAsync(),
     provideEchartsCore({
       echarts: () => import('./core/config/echarts.config').then((m) => m.echarts),

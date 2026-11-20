@@ -11,7 +11,7 @@ import { UserService } from '@core/services/user.service';
 import { User } from '@core/models/user/user.interface';
 import { CASCADE_MULTIPLE, FormBuilderViewModel, FormQuestionDraft, FormQuestionTreeEntry, QuestionInsertTarget } from '@presentation/viewmodels/form-builder.viewmodel';
 import { ProjectService } from '@core/services/project.service';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { TEXT_FORMATS, TextFormat, textFormatInput } from '@core/utils/text-format';
 
 type PreviewMode = 'mobile' | 'web';
@@ -29,6 +29,7 @@ type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
 })
 export class BuilderComponent implements OnInit, OnDestroy {
   readonly vm = inject(FormBuilderViewModel);
+  private readonly i18n = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly projectService = inject(ProjectService);
@@ -295,10 +296,10 @@ export class BuilderComponent implements OnInit, OnDestroy {
   canLeave(): boolean | Promise<boolean> {
     if (!this.vm.isDirty()) return true;
     return this.notify.confirm({
-      title: 'Cambios sin guardar',
-      message: 'Hay cambios sin guardar en este formulario. Si sales ahora se perderán.',
-      confirmText: 'Salir sin guardar',
-      cancelText: 'Seguir editando',
+      title: this.i18n.instant('forms.builder.page.msg.unsavedTitle'),
+      message: this.i18n.instant('forms.builder.page.msg.unsavedMessage'),
+      confirmText: this.i18n.instant('forms.builder.page.msg.leave'),
+      cancelText: this.i18n.instant('forms.builder.page.msg.keepEditing'),
       tone: 'danger',
     });
   }
@@ -321,12 +322,12 @@ export class BuilderComponent implements OnInit, OnDestroy {
   expandAll(): void {
     this.expandedQuestions.set(new Set(this.vm.questions().map((question) => question.tempId)));
     this.collapsedSections.set(new Set());
-    this.announce('Todas las preguntas están abiertas.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.allExpanded'));
   }
 
   collapseAll(): void {
     this.expandedQuestions.set(new Set());
-    this.announce('Todas las preguntas están contraídas.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.allCollapsed'));
   }
 
   sectionKey(sectionTempId: string | null): string {
@@ -355,15 +356,16 @@ export class BuilderComponent implements OnInit, OnDestroy {
   questionSummary(entry: FormQuestionTreeEntry): string {
     const question = entry.question;
     const parts: string[] = [];
-    if (question.type !== 'NOTE') parts.push(question.required ? 'Obligatoria' : 'Opcional');
+    if (question.type !== 'NOTE') parts.push(this.i18n.instant(question.required ? 'forms.builder.page.msg.required' : 'forms.builder.page.msg.optional'));
     if (['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RANKING'].includes(question.type)) {
       const count = question.options.filter((option) => option.trim()).length;
-      parts.push(`${count} ${count === 1 ? 'opción' : 'opciones'}`);
+      parts.push(this.i18n.instant(count === 1 ? 'forms.builder.page.msg.optionOne' : 'forms.builder.page.msg.optionMany', { count }));
     }
     if (question.type === 'LIKERT') parts.push(`${question.likertRows.length} × ${question.likertColumns.length}`);
-    if (question.branchRules.some((rule) => rule.action !== 'CONTINUE')) parts.push('Con saltos');
+    if (question.branchRules.some((rule) => rule.action !== 'CONTINUE')) parts.push(this.i18n.instant('forms.builder.page.msg.withJumps'));
     if (question.properties?.text_format) {
-      parts.push(this.textFormats.find((format) => format.value === question.properties.text_format)?.label ?? '');
+      const formatLabel = this.textFormats.find((format) => format.value === question.properties.text_format)?.label;
+      parts.push(formatLabel ? this.i18n.instant(formatLabel) : '');
     }
     return parts.filter(Boolean).join(' · ');
   }
@@ -383,14 +385,14 @@ export class BuilderComponent implements OnInit, OnDestroy {
   addSection(): void {
     const tempId = this.vm.addSection();
     if (!tempId) return;
-    this.announce('Sección agregada al final del formulario.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.sectionAdded'));
     this.focusWhenRendered(`section-title-${tempId}`);
   }
 
   moveSection(sectionTempId: string, direction: -1 | 1): void {
     if (!this.vm.moveSection(sectionTempId, direction)) return;
     const position = this.vm.sections().findIndex((section) => section.tempId === sectionTempId) + 1;
-    this.announce(`Sección movida a la posición ${position} de ${this.vm.sections().length}.`);
+    this.announce(this.i18n.instant('forms.builder.page.msg.sectionMoved', { position, total: this.vm.sections().length }));
     this.focusWhenRendered(`section-move-${direction < 0 ? 'up' : 'down'}-${sectionTempId}`, `section-toggle-${sectionTempId}`);
   }
 
@@ -423,7 +425,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const sectionTempId = this.vm.questions().find((question) => question.tempId === tempId)?.sectionTempId ?? null;
     if (this.isSectionCollapsed(sectionTempId)) this.toggleSection(sectionTempId);
     this.expandedQuestions.update((set) => new Set(set).add(tempId));
-    this.announce(`Pregunta agregada en ${this.sectionName(sectionTempId)}.`);
+    this.announce(this.i18n.instant('forms.builder.page.msg.questionAdded', { section: this.sectionName(sectionTempId) }));
     this.focusWhenRendered(`q-label-${tempId}`, undefined, true);
   }
 
@@ -431,7 +433,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const tempId = this.vm.addSubquestion(parentTempId);
     if (!tempId) return;
     this.expandedQuestions.update((set) => new Set(set).add(tempId));
-    this.announce('Subpregunta agregada.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.subquestionAdded'));
     this.focusWhenRendered(`q-label-${tempId}`, undefined, true);
   }
 
@@ -439,7 +441,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const copyId = this.vm.duplicateQuestion(tempId);
     if (!copyId) return;
     this.expandedQuestions.update((set) => new Set(set).add(copyId));
-    this.announce('Pregunta duplicada debajo de la original.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.duplicated'));
     this.focusWhenRendered(`q-label-${copyId}`, undefined, true);
   }
 
@@ -447,7 +449,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const tempId = entry.question.tempId;
     if (!this.vm.moveQuestion(tempId, direction)) return;
     const moved = this.vm.getQuestionTreeForSection(entry.question.sectionTempId).find((item) => item.question.tempId === tempId);
-    this.announce(`Pregunta movida a la posición ${moved?.displayNumber ?? ''}.`);
+    this.announce(this.i18n.instant('forms.builder.page.msg.questionMoved', { position: moved?.displayNumber ?? '' }));
     this.focusWhenRendered(`q-move-${direction < 0 ? 'up' : 'down'}-${tempId}`, `q-toggle-${tempId}`);
   }
 
@@ -463,13 +465,13 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
   undo(): void {
     this.vm.undo();
-    this.announce('Se deshizo la eliminación.');
+    this.announce(this.i18n.instant('forms.builder.page.msg.undone'));
   }
 
   sectionName(sectionTempId: string | null): string {
-    if (!sectionTempId) return '«Sin sección»';
+    if (!sectionTempId) return this.i18n.instant('forms.builder.page.msg.noSection');
     const section = this.vm.sections().find((item) => item.tempId === sectionTempId);
-    return `«${section?.title.trim() || 'Sección sin título'}»`;
+    return this.i18n.instant('forms.builder.page.msg.sectionQuoted', { title: section?.title.trim() || this.i18n.instant('forms.builder.page.msg.untitledSection') });
   }
 
   // --- Excel (XLSForm) ---
@@ -494,7 +496,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.importBusy.set(false);
-        this.importError.set(err?.error?.errors?.file?.[0] || err?.error?.message || 'No se pudo revisar el archivo.');
+        this.importError.set(err?.error?.errors?.file?.[0] || err?.error?.message || this.i18n.instant('forms.builder.page.msg.checkFailed'));
         this.importPreview.set({
           title: null, sections: [], questions: [], warnings: [], valid: false,
           summary: { sections: 0, questions: 0 },
@@ -518,7 +520,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     if (ids.length === 0) return;
     this.expandedQuestions.set(new Set());
     this.collapsedSections.set(new Set());
-    this.announce(`Se cargaron ${ids.length} preguntas desde el Excel. Revísalas y guarda el formulario.`);
+    this.announce(this.i18n.instant('forms.builder.page.msg.imported', { count: ids.length }));
     this.focusWhenRendered(`q-toggle-${ids[0]}`, undefined, true);
   }
 
@@ -536,7 +538,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
   }
 
   issueLocation(issue: { row: number; sheet: string }): string {
-    return issue.row > 0 ? `Hoja ${issue.sheet}, fila ${issue.row}` : (issue.sheet === 'archivo' ? 'Archivo' : `Hoja ${issue.sheet}`);
+    return issue.row > 0 ? this.i18n.instant('forms.builder.page.msg.sheetRow', { sheet: issue.sheet, row: issue.row }) : (issue.sheet === 'archivo' ? this.i18n.instant('forms.builder.page.msg.file') : this.i18n.instant('forms.builder.page.msg.sheet', { sheet: issue.sheet }));
   }
 
   private downloadExcel(request: import('rxjs').Observable<Blob>, fileName: string): void {
@@ -551,11 +553,11 @@ export class BuilderComponent implements OnInit, OnDestroy {
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.excelBusy.set(false);
-        this.announce(`Descarga lista: ${fileName}.`);
+        this.announce(this.i18n.instant('forms.builder.page.msg.downloaded', { file: fileName }));
       },
       error: () => {
         this.excelBusy.set(false);
-        this.vm.errorMessage.set('No se pudo descargar el archivo de Excel.');
+        this.vm.errorMessage.set(this.i18n.instant('forms.builder.page.msg.downloadFailed'));
       },
     });
   }
@@ -581,11 +583,11 @@ export class BuilderComponent implements OnInit, OnDestroy {
       ? this.vm.setOptionsFromText(target.tempId, this.pasteText)
       : this.vm.setLikertRowsFromText(target.tempId, this.pasteText);
     if (count === 0) {
-      this.announce('No se encontró ninguna línea con texto.');
+      this.announce(this.i18n.instant('forms.builder.page.msg.noLines'));
       return;
     }
     this.pasteTarget.set(null);
-    this.announce(`Se cargaron ${count} ${target.kind === 'options' ? 'opciones' : 'filas'}.`);
+    this.announce(this.i18n.instant(target.kind === 'options' ? 'forms.builder.page.msg.pastedOptions' : 'forms.builder.page.msg.pastedRows', { count }));
     this.focusWhenRendered(`paste-trigger-${target.kind}-${target.tempId}`);
   }
 
@@ -636,7 +638,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const needsSave = !this.vm.formId() || (this.vm.isDirty() && this.vm.canEditQuestions());
     if (needsSave) {
       if (!this.vm.isFormValid()) {
-        this.notify.error('Completa las preguntas marcadas antes de probar el formulario.');
+        this.notify.error(this.i18n.instant('forms.builder.page.msg.completeBeforeTest'));
         return;
       }
       this.openingTestRun.set(true);
@@ -648,7 +650,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     }
     const formId = this.vm.formId();
     if ((needsSave && this.vm.errorMessage()) || !formId) {
-      this.notify.error(this.vm.errorMessage() || 'No se pudo guardar el formulario para probarlo.');
+      this.notify.error(this.vm.errorMessage() || this.i18n.instant('forms.builder.page.msg.testSaveFailed'));
       return;
     }
     await this.router.navigate(['/prueba', formId]);
@@ -657,14 +659,14 @@ export class BuilderComponent implements OnInit, OnDestroy {
   async copyTestRunLink(): Promise<void> {
     const formId = this.vm.formId();
     if (!formId) {
-      this.notify.error('Guarda el formulario para obtener el enlace de prueba.');
+      this.notify.error(this.i18n.instant('forms.builder.page.msg.saveForTestLink'));
       return;
     }
     try {
       await navigator.clipboard.writeText(this.testRunUrl(formId));
-      this.notify.success('Enlace de prueba copiado. Quien lo abra inicia sesión y debe tener acceso al formulario; las respuestas no se guardan.');
+      this.notify.success(this.i18n.instant('forms.builder.page.msg.testLinkCopied'));
     } catch {
-      this.notify.error('No se pudo copiar el enlace.');
+      this.notify.error(this.i18n.instant('forms.builder.page.msg.copyFailed'));
     }
   }
 
@@ -676,7 +678,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
   setCurrentLocationAsZoneCenter(tempId: string): void {
     if (!('geolocation' in navigator)) {
-      this.notify.error('La geolocalización no está disponible en este navegador.');
+      this.notify.error(this.i18n.instant('forms.builder.page.msg.noGeolocation'));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -685,7 +687,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
         this.vm.updateQuestionProperty(tempId, 'target_lng', Number(pos.coords.longitude.toFixed(6)));
       },
       (err) => {
-        this.notify.error(`No se pudo obtener la ubicación actual: ${err.message}`);
+        this.notify.error(this.i18n.instant('forms.builder.page.msg.locationFailed', { reason: err.message }));
       }
     );
   }
@@ -782,7 +784,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
   openShareModal(): void {
     const formId = this.vm.formId();
     if (!formId) {
-      this.shareError = 'Guarda el formulario primero para poder compartirlo.';
+      this.shareError = this.i18n.instant('forms.builder.page.msg.saveToShare');
       return;
     }
     this.shareModalOpen = true;
@@ -806,12 +808,12 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
   roleLabel(role: string | null | undefined): string {
     const labels: Record<string, string> = {
-      SUPER_ADMIN: 'Super administrador',
-      ADMIN: 'Administrador',
-      PROJECT_LEADER: 'Lider de proyecto',
-      USER: 'Usuario',
-      EDITOR: 'Editor',
-      RECOLECTOR: 'Recolector',
+      SUPER_ADMIN: this.i18n.instant('audit.roles.SUPER_ADMIN'),
+      ADMIN: this.i18n.instant('audit.roles.ADMIN'),
+      PROJECT_LEADER: this.i18n.instant('audit.roles.PROJECT'),
+      USER: this.i18n.instant('forms.builder.page.msg.roleUser'),
+      EDITOR: this.i18n.instant('forms.builder.page.msg.roleEditor'),
+      RECOLECTOR: this.i18n.instant('audit.roles.RECOLECTOR'),
     };
 
     if (!role) {
@@ -848,7 +850,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
   submitShare(): void {
     const formId = this.vm.formId();
     if (!formId || !this.shareEmail.trim()) {
-      this.shareError = 'Ingresa un correo válido.';
+      this.shareError = this.i18n.instant('forms.builder.page.msg.invalidEmail');
       return;
     }
 
@@ -868,7 +870,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
         this.loadShares(formId);
       },
       error: (err) => {
-        this.shareError = err?.error?.message || 'No fue posible asignar el usuario.';
+        this.shareError = err?.error?.message || this.i18n.instant('forms.builder.page.msg.assignFailed');
         this.addingShare = false;
       },
     });
@@ -878,8 +880,8 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const formId = this.vm.formId();
     if (!formId) return;
     const accepted = await this.notify.confirm({
-      title: 'Retirar invitación',
-      message: '¿Retirar la invitación de este usuario? Dejará de ver este formulario.',
+      title: this.i18n.instant('forms.builder.page.msg.revokeTitle'),
+      message: this.i18n.instant('forms.builder.page.msg.revokeMessage'),
       confirmText: 'Retirar',
       tone: 'danger',
     });
@@ -887,7 +889,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
     this.formService.deleteShare(formId, shareId).subscribe({
       next: () => this.loadShares(formId),
-      error: () => { this.shareError = 'No fue posible retirar la invitación.'; },
+      error: () => { this.shareError = this.i18n.instant('forms.builder.page.msg.revokeFailed'); },
     });
   }
 
@@ -908,7 +910,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
 
     const value = this.editTargetValue;
     if (value !== null && (!Number.isInteger(value) || value < 1)) {
-      this.shareError = 'Ingrese un número válido mayor a 0.';
+      this.shareError = this.i18n.instant('forms.builder.page.msg.invalidTarget');
       return;
     }
 
@@ -920,7 +922,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
         this.loadShares(formId);
       },
       error: () => {
-        this.shareError = 'No fue posible actualizar el objetivo.';
+        this.shareError = this.i18n.instant('forms.builder.page.msg.targetFailed');
         this.savingTarget = false;
       },
     });

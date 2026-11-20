@@ -26,7 +26,7 @@ class LoginUseCase
 
         if (! $user || ! Hash::check($dto->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Las credenciales proporcionadas son incorrectas.'],
+                'email' => [__('Las credenciales proporcionadas son incorrectas.')],
             ]);
         }
 
@@ -34,13 +34,13 @@ class LoginUseCase
         // El SUPER_ADMIN conserva la contraseña como acceso de emergencia.
         if ($this->microsoft->enabled() && InstitutionalEmail::isInternal($user->email) && ! $user->isSuperAdmin()) {
             throw ValidationException::withMessages([
-                'email' => ['Las cuentas institucionales de ULEAM ingresan con «Iniciar sesión con Microsoft».'],
+                'email' => [__('Las cuentas institucionales de ULEAM ingresan con «Iniciar sesión con Microsoft».')],
             ]);
         }
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
-                'email' => ['Esta cuenta se encuentra desactivada. Contacte al administrador.'],
+                'email' => [__('Esta cuenta se encuentra desactivada. Contacte al administrador.')],
             ]);
         }
 

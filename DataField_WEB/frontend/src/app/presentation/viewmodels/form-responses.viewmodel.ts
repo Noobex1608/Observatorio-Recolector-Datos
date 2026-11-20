@@ -1,6 +1,6 @@
 import type { ResponseCorrection } from '@core/services/data-center.service';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Form, FormQuestion, FormService, FormShare } from '@core/services/form.service';
+import { Form, FormQuestion, FormService, FormShare, ResponseFilters } from '@core/services/form.service';
 import { PdfExportService } from '@core/services/pdf-export.service';
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -45,6 +45,14 @@ export class FormResponsesViewModel {
   nextResponsePage = signal<number | null>(null);
   isLoadingMore = signal(false);
 
+  /** Filtros elegidos en pantalla: fechas como AAAA-MM-DD y recolector (id o "public"). */
+  filters = signal<{ from: string; to: string; collector: string }>({ from: '', to: '', collector: '' });
+  isFiltering = signal(false);
+  hasActiveFilters = computed(() => {
+    const f = this.filters();
+    return !!(f.from || f.to || f.collector);
+  });
+
   totalResponses = computed(() => this.responseTotal());
   gpsPoints = computed<GpsResultPoint[]>(() => {
     const result: GpsResultPoint[] = [];
@@ -55,12 +63,19 @@ export class FormResponsesViewModel {
         const latitude = Number(raw.latitude ?? raw.lat);
         const longitude = Number(raw.longitude ?? raw.lng);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
-        result.push({ responseId: response.id, question: question.label, latitude, longitude,
-          accuracy: raw.accuracy != null && Number.isFinite(Number(raw.accuracy)) ? Number(raw.accuracy) : null });
+        result.push({ key: `${response.id}:${question.id}`, responseId: response.id, question: question.label, latitude, longitude,
+          accuracy: raw.accuracy != null && Number.isFinite(Number(raw.accuracy)) ? Number(raw.accuracy) : null,
+          submittedAt: response.submitted_at, collector: this.collectorLabel(response.user_id) });
       }
     }
     return result;
   });
+  /** Nombre de quien recolectó, según las asignaciones del formulario. */
+  collectorLabel(userId: number | string | null | undefined): string | null {
+    if (userId == null) return null;
+    const share = this.shares().find((item) => String(item.user_id) === String(userId) || String(item.user?.id) === String(userId));
+    return share ? share.user_name || share.user?.name || share.user_email || null : null;
+  }
   gpsZones = computed<GpsResultZone[]>(() => (this.form()?.project_zones ?? []) as GpsResultZone[]);
   numericSummaries = computed(() => this.questions().filter((question) => question.type === 'NUMBER').map((question) => {
     const values = this.responses().map((response) => response.rawAnswers[question.id])
@@ -123,10 +138,11 @@ export class FormResponsesViewModel {
     this.errorMessage.set('');
 
     try {
+      const filters = this.apiFilters();
       const [form, responseData, statsData, sharesData] = await Promise.all([
         firstValueFrom(this.formService.getForm(formId)),
-        firstValueFrom(this.formService.getResponses(formId)),
-        firstValueFrom(this.formService.getStats(formId)),
+        firstValueFrom(this.formService.getResponses(formId, 1, filters)),
+        firstValueFrom(this.formService.getStats(formId, filters)),
         firstValueFrom(this.formService.getShares(formId)),
       ]);
 
@@ -147,6 +163,41 @@ export class FormResponsesViewModel {
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  /** Aplica filtros nuevos: vuelve a pedir respuestas y estadísticas, sin recargar el formulario. */
+  async applyFilters(next: { from: string; to: string; collector: string }): Promise<void> {
+    const formId = this.formId();
+    this.filters.set(next);
+    if (!formId) return;
+    this.isFiltering.set(true);
+    this.errorMessage.set('');
+    try {
+      const filters = this.apiFilters();
+      const [responseData, statsData] = await Promise.all([
+        firstValueFrom(this.formService.getResponses(formId, 1, filters)),
+        firstValueFrom(this.formService.getStats(formId, filters)),
+      ]);
+      this.stats.set(statsData);
+      this.responses.set((responseData.responses ?? []).map((r: any) => this.toRow(r)));
+      this.responseTotal.set(responseData.pagination?.total ?? this.responses().length);
+      this.nextResponsePage.set(responseData.pagination && responseData.pagination.current_page < responseData.pagination.last_page
+        ? responseData.pagination.current_page + 1 : null);
+    } catch (error: any) {
+      this.errorMessage.set(error?.error?.message || this.translate.instant('forms.responses.page.errors.filters'));
+    } finally {
+      this.isFiltering.set(false);
+    }
+  }
+
+  /** Convierte los días elegidos (hora local) en límites ISO para el servidor. */
+  private apiFilters(): ResponseFilters {
+    const f = this.filters();
+    return {
+      from: f.from ? new Date(`${f.from}T00:00:00`).toISOString() : null,
+      to: f.to ? new Date(`${f.to}T23:59:59.999`).toISOString() : null,
+      collector: f.collector || null,
+    };
   }
 
   private toRow(r: any): FormResponseRow {
@@ -179,13 +230,13 @@ export class FormResponsesViewModel {
     if (!formId || !page || this.isLoadingMore()) return;
     this.isLoadingMore.set(true);
     try {
-      const data = await firstValueFrom(this.formService.getResponses(formId, page));
+      const data = await firstValueFrom(this.formService.getResponses(formId, page, this.apiFilters()));
       const rows: FormResponseRow[] = (data.responses ?? []).map((r: any) => this.toRow(r));
       this.responses.update((existing) => [...existing, ...rows]);
       this.nextResponsePage.set(data.pagination && data.pagination.current_page < data.pagination.last_page
         ? data.pagination.current_page + 1 : null);
     } catch (error: any) {
-      this.errorMessage.set(error?.error?.message || 'No se pudo cargar la siguiente página de respuestas.');
+      this.errorMessage.set(error?.error?.message || this.translate.instant('forms.responses.page.errors.loadMore'));
     } finally {
       this.isLoadingMore.set(false);
     }
@@ -209,7 +260,7 @@ export class FormResponsesViewModel {
       }
     } catch (error: any) {
       console.error('Error al generar PDF de resumen:', error);
-      this.errorMessage.set(error?.message || 'Error al generar el reporte en PDF');
+      this.errorMessage.set(error?.message || this.translate.instant('forms.responses.page.errors.pdf'));
     } finally {
       this.isExporting.set(false);
     }

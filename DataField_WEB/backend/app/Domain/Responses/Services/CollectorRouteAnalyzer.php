@@ -137,23 +137,23 @@ class CollectorRouteAnalyzer
     {
         $alerts = [];
         if (! $trace || ($trace['points'] ?? []) === []) {
-            $alerts[] = ['code' => 'sin_trazado', 'message' => 'Sin trazado GPS: solo se conoce el punto de la verificación zonal.'];
+            $alerts[] = ['code' => 'sin_trazado', 'message' => __('Sin trazado GPS: solo se conoce el punto de la verificación zonal.')];
         }
         if (($geofence['fuera_de_zona'] ?? false) === true) {
-            $alerts[] = ['code' => 'excepcion_zona', 'message' => 'El encuestador registró que estaba fuera de la zona.'];
+            $alerts[] = ['code' => 'excepcion_zona', 'message' => __('El encuestador registró que estaba fuera de la zona.')];
         } elseif ($summary['start_inside'] === false || $summary['end_inside'] === false) {
-            $alerts[] = ['code' => 'fuera_de_zona', 'message' => 'La encuesta empezó o terminó fuera de la zona asignada.'];
+            $alerts[] = ['code' => 'fuera_de_zona', 'message' => __('La encuesta empezó o terminó fuera de la zona asignada.')];
         } elseif ($summary['inside_ratio'] !== null && $summary['inside_ratio'] < 1) {
-            $alerts[] = ['code' => 'salio_de_zona', 'message' => 'Parte del recorrido de la encuesta quedó fuera de la zona.'];
+            $alerts[] = ['code' => 'salio_de_zona', 'message' => __('Parte del recorrido de la encuesta quedó fuera de la zona.')];
         }
         if ($summary['duration_seconds'] !== null && $summary['duration_seconds'] < self::MIN_DURATION_SECONDS) {
-            $alerts[] = ['code' => 'duracion_corta', 'message' => 'La encuesta duró menos de 2 minutos.'];
+            $alerts[] = ['code' => 'duracion_corta', 'message' => __('La encuesta duró menos de 2 minutos.')];
         }
         if ($summary['distance_meters'] > self::MAX_DISTANCE_METERS) {
             $alerts[] = ['code' => 'desplazamiento', 'message' => "Hay {$summary['distance_meters']} m entre los puntos de la encuesta (inicio, reanudaciones y fin)."];
         }
         if ($summary['average_accuracy'] !== null && $summary['average_accuracy'] > self::POOR_ACCURACY_METERS) {
-            $alerts[] = ['code' => 'gps_impreciso', 'message' => "Precisión GPS baja (±{$summary['average_accuracy']} m de promedio)."];
+            $alerts[] = ['code' => 'gps_impreciso', 'message' => __('Precisión GPS baja (±:average_accuracy m de promedio).', ['average_accuracy' => $summary['average_accuracy']])];
         }
 
         return $alerts;

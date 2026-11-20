@@ -236,9 +236,9 @@ export class FormDashboardViewModel {
 
   async deleteForm(form: Form): Promise<void> {
     const confirmed = await this.notify.confirm({
-      title: 'Eliminar formulario',
+      title: this.translate.instant('forms.dashboard.deleteTitle'),
       message: this.translate.instant('forms.dashboard.deletePermanentWarning', { title: form.title }),
-      confirmText: 'Eliminar definitivamente',
+      confirmText: this.translate.instant('dataCenter.purge'),
       tone: 'danger',
     });
 

@@ -185,9 +185,9 @@ export class UsuarioListComponent implements OnInit {
     if (requests.length === 0 || this.bulkBusy()) return;
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: requests.length === 1 ? 'Aprobar solicitud' : `Aprobar ${requests.length} solicitudes`,
-        message: `Tendrán acceso con estos roles: ${this.roleSummary(requests)}. Podrás cambiar el rol después desde la lista de usuarios.`,
-        confirmText: 'Aprobar',
+        title: requests.length === 1 ? this.translate.instant('users.page.msg.approveOne') : this.translate.instant('users.page.msg.approveMany', { count: requests.length }),
+        message: this.translate.instant('users.page.msg.approveMessage', { roles: this.roleSummary(requests) }),
+        confirmText: this.translate.instant('users.page.requests.approve'),
         cancelText: this.translate.instant('common.buttons.cancel'),
       },
     }).afterClosed().subscribe((confirmed) => {
@@ -201,7 +201,7 @@ export class UsuarioListComponent implements OnInit {
           this.loadUsers(this.currentPage());
         },
         error: (err) => {
-          this.notify.error(err.error?.message || 'No se pudieron aprobar las solicitudes.');
+          this.notify.error(err.error?.message || this.translate.instant('users.page.msg.approveManyFailed'));
           this.bulkBusy.set(false);
         },
       });
@@ -213,9 +213,9 @@ export class UsuarioListComponent implements OnInit {
     if (requests.length === 0 || this.bulkBusy()) return;
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: `Rechazar ${requests.length} solicitud${requests.length === 1 ? '' : 'es'}`,
-        message: 'No tendrán acceso. Podrás aprobarlas más tarde desde "Rechazadas".',
-        confirmText: 'Rechazar',
+        title: this.translate.instant(requests.length === 1 ? 'users.page.msg.rejectOneTitle' : 'users.page.msg.rejectManyTitle', { count: requests.length }),
+        message: this.translate.instant('users.page.msg.rejectManyMessage'),
+        confirmText: this.translate.instant('users.page.requests.reject'),
         cancelText: this.translate.instant('common.buttons.cancel'),
         confirmColor: 'warn',
       },
@@ -229,7 +229,7 @@ export class UsuarioListComponent implements OnInit {
           this.loadAccessRequests();
         },
         error: (err) => {
-          this.notify.error(err.error?.message || 'No se pudieron rechazar las solicitudes.');
+          this.notify.error(err.error?.message || this.translate.instant('users.page.msg.rejectManyFailed'));
           this.bulkBusy.set(false);
         },
       });
@@ -247,7 +247,7 @@ export class UsuarioListComponent implements OnInit {
         this.loadUsers(this.currentPage());
       },
       error: (err) => {
-        this.notify.error(err.error?.message || 'No se pudo aprobar la solicitud.');
+        this.notify.error(err.error?.message || this.translate.instant('users.page.msg.approveFailed'));
         this.busyRequest.set(null);
       },
     });
@@ -256,9 +256,9 @@ export class UsuarioListComponent implements OnInit {
   rejectRequest(request: AccessRequest): void {
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: 'Rechazar solicitud',
-        message: `${request.name} (${request.email}) no tendrá acceso. Podrás aprobarla más tarde desde "Rechazadas".`,
-        confirmText: 'Rechazar',
+        title: this.translate.instant('users.page.msg.rejectOneTitle'),
+        message: this.translate.instant('users.page.msg.rejectOneMessage', { name: request.name, email: request.email }),
+        confirmText: this.translate.instant('users.page.requests.reject'),
         cancelText: this.translate.instant('common.buttons.cancel'),
         confirmColor: 'warn',
       },
@@ -272,7 +272,7 @@ export class UsuarioListComponent implements OnInit {
           this.loadAccessRequests();
         },
         error: (err) => {
-          this.notify.error(err.error?.message || 'No se pudo rechazar la solicitud.');
+          this.notify.error(err.error?.message || this.translate.instant('users.page.msg.rejectFailed'));
           this.busyRequest.set(null);
         },
       });
@@ -283,9 +283,9 @@ export class UsuarioListComponent implements OnInit {
   unlinkMicrosoft(user: User): void {
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: 'Restablecer vinculación con Microsoft',
-        message: `${user.name} (${user.email}) quedará vinculado a la cuenta de Microsoft con la que entre la próxima vez. Úsalo si al entrar le aparece que el correo está vinculado a otra cuenta. Se cerrarán sus sesiones abiertas.`,
-        confirmText: 'Restablecer',
+        title: this.translate.instant('users.page.unlinkMicrosoft'),
+        message: this.translate.instant('users.page.msg.unlinkMessage', { name: user.name, email: user.email }),
+        confirmText: this.translate.instant('users.page.msg.unlinkConfirm'),
         cancelText: this.translate.instant('common.buttons.cancel'),
       },
     }).afterClosed().subscribe((confirmed) => {
@@ -295,7 +295,7 @@ export class UsuarioListComponent implements OnInit {
           this.notify.success(response.message);
           this.users.update((users) => users.map((item) => (item.id === user.id ? { ...item, microsoft_linked: false } : item)));
         },
-        error: (err) => this.notify.error(err.error?.message || 'No se pudo restablecer la vinculación.'),
+        error: (err) => this.notify.error(err.error?.message || this.translate.instant('users.page.msg.unlinkFailed')),
       });
     });
   }
@@ -309,9 +309,9 @@ export class UsuarioListComponent implements OnInit {
   restoreUser(user: User): void {
     this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: 'Restaurar usuario',
-        message: `${user.name} (${user.email}) volverá a la lista, activo y con el rol ${this.getRoleLabel(user.rol)} y sus asignaciones de antes.`,
-        confirmText: 'Restaurar',
+        title: this.translate.instant('users.page.msg.restoreTitle'),
+        message: this.translate.instant('users.page.msg.restoreMessage', { name: user.name, email: user.email, role: this.getRoleLabel(user.rol) }),
+        confirmText: this.translate.instant('users.page.restore'),
         cancelText: this.translate.instant('common.buttons.cancel'),
       },
     }).afterClosed().subscribe((confirmed) => {
@@ -324,7 +324,7 @@ export class UsuarioListComponent implements OnInit {
           this.loadUsers(this.currentPage());
         },
         error: (err) => {
-          this.notify.error(err.error?.message || 'No se pudo restaurar el usuario.');
+          this.notify.error(err.error?.message || this.translate.instant('users.page.msg.restoreFailed'));
           this.restoringUser.set(null);
         },
       });
@@ -442,7 +442,8 @@ export class UsuarioListComponent implements OnInit {
   }
 
   getRoleLabel(rol: string): string {
-    return ROLE_LABELS[rol as UserRole] ?? rol;
+    const key = ROLE_LABELS[rol as UserRole];
+    return key ? this.translate.instant(key) : rol;
   }
 
   readonly roleIcons: Record<UserRole, string> = {

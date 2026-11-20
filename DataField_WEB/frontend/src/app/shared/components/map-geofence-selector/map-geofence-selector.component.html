@@ -4,19 +4,19 @@
   <div class="geofence-header">
     <div class="inputs-group">
       <div class="input-field">
-        <label for="zoneNameInput">Nombre de la Zona / Delimitación</label>
+        <label for="zoneNameInput">{{ 'geofence.zoneName' | translate }}</label>
         <input
           id="zoneNameInput"
           type="text"
           [ngModel]="localZoneName()"
           (ngModelChange)="updateZoneName($event)"
           [disabled]="disabled()"
-          placeholder="Ej: Sector Censal 001 - ULEAM"
+          [placeholder]="'geofence.zoneNamePlaceholder' | translate"
         />
       </div>
 
       <div class="input-field search-field">
-        <label for="searchLocationInput">Buscar barrio, dirección o lugar</label>
+        <label for="searchLocationInput">{{ 'geofence.searchLabel' | translate }}</label>
         <div class="search-input-wrapper">
           <input
             id="searchLocationInput"
@@ -32,17 +32,17 @@
             (ngModelChange)="onSearchInput($event)"
             (keydown)="onSearchKeydown($event)"
             [disabled]="disabled()"
-            placeholder="Barrio, calle, lugar o coordenadas (-0.95, -80.74)"
+            [placeholder]="'geofence.searchPlaceholder' | translate"
           />
           @if (searchQuery()) {
-            <button type="button" class="btn-clear-search" aria-label="Limpiar búsqueda" (click)="clearSearch()">
+            <button type="button" class="btn-clear-search" [attr.aria-label]="'geofence.clearSearch' | translate" (click)="clearSearch()">
               <span class="material-icons" aria-hidden="true">close</span>
             </button>
           }
           <button
             type="button"
             class="btn-search"
-            (click)="searchLocation()" aria-label="Buscar dirección"
+            (click)="searchLocation()" [attr.aria-label]="'geofence.searchButton' | translate"
             [disabled]="disabled() || isSearching()"
           >
             @if (isSearching()) {
@@ -53,7 +53,7 @@
           </button>
 
         @if (searchResults().length > 0) {
-          <div class="search-results-dropdown" id="searchLocationList" role="listbox" aria-label="Lugares encontrados">
+          <div class="search-results-dropdown" id="searchLocationList" role="listbox" [attr.aria-label]="'geofence.results' | translate">
             @for (result of searchResults(); track $index) {
               <button
                 type="button"
@@ -80,20 +80,20 @@
 
         <div id="searchLocationHelp" class="search-status" aria-live="polite">
           @if (isSearching()) {
-            <span class="spinner-sm" aria-hidden="true"></span> {{ searchStatus() || 'Buscando…' }}
+            <span class="spinner-sm" aria-hidden="true"></span> {{ searchStatus() || ('geofence.searching' | translate) }}
           } @else if (searchError()) {
             <span class="search-error-text" role="alert">{{ searchError() }}</span>
           } @else if (searchQuery().trim().length >= 3 && !searchResults().length && searchQuery() !== pickedLabel()) {
-            <span class="search-hint">Sin sugerencias. Pulse Enter para una búsqueda más amplia.</span>
+            <span class="search-hint">{{ 'geofence.noSuggestions' | translate }}</span>
           }
         </div>
       </div>
 
       <div class="input-field radius-field" [class.disabled-field]="isManzanaGeofence()">
         <label for="radiusInput">
-          Radio (metros)
+          {{ 'geofence.radius' | translate }}
           @if (isManzanaGeofence()) {
-            <span class="mode-lock-badge"><span class="material-icons gf-icon" aria-hidden="true">lock</span> Bloqueado (Polígono Manzana)</span>
+            <span class="mode-lock-badge"><span class="material-icons gf-icon" aria-hidden="true">lock</span> {{ 'geofence.locked' | translate }}</span>
           }
         </label>
         <div class="slider-row">
@@ -109,7 +109,7 @@
           />
           <input
             type="range"
-            aria-label="Radio en metros"
+            [attr.aria-label]="'geofence.radiusLabel' | translate"
             min="50"
             max="3000"
             step="50"
@@ -123,9 +123,9 @@
               type="button"
               class="btn-unlock-radius"
               (click)="clearManzanaSelection()"
-              title="Borrar las manzanas elegidas y volver a Geocerca Circular"
+              [title]="'geofence.useCircleTitle' | translate"
             >
-              <span class="material-icons gf-icon" aria-hidden="true">lock_open</span> Usar Radio Circular
+              <span class="material-icons gf-icon" aria-hidden="true">lock_open</span> {{ 'geofence.useCircle' | translate }}
             </button>
           }
         </div>
@@ -137,9 +137,9 @@
           class="btn-location"
           (click)="useCurrentLocation()"
           [disabled]="disabled()"
-          title="Usar mi ubicación actual"
+          [title]="'geofence.myLocationTitle' | translate"
         >
-          <span class="material-icons gf-icon" aria-hidden="true">my_location</span> Mi Ubicación
+          <span class="material-icons gf-icon" aria-hidden="true">my_location</span> {{ 'geofence.myLocation' | translate }}
         </button>
       </div>
     </div>
@@ -147,14 +147,14 @@
     <!-- Filtro Cartográfico Guiado por el Mapa (3 Selectores Principales) -->
     <div class="cascade-controls-group">
       <div class="select-field">
-        <label for="provinciaSelect">1. Provincia</label>
+        <label for="provinciaSelect">{{ 'geofence.province' | translate }}</label>
         <select
           id="provinciaSelect"
           [ngModel]="selectedProvincia()"
           (ngModelChange)="onProvinciaChange($event)"
           [disabled]="disabled() || gisService.loading()"
         >
-          <option value="">-- Seleccionar Provincia --</option>
+          <option value="">{{ 'geofence.chooseProvince' | translate }}</option>
           @for (item of provinciasList(); track $index) {
             <option [value]="item.code">{{ item.name }}</option>
           }
@@ -162,14 +162,14 @@
       </div>
 
       <div class="select-field">
-        <label for="cantonSelect">2. Cantón</label>
+        <label for="cantonSelect">{{ 'geofence.canton' | translate }}</label>
         <select
           id="cantonSelect"
           [ngModel]="selectedCanton()"
           (ngModelChange)="onCantonChange($event)"
           [disabled]="disabled() || !selectedProvincia() || gisService.loading()"
         >
-          <option value="">-- Seleccionar Cantón --</option>
+          <option value="">{{ 'geofence.chooseCanton' | translate }}</option>
           @for (item of cantonesList(); track $index) {
             <option [value]="item.code">{{ item.name }}</option>
           }
@@ -177,14 +177,14 @@
       </div>
 
       <div class="select-field">
-        <label for="parroquiaSelect">3. Parroquia</label>
+        <label for="parroquiaSelect">{{ 'geofence.parish' | translate }}</label>
         <select
           id="parroquiaSelect"
           [ngModel]="selectedParroquia()"
           (ngModelChange)="onParroquiaChange($event)"
           [disabled]="disabled() || gisService.loading()"
         >
-          <option value="">-- Seleccionar Parroquia --</option>
+          <option value="">{{ 'geofence.chooseParish' | translate }}</option>
           @for (item of parroquiasList(); track $index) {
             <option [value]="item.code">{{ item.name }}</option>
           }
@@ -193,7 +193,7 @@
 
       @if (gisService.loading()) {
         <div class="gis-spinner">
-          <span class="material-icons gf-icon spinner-icon" aria-hidden="true">autorenew</span> Cargando GeoJSON...
+          <span class="material-icons gf-icon spinner-icon" aria-hidden="true">autorenew</span> {{ 'geofence.loadingGeojson' | translate }}
         </div>
       }
     </div>
@@ -202,12 +202,12 @@
     <div class="geofence-status-banner" [class.mode-manzana]="isManzanaGeofence()" [class.mode-rural]="isRuralZone()">
       <div class="banner-mode-tag">
         @if (isManzanaGeofence()) {
-          <span class="tag-polygon"><span class="material-icons gf-icon" aria-hidden="true">polyline</span> GEOFENCE POLÍGONO: {{ selectedManzanas().length }} {{ selectedManzanas().length === 1 ? 'MANZANA' : 'MANZANAS' }} (Radio: 0m)</span>
+          <span class="tag-polygon"><span class="material-icons gf-icon" aria-hidden="true">polyline</span> {{ (selectedManzanas().length === 1 ? 'geofence.polygonOne' : 'geofence.polygonMany') | translate: { count: selectedManzanas().length } }}</span>
         } @else {
-          <span class="tag-circular"><span class="material-icons gf-icon" aria-hidden="true">radar</span> GEOFENCE CIRCULAR (Radio: {{ localRadius() }}m)</span>
+          <span class="tag-circular"><span class="material-icons gf-icon" aria-hidden="true">radar</span> {{ 'geofence.circular' | translate: { radius: localRadius() } }}</span>
         }
         @if (isRuralZone()) {
-          <span class="tag-rural-badge"><span class="material-icons gf-icon" aria-hidden="true">agriculture</span> ZONA RURAL DISPERSA (999)</span>
+          <span class="tag-rural-badge"><span class="material-icons gf-icon" aria-hidden="true">agriculture</span> {{ 'geofence.rural' | translate }}</span>
         }
       </div>
       <div class="banner-info">
@@ -218,10 +218,10 @@
 
   <!-- Zoom Level & Layer Guide -->
   <div class="gis-zoom-indicator">
-    <span>Zoom actual: <strong>{{ currentZoom() }}</strong></span>
-    <span class="zoom-pill" [class.active]="currentZoom() < 14"><span class="layer-dot dot-parroquia" aria-hidden="true"></span> Parroquias (&lt;14)</span>
-    <span class="zoom-pill" [class.active]="currentZoom() >= 14 && currentZoom() < 16"><span class="layer-dot dot-sector" aria-hidden="true"></span> Sectores (14-15)</span>
-    <span class="zoom-pill" [class.active]="currentZoom() >= 16"><span class="layer-dot dot-manzana" aria-hidden="true"></span> Manzanas (&ge;16 - Clic para agregar o quitar)</span>
+    <span>{{ 'geofence.zoom' | translate }} <strong>{{ currentZoom() }}</strong></span>
+    <span class="zoom-pill" [class.active]="currentZoom() < 14"><span class="layer-dot dot-parroquia" aria-hidden="true"></span> {{ 'geofence.zoomParishes' | translate }}</span>
+    <span class="zoom-pill" [class.active]="currentZoom() >= 14 && currentZoom() < 16"><span class="layer-dot dot-sector" aria-hidden="true"></span> {{ 'geofence.zoomSectors' | translate }}</span>
+    <span class="zoom-pill" [class.active]="currentZoom() >= 16"><span class="layer-dot dot-manzana" aria-hidden="true"></span> {{ 'geofence.zoomBlocks' | translate }}</span>
   </div>
 
   <!-- Leaflet Map Container Canvas -->

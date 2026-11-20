@@ -28,7 +28,7 @@
               } @else if (avatarUrl()) {
                 <img
                   [src]="avatarUrl()"
-                  alt="Avatar"
+                  [alt]="'profile.avatarAlt' | translate"
                   class="avatar-image"
                   crossorigin="anonymous"
                 />
@@ -40,14 +40,14 @@
               <button
                 class="avatar-edit-btn"
                 type="button"
-                aria-label="Cambiar foto de perfil"
+                [attr.aria-label]="'profile.changePhoto' | translate"
                 (click)="triggerFileInput()"
                 [disabled]="uploadingAvatar()"
               >
                 <mat-icon>camera_alt</mat-icon>
               </button>
             </div>
-            <label for="avatar-file-input" class="visually-hidden">Subir foto de perfil</label>
+            <label for="avatar-file-input" class="visually-hidden">{{ 'profile.uploadPhoto' | translate }}</label>
             <input
               #fileInput
               id="avatar-file-input"

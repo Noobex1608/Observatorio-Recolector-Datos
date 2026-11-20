@@ -27,6 +27,10 @@ import { AnswerViewerComponent } from './shared/components/answer-viewer/answer-
 import { MainLayoutComponent } from './shared/components/layout/main-layout.component';
 import { MapGeofenceSelectorComponent } from './shared/components/map-geofence-selector/map-geofence-selector.component';
 import { environment } from '../environments/environment';
+import { provideSpanishTranslations } from './testing/spanish-translations';
+
+// Traducciones reales en español: las pruebas comprueban el texto que ve el usuario.
+beforeEach(() => TestBed.configureTestingModule({ providers: provideSpanishTranslations() }));
 
 const router = () => ({ navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true), createUrlTree: vi.fn((commands: string[]) => commands.join('/')) });
 const translate = { instant: (key: string) => key, get: (key: string) => of(key), onLangChange: of(), stream: (key: string) => of(key) };
@@ -129,7 +133,7 @@ describe('Login y cambio de contraseña', () => {
       takeReturnUrl: vi.fn(() => '/prueba/f1'),
     };
     const login = build(() => new LoginComponent(), [
-      { provide: Router, useValue: nav }, { provide: AuthService, useValue: auth }, { provide: TranslateService, useValue: translate },
+      { provide: Router, useValue: nav }, { provide: AuthService, useValue: auth },
     ]);
     login.form.setValue({ email: 'ana@uleam.edu.ec', password: 'secreta123', rememberMe: false });
 
@@ -146,7 +150,7 @@ describe('Login y cambio de contraseña', () => {
       providers: vi.fn(() => of({ microsoft: true, internal_domains: ['uleam.edu.ec', 'live.uleam.edu.ec'] })),
     };
     const login = build(() => new LoginComponent(), [
-      { provide: Router, useValue: router() }, { provide: AuthService, useValue: auth }, { provide: TranslateService, useValue: translate },
+      { provide: Router, useValue: router() }, { provide: AuthService, useValue: auth },
     ]);
 
     login.form.setValue({ email: 'estudiante@live.uleam.edu.ec', password: '', rememberMe: true });
@@ -178,7 +182,6 @@ describe('Formulario de usuario', () => {
       { provide: ActivatedRoute, useValue: { snapshot: { params } } },
       { provide: UserService, useValue: userService },
       { provide: NotificationService, useValue: notify },
-      { provide: TranslateService, useValue: translate },
     ]);
     component.ngOnInit();
     return { component, nav, notify };
@@ -191,7 +194,7 @@ describe('Formulario de usuario', () => {
     component.userForm.setValue(valid);
     component.onSubmit();
     expect(createUser).toHaveBeenCalled();
-    expect(notify.success).toHaveBeenCalledWith('users.messages.created');
+    expect(notify.success).toHaveBeenCalledWith('Usuario creado');
     expect(nav.navigate).toHaveBeenCalledWith(['/admin/usuarios']);
   });
 
@@ -215,7 +218,7 @@ describe('Formulario de usuario', () => {
     component.userForm.setValue(valid);
     component.onSubmit();
     expect(updateUser).toHaveBeenCalledWith(7, expect.objectContaining({ name: 'Ana' }));
-    expect(notify.error).toHaveBeenCalledWith('users.messages.updateError');
+    expect(notify.error).toHaveBeenCalledWith('Error al actualizar usuario');
   });
 });
 
@@ -319,7 +322,7 @@ describe('Componentes con mapa y portapapeles', () => {
   });
 
   it('el mapa de respuestas no se monta fuera del navegador', () => {
-    const map = new GpsResultsMapComponent('server' as unknown as object);
+    const map = new GpsResultsMapComponent('server' as unknown as object, {} as never);
     expect(() => map.ngAfterViewInit()).not.toThrow();
   });
 
@@ -365,7 +368,6 @@ describe('Componentes con mapa y portapapeles', () => {
         { provide: FormService, useValue: { getShares } },
         { provide: AuthService, useValue: {} },
         { provide: UserService, useValue: {} },
-        { provide: TranslateService, useValue: translate },
       ],
     });
     const vm = TestBed.inject(FormDashboardViewModel);

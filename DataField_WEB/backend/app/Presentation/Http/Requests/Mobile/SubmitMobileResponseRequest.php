@@ -64,7 +64,7 @@ class SubmitMobileResponseRequest extends FormRequest
             $form = $this->getForm();
 
             if (! $form) {
-                $v->errors()->add('form_id', 'Formulario no encontrado o inaccesible.');
+                $v->errors()->add('form_id', __('Formulario no encontrado o inaccesible.'));
 
                 return;
             }
@@ -72,7 +72,7 @@ class SubmitMobileResponseRequest extends FormRequest
             if ($form->state !== 'DEPLOYED'
                 || ($form->start_date && $form->start_date->format('Y-m-d') > now('America/Guayaquil')->toDateString())
                 || ($form->end_date && $form->end_date->format('Y-m-d') < now('America/Guayaquil')->toDateString())) {
-                $v->errors()->add('form_id', 'El formulario no se encuentra en estado implementado (DEPLOYED).');
+                $v->errors()->add('form_id', __('El formulario no se encuentra en estado implementado (DEPLOYED).'));
 
                 return;
             }
@@ -83,14 +83,14 @@ class SubmitMobileResponseRequest extends FormRequest
             }
 
             if (($form->require_consent ?? true) && ($data['_consentimiento_aceptado'] ?? null) !== true) {
-                $v->errors()->add('data._consentimiento_aceptado', 'Debe aceptarse el consentimiento informado antes de enviar la encuesta.');
+                $v->errors()->add('data._consentimiento_aceptado', __('Debe aceptarse el consentimiento informado antes de enviar la encuesta.'));
 
                 return;
             }
 
             $collector = $this->user()?->isUser();
             if ($collector && $form->zones()->exists() && ! array_key_exists('_project_geofence', $data)) {
-                $v->errors()->add('data._project_geofence', 'Indique la zona asignada antes de enviar la encuesta.');
+                $v->errors()->add('data._project_geofence', __('Indique la zona asignada antes de enviar la encuesta.'));
 
                 return;
             }
@@ -100,7 +100,7 @@ class SubmitMobileResponseRequest extends FormRequest
                 $zoneId = is_array($geofence) ? ($geofence['zone_id'] ?? null) : null;
                 $zone = is_string($zoneId) ? $form->zones()->whereKey($zoneId)->first() : null;
                 if ($collector && ! $zone) {
-                    $v->errors()->add('data._project_geofence.zone_id', 'El encuestador debe indicar una zona asignada del formulario.');
+                    $v->errors()->add('data._project_geofence.zone_id', __('El encuestador debe indicar una zona asignada del formulario.'));
 
                     return;
                 }
@@ -109,12 +109,12 @@ class SubmitMobileResponseRequest extends FormRequest
                     && is_string($geofence['justificacion'] ?? null)
                     && trim($geofence['justificacion']) !== '';
                 if (! $zone && ! $documentedException) {
-                    $v->errors()->add('data._project_geofence.zone_id', 'La zona indicada no pertenece al formulario.');
+                    $v->errors()->add('data._project_geofence.zone_id', __('La zona indicada no pertenece al formulario.'));
 
                     return;
                 }
                 if (! $zone && $zoneId !== null) {
-                    $v->errors()->add('data._project_geofence.zone_id', 'La zona indicada no pertenece al formulario.');
+                    $v->errors()->add('data._project_geofence.zone_id', __('La zona indicada no pertenece al formulario.'));
 
                     return;
                 }
@@ -125,7 +125,7 @@ class SubmitMobileResponseRequest extends FormRequest
                         || ! is_finite((float) $latitude) || ! is_finite((float) $longitude)
                         || abs((float) $latitude) > 90 || abs((float) $longitude) > 180
                         || ! app(ProjectGeofenceVerifier::class)->contains($zone, (float) $latitude, (float) $longitude)) {
-                        $v->errors()->add('data._project_geofence', 'La ubicación no coincide con la zona; registre una excepción justificada para continuar.');
+                        $v->errors()->add('data._project_geofence', __('La ubicación no coincide con la zona; registre una excepción justificada para continuar.'));
 
                         return;
                     }
@@ -135,7 +135,7 @@ class SubmitMobileResponseRequest extends FormRequest
                     && ! ($zone
                         ? $zone->assignedUsers()->where('users.id', $this->user()->id)->exists()
                         : $form->zones()->whereHas('assignedUsers', fn ($query) => $query->where('users.id', $this->user()->id))->exists())) {
-                    $v->errors()->add('data._project_geofence.zone_id', 'El encuestador no está asignado a esta zona.');
+                    $v->errors()->add('data._project_geofence.zone_id', __('El encuestador no está asignado a esta zona.'));
 
                     return;
                 }

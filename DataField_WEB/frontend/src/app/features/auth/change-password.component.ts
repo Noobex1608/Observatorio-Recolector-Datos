@@ -3,21 +3,22 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 @Component({
   standalone: true,
   selector: 'app-change-password',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslateModule],
   template: `
     <main class="password-page">
       <form [formGroup]="form" (ngSubmit)="submit()">
-        <h1>Cambia tu contraseña temporal</h1>
-        <p>Para continuar, crea una contraseña personal de al menos 12 caracteres con mayúsculas, minúsculas y números.</p>
-        <label>Contraseña temporal<input type="password" formControlName="current" autocomplete="current-password" /></label>
-        <label>Nueva contraseña<input type="password" formControlName="password" autocomplete="new-password" /></label>
-        <label>Confirmar contraseña<input type="password" formControlName="confirmation" autocomplete="new-password" /></label>
+        <h1>{{ 'auth.changePassword.title' | translate }}</h1>
+        <p>{{ 'auth.changePassword.intro' | translate }}</p>
+        <label>{{ 'auth.changePassword.current' | translate }}<input type="password" formControlName="current" autocomplete="current-password" /></label>
+        <label>{{ 'auth.passwords.new' | translate }}<input type="password" formControlName="password" autocomplete="new-password" /></label>
+        <label>{{ 'auth.passwords.confirm' | translate }}<input type="password" formControlName="confirmation" autocomplete="new-password" /></label>
         @if (error()) { <p class="error">{{ error() }}</p> }
-        <button type="submit" [disabled]="form.invalid || busy()">Guardar contraseña</button>
+        <button type="submit" [disabled]="form.invalid || busy()">{{ 'auth.changePassword.save' | translate }}</button>
       </form>
     </main>
   `,
@@ -34,6 +35,7 @@ export class ChangePasswordComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(TranslateService);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly form = this.fb.nonNullable.group({
@@ -45,11 +47,11 @@ export class ChangePasswordComponent {
   submit(): void {
     if (!this.auth.isAuthenticated()) { void this.router.navigate(['/auth/login']); return; }
     const { current, password, confirmation } = this.form.getRawValue();
-    if (password !== confirmation) { this.error.set('Las contraseñas no coinciden.'); return; }
+    if (password !== confirmation) { this.error.set(this.i18n.instant('auth.passwords.mismatch')); return; }
     this.busy.set(true);
     this.auth.changePassword(current, password).subscribe({
       next: () => this.router.navigateByUrl(this.auth.takeReturnUrl()),
-      error: (error) => { this.busy.set(false); this.error.set(error?.error?.message || 'No se pudo actualizar la contraseña.'); },
+      error: (error) => { this.busy.set(false); this.error.set(error?.error?.message || this.i18n.instant('auth.changePassword.failed')); },
     });
   }
 }

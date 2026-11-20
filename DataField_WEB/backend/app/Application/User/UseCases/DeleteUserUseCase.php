@@ -25,23 +25,23 @@ class DeleteUserUseCase
             $admin = User::findOrFail($adminId);
 
             if (! $admin->isSuperAdmin()) {
-                throw new AccessDeniedHttpException('Solo el super admin puede eliminar usuarios');
+                throw new AccessDeniedHttpException(__('Solo el super admin puede eliminar usuarios'));
             }
 
             // No permitir auto-eliminación
             if ($userId === $adminId) {
-                throw new BadRequestHttpException('No puedes eliminarte a ti mismo');
+                throw new BadRequestHttpException(__('No puedes eliminarte a ti mismo'));
             }
 
             // Buscar el usuario a eliminar
             $user = User::find($userId);
 
             if (! $user) {
-                throw new NotFoundHttpException('Usuario no encontrado');
+                throw new NotFoundHttpException(__('Usuario no encontrado'));
             }
 
             if (! $admin->canManageRole($user->rol)) {
-                throw new AccessDeniedHttpException('Solo el super admin puede eliminar administradores');
+                throw new AccessDeniedHttpException(__('Solo el super admin puede eliminar administradores'));
             }
 
             app(ProtectAdministrator::class)->check($user, $adminId, $user->rol, false, true);
@@ -53,10 +53,10 @@ class DeleteUserUseCase
             $user->delete();
 
             AuditLogService::log($admin, 'DELETE_USER', 'usuarios',
-                "Eliminó la cuenta del usuario {$user->email}.", [
+                'Eliminó la cuenta del usuario :email.', [
                     'target_user_id' => $user->id,
                     'target_role' => $user->rol,
-                ]);
+                ], params: ['email' => $user->email]);
 
             return true;
         });

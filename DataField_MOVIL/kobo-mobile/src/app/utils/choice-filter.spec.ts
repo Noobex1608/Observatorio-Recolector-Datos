@@ -37,3 +37,14 @@ describe('opciones en cascada', () => {
     expect(pruneCascadeAnswers(questions, { ...answers, prov: 'Manabí' })).toEqual({ ...answers, prov: 'Manabí' });
   });
 });
+
+describe('subpregunta «mostrar solo si se elige…» (PWA)', () => {
+  it('lee la condición y la compara con opción única o múltiple', async () => {
+    const { showIfOf, showIfMatches } = await import('./choice-filter');
+    expect(showIfOf({ show_if: { options: ['Otro'] } })).toEqual(['Otro']);
+    expect(showIfOf({ show_if: {} })).toBeNull();
+    expect(showIfMatches(['Otro'], ['Policía', 'Otro'])).toBe(true);
+    expect(showIfMatches(['Otro'], ['Policía'])).toBe(false);
+    expect(showIfMatches(['Otro'], 'Otro')).toBe(true);
+  });
+});

@@ -28,7 +28,7 @@ class CreateUserUseCase
             $admin = User::findOrFail($dto->adminId);
 
             if (! $admin->canManageUsers()) {
-                throw new AccessDeniedHttpException('Solo los administradores pueden crear usuarios');
+                throw new AccessDeniedHttpException(__('Solo los administradores pueden crear usuarios'));
             }
 
             // El correo puede pertenecer a una cuenta eliminada (borrado lógico): en ese caso se reutiliza
@@ -36,17 +36,17 @@ class CreateUserUseCase
             $existing = User::withTrashed()->whereRaw('LOWER(email) = ?', [strtolower(trim($dto->email))])->first();
             if ($existing && ! $existing->trashed()) {
                 throw new ConflictHttpException($existing->hasAccessRequest()
-                    ? 'Este correo tiene una solicitud de acceso: apruébala desde la bandeja de solicitudes.'
-                    : 'El email ya está registrado');
+                    ? __('Este correo tiene una solicitud de acceso: apruébala desde la bandeja de solicitudes.')
+                    : __('El email ya está registrado'));
             }
 
             // Validar rol
             if (! in_array($dto->rol, User::ROLES, true)) {
-                throw new \InvalidArgumentException('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR');
+                throw new \InvalidArgumentException(__('Rol inválido. Los roles permitidos son: SUPER_ADMIN, ADMIN, PROJECT, RECOLECTOR, SUPERVISOR'));
             }
 
             if (! $admin->canManageRole($dto->rol)) {
-                throw new AccessDeniedHttpException('No tienes permisos para crear usuarios con ese rol');
+                throw new AccessDeniedHttpException(__('No tienes permisos para crear usuarios con ese rol'));
             }
             \App\Application\Auth\Services\InstitutionalEmail::assertRoleAllowed($dto->email, $dto->rol);
 
@@ -56,7 +56,7 @@ class CreateUserUseCase
             $withoutPassword = $external || $this->invitations->usesMicrosoft($dto->email);
             if (! $withoutPassword && ($dto->password === null || $dto->password === '')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'password' => ['Indica una contraseña: el inicio de sesión con Microsoft no está configurado.'],
+                    'password' => [__('Indica una contraseña: el inicio de sesión con Microsoft no está configurado.')],
                 ]);
             }
 

@@ -557,6 +557,7 @@
       } @else {
         <!-- Modo Lista Continua -->
         @for (q of formulario.questions; track trackByQuestionId($index, q)) {
+          @if (subpreguntaVisible(q)) {
           <div class="pregunta-box">
             @if (q.type !== 'NOTE') {
               <span class="pregunta-label" [id]="'pregunta-' + q.id">
@@ -639,6 +640,7 @@
               <app-question-barcode [question]="q" [value]="respuestas[q.id]" (valueChange)="onBarcodeChange(q.id, $event)"></app-question-barcode>
             }
           </div>
+          }
         }
 
         <!-- Dock Bar Inferior Fijo para Lista Continua -->

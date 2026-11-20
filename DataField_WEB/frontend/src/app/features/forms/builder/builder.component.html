@@ -22,7 +22,7 @@
       @if (vm.isEditMode() && vm.state() !== 'DEPLOYED' && !vm.instrumentLocked() && !vm.editingUnlocked()) {
         <button class="btn btn-secondary" type="button" (click)="vm.editingUnlocked.set(true)">
           <span class="material-icons" aria-hidden="true">edit</span>
-          Editar formulario
+          {{ 'forms.builder.page.editForm' | translate }}
         </button>
       }
       <button
@@ -37,7 +37,7 @@
       @if (vm.isEditMode() && canDelimitAfterSave()) {
         <label class="toggle-row">
           <input type="checkbox" [checked]="delimitNow()" (change)="delimitNow.set($any($event.target).checked)" />
-          Abrir delimitación zonal al guardar (requiere ficha técnica validada)
+          {{ 'forms.builder.page.delimitOnSave' | translate }}
         </label>
       }
     </div>
@@ -53,8 +53,8 @@
 
   @if (vm.instrumentLocked()) {
     <div class="alert alert-warning">
-      Este instrumento ya fue publicado. Para cambiar preguntas o consentimiento, use «Duplicar» en Mis formularios.
-      La copia conservará el formulario original y sus respuestas. Las fechas de cada formulario se gestionan en la pestaña Ficha Técnica del proyecto.
+      {{ 'forms.builder.page.lockedLine1' | translate }}
+      {{ 'forms.builder.page.lockedLine2' | translate }}
     </div>
   }
 
@@ -135,15 +135,15 @@
           </label>
 
           <label class="field">
-            <span>Texto obligatorio del consentimiento informado</span>
+            <span>{{ 'forms.builder.page.consentLabel' | translate }}</span>
             <textarea rows="3" [ngModel]="vm.consentText()" (ngModelChange)="vm.updateConsentText($event)"
               [disabled]="vm.isSaving() || !vm.canEditQuestions()" required
-              placeholder="Texto del consentimiento informado a presentar al inicio de la encuesta..."></textarea>
+              [placeholder]="'forms.builder.page.consentPlaceholder' | translate"></textarea>
           </label>
 
           <div class="date-fields-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 1rem; margin-top: 0.5rem;">
             <label class="field">
-              <span>Fecha de inicio de recolección</span>
+              <span>{{ 'forms.builder.page.collectionStart' | translate }}</span>
               <input
                 type="date"
                 [ngModel]="vm.startDate()"
@@ -153,7 +153,7 @@
             </label>
 
             <label class="field">
-              <span>Fecha de fin de recolección</span>
+              <span>{{ 'forms.builder.page.collectionEnd' | translate }}</span>
               <input
                 type="date"
                 [ngModel]="vm.endDate()"
@@ -171,7 +171,7 @@
               <p>
                 {{ 'forms.builder.questionCount' | translate: { count: vm.questionsCount() } }}
                 @if (vm.incompleteQuestionIds().size > 0) {
-                  · <span class="incomplete-text">{{ vm.incompleteQuestionIds().size }} incompleta(s)</span>
+                  · <span class="incomplete-text">{{ 'forms.builder.page.incomplete' | translate: { count: vm.incompleteQuestionIds().size } }}</span>
                 }
               </p>
             </div>
@@ -179,7 +179,7 @@
             <div class="palette-actions">
               @if (vm.sections().length > 0) {
                 <label class="palette-target">
-                  <span>Agregar en</span>
+                  <span>{{ 'forms.builder.page.addIn' | translate }}</span>
                   <select
                     [ngModel]="paletteTargetSection()"
                     (ngModelChange)="paletteSection.set($event)"
@@ -214,7 +214,7 @@
             </div>
           </div>
 
-          <div class="excel-actions" role="group" aria-label="Cuestionario en Excel">
+          <div class="excel-actions" role="group" [attr.aria-label]="'forms.builder.page.excelGroup' | translate">
             <input
               #importFile
               class="visually-hidden"
@@ -222,7 +222,7 @@
               accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               tabindex="-1"
               aria-hidden="true"
-              aria-label="Archivo de Excel a importar"
+              [attr.aria-label]="'forms.builder.page.excelFile' | translate"
               (change)="onImportFile($event)"
             />
             <button
@@ -233,56 +233,56 @@
               [disabled]="importBusy() || vm.isSaving() || !vm.canEditQuestions()"
             >
               <span class="material-icons" aria-hidden="true">upload_file</span>
-              {{ importBusy() ? 'Revisando archivo…' : 'Importar desde Excel' }}
+              {{ importBusy() ? ('forms.builder.page.checkingFile' | translate) : ('forms.builder.page.importExcel' | translate) }}
             </button>
             <button class="text-button" type="button" (click)="downloadTemplate()" [disabled]="excelBusy()">
               <span class="material-icons" aria-hidden="true">description</span>
-              Descargar plantilla
+              {{ 'forms.builder.page.downloadTemplate' | translate }}
             </button>
             @if (vm.formId()) {
               <button class="text-button" type="button" (click)="exportInstrument()" [disabled]="excelBusy() || vm.isDirty()"
                 [attr.aria-describedby]="vm.isDirty() ? 'export-dirty-hint' : null">
                 <span class="material-icons" aria-hidden="true">download</span>
-                Exportar a Excel
+                {{ 'forms.builder.page.exportExcel' | translate }}
               </button>
             }
             <details class="kobo-menu">
               <summary class="text-button">
                 <span class="material-icons" aria-hidden="true">swap_horiz</span>
-                Formato Kobo (XLSForm)
+                {{ 'forms.builder.page.koboFormat' | translate }}
               </summary>
               <div class="kobo-menu-panel">
-                <p class="field-hint">Para quien ya trabaja con KoboToolbox u ODK. «Importar desde Excel» reconoce ambos formatos.</p>
+                <p class="field-hint">{{ 'forms.builder.page.koboHint' | translate }}</p>
                 <button class="text-button" type="button" (click)="downloadTemplate('xlsform')" [disabled]="excelBusy()">
                   <span class="material-icons" aria-hidden="true">description</span>
-                  Plantilla XLSForm
+                  {{ 'forms.builder.page.xlsformTemplate' | translate }}
                 </button>
                 @if (vm.formId()) {
                   <button class="text-button" type="button" (click)="exportInstrument('xlsform')" [disabled]="excelBusy() || vm.isDirty()">
                     <span class="material-icons" aria-hidden="true">download</span>
-                    Exportar como XLSForm
+                    {{ 'forms.builder.page.exportXlsform' | translate }}
                   </button>
                 }
               </div>
             </details>
             @if (vm.formId() && vm.isDirty()) {
-              <span id="export-dirty-hint" class="field-hint-inline">Guarda los cambios para exportar la versión actual.</span>
+              <span id="export-dirty-hint" class="field-hint-inline">{{ 'forms.builder.page.saveToExport' | translate }}</span>
             }
           </div>
 
           @if (vm.questions().length > 0 || vm.sections().length > 0) {
             <div class="palette-tools">
-              <nav class="section-index" aria-label="Ir a una sección">
+              <nav class="section-index" [attr.aria-label]="'forms.builder.page.sectionIndex' | translate">
                 <ol>
                   @for (section of vm.sections(); track section.tempId; let i = $index) {
                     <li>
                       <button type="button" class="index-chip" (click)="goToSection(section.tempId)">
                         <span class="index-number">{{ i + 1 }}</span>
                         <span class="index-title">{{ section.title || ('forms.builder.untitledSection' | translate) }}</span>
-                        <span class="index-count">{{ vm.getSectionQuestionCount(section.tempId) }}<span class="visually-hidden"> preguntas</span></span>
+                        <span class="index-count">{{ vm.getSectionQuestionCount(section.tempId) }}<span class="visually-hidden"> {{ 'forms.builder.page.questionsWord' | translate }}</span></span>
                         @if (sectionIncompleteCount(section.tempId) > 0) {
                           <span class="material-icons index-warning" aria-hidden="true">error</span>
-                          <span class="visually-hidden">, {{ sectionIncompleteCount(section.tempId) }} incompleta(s)</span>
+                          <span class="visually-hidden">, {{ 'forms.builder.page.incomplete' | translate: { count: sectionIncompleteCount(section.tempId) } }}</span>
                         }
                       </button>
                     </li>
@@ -291,7 +291,7 @@
                     <li>
                       <button type="button" class="index-chip index-chip--unassigned" (click)="goToSection(null)">
                         <span class="index-title">{{ 'forms.builder.unassignedSection' | translate }}</span>
-                        <span class="index-count">{{ vm.getSectionQuestionCount(null) }}<span class="visually-hidden"> preguntas</span></span>
+                        <span class="index-count">{{ vm.getSectionQuestionCount(null) }}<span class="visually-hidden"> {{ 'forms.builder.page.questionsWord' | translate }}</span></span>
                       </button>
                     </li>
                   }
@@ -300,18 +300,18 @@
               <div class="view-actions">
                 <button class="text-button" type="button" (click)="expandAll()">
                   <span class="material-icons" aria-hidden="true">unfold_more</span>
-                  Abrir todas
+                  {{ 'forms.builder.page.expandAll' | translate }}
                 </button>
                 <button class="text-button" type="button" (click)="collapseAll()">
                   <span class="material-icons" aria-hidden="true">unfold_less</span>
-                  Contraer todas
+                  {{ 'forms.builder.page.collapseAll' | translate }}
                 </button>
               </div>
             </div>
           }
         </section>
 
-        <section class="questions-section" aria-label="Preguntas del formulario">
+        <section class="questions-section" [attr.aria-label]="'forms.builder.page.questionsLabel' | translate">
           <div class="section-actions">
             <button
               class="text-button"
@@ -360,7 +360,7 @@
                   <span class="section-count">
                     {{ vm.getSectionQuestionCount(section.tempId) }} {{ 'forms.builder.sectionQuestionCount' | translate: { count: vm.getSectionQuestionCount(section.tempId) } }}
                     @if (sectionIncompleteCount(section.tempId) > 0) {
-                      · <span class="incomplete-text">{{ sectionIncompleteCount(section.tempId) }} incompleta(s)</span>
+                      · <span class="incomplete-text">{{ 'forms.builder.page.incomplete' | translate: { count: sectionIncompleteCount(section.tempId) } }}</span>
                     }
                   </span>
                 </div>
@@ -369,8 +369,8 @@
                     class="icon-button"
                     type="button"
                     [id]="'section-move-up-' + section.tempId"
-                    [attr.aria-label]="'Subir la sección ' + (sectionIndex + 1)"
-                    title="Subir sección"
+                    [attr.aria-label]="'forms.builder.page.sectionUpN' | translate: { n: sectionIndex + 1 }"
+                    [title]="'forms.builder.page.sectionUp' | translate"
                     (click)="moveSection(section.tempId, -1)"
                     [disabled]="firstSection || vm.isSaving() || !vm.canEditQuestions()"
                   >
@@ -380,8 +380,8 @@
                     class="icon-button"
                     type="button"
                     [id]="'section-move-down-' + section.tempId"
-                    [attr.aria-label]="'Bajar la sección ' + (sectionIndex + 1)"
-                    title="Bajar sección"
+                    [attr.aria-label]="'forms.builder.page.sectionDownN' | translate: { n: sectionIndex + 1 }"
+                    [title]="'forms.builder.page.sectionDown' | translate"
                     (click)="moveSection(section.tempId, 1)"
                     [disabled]="lastSection || vm.isSaving() || !vm.canEditQuestions()"
                   >
@@ -432,7 +432,7 @@
                   <span class="section-count">
                     {{ vm.getSectionQuestionCount(null) }} {{ 'forms.builder.sectionQuestionCount' | translate: { count: vm.getSectionQuestionCount(null) } }}
                     @if (sectionIncompleteCount(null) > 0) {
-                      · <span class="incomplete-text">{{ sectionIncompleteCount(null) }} incompleta(s)</span>
+                      · <span class="incomplete-text">{{ 'forms.builder.page.incomplete' | translate: { count: sectionIncompleteCount(null) } }}</span>
                     }
                   </span>
                 </div>
@@ -460,7 +460,7 @@
               <span class="material-icons" aria-hidden="true">undo</span>
               Deshacer
             </button>
-            <button class="icon-button" type="button" aria-label="Cerrar aviso" (click)="vm.dismissUndo()">
+            <button class="icon-button" type="button" [attr.aria-label]="'forms.builder.page.dismissNotice' | translate" (click)="vm.dismissUndo()">
               <span class="material-icons" aria-hidden="true">close</span>
             </button>
           </div>
@@ -480,7 +480,7 @@
               [disabled]="vm.isSaving() || !vm.canEditQuestions()"
             >
               <span class="material-icons" aria-hidden="true">add_circle_outline</span>
-              Agregar pregunta en esta sección
+              {{ 'forms.builder.page.addQuestionHere' | translate }}
             </button>
             @if (openAddMenu() === key) {
               <ng-container *ngTemplateOutlet="addMenu; context: { $implicit: key }"></ng-container>
@@ -493,7 +493,7 @@
             class="question-menu-panel"
             role="group"
             [id]="'add-menu-' + key"
-            aria-label="Tipos de pregunta"
+            [attr.aria-label]="'forms.builder.page.questionTypes' | translate"
             (keydown.escape)="closeAddMenu()"
           >
             @for (type of questionTypes; track type.value; let first = $first) {
@@ -511,7 +511,7 @@
                 </span>
               </button>
             }
-            <p class="question-menu-group">Datos con validación</p>
+            <p class="question-menu-group">{{ 'forms.builder.page.validatedData' | translate }}</p>
             @for (format of textFormats; track format.value) {
               <button
                 class="question-menu-item"
@@ -521,14 +521,14 @@
               >
                 <span class="material-icons" aria-hidden="true">{{ format.icon }}</span>
                 <span>
-                  <strong>{{ format.defaultLabel }}</strong>
-                  <small>{{ format.hint }}</small>
+                  <strong>{{ format.label | translate }}</strong>
+                  <small>{{ format.hint | translate }}</small>
                 </span>
               </button>
             }
             <button class="question-menu-close text-button" type="button" (click)="closeAddMenu()">
               <span class="material-icons" aria-hidden="true">close</span>
-              Cerrar
+              {{ 'common.buttons.close' | translate }}
             </button>
           </div>
         </ng-template>
@@ -546,14 +546,14 @@
               ></textarea>
             </label>
             <p class="field-hint" [id]="'paste-help-' + question.tempId">
-              Reemplaza {{ kind === 'options' ? 'las opciones actuales' : 'las filas actuales' }}. Se ignoran las líneas vacías y las viñetas o numeración al inicio (-, •, 1., 1)).
+              {{ (kind === 'options' ? 'forms.builder.page.pasteHintOptions' : 'forms.builder.page.pasteHintRows') | translate }}
             </p>
             <div class="paste-actions">
               <button class="btn btn-primary" type="button" (click)="applyPaste()">
                 <span class="material-icons" aria-hidden="true">check</span>
                 Reemplazar
               </button>
-              <button class="btn btn-secondary" type="button" (click)="cancelPaste()">Cancelar</button>
+              <button class="btn btn-secondary" type="button" (click)="cancelPaste()">{{ 'common.buttons.cancel' | translate }}</button>
             </div>
           </div>
         </ng-template>
@@ -607,8 +607,8 @@
                   aria-haspopup="true"
                   [attr.aria-expanded]="openAddMenu() === 'after:' + question.tempId"
                   [attr.aria-controls]="'add-menu-after:' + question.tempId"
-                  [attr.aria-label]="'Insertar una pregunta debajo de la ' + entry.displayNumber"
-                  title="Insertar pregunta debajo"
+                  [attr.aria-label]="'forms.builder.page.insertBelowN' | translate: { n: entry.displayNumber }"
+                  [title]="'forms.builder.page.insertBelow' | translate"
                   (click)="toggleAddMenu('after:' + question.tempId)"
                   [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                 >
@@ -617,8 +617,8 @@
                 <button
                   class="icon-button"
                   type="button"
-                  [attr.aria-label]="'Duplicar la pregunta ' + entry.displayNumber"
-                  title="Duplicar pregunta"
+                  [attr.aria-label]="'forms.builder.page.duplicateN' | translate: { n: entry.displayNumber }"
+                  [title]="'forms.builder.page.duplicateQuestion' | translate"
                   (click)="duplicateQuestion(question.tempId)"
                   [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                 >
@@ -688,7 +688,7 @@
             @if (expanded) {
               <div class="question-card-body" [id]="'q-body-' + question.tempId">
                 <label class="field">
-                  <span>{{ 'forms.builder.sectionLabel' | translate }} <small class="field-hint-inline">(al cambiarla, la pregunta pasa al final de esa sección)</small></span>
+                  <span>{{ 'forms.builder.sectionLabel' | translate }} <small class="field-hint-inline">{{ 'forms.builder.page.sectionMoveHint' | translate }}</small></span>
                   <select
                     [ngModel]="question.sectionTempId"
                     (ngModelChange)="vm.assignQuestionToSection(question.tempId, $event)"
@@ -713,6 +713,29 @@
                     }
                   </select>
                 </label>
+
+                <!-- Subpregunta de una pregunta de opciones: puede mostrarse solo con ciertas respuestas (ej. «Otro»). -->
+                @if (vm.showIfParent(question); as parent) {
+                  <fieldset class="show-if-builder">
+                    <legend>{{ 'forms.builder.page.showIf.title' | translate }}</legend>
+                    <p class="show-if-help">
+                      {{ 'forms.builder.page.showIf.line1' | translate: { parent: parent.label || ('forms.builder.page.showIf.previous' | translate) } }}
+                      {{ 'forms.builder.page.showIf.line2' | translate }}
+                    </p>
+                    <div class="show-if-options">
+                      @for (option of vm.showIfParentOptions(question); track option) {
+                        <label class="show-if-option">
+                          <input type="checkbox" [checked]="vm.showIfSelected(question, option)"
+                            (change)="vm.toggleShowIf(question.tempId, option, $any($event.target).checked)"
+                            [disabled]="vm.isSaving() || !vm.canEditQuestions()" />
+                          <span>{{ option }}</span>
+                        </label>
+                      } @empty {
+                        <p class="show-if-help">{{ 'forms.builder.page.showIf.noOptions' | translate }}</p>
+                      }
+                    </div>
+                  </fieldset>
+                }
 
                 <label class="field">
                   <span>
@@ -741,7 +764,7 @@
                         [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                       >
                         <span class="material-icons" aria-hidden="true">content_paste</span>
-                        Pegar lista
+                        {{ 'forms.builder.page.pasteList' | translate }}
                       </button>
                       <button
                         class="text-button"
@@ -872,7 +895,7 @@
 
                             @if (vm.getBranchRuleAction(question, optionIndex) === 'GO_TO') {
                               <select
-                                aria-label="Pregunta de destino"
+                                [attr.aria-label]="'forms.builder.page.targetQuestion' | translate"
                                 [ngModel]="vm.getBranchRuleValue(question, optionIndex)"
                                 (ngModelChange)="vm.updateBranchTarget(question.tempId, optionIndex, $event)"
                                 [disabled]="vm.isSaving() || !vm.canEditQuestions()"
@@ -903,7 +926,7 @@
                           [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                         >
                           <span class="material-icons" aria-hidden="true">content_paste</span>
-                          Pegar filas
+                          {{ 'forms.builder.page.pasteRows' | translate }}
                         </button>
                         <button
                           class="text-button"
@@ -992,20 +1015,20 @@
                 @if (question.type === 'TEXT') {
                   <div class="properties-panel">
                     <label class="field">
-                      <span>Formato de la respuesta</span>
+                      <span>{{ 'forms.builder.page.answerFormat' | translate }}</span>
                       <select
                         [ngModel]="question.properties.text_format ?? ''"
                         (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'text_format', $event || null)"
                         [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                       >
-                        <option value="">Texto libre (sin validación)</option>
+                        <option value="">{{ 'forms.builder.page.freeText' | translate }}</option>
                         @for (format of textFormats; track format.value) {
-                          <option [value]="format.value">{{ format.label }}</option>
+                          <option [value]="format.value">{{ format.label | translate }}</option>
                         }
                       </select>
                     </label>
                     @if (question.properties.text_format) {
-                      <p class="field-hint">Se valida en la app, en el enlace público y al guardar en el servidor.</p>
+                      <p class="field-hint">{{ 'forms.builder.page.validatedWhere' | translate }}</p>
                     }
                   </div>
                 }
@@ -1014,13 +1037,13 @@
                   <div class="properties-panel">
                     @if (question.type === 'NOTE') {
                       <label class="field">
-                        <span>Texto orientativo / ayuda (Help Text)</span>
+                        <span>{{ 'forms.builder.page.helpText' | translate }}</span>
                         <textarea
                           rows="2"
                           [ngModel]="question.properties.help_text"
                           (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'help_text', $event)"
                           [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                          placeholder="Escribe aclaraciones o notas para el encuestador..."
+                          [placeholder]="'forms.builder.page.helpTextPlaceholder' | translate"
                         ></textarea>
                       </label>
                     }
@@ -1028,23 +1051,23 @@
                     @if (['DATE', 'TIME', 'DATETIME'].includes(question.type)) {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Límite Mínimo (Opcional)</span>
+                          <span>{{ 'forms.builder.page.min' | translate }}</span>
                           <input
                             type="text"
                             [ngModel]="question.properties.min_date"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'min_date', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            placeholder="Ej. 2026-01-01"
+                            [placeholder]="'forms.builder.page.minPlaceholder' | translate"
                           />
                         </label>
                         <label class="field">
-                          <span>Límite Máximo (Opcional)</span>
+                          <span>{{ 'forms.builder.page.max' | translate }}</span>
                           <input
                             type="text"
                             [ngModel]="question.properties.max_date"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_date', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            placeholder="Ej. 2026-12-31"
+                            [placeholder]="'forms.builder.page.maxPlaceholder' | translate"
                           />
                         </label>
                         <label class="toggle-row">
@@ -1054,7 +1077,7 @@
                             (change)="vm.updateQuestionProperty(question.tempId, 'default_now', $any($event.target).checked)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           />
-                          <span>Establecer valor actual por defecto</span>
+                          <span>{{ 'forms.builder.page.defaultNow' | translate }}</span>
                         </label>
                       </div>
                     }
@@ -1068,7 +1091,7 @@
                             (change)="vm.updateQuestionProperty(question.tempId, 'capture_accuracy', $any($event.target).checked)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           />
-                          <span>Requerir alta precisión de satélite (GPS)</span>
+                          <span>{{ 'forms.builder.page.gpsHighAccuracy' | translate }}</span>
                         </label>
                         <label class="toggle-row">
                           <input
@@ -1077,7 +1100,7 @@
                             (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_fallback', $any($event.target).checked)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           />
-                          <span>Permitir ingreso manual si falla la ubicación</span>
+                          <span>{{ 'forms.builder.page.gpsManual' | translate }}</span>
                         </label>
                       </div>
                     }
@@ -1085,21 +1108,21 @@
                     @if (question.type === 'MULTIMEDIA') {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Archivos permitidos</span>
+                          <span>{{ 'forms.builder.page.allowedFiles' | translate }}</span>
                           <select
                             [ngModel]="question.properties.allowed_media || 'all'"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_media', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           >
-                            <option value="all">Todos (Fotos, Audio y Video)</option>
-                            <option value="both">Fotos y Audio</option>
-                            <option value="image">Solo Fotos</option>
-                            <option value="audio">Solo Audio</option>
-                            <option value="video">Solo Video</option>
+                            <option value="all">{{ 'forms.builder.page.files.all' | translate }}</option>
+                            <option value="both">{{ 'forms.builder.page.files.both' | translate }}</option>
+                            <option value="image">{{ 'forms.builder.page.files.image' | translate }}</option>
+                            <option value="audio">{{ 'forms.builder.page.files.audio' | translate }}</option>
+                            <option value="video">{{ 'forms.builder.page.files.video' | translate }}</option>
                           </select>
                         </label>
                         <label class="field">
-                          <span>Tamaño máximo (MB)</span>
+                          <span>{{ 'forms.builder.page.maxSize' | translate }}</span>
                           <input
                             type="number"
                             [ngModel]="question.properties.max_file_size_mb || 10"
@@ -1111,7 +1134,7 @@
                         </label>
                         @if (['all', 'video'].includes(question.properties.allowed_media || 'all')) {
                           <label class="field">
-                            <span>Duración máxima del video (segundos)</span>
+                            <span>{{ 'forms.builder.page.maxVideo' | translate }}</span>
                             <input
                               type="number"
                               [ngModel]="question.properties.max_video_seconds || 60"
@@ -1121,7 +1144,7 @@
                               max="120"
                               step="5"
                             />
-                            <small class="field-hint">Entre 5 y 120 s. La app de recolección detiene la grabación al llegar al límite.</small>
+                            <small class="field-hint">{{ 'forms.builder.page.maxVideoHint' | translate }}</small>
                           </label>
                         }
                       </div>
@@ -1130,7 +1153,7 @@
                     @if (question.type === 'SIGNATURE') {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Color de pluma (Tinta)</span>
+                          <span>{{ 'forms.builder.page.penColor' | translate }}</span>
                           <input
                             type="color"
                             [ngModel]="question.properties.pen_color || '#000000'"
@@ -1139,7 +1162,7 @@
                           />
                         </label>
                         <label class="field">
-                          <span>Color de lienzo</span>
+                          <span>{{ 'forms.builder.page.canvasColor' | translate }}</span>
                           <input
                             type="color"
                             [ngModel]="question.properties.background_color || '#ffffff'"
@@ -1153,27 +1176,27 @@
                     @if (question.type === 'RATING') {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Escala máxima (3 a 10)</span>
+                          <span>{{ 'forms.builder.page.ratingMax' | translate }}</span>
                           <select
                             [ngModel]="question.properties.max_rating || 5"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'max_rating', +$event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           >
-                            <option [ngValue]="3">3 niveles</option>
-                            <option [ngValue]="5">5 niveles (Estándar)</option>
-                            <option [ngValue]="7">7 niveles</option>
-                            <option [ngValue]="10">10 niveles</option>
+                            <option [ngValue]="3">{{ 'forms.builder.page.levels3' | translate }}</option>
+                            <option [ngValue]="5">{{ 'forms.builder.page.levels5' | translate }}</option>
+                            <option [ngValue]="7">{{ 'forms.builder.page.levels7' | translate }}</option>
+                            <option [ngValue]="10">{{ 'forms.builder.page.levels10' | translate }}</option>
                           </select>
                         </label>
                         <label class="field">
-                          <span>Tipo de indicador</span>
+                          <span>{{ 'forms.builder.page.ratingIcon' | translate }}</span>
                           <select
                             [ngModel]="question.properties.icon_type || 'star'"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'icon_type', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           >
-                            <option value="star">Estrellas (★ ★ ★ ★ ★)</option>
-                            <option value="number">Números (1, 2, 3...)</option>
+                            <option value="star">{{ 'forms.builder.page.ratingStars' | translate }}</option>
+                            <option value="number">{{ 'forms.builder.page.ratingNumbers' | translate }}</option>
                           </select>
                         </label>
                       </div>
@@ -1182,15 +1205,15 @@
                     @if (question.type === 'BARCODE') {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Formatos de escáner</span>
+                          <span>{{ 'forms.builder.page.scanFormats' | translate }}</span>
                           <select
                             [ngModel]="question.properties.allowed_formats || 'ALL'"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'allowed_formats', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           >
-                            <option value="ALL">Todos (QR y Códigos de Barras)</option>
-                            <option value="QR">Solo Código QR</option>
-                            <option value="BARCODE">Solo Códigos 1D (EAN/UPC)</option>
+                            <option value="ALL">{{ 'forms.builder.page.scan.all' | translate }}</option>
+                            <option value="QR">{{ 'forms.builder.page.scan.qr' | translate }}</option>
+                            <option value="BARCODE">{{ 'forms.builder.page.scan.barcode' | translate }}</option>
                           </select>
                         </label>
                         <label class="toggle-row">
@@ -1200,7 +1223,7 @@
                             (change)="vm.updateQuestionProperty(question.tempId, 'allow_manual_input', $any($event.target).checked)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
                           />
-                          <span>Permitir ingreso manual si la cámara falla</span>
+                          <span>{{ 'forms.builder.page.scanManual' | translate }}</span>
                         </label>
                       </div>
                     }
@@ -1208,15 +1231,15 @@
                     @if (question.type === 'CALCULATE') {
                       <div class="properties-grid">
                         <label class="field">
-                          <span>Fórmula relacional (Expresión)</span>
+                          <span>{{ 'forms.builder.page.formula' | translate }}</span>
                           <input
                             type="text"
                             [ngModel]="question.properties.expression"
                             (ngModelChange)="vm.updateQuestionProperty(question.tempId, 'expression', $event)"
                             [disabled]="vm.isSaving() || !vm.canEditQuestions()"
-                            placeholder="Ej. ${q1} + ${q2}"
+                            [placeholder]="'forms.builder.page.formulaPlaceholder' | translate"
                           />
-                          <small class="help-text">Sintaxis: ${{ '${id_pregunta}' }} para operar variables de preguntas anteriores.</small>
+                          <small class="help-text">{{ 'forms.builder.page.formulaHelp' | translate: { token: '${id_pregunta}' } }}</small>
                         </label>
                       </div>
                     }
@@ -1293,11 +1316,11 @@
                   <input
                     [type]="textFormatInput(question.properties.text_format ?? null).type"
                     disabled
-                    aria-label="Vista previa de la respuesta"
+                    [attr.aria-label]="'forms.builder.page.answerPreview' | translate"
                     [placeholder]="textFormatInput(question.properties.text_format ?? null).placeholder || ('forms.builder.shortAnswer' | translate)"
                   />
                 } @else if (question.type === 'NUMBER') {
-                  <input type="number" disabled aria-label="Vista previa de la respuesta" placeholder="0" />
+                  <input type="number" disabled [attr.aria-label]="'forms.builder.page.answerPreview' | translate" placeholder="0" />
                 } @else if (question.type === 'LIKERT') {
                   <div class="preview-likert-summary">
                     <span class="material-icons" aria-hidden="true">view_module</span>
@@ -1405,9 +1428,9 @@
                   </legend>
 
                   @if (question.type === 'TEXT') {
-                    <textarea rows="3" aria-label="Vista previa de la respuesta" [placeholder]="'forms.collect.textPlaceholder' | translate"></textarea>
+                    <textarea rows="3" [attr.aria-label]="'forms.builder.page.answerPreview' | translate" [placeholder]="'forms.collect.textPlaceholder' | translate"></textarea>
                   } @else if (question.type === 'NUMBER') {
-                    <input type="number" aria-label="Vista previa de la respuesta" placeholder="0" />
+                    <input type="number" [attr.aria-label]="'forms.builder.page.answerPreview' | translate" placeholder="0" />
                   } @else if (question.type === 'LIKERT') {
                     <div class="collect-likert-wrap">
                       <div
@@ -1470,8 +1493,8 @@
       (click)="$event.stopPropagation()"
     >
       <div class="modal-header">
-        <h3 id="import-title">Importar desde Excel</h3>
-        <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeImport()">&times;</button>
+        <h3 id="import-title">{{ 'forms.builder.page.importExcel' | translate }}</h3>
+        <button type="button" class="modal-close" [attr.aria-label]="'common.buttons.close' | translate" (click)="closeImport()">&times;</button>
       </div>
 
       <div class="modal-body import-body">
@@ -1480,16 +1503,16 @@
           <span>
             <strong>{{ importFileName() }}</strong><br />
             @if (preview.valid) {
-              Listo para cargar: {{ preview.summary.questions }} pregunta(s) en {{ preview.summary.sections }} sección(es).
+              {{ 'forms.builder.page.import.ready' | translate: { questions: preview.summary.questions, sections: preview.summary.sections } }}
             } @else {
-              Hay {{ preview.errors.length }} error(es) que corregir en el archivo antes de importar.
+              {{ 'forms.builder.page.import.hasErrors' | translate: { count: preview.errors.length } }}
             }
           </span>
         </p>
 
         @if (preview.errors.length > 0) {
           <section class="import-issues import-issues--error" aria-labelledby="import-errors-title">
-            <h4 id="import-errors-title">Errores (impiden importar)</h4>
+            <h4 id="import-errors-title">{{ 'forms.builder.page.import.errors' | translate }}</h4>
             <ul>
               @for (issue of preview.errors; track $index) {
                 <li><strong>{{ issueLocation(issue) }}:</strong> {{ issue.message }}</li>
@@ -1500,7 +1523,7 @@
 
         @if (preview.warnings.length > 0) {
           <details class="import-issues import-issues--warning" [open]="preview.warnings.length <= 5">
-            <summary>Avisos: {{ preview.warnings.length }} elemento(s) no se convirtieron por completo</summary>
+            <summary>{{ 'forms.builder.page.import.warnings' | translate: { count: preview.warnings.length } }}</summary>
             <ul>
               @for (issue of preview.warnings; track $index) {
                 <li><strong>{{ issueLocation(issue) }}:</strong> {{ issue.message }}</li>
@@ -1511,33 +1534,33 @@
 
         @if (preview.valid) {
           @if (preview.sections.length > 0) {
-            <p class="import-sections"><strong>Secciones:</strong> {{ preview.sections.join(' · ') }}</p>
+            <p class="import-sections"><strong>{{ 'forms.builder.page.import.sections' | translate }}</strong> {{ preview.sections.join(' · ') }}</p>
           }
           @if (vm.questions().length > 0) {
             <fieldset class="import-mode">
-              <legend>¿Qué hacer con las {{ vm.questions().length }} pregunta(s) actuales?</legend>
+              <legend>{{ 'forms.builder.page.import.whatToDo' | translate: { count: vm.questions().length } }}</legend>
               <label class="toggle-row">
                 <input type="radio" name="import-mode" value="append" [checked]="importMode() === 'append'" (change)="importMode.set('append')" />
-                <span>Conservarlas y agregar las del Excel al final</span>
+                <span>{{ 'forms.builder.page.import.keep' | translate }}</span>
               </label>
               <label class="toggle-row">
                 <input type="radio" name="import-mode" value="replace" [checked]="importMode() === 'replace'" (change)="importMode.set('replace')" />
-                <span>Reemplazarlas por las del Excel (se puede deshacer)</span>
+                <span>{{ 'forms.builder.page.import.replace' | translate }}</span>
               </label>
             </fieldset>
           }
-          <p class="field-hint">Las preguntas se cargan en el constructor sin guardarse: revísalas y luego pulsa «Guardar».</p>
+          <p class="field-hint">{{ 'forms.builder.page.import.note' | translate }}</p>
         }
 
         <div class="paste-actions import-actions">
           @if (preview.valid) {
             <button class="btn btn-primary" type="button" (click)="applyImport()">
               <span class="material-icons" aria-hidden="true">playlist_add_check</span>
-              Cargar {{ preview.summary.questions }} pregunta(s)
+              {{ 'forms.builder.page.import.load' | translate: { count: preview.summary.questions } }}
             </button>
           }
           <button class="btn btn-secondary" type="button" (click)="closeImport()">
-            {{ preview.valid ? 'Cancelar' : 'Cerrar' }}
+            {{ preview.valid ? ('common.buttons.cancel' | translate) : ('common.buttons.close' | translate) }}
           </button>
         </div>
       </div>
@@ -1549,8 +1572,8 @@
   <div class="modal-backdrop" (click)="closeShareModal()" (keydown.escape)="closeShareModal()">
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="builder-share-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3 id="builder-share-title">Compartir formulario</h3>
-        <button type="button" class="modal-close" aria-label="Cerrar" (click)="closeShareModal()">&times;</button>
+        <h3 id="builder-share-title">{{ 'forms.builder.page.share.title' | translate }}</h3>
+        <button type="button" class="modal-close" [attr.aria-label]="'common.buttons.close' | translate" (click)="closeShareModal()">&times;</button>
       </div>
 
       <div class="modal-body">
@@ -1560,7 +1583,7 @@
 
         <form class="share-form" (ngSubmit)="submitShare()">
           <label class="field">
-            <span>Correo del usuario</span>
+            <span>{{ 'forms.builder.page.share.email' | translate }}</span>
             <input
               type="email"
               [(ngModel)]="shareEmail"
@@ -1571,7 +1594,7 @@
             />
           </label>
           @if (lookingUpUser) {
-            <p class="lookup-hint">Buscando usuario...</p>
+            <p class="lookup-hint">{{ 'forms.builder.page.share.searching' | translate }}</p>
           } @else if (matchedUser) {
             <div class="user-preview">
               <div class="user-preview-avatar">{{ matchedUser.name.charAt(0).toUpperCase() || 'U' }}</div>
@@ -1582,24 +1605,24 @@
               </div>
             </div>
           } @else if (shareEmail.trim().length >= 3) {
-            <p class="lookup-hint">No se encontró usuario con ese correo.</p>
+            <p class="lookup-hint">{{ 'forms.builder.page.share.notFound' | translate }}</p>
           }
           <div class="share-row">
             <label class="field">
-              <span>Rol</span>
+              <span>{{ 'forms.builder.page.share.role' | translate }}</span>
               <select [ngModel]="shareRole" (ngModelChange)="setShareRole($event)" name="role">
-                <option value="RECOLECTOR">Recolector</option>
-                <option value="PROJECT">Project Manager</option>
+                <option value="RECOLECTOR">{{ 'forms.builder.page.share.collector' | translate }}</option>
+                <option value="PROJECT">{{ 'forms.builder.page.share.projectManager' | translate }}</option>
               </select>
             </label>
             @if (shareRole === 'RECOLECTOR') {
               <label class="field">
-                <span>Respuestas objetivo</span>
+                <span>{{ 'forms.builder.page.share.target' | translate }}</span>
                 <input
                   type="number"
                   [(ngModel)]="shareTarget"
                   name="target"
-                  placeholder="Ej: 10"
+                  [placeholder]="'forms.builder.page.share.targetPlaceholder' | translate"
                   min="1"
                 />
               </label>
@@ -1612,19 +1635,19 @@
 
         <hr class="modal-divider" />
 
-        <h4>Usuarios asignados</h4>
+        <h4>{{ 'forms.builder.page.share.assigned' | translate }}</h4>
 
         @if (loadingShares) {
-          <p>Cargando...</p>
+          <p>{{ 'forms.builder.page.share.loading' | translate }}</p>
         } @else if (shares().length === 0) {
-          <p class="empty-state-text">No hay usuarios asignados a este formulario.</p>
+          <p class="empty-state-text">{{ 'forms.builder.page.share.empty' | translate }}</p>
         } @else {
           <table class="shares-table">
             <thead>
               <tr>
                 <th>Nombre</th>
                 <th>Correo</th>
-                <th>Rol</th>
+                <th>{{ 'forms.builder.page.share.role' | translate }}</th>
                 <th>Progreso</th>
                 <th></th>
               </tr>
@@ -1640,26 +1663,26 @@
                   </td>
                   <td>{{ share.user_email || '—' }}</td>
                   <td>
-                    <span class="role-pill role-{{ share.role.toLowerCase() }}">{{ share.role === 'PROJECT' ? 'Project Manager' : 'Recolector' }}</span>
+                    <span class="role-pill role-{{ share.role.toLowerCase() }}">{{ share.role === 'PROJECT' ? ('forms.builder.page.share.projectManager' | translate) : ('forms.builder.page.share.collector' | translate) }}</span>
                   </td>
                   <td>
                     @if (share.role === 'PROJECT') {
-                      <span class="progress-text">Permiso de edicion</span>
+                      <span class="progress-text">{{ 'forms.builder.page.share.editPermission' | translate }}</span>
                     } @else if (editingShareId === share.id) {
                       <div class="inline-edit">
                         <input
                           type="number"
-                          aria-label="Meta de respuestas"
+                          [attr.aria-label]="'forms.builder.page.share.targetLabel' | translate"
                           [ngModel]="editTargetValue"
                           (ngModelChange)="editTargetValue = $event === '' ? null : +$event"
                           min="1"
-                          placeholder="Sin límite"
+                          [placeholder]="'forms.builder.page.share.noLimit' | translate"
                           class="target-input"
                         />
                         <button type="button" class="btn btn-primary btn-sm" (click)="saveEditTarget(share.id)" [disabled]="savingTarget">
                           {{ savingTarget ? '...' : 'Guardar' }}
                         </button>
-                        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelEditTarget()">Cancelar</button>
+                        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelEditTarget()">{{ 'common.buttons.cancel' | translate }}</button>
                       </div>
                     } @else {
                       @if (share.target_responses && share.target_responses > 0) {
@@ -1671,11 +1694,11 @@
                           <span class="completed-badge">Completado</span>
                           <button type="button" class="btn-reactivate" (click)="startEditTarget(share)">Reactivar</button>
                         } @else {
-                          <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">Editar</button>
+                          <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">{{ 'common.buttons.edit' | translate }}</button>
                         }
                       } @else {
                         <span class="progress-text">{{ share.responses_count ?? 0 }} respuestas</span>
-                        <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">Definir límite</button>
+                        <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">{{ 'forms.builder.page.share.setLimit' | translate }}</button>
                       }
                     }
                   </td>

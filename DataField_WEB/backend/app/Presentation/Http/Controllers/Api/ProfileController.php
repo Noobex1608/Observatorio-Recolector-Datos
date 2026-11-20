@@ -80,7 +80,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Perfil actualizado exitosamente',
+            'message' => __('Perfil actualizado exitosamente'),
             'data' => new UserResource($user),
         ]);
     }
@@ -127,7 +127,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Avatar actualizado exitosamente',
+            'message' => __('Avatar actualizado exitosamente'),
             'data' => new UserResource($user),
         ]);
     }
@@ -149,7 +149,7 @@ class ProfileController extends Controller
         if ($user->perfil && $user->perfil->avatar) {
             if (! $this->avatarStorage->delete($user->perfil->avatar)) {
                 return response()->json([
-                    'message' => 'No se pudo eliminar el archivo del avatar.',
+                    'message' => __('No se pudo eliminar el archivo del avatar.'),
                 ], 500);
             }
 
@@ -160,7 +160,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Avatar eliminado exitosamente',
+            'message' => __('Avatar eliminado exitosamente'),
             'data' => new UserResource($user),
         ]);
     }

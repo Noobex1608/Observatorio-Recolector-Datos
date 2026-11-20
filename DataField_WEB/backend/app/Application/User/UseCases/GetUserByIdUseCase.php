@@ -20,17 +20,17 @@ class GetUserByIdUseCase
         $admin = User::findOrFail($adminId);
 
         if (! $admin->canManageUsers()) {
-            throw new AccessDeniedHttpException('Solo los administradores pueden ver detalles de usuarios');
+            throw new AccessDeniedHttpException(__('Solo los administradores pueden ver detalles de usuarios'));
         }
 
         $user = User::with('perfil')->find($userId);
 
         if (! $user) {
-            throw new NotFoundHttpException('Usuario no encontrado');
+            throw new NotFoundHttpException(__('Usuario no encontrado'));
         }
 
         if (! $admin->canManageRole($user->rol)) {
-            throw new AccessDeniedHttpException('No tienes permisos para ver usuarios con ese rol');
+            throw new AccessDeniedHttpException(__('No tienes permisos para ver usuarios con ese rol'));
         }
 
         return $user;

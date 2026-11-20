@@ -33,7 +33,7 @@ final class InstitutionalEmail
     {
         if (! in_array($role, self::allowedRoles($email), true)) {
             throw ValidationException::withMessages([
-                $field => ['Los usuarios externos (correo no institucional) solo pueden ser RECOLECTOR o SUPERVISOR.'],
+                $field => [__('Los usuarios externos (correo no institucional) solo pueden ser RECOLECTOR o SUPERVISOR.')],
             ]);
         }
     }

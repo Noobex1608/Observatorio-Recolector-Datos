@@ -33,26 +33,26 @@ class AccountActivationController extends Controller
                 'must_change_password' => false,
             ])->save();
             $user->tokens()->delete();
-            AuditLogService::log($user, 'ACCOUNT_ACTIVATED', 'usuarios', "{$user->name} confirmó su correo y creó su contraseña.");
+            AuditLogService::log($user, 'ACCOUNT_ACTIVATED', 'usuarios', ':name confirmó su correo y creó su contraseña.', [], params: ['name' => $user->name]);
         });
 
         abort_unless($status === Password::PASSWORD_RESET, 422,
-            'El enlace no es válido o ya venció. Pide al administrador que te reenvíe la invitación.');
+            __('El enlace no es válido o ya venció. Pide al administrador que te reenvíe la invitación.'));
 
-        return response()->json(['message' => 'Cuenta confirmada. Ya puedes iniciar sesión.']);
+        return response()->json(['message' => __('Cuenta confirmada. Ya puedes iniciar sesión.')]);
     }
 
     public function resend(Request $request, string $id): JsonResponse
     {
         $admin = $request->user();
         $user = User::findOrFail($id);
-        abort_unless($admin->canManageUsers() && $admin->canManageRole($user->rol), 403, 'No tienes permisos para administrar este usuario.');
+        abort_unless($admin->canManageUsers() && $admin->canManageRole($user->rol), 403, __('No tienes permisos para administrar este usuario.'));
         abort_unless($this->invitations->needsInvitation($user->email), 422,
-            'Las cuentas institucionales de ULEAM entran con Microsoft 365 y no reciben invitación.');
-        abort_if($user->email_verified_at !== null, 422, 'Este usuario ya confirmó su cuenta.');
+            __('Las cuentas institucionales de ULEAM entran con Microsoft 365 y no reciben invitación.'));
+        abort_if($user->email_verified_at !== null, 422, __('Este usuario ya confirmó su cuenta.'));
 
         $this->invitations->send($user);
 
-        return response()->json(['message' => "Invitación reenviada a {$user->email}."]);
+        return response()->json(['message' => __('Invitación reenviada a :email.', ['email' => $user->email])]);
     }
 }

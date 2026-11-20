@@ -6,12 +6,13 @@ export const ALL_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'PROJECT', 'SUPERV
 /** Roles que un usuario externo (correo no institucional) puede tener. */
 export const EXTERNAL_ROLES: UserRole[] = ['SUPERVISOR', 'RECOLECTOR'];
 
+/** Claves de traducción del nombre de cada rol (roles.*). */
 export const ROLE_LABELS: Record<UserRole, string> = {
-  SUPER_ADMIN: 'Super administrador',
-  ADMIN: 'Administrador',
-  PROJECT: 'Líder de proyecto',
-  SUPERVISOR: 'Supervisor',
-  RECOLECTOR: 'Recolector',
+  SUPER_ADMIN: 'roles.SUPER_ADMIN',
+  ADMIN: 'roles.ADMIN',
+  PROJECT: 'roles.PROJECT',
+  SUPERVISOR: 'roles.SUPERVISOR',
+  RECOLECTOR: 'roles.RECOLECTOR',
 };
 
 /**

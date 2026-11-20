@@ -47,6 +47,13 @@ class FormFlowEngine
 
                     continue;
                 }
+                // «Mostrar solo si se elige…»: la subpregunta depende de opciones concretas del padre.
+                $showIf = ShowIf::optionsOf($question->properties);
+                if ($showIf !== null && ! ShowIf::matches($showIf, $parentAnswer)) {
+                    $index++;
+
+                    continue;
+                }
             }
 
             $activeQuestions->push($question);
