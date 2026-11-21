@@ -43,7 +43,7 @@ class AdminAsProjectLeaderTest extends TestCase
         // Como líder, el superadministrador llena y valida la ficha técnica.
         $url = "/api/projects/{$projectId}/technical-sheet";
         $this->postJson($url, [
-            'description' => 'Levantamiento cantonal', 'start_date' => '2026-11-01', 'end_date' => '2026-12-15', 'target_sample_size' => 400,
+            ...$this->methodologySheet(), 'start_date' => '2026-11-01', 'end_date' => '2026-12-15', 'target_sample_size' => 400,
         ])->assertOk();
         $this->postJson("{$url}/validate")->assertOk()->assertJsonPath('status', 'VALIDATED');
 

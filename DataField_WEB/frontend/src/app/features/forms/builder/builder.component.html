@@ -164,6 +164,10 @@
           </div>
         </section>
 
+        @if (vm.formId(); as formId) {
+          <app-form-technical-sheet [formId]="formId" />
+        }
+
         <section class="question-palette" aria-labelledby="palette-title">
           <div class="ribbon-summary">
             <div>
@@ -1577,62 +1581,107 @@
       </div>
 
       <div class="modal-body">
+        <div class="share-modes" role="group" [attr.aria-label]="'forms.builder.page.share.modesLabel' | translate">
+          <button type="button" class="share-mode" [class.active]="shareMode() === 'single'" [attr.aria-pressed]="shareMode() === 'single'" (click)="setShareMode('single')">
+            <span class="material-icons" aria-hidden="true">person_add</span>
+            {{ 'forms.builder.page.share.modeSingle' | translate }}
+          </button>
+          <button type="button" class="share-mode" [class.active]="shareMode() === 'bulk'" [attr.aria-pressed]="shareMode() === 'bulk'" (click)="setShareMode('bulk')">
+            <span class="material-icons" aria-hidden="true">group_add</span>
+            {{ 'forms.builder.page.share.modeBulk' | translate }}
+          </button>
+        </div>
+
         @if (shareError) {
-          <div class="alert alert-error">{{ shareError }}</div>
+          <div class="alert alert-error" role="alert">{{ shareError }}</div>
+        }
+        @if (shareNotice()) {
+          <div class="alert alert-success" role="status">{{ shareNotice() }}</div>
+        }
+        @if (shareCredentials().length) {
+          <div class="alert alert-warning share-credentials" role="status">
+            <span>{{ 'forms.builder.page.share.credentials.notice' | translate: { count: shareCredentials().length } }}</span>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="downloadShareCredentials()">{{ 'forms.builder.page.share.credentials.download' | translate }}</button>
+          </div>
         }
 
-        <form class="share-form" (ngSubmit)="submitShare()">
-          <label class="field">
-            <span>{{ 'forms.builder.page.share.email' | translate }}</span>
-            <input
-              type="email"
-              [(ngModel)]="shareEmail"
-              name="email"
-              placeholder="correo@uleam.edu.ec"
-              required
-              (ngModelChange)="lookupUser()"
-            />
-          </label>
-          @if (lookingUpUser) {
-            <p class="lookup-hint">{{ 'forms.builder.page.share.searching' | translate }}</p>
-          } @else if (matchedUser) {
-            <div class="user-preview">
-              <div class="user-preview-avatar">{{ matchedUser.name.charAt(0).toUpperCase() || 'U' }}</div>
-              <div class="user-preview-info">
-                <strong>{{ matchedUser.name }}</strong>
-                <span>{{ matchedUser.email }}</span>
-                <span class="user-preview-role">{{ roleLabel(matchedUser.rol) }}</span>
-              </div>
-            </div>
-          } @else if (shareEmail.trim().length >= 3) {
-            <p class="lookup-hint">{{ 'forms.builder.page.share.notFound' | translate }}</p>
-          }
-          <div class="share-row">
+        @if (shareMode() === 'single') {
+          <form class="share-form" (ngSubmit)="submitShare()">
             <label class="field">
-              <span>{{ 'forms.builder.page.share.role' | translate }}</span>
-              <select [ngModel]="shareRole" (ngModelChange)="setShareRole($event)" name="role">
-                <option value="RECOLECTOR">{{ 'forms.builder.page.share.collector' | translate }}</option>
-                <option value="PROJECT">{{ 'forms.builder.page.share.projectManager' | translate }}</option>
-              </select>
+              <span>{{ 'forms.builder.page.share.email' | translate }}</span>
+              <input
+                type="email"
+                [(ngModel)]="shareEmail"
+                name="email"
+                placeholder="correo@uleam.edu.ec"
+                autocomplete="off"
+                required
+                (ngModelChange)="lookupUser()"
+              />
             </label>
-            @if (shareRole === 'RECOLECTOR') {
-              <label class="field">
-                <span>{{ 'forms.builder.page.share.target' | translate }}</span>
-                <input
-                  type="number"
-                  [(ngModel)]="shareTarget"
-                  name="target"
-                  [placeholder]="'forms.builder.page.share.targetPlaceholder' | translate"
-                  min="1"
-                />
-              </label>
+            @if (lookingUpUser) {
+              <p class="lookup-hint">{{ 'forms.builder.page.share.searching' | translate }}</p>
+            } @else if (matchedUser) {
+              <div class="user-preview">
+                <div class="user-preview-avatar">{{ matchedUser.name.charAt(0).toUpperCase() || 'U' }}</div>
+                <div class="user-preview-info">
+                  <strong>{{ matchedUser.name }}</strong>
+                  <span>{{ matchedUser.email }}</span>
+                  <span class="user-preview-role">{{ roleLabel(matchedUser.rol) }}</span>
+                </div>
+              </div>
+            } @else if (needsNewAccount) {
+              <div class="new-account">
+                <p class="new-account-text">{{ 'forms.builder.page.share.newAccountIntro' | translate }}</p>
+                <div class="share-row">
+                  <label class="field">
+                    <span>{{ 'forms.builder.page.share.fullName' | translate }}</span>
+                    <input type="text" [(ngModel)]="shareName" name="name" autocomplete="off" maxlength="255" required />
+                  </label>
+                  <label class="field">
+                    <span>{{ 'forms.builder.page.share.cedula' | translate }}</span>
+                    <input type="text" [(ngModel)]="shareCedula" name="cedula" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="off" required />
+                  </label>
+                </div>
+              </div>
+            } @else if (shareEmail.trim().length >= 3) {
+              <p class="lookup-hint">{{ 'forms.builder.page.share.notFound' | translate }}</p>
             }
-          </div>
-          <button type="submit" class="btn btn-primary" [disabled]="addingShare || !shareEmail.trim()">
-            {{ addingShare ? 'Agregando...' : 'Asignar usuario' }}
-          </button>
-        </form>
-
+            <div class="share-row">
+              <label class="field">
+                <span>{{ 'forms.builder.page.share.role' | translate }}</span>
+                <select [ngModel]="shareRole" (ngModelChange)="setShareRole($event)" name="role">
+                  <option value="RECOLECTOR">{{ 'forms.builder.page.share.collector' | translate }}</option>
+                  <option value="PROJECT">{{ 'forms.builder.page.share.projectManager' | translate }}</option>
+                </select>
+              </label>
+              @if (shareRole === 'RECOLECTOR') {
+                <label class="field">
+                  <span>{{ 'forms.builder.page.share.target' | translate }} <em class="field-optional">{{ 'forms.builder.page.share.optional' | translate }}</em></span>
+                  <input
+                    type="number"
+                    [(ngModel)]="shareTarget"
+                    name="target"
+                    [placeholder]="'forms.builder.page.share.noLimit' | translate"
+                    min="1"
+                    step="1"
+                    aria-describedby="share-target-hint"
+                  />
+                  <small id="share-target-hint" class="field-help">{{ 'forms.builder.page.share.targetHint' | translate }}</small>
+                </label>
+              }
+            </div>
+            <button type="submit" class="btn btn-primary" [disabled]="addingShare || !shareEmail.trim()">
+              {{ addingShare ? ('forms.builder.page.share.adding' | translate) : (needsNewAccount ? ('forms.builder.page.share.createAndAssign' | translate) : ('forms.builder.page.share.assign' | translate)) }}
+            </button>
+          </form>
+        } @else {
+          <app-share-bulk-import
+            [formId]="vm.formId() ?? ''"
+            (started)="onBulkStarted()"
+            (imported)="onBulkImported($event)"
+          />
+        }
         <hr class="modal-divider" />
 
         <h4>{{ 'forms.builder.page.share.assigned' | translate }}</h4>
@@ -1645,11 +1694,11 @@
           <table class="shares-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Correo</th>
-                <th>{{ 'forms.builder.page.share.role' | translate }}</th>
-                <th>Progreso</th>
-                <th></th>
+                <th scope="col">{{ 'forms.builder.page.share.name' | translate }}</th>
+                <th scope="col">{{ 'forms.builder.page.share.emailShort' | translate }}</th>
+                <th scope="col">{{ 'forms.builder.page.share.role' | translate }}</th>
+                <th scope="col">{{ 'forms.builder.page.share.progress' | translate }}</th>
+                <th scope="col"><span class="visually-hidden">{{ 'forms.builder.page.share.actions' | translate }}</span></th>
               </tr>
             </thead>
             <tbody>
@@ -1658,7 +1707,7 @@
                   <td>
                     <div class="user-cell">
                       <span class="user-cell-avatar">{{ (share.user_name || '?')?.charAt(0)?.toUpperCase() }}</span>
-                      <span>{{ share.user_name || 'Sin nombre' }}</span>
+                      <span>{{ share.user_name || ('forms.builder.page.share.noName' | translate) }}</span>
                     </div>
                   </td>
                   <td>{{ share.user_email || '—' }}</td>
@@ -1680,7 +1729,7 @@
                           class="target-input"
                         />
                         <button type="button" class="btn btn-primary btn-sm" (click)="saveEditTarget(share.id)" [disabled]="savingTarget">
-                          {{ savingTarget ? '...' : 'Guardar' }}
+                          {{ savingTarget ? '...' : ('common.buttons.save' | translate) }}
                         </button>
                         <button type="button" class="btn btn-secondary btn-sm" (click)="cancelEditTarget()">{{ 'common.buttons.cancel' | translate }}</button>
                       </div>
@@ -1691,19 +1740,19 @@
                         </div>
                         <span class="progress-text">{{ share.responses_count ?? 0 }} / {{ share.target_responses }}</span>
                         @if ((share.responses_count ?? 0) >= share.target_responses) {
-                          <span class="completed-badge">Completado</span>
-                          <button type="button" class="btn-reactivate" (click)="startEditTarget(share)">Reactivar</button>
+                          <span class="completed-badge">{{ 'forms.builder.page.share.completed' | translate }}</span>
+                          <button type="button" class="btn-reactivate" (click)="startEditTarget(share)">{{ 'forms.builder.page.share.reactivate' | translate }}</button>
                         } @else {
                           <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">{{ 'common.buttons.edit' | translate }}</button>
                         }
                       } @else {
-                        <span class="progress-text">{{ share.responses_count ?? 0 }} respuestas</span>
+                        <span class="progress-text">{{ 'forms.builder.page.share.responsesCount' | translate: { count: share.responses_count ?? 0 } }}</span>
                         <button type="button" class="btn-edit-target" (click)="startEditTarget(share)">{{ 'forms.builder.page.share.setLimit' | translate }}</button>
                       }
                     }
                   </td>
                   <td>
-                    <button type="button" class="btn-danger-sm" (click)="removeShare(share.id)">Retirar</button>
+                    <button type="button" class="btn-danger-sm" (click)="removeShare(share.id)">{{ 'forms.builder.page.share.revoke' | translate }}</button>
                   </td>
                 </tr>
               }

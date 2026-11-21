@@ -35,7 +35,7 @@ class ProjectTechnicalSheetAndZonesApiTest extends TestCase
         ])->assertStatus(422);
 
         $this->postJson("/api/projects/{$project->id}/technical-sheet", [
-            'description' => 'Levantamiento territorial',
+            ...$this->methodologySheet(),
             'start_date' => today()->format('Y-m-d'),
             'end_date' => today()->addMonth()->format('Y-m-d'),
         ])->assertOk();

@@ -150,7 +150,15 @@
       "saving": "Guardando…",
       "submit": "Confirmar y crear contraseña",
       "introAfter": ". Usa al menos 12 caracteres con mayúsculas, minúsculas y números.",
-      "introBefore": "Crea la contraseña para"
+      "introBefore": "Crea la contraseña para",
+      "microsoftTitle": "Confirma tu usuario",
+      "microsoftIntroBefore": "Tu cuenta institucional",
+      "microsoftIntroAfter": " entra con Microsoft 365, así que no necesitas crear una contraseña. Confirma tu usuario para terminar.",
+      "microsoftSubmit": "Confirmar mi usuario",
+      "microsoftDoneTitle": "Usuario confirmado",
+      "microsoftDoneText": "Ya puedes entrar con tu cuenta institucional de Microsoft 365.",
+      "microsoftSignIn": "Entrar con Microsoft 365",
+      "failed": "No se pudo confirmar la cuenta. Intenta de nuevo."
     }
   },
   "layout": {
@@ -606,9 +614,9 @@
       },
       "page": {
         "editForm": "Editar formulario",
-        "delimitOnSave": "Abrir delimitación zonal al guardar (requiere ficha técnica validada)",
+        "delimitOnSave": "Abrir delimitación zonal al guardar (requiere la ficha metodológica del proyecto validada)",
         "lockedLine1": "Este instrumento ya fue publicado. Para cambiar preguntas o consentimiento, use «Duplicar» en Mis formularios.",
-        "lockedLine2": "La copia conservará el formulario original y sus respuestas. Las fechas de cada formulario se gestionan en la pestaña Ficha Técnica del proyecto.",
+        "lockedLine2": "La copia conservará el formulario original y sus respuestas. Las fechas de cada formulario se gestionan en la pestaña Ficha metodológica del proyecto.",
         "consentLabel": "Texto obligatorio del consentimiento informado",
         "consentPlaceholder": "Texto del consentimiento informado a presentar al inicio de la encuesta...",
         "collectionStart": "Fecha de inicio de recolección",
@@ -718,7 +726,70 @@
           "editPermission": "Permiso de edicion",
           "targetLabel": "Meta de respuestas",
           "noLimit": "Sin límite",
-          "setLimit": "Definir límite"
+          "setLimit": "Definir límite",
+          "targetShort": "Meta",
+          "optional": "(opcional)",
+          "targetHint": "Déjalo vacío si no tiene límite de respuestas.",
+          "modesLabel": "Forma de compartir",
+          "modeSingle": "Una persona",
+          "modeBulk": "Varias personas (Excel)",
+          "adding": "Asignando...",
+          "assign": "Asignar usuario",
+          "createAndAssign": "Crear cuenta y asignar",
+          "newAccountIntro": "Este correo no tiene cuenta. Escribe sus nombres y cédula: se creará como encuestador, recibirá un correo para confirmar su cuenta y quedará en el equipo del proyecto.",
+          "fullName": "Nombres y apellidos",
+          "cedula": "Cédula",
+          "newAccountRequired": "Para crear la cuenta escribe los nombres y una cédula de 10 dígitos.",
+          "createdInvited": "Se creó la cuenta de {{email}}, se le envió el correo de confirmación y se le asignó el formulario.",
+          "createdOnly": "Se creó la cuenta de {{email}} y se le asignó el formulario. Descarga su contraseña temporal.",
+          "assignedOne": "Formulario asignado a {{email}}.",
+          "revoke": "Retirar",
+          "name": "Nombre",
+          "emailShort": "Correo",
+          "progress": "Progreso",
+          "actions": "Acciones",
+          "noName": "Sin nombre",
+          "completed": "Completado",
+          "reactivate": "Reactivar",
+          "responsesCount": "{{count}} respuestas",
+          "credentials": {
+            "notice": "{{count}} cuenta(s) institucional(es) recibieron una contraseña temporal porque Microsoft 365 no está configurado. Descárgalas ahora: no se volverán a mostrar.",
+            "download": "Descargar contraseñas",
+            "name": "Nombre",
+            "email": "Correo",
+            "password": "Contraseña temporal",
+            "file": "contrasenas-temporales.csv"
+          },
+          "bulk": {
+            "step1": "Descarga la plantilla",
+            "step1Text": "Columnas: correo, nombres y apellidos, cédula, rol y respuestas objetivo (opcional). Nombres y cédula solo son obligatorios para quien todavía no tiene cuenta.",
+            "step2": "Sube el archivo completo",
+            "step2Text": "Acepta .xlsx y .xls, hasta 500 personas. Antes de asignar verás una vista previa con los errores de cada fila.",
+            "downloadTemplate": "Descargar plantilla",
+            "chooseFile": "Elegir archivo",
+            "templateFile": "plantilla-compartir-formulario.xls",
+            "templateFailed": "No se pudo descargar la plantilla.",
+            "wrongType": "Elige un archivo de Excel (.xlsx o .xls).",
+            "readFailed": "No se pudo revisar el archivo.",
+            "importFailed": "No se pudo compartir el formulario. No se asignó a nadie.",
+            "reading": "Revisando el archivo...",
+            "summary": "{{count}} fila(s) · {{created}} cuenta(s) nueva(s)",
+            "errorsCount": "{{count}} fila(s) con errores",
+            "row": "Fila",
+            "person": "Persona",
+            "state": "Estado",
+            "status": {
+              "nuevo": "Cuenta nueva",
+              "existente": "Tiene cuenta",
+              "asignado": "Ya asignado (se actualiza)",
+              "error": "Con errores"
+            },
+            "confirm": "Asignar a {{count}} persona(s)",
+            "fixFirst": "Corrige las filas con errores en el Excel y vuelve a subirlo. No se asigna a nadie hasta que todo esté correcto.",
+            "done": "Formulario asignado a {{count}} persona(s).",
+            "created": "Se crearon {{count}} cuenta(s) nueva(s) y se agregaron al equipo del proyecto.",
+            "invited": "Se envió el correo de confirmación a {{count}} persona(s)."
+          }
         },
         "incomplete": "{{count}} incompleta(s)",
         "questionsWord": "preguntas",
@@ -764,7 +835,7 @@
           "completeBeforeTest": "Completa las preguntas marcadas antes de probar el formulario.",
           "testSaveFailed": "No se pudo guardar el formulario para probarlo.",
           "saveForTestLink": "Guarda el formulario para obtener el enlace de prueba.",
-          "testLinkCopied": "Enlace de prueba copiado. Quien lo abra inicia sesión y debe tener acceso al formulario; las respuestas no se guardan.",
+          "testLinkCopied": "Enlace de prueba copiado. Se abre sin iniciar sesión durante 7 días; las respuestas no se guardan.",
           "copyFailed": "No se pudo copiar el enlace.",
           "noGeolocation": "La geolocalización no está disponible en este navegador.",
           "locationFailed": "No se pudo obtener la ubicación actual: {{reason}}",
@@ -989,7 +1060,8 @@
         "doneTitle": "Prueba completada",
         "doneText": "Las respuestas cumplen las reglas del formulario ({{answered}} respondidas). No se guardó nada.",
         "again": "Probar otra vez",
-        "loadError": "No se pudo abrir la prueba. Verifica que tengas acceso a este formulario."
+        "loadError": "No se pudo abrir la prueba. Verifica que tengas acceso a este formulario.",
+        "linkInvalid": "Este enlace de prueba no es válido o ya caducó. Pide un enlace nuevo a quien te lo compartió."
       },
       "loading": "Cargando formulario...",
       "stepMode": "Completa la pregunta actual para continuar.",
@@ -1064,6 +1136,55 @@
         "cedulaPrefix": "La cédula no es válida: revise los primeros dígitos.",
         "cedulaCheck": "La cédula no es válida: revise el último dígito."
       }
+    },
+    "technicalSheet": {
+      "title": "Ficha técnica del formulario",
+      "optional": "Opcional",
+      "subtitle": "Especificación metodológica del levantamiento. Es opcional: no se necesita para publicar el formulario. La valida el líder o el delegado del proyecto.",
+      "status": {
+        "DRAFT": "Borrador",
+        "VALIDATED": "Validada"
+      },
+      "loading": "Cargando ficha técnica…",
+      "loadFailed": "No se pudo cargar la ficha técnica.",
+      "draftNotice": "Pendiente de validación. Cualquier cambio guardado vuelve la ficha a borrador.",
+      "validatedBy": "Validada por {{name}} el {{date}}.",
+      "parameter": "Parámetro",
+      "specification": "Especificación metodológica",
+      "params": {
+        "target_universe": "Universo objetivo",
+        "geographic_coverage": "Cobertura geográfica",
+        "sample_size": "Tamaño muestral",
+        "error_margin_confidence": "Margen de error y confianza",
+        "field_technique": "Técnica de campo",
+        "quality_control": "Control de calidad"
+      },
+      "placeholders": {
+        "target_universe": "Población a la que representa la encuesta, con su tamaño y distribución.",
+        "geographic_coverage": "Territorio donde se levanta la información.",
+        "sample_size": "Encuestas efectivas, distribución y ajuste por no respuesta.",
+        "error_margin_confidence": "Margen de error y nivel de confianza.",
+        "field_technique": "Cómo se aplica la encuesta en campo.",
+        "quality_control": "Cómo se verifica la calidad de las encuestas."
+      },
+      "template": {
+        "target_universe": "Población residente en [cantón/provincia] mayor de [edad] años [condición, p. ej. apta para votar] ([número de habitantes]). Distribución: Urbana, Rural.",
+        "geographic_coverage": "Sectores urbanos de la cabecera cantonal, así como parroquias y recintos rurales del [cantón].",
+        "sample_size": "[número] encuestas efectivas: urbana = [número], rural = [número], con ajuste del +[porcentaje]% por rechazo/no respuesta.",
+        "error_margin_confidence": "Margen de error de [5]%, con un nivel de confianza del [95]%.",
+        "field_technique": "Entrevista presencial hogar por hogar (CAPI)[ + técnica complementaria].",
+        "quality_control": "Validación GPS al [100]%, supervisión directa."
+      },
+      "useTemplate": "Usar plantilla",
+      "save": "Guardar ficha",
+      "validate": "Validar ficha",
+      "placeholderHint": "Reemplace los textos entre corchetes [ ] de la plantilla con los datos del levantamiento.",
+      "validateHint": "Para validar, guarde los cambios y complete los seis parámetros sin corchetes pendientes.",
+      "whoValidates": "El líder o el delegado del proyecto debe validar esta ficha.",
+      "saved": "Ficha técnica guardada.",
+      "saveFailed": "No se pudo guardar la ficha técnica.",
+      "validated": "Ficha técnica validada.",
+      "validateFailed": "No se pudo validar la ficha técnica."
     }
   },
   "projects": {
@@ -1092,8 +1213,11 @@
     "projectScope": "Proyecto",
     "formScope": "Formulario",
     "roles": {
+      "LEADER": "Líder de proyecto",
       "PROJECT": "Project Manager",
-      "RECOLECTOR": "Recolector"
+      "RECOLECTOR": "Recolector",
+      "DELEGADO": "Delegado",
+      "SUPERVISOR": "Supervisor"
     },
     "scopes": {
       "project": "Proyecto",
@@ -1109,24 +1233,52 @@
       "save": "Error al guardar proyecto"
     },
     "technicalSheet": {
-      "title": "Ficha Técnica General del Levantamiento",
-      "subtitle": "Define los objetivos, metodología, vigencia y delimitación geográfica del estudio",
-      "description": "Descripción y Metodología del Levantamiento",
-      "descriptionPlaceholder": "Describe los objetivos del estudio, la población objetivo, muestra estimada y metodología de recolección...",
-      "startDate": "Fecha de Inicio",
-      "endDate": "Fecha de Fin",
+      "title": "Ficha metodológica del proyecto",
+      "subtitle": "Define los objetivos, la población, la cobertura, la técnica y las fechas del proyecto",
+      "startDate": "Inicio del proyecto",
+      "endDate": "Fin del proyecto",
       "endBeforeStart": "La fecha de fin no puede ser anterior a la fecha de inicio.",
-      "targetSampleSize": "Muestra Objetivo (Cuota Total)",
-      "status": "Estado de la Ficha",
-      "validateButton": "Validar Ficha Técnica",
-      "validatedInfo": "Ficha validada por {{name}} el {{date}}",
-      "draftNotice": "Ficha en borrador. Debe validarse antes de iniciar el levantamiento.",
-      "saveDraft": "Guardar Ficha Técnica",
+      "targetSampleSize": "Muestra objetivo del proyecto (cuota total)",
+      "status": "Estado de la ficha",
+      "validateButton": "Validar ficha metodológica",
+      "validatedInfo": "Ficha metodológica validada por {{name}} el {{date}}",
+      "draftNotice": "Ficha metodológica en borrador. El líder debe validarla para habilitar los formularios del proyecto.",
+      "saveDraft": "Guardar ficha metodológica",
       "statuses": {
         "DRAFT": "Borrador",
         "VALIDATED": "Validada / Aprobada",
         "IN_PROGRESS": "En Ejecución",
         "COMPLETED": "Finalizada"
+      },
+      "projectDatesTitle": "Fechas del proyecto",
+      "projectDatesNote": "Periodo de todo el proyecto, no de un levantamiento en particular. Cada formulario fija sus propias fechas dentro de este periodo.",
+      "incompleteHint": "Para validar, complete todos los campos de la ficha y las fechas del proyecto, y guárdela.",
+      "fields": {
+        "general_objective": {
+          "label": "Objetivo general",
+          "placeholder": "Ej. Conocer la intención de voto de la población del cantón Pichincha para las elecciones de 2027.",
+          "hint": "Propósito de los datos a recolectar."
+        },
+        "specific_objectives": {
+          "label": "Objetivos específicos",
+          "placeholder": "Ej. 1) Medir la participación por sector urbano y rural. 2) Identificar los temas prioritarios para la población.",
+          "hint": "Qué se busca conocer en concreto con los datos."
+        },
+        "study_population": {
+          "label": "Población de estudio",
+          "placeholder": "Ej. Personas mayores de 16 años residentes en el cantón, aptas para votar.",
+          "hint": "A quién se dirige el estudio."
+        },
+        "geographic_coverage": {
+          "label": "Cobertura geográfica",
+          "placeholder": "Ej. Ecuador, Manabí, cantón Pichincha: cabecera cantonal y parroquias rurales.",
+          "hint": "País, provincia, cantón, parroquia o zona específica."
+        },
+        "technique_instrument": {
+          "label": "Técnica e instrumento",
+          "placeholder": "Ej. Encuesta, entrevista, observación, medición técnica o registro administrativo, junto con su cuestionario o guía.",
+          "hint": "Texto libre: cómo se recogen los datos y con qué instrumento."
+        }
       }
     },
     "zones": {
@@ -1169,15 +1321,15 @@
       "createProject": "Crear proyecto",
       "createFirst": "Crear el primer proyecto",
       "tabs": {
-        "sheet": "Ficha Técnica",
+        "sheet": "Ficha metodológica",
         "forms": "Formularios y Miembros",
         "zones": "Delimitación Multizona",
         "supervision": "Supervisión"
       },
-      "sheetIntro": "Una sola ficha para todo el proyecto. Al validarla se habilitan las preguntas, las zonas y la publicación de todos sus formularios; cada formulario define sus fechas dentro de este periodo.",
+      "sheetIntro": "Una sola ficha metodológica para todo el proyecto (no para un levantamiento en particular). Al validarla se habilitan las preguntas, las zonas y la publicación de todos sus formularios; cada formulario define sus fechas dentro del periodo del proyecto.",
       "adminFallback": "Administrador",
       "editSheet": "Editar ficha",
-      "sheetRevalidate": "Al guardar cambios la ficha vuelve a borrador: los formularios en borrador no podrán editarse ni publicarse hasta que el líder la valide de nuevo. Los formularios ya publicados siguen recibiendo encuestas.",
+      "sheetRevalidate": "Al guardar cambios la ficha metodológica vuelve a borrador: los formularios en borrador no podrán editarse ni publicarse hasta que el líder la valide de nuevo. Los formularios ya publicados siguen recibiendo encuestas.",
       "formPeriods": "Periodo de cada formulario",
       "start": "Inicio",
       "end": "Fin",
@@ -1214,7 +1366,7 @@
         "next": "Siguiente",
         "assignFormsTitle": "Repartir formularios a los encuestadores seleccionados",
         "assignForms": "Asignar formularios",
-        "import": "Importar Excel (.xlsx)",
+        "import": "Importar Excel (.xlsx o .xls)",
         "previewRows": "Vista previa: {{count}} fila(s)",
         "confirmImport": "Confirmar importación",
         "newAccounts": "{{count}} cuenta(s) nueva(s). Descarga las claves temporales ahora; no se volverán a mostrar.",
@@ -1224,13 +1376,17 @@
         "clearSelection": "Quitar selección ({{count}})",
         "formsCount": "{{count}} formulario(s)",
         "page": "Página {{page}} de {{pages}} · {{total}} encuestadores",
-        "total": "{{count}} encuestador(es)"
+        "total": "{{count}} encuestador(es)",
+        "status": {
+          "nuevo": "cuenta nueva",
+          "existente": "tiene cuenta"
+        }
       },
       "zones": {
         "selectForm": "Primero seleccione el formulario",
-        "sheetRequired": "La ficha técnica del proyecto debe estar validada antes de delimitar zonas.",
-        "goToSheet": "Ir a ficha técnica para validarla",
-        "askLeader": "Solicita al líder del proyecto que valide la ficha técnica.",
+        "sheetRequired": "La ficha metodológica del proyecto debe estar validada antes de delimitar zonas.",
+        "goToSheet": "Ir a la ficha metodológica para validarla",
+        "askLeader": "Solicita al líder del proyecto que valide la ficha metodológica.",
         "kpiZones": "Zonas Delimitadas",
         "kpiPool": "Pool Encuestadores",
         "kpiAssigned": "Asignados por Zonas",
@@ -1278,7 +1434,7 @@
         "descriptionPlaceholder": "Objetivo general del instrumento de recolección",
         "start": "Fecha de inicio (opcional)",
         "end": "Fecha de fin (opcional)",
-        "note": "El formulario se creará en borrador. Sus fechas deben estar dentro del periodo de la ficha técnica del proyecto; si las dejas vacías, usará ese periodo al publicarse. Las preguntas se habilitan cuando el líder valida la ficha del proyecto.",
+        "note": "El formulario se creará en borrador. Sus fechas deben estar dentro del periodo del proyecto (ficha metodológica); si las dejas vacías, usará ese periodo al publicarse. Las preguntas se habilitan cuando el líder valida la ficha metodológica del proyecto.",
         "creating": "Creando formulario...",
         "project": "Proyecto:"
       },
@@ -1299,7 +1455,7 @@
         "templateFailed": "No se pudo descargar la plantilla",
         "readFailed": "No se pudo leer el archivo",
         "imported": "{{count}} encuestador(es) importados.",
-        "invited": "{{count}} externo(s) recibirán un correo para confirmar su cuenta y crear su contraseña.",
+        "invited": "Se envió el correo de confirmación a {{count}} persona(s) nueva(s): con correo ULEAM confirman su usuario y entran con Microsoft 365; con correo externo confirman y crean su contraseña.",
         "importFailed": "No se pudo importar",
         "collectorUpdated": "Encuestador actualizado",
         "updateFailed": "No se pudo actualizar",
@@ -1314,9 +1470,9 @@
         "confirmFailed": "No se pudo confirmar",
         "published": "Encuesta publicada",
         "publishFailed": "No se pudo publicar",
-        "sheetSaved": "Ficha técnica guardada correctamente",
-        "sheetSaveFailed": "Error al guardar ficha técnica",
-        "sheetValidated": "Ficha técnica validada exitosamente",
+        "sheetSaved": "Ficha metodológica guardada correctamente",
+        "sheetSaveFailed": "Error al guardar la ficha metodológica",
+        "sheetValidated": "Ficha metodológica validada exitosamente",
         "sheetDatesRequired": "Debe definir fechas de inicio y fin para validar",
         "endBeforeStart": "La fecha de fin no puede ser anterior a la fecha de inicio.",
         "datesSaved": "Fechas de «{{title}}» guardadas.",
@@ -1347,7 +1503,7 @@
         "selectedOne": "1 seleccionado",
         "selectedMany": "{{count}} seleccionados",
         "formCreated": "Formulario creado en borrador.",
-        "formCreatedNeedsSheet": "Formulario creado en borrador. Complete y valide la ficha técnica del proyecto para editar sus preguntas.",
+        "formCreatedNeedsSheet": "Formulario creado en borrador. Complete y valide la ficha metodológica del proyecto para editar sus preguntas.",
         "formCreateFailed": "Error al crear el formulario",
         "deleteProject": "Eliminar proyecto",
         "deleteProjectMessage": "¿Eliminar el proyecto «{{name}}»? Esta acción no se puede deshacer.",
@@ -1356,6 +1512,22 @@
       },
       "leaders": "Líderes",
       "you": "(tú)"
+    },
+    "team": {
+      "title": "Equipo del proyecto",
+      "peopleCount": "{{count}} persona(s)",
+      "groups": {
+        "LEADER": "Líderes del proyecto",
+        "DELEGADO": "Delegados",
+        "SUPERVISOR": "Supervisores",
+        "PROJECT": "Gestores de formulario"
+      },
+      "formCollectors": "{{count}} encuestador(es)",
+      "collectorsTitle": "Encuestadores ({{count}})",
+      "searchCollectors": "Buscar encuestador por nombre, correo o formulario",
+      "noMatch": "Ningún encuestador coincide con la búsqueda.",
+      "showAll": "Mostrar los {{count}}",
+      "showLess": "Mostrar menos"
     }
   },
   "audit": {

@@ -18,12 +18,12 @@ export const routes: Routes = [
   },
   {
     // Recorrer un formulario (incluso en borrador) como encuestado, sin guardar respuestas.
+    // Sin guard: con ?token= (enlace compartido) no hace falta sesión; sin token, la API pide sesión.
     path: 'prueba/:formId',
     loadComponent: () =>
       import('./features/forms/collect/form-collect.component').then(
         (m) => m.FormCollectComponent,
       ),
-    canActivate: [authGuard],
     data: { testMode: true },
     title: 'routes.collectTest',
   },

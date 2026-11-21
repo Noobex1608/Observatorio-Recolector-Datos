@@ -15,7 +15,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '@core/services/auth.service';
 import { Form, FormService } from '@core/services/form.service';
-import { CollectorCandidate, CollectorImportRow, Project, RandomAssignment, ProjectCollector, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
+import { CollectorCandidate, CollectorImportRow, METHODOLOGY_FIELDS, Project, RandomAssignment, ProjectCollector, ProjectMember, ProjectService, ProjectTechnicalSheet, ProjectZone, ProjectZonePayload } from '@core/services/project.service';
 import { SupervisionCollectorsComponent } from './supervision/supervision-collectors.component';
 import { MapGeofenceSelectorComponent, GeofenceSelectionEvent } from '@shared/components/map-geofence-selector/map-geofence-selector.component';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -285,16 +285,21 @@ interface MemberSlot {
                         </div>
 
                         <fieldset class="sheet-fields" [disabled]="!editingSheet() || !canEditSelectedProject()" style="border:0;padding:0;margin:0">
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>{{ 'projects.technicalSheet.description' | translate }}</mat-label>
-                            <textarea
-                              matInput
-                              rows="4"
-                              formControlName="description"
-                              [placeholder]="'projects.technicalSheet.descriptionPlaceholder' | translate"
-                            ></textarea>
-                          </mat-form-field>
+                          @for (field of methodologyFields; track field) {
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>{{ 'projects.technicalSheet.fields.' + field + '.label' | translate }}</mat-label>
+                              <textarea
+                                matInput
+                                [rows]="field === 'technique_instrument' || field === 'specific_objectives' ? 3 : 2"
+                                [formControlName]="field"
+                                [placeholder]="'projects.technicalSheet.fields.' + field + '.placeholder' | translate"
+                              ></textarea>
+                              <mat-hint>{{ 'projects.technicalSheet.fields.' + field + '.hint' | translate }}</mat-hint>
+                            </mat-form-field>
+                          }
 
+                          <h3 class="sheet-subheading">{{ 'projects.technicalSheet.projectDatesTitle' | translate }}</h3>
+                          <p class="muted sheet-subnote">{{ 'projects.technicalSheet.projectDatesNote' | translate }}</p>
                           <div class="date-row">
                             <mat-form-field appearance="outline">
                               <mat-label>{{ 'projects.technicalSheet.startDate' | translate }}</mat-label>
@@ -338,7 +343,7 @@ interface MemberSlot {
                               mat-flat-button
                               color="accent"
                               type="button"
-                              [disabled]="validatingSheet() || !technicalSheet()?.start_date || !technicalSheet()?.end_date"
+                              [disabled]="validatingSheet() || !sheetReadyToValidate()"
                               (click)="validateTechnicalSheet()"
                             >
                               <mat-icon>check_circle</mat-icon>
@@ -348,6 +353,9 @@ interface MemberSlot {
                         </div>
                         @if (editingSheet() && technicalSheet()?.status === 'VALIDATED') {
                           <p class="muted">{{ 'projects.page.sheetRevalidate' | translate }}</p>
+                        }
+                        @if (canLeadSelectedProject() && technicalSheet()?.id && technicalSheet()?.status !== 'VALIDATED' && !editingSheet() && !sheetReadyToValidate()) {
+                          <p class="muted">{{ 'projects.technicalSheet.incompleteHint' | translate }}</p>
                         }
                       </form>
 
@@ -440,6 +448,10 @@ interface MemberSlot {
                                     {{ form.end_date ? (form.end_date | date:'dd/MM/yyyy') : ('projects.page.noLimit' | translate) }}
                                   </span>
                                 }
+                                <span class="form-item-dates">
+                                  <mat-icon>groups</mat-icon>
+                                  {{ 'projects.team.formCollectors' | translate: { count: teamSummary().collectorsByForm.get(form.id) ?? 0 } }}
+                                </span>
                               </div>
                               <small [class]="'form-state-badge ' + form.state.toLowerCase()">{{ formStateLabel(form.state) }}</small>
                             </a>
@@ -452,25 +464,57 @@ interface MemberSlot {
 
                     <section class="panel-section">
                       <div class="section-title">
-                        <h2>{{ 'common.labels.members' | translate }}</h2>
-                        <span>{{ 'projects.membersCount' | translate: { count: project.members?.length ?? 0 } }}</span>
+                        <h2>{{ 'projects.team.title' | translate }}</h2>
+                        <span class="muted">{{ 'projects.team.peopleCount' | translate: { count: teamSummary().people } }}</span>
                       </div>
+
+                      <!-- Responsables: pocos y fijos; los encuestadores van abajo, paginados -->
+                      @if (teamSummary().staff.length) {
+                        <dl class="team-roles">
+                          @for (entry of teamSummary().staff; track entry.key) {
+                            <div class="team-role">
+                              <dt>{{ 'projects.team.groups.' + entry.key | translate }}</dt>
+                              <dd>
+                                <ul class="team-people">
+                                  @for (person of entry.people; track person.user_id) {
+                                    <li>
+                                      <strong>{{ person.name }}</strong>
+                                      <small>{{ person.email }}</small>
+                                      @if (person.forms.length) {
+                                        <small class="team-forms">{{ person.forms.join(', ') }}</small>
+                                      }
+                                    </li>
+                                  }
+                                </ul>
+                              </dd>
+                            </div>
+                          }
+                        </dl>
+                      }
+
+                      @if (teamSummary().people === 0) {
+                        <p class="muted">{{ 'projects.noMembers' | translate }}</p>
+                      }
 
                       @if (canAssignMembers()) {
                         <div class="collector-panel">
                           <h3>{{ 'projects.page.collectors.title' | translate }}</h3>
                           <div class="collector-actions">
-                            <button mat-stroked-button type="button" (click)="downloadCollectorTemplate()">{{ 'projects.page.collectors.downloadTemplate' | translate }}</button>
-                            <label class="collector-upload">{{ 'projects.page.collectors.import' | translate }}
-                              <input type="file" accept=".xlsx" (change)="chooseCollectorFile($event)" />
-                            </label>
+                            <button mat-stroked-button type="button" (click)="downloadCollectorTemplate()">
+                              <mat-icon>download</mat-icon> {{ 'projects.page.collectors.downloadTemplate' | translate }}
+                            </button>
+                            <!-- Vaciar el valor permite volver a elegir el mismo archivo después de corregirlo -->
+                            <button mat-stroked-button type="button" (click)="collectorFileInput.value = ''; collectorFileInput.click()">
+                              <mat-icon>upload_file</mat-icon> {{ 'projects.page.collectors.import' | translate }}
+                            </button>
+                            <input #collectorFileInput type="file" accept=".xlsx,.xls" hidden (change)="chooseCollectorFile($event)" />
                           </div>
                           @if (collectorPreview().length) {
                             <div class="collector-preview">
                               <strong>{{ 'projects.page.collectors.previewRows' | translate: { count: collectorPreview().length } }}</strong>
                               @for (row of collectorPreview(); track row.row) {
                                 <div class="collector-row" [class.collector-invalid]="row.errors.length">
-                                  <span>{{ row.row }}. {{ row.name }} · {{ row.cedula }} · {{ row.email }} ({{ row.status }})</span>
+                                  <span>{{ row.row }}. {{ row.name }} · {{ row.cedula }} · {{ row.email }} ({{ ('projects.page.collectors.status.' + row.status) | translate }})</span>
                                   @if (row.errors.length) { <small>{{ row.errors.join(' ') }}</small> }
                                 </div>
                               }
@@ -564,21 +608,31 @@ interface MemberSlot {
                         </div>
                       }
 
-                      @if ((project.members ?? []).length > 0) {
-                        <div class="members-table">
-                          @for (member of project.members; track member.role + '-' + member.user_id + '-' + (member.form_id ?? 'project')) {
-                            <div class="member-row">
-                              <span>
-                                <strong>{{ member.name }}</strong>
-                                <small>{{ member.email }}</small>
-                              </span>
-                              <span class="member-role">{{ roleLabel(member.role) }}</span>
-                              <em>{{ member.form_title || scopeLabel(member.scope) }}</em>
-                            </div>
+                      <!-- Quien no gestiona el equipo ve los encuestadores en solo lectura, una fila por persona -->
+                      @if (!canAssignMembers() && teamSummary().collectors.length) {
+                        <div class="roster">
+                          <div class="roster-head">
+                            <h3>{{ 'projects.team.collectorsTitle' | translate: { count: teamSummary().collectors.length } }}</h3>
+                            <input class="collector-search" type="search" [placeholder]="'projects.team.searchCollectors' | translate"
+                              [value]="rosterSearch()" (input)="onRosterSearch($event)" [attr.aria-label]="'projects.team.searchCollectors' | translate" />
+                          </div>
+                          <ul class="roster-list">
+                            @for (person of visibleRoster(); track person.user_id) {
+                              <li>
+                                <span class="roster-name"><strong>{{ person.name }}</strong><small>{{ person.email }}</small></span>
+                                <small class="team-forms">{{ person.forms.join(', ') }}</small>
+                              </li>
+                            } @empty {
+                              <li class="muted">{{ 'projects.team.noMatch' | translate }}</li>
+                            }
+                          </ul>
+                          @if (!rosterSearch() && filteredRoster().length > rosterPreviewSize) {
+                            <button mat-button type="button" (click)="rosterExpanded.set(!rosterExpanded())">
+                              <mat-icon>{{ rosterExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                              {{ rosterExpanded() ? ('projects.team.showLess' | translate) : ('projects.team.showAll' | translate: { count: filteredRoster().length }) }}
+                            </button>
                           }
                         </div>
-                      } @else {
-                        <p class="muted">{{ 'projects.noMembers' | translate }}</p>
                       }
                     </section>
                   </mat-tab>
@@ -1297,8 +1351,7 @@ interface MemberSlot {
         box-shadow: 0 8px 18px var(--shadow-color);
       }
 
-      .project-row span,
-      .member-row span {
+      .project-row span {
         display: grid;
         min-width: 0;
         gap: 0.2rem;
@@ -1310,9 +1363,7 @@ interface MemberSlot {
       }
 
       .project-row small,
-      .project-row em,
-      .member-row small,
-      .member-row em {
+      .project-row em {
         color: var(--text-secondary);
         font-size: 0.8rem;
       }
@@ -1447,22 +1498,25 @@ interface MemberSlot {
       }
 
       .collector-panel { margin: 1rem 0; padding: 1rem; border: 1px solid var(--card-border); border-radius: var(--radius-md); }
-      .collector-panel h3 { margin: 0 0 .75rem; }
+      .collector-panel h3 { margin: 0 0 .75rem; font-size: .95rem; }
       .collector-actions, .collector-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
       .collector-row { padding: .6rem 0; border-bottom: 1px solid var(--card-border); }
       .collector-toolbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: .75rem 0; }
-      .collector-search { flex: 1; min-width: 220px; padding: .55rem .7rem; border: 1px solid var(--card-border); border-radius: 6px; background: transparent; color: inherit; }
+      /* width: 0 quita el ancho intrínseco del input; el ancho lo da flex-basis */
+      .collector-search { flex: 1 1 220px; width: 0; min-width: 0; max-width: 100%; padding: .55rem .7rem; border: 1px solid var(--card-border); border-radius: 6px; background: transparent; color: inherit; }
       .collector-pager { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: center; margin-top: .75rem; }
-      .collector-row span { flex: 1; min-width: 200px; }
+      .collector-row span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
       .collector-row small { color: var(--text-secondary); }
       .collector-row button { border: 0; background: transparent; color: var(--primary-text-600); cursor: pointer; }
       .collector-row input:not([type=checkbox]) { max-width: 200px; padding: .4rem; border: 1px solid var(--card-border); border-radius: 4px; }
       .collector-invalid { color: #b91c1c; }
-      .collector-upload { cursor: pointer; border: 1px solid var(--card-border); padding: .5rem .8rem; border-radius: 5px; }
-      .collector-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
       .collector-preview { display: grid; gap: .6rem; margin: .8rem 0; padding: .75rem; background: var(--bg-secondary); border-radius: var(--radius-md); }
       .collector-preview button { justify-self: start; }
       .collector-form { display: flex; gap: .5rem; align-items: center; }
+
+      .sheet-subheading { margin: .75rem 0 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+      .sheet-subnote { margin: .1rem 0 .6rem; }
+      .sheet-fields mat-form-field.full-width { margin-bottom: .35rem; }
 
       .date-row {
         display: grid;
@@ -1781,14 +1835,12 @@ interface MemberSlot {
         font-size: 1rem;
       }
 
-      .form-list,
-      .members-table {
+      .form-list {
         display: grid;
         gap: 0.5rem;
       }
 
-      .form-item,
-      .member-row {
+      .form-item {
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
         padding: 0.75rem;
@@ -1806,12 +1858,79 @@ interface MemberSlot {
         background: var(--hover-bg);
       }
 
-      .member-role {
-        background: var(--bg-tertiary);
-        border-radius: var(--radius-full);
-        padding: 0.25rem 0.65rem;
-        font-size: 0.75rem;
+      /* Equipo: responsables agrupados por rol, una línea por persona */
+      .team-roles {
+        display: grid;
+        margin: 0.75rem 0 0;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+      }
+      .team-role {
+        display: grid;
+        grid-template-columns: minmax(140px, 0.3fr) 1fr;
+        gap: 1rem;
+        padding: 0.7rem 0.9rem;
+      }
+      .team-role + .team-role { border-top: 1px solid var(--border-color); }
+      .team-role dt {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
         font-weight: 700;
+        padding-top: 0.1rem;
+      }
+      .team-role dd { margin: 0; min-width: 0; }
+      .team-people,
+      .roster-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+        gap: 0.5rem 1.25rem;
+      }
+      .team-people li,
+      .roster-name {
+        display: grid;
+        min-width: 0;
+        gap: 0.05rem;
+      }
+      .team-people strong,
+      .roster-list strong { font-size: 0.9rem; overflow-wrap: anywhere; }
+      .team-people small,
+      .roster-list small {
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+        overflow-wrap: anywhere;
+      }
+      .team-forms { font-style: italic; }
+
+      .roster { margin-top: 1rem; display: grid; gap: 0.6rem; }
+      .roster-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+      }
+      .roster-head h3 { margin: 0; font-size: 0.95rem; }
+      .roster-head .collector-search { flex: 0 1 320px; }
+      .roster-list { gap: 0; grid-template-columns: 1fr; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+      .roster-list li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.25rem 1rem;
+        align-items: center;
+        padding: 0.5rem 0.8rem;
+      }
+      .roster-list li + li { border-top: 1px solid var(--border-color); }
+      .roster > button { justify-self: start; }
+
+      @media (max-width: 640px) {
+        .team-role,
+        .roster-list li { grid-template-columns: 1fr; gap: 0.35rem; }
+        .collector-panel { padding: .75rem; }
+        .roster-head .collector-search { flex-basis: 100%; }
       }
 
       @media (max-width: 1600px) {
@@ -1835,8 +1954,7 @@ interface MemberSlot {
       }
 
       @media (max-width: 900px) {
-        .form-item,
-        .member-row {
+        .form-item {
           grid-template-columns: 1fr;
         }
 
@@ -2265,6 +2383,56 @@ export class ProjectListComponent implements OnInit {
     const id = this.authService.user()?.id;
     return this.authService.isAdmin() || !!project?.leaders?.some((leader) => leader.id === id);
   });
+  /**
+   * Equipo del proyecto agrupado por persona. La lista de miembros trae una fila por asignación
+   * (un encuestador en 3 formularios = 3 filas); aquí cada persona aparece una sola vez.
+   */
+  readonly teamSummary = computed(() => {
+    const members = this.selectedProject()?.members ?? [];
+    type Person = { user_id: number; name: string; email: string; forms: string[] };
+    const group = (rows: ProjectMember[]): Person[] => {
+      const people = new Map<number, Person>();
+      for (const row of rows) {
+        const person = people.get(row.user_id) ?? { user_id: row.user_id, name: row.name, email: row.email, forms: [] };
+        if (row.form_title && !person.forms.includes(row.form_title)) person.forms.push(row.form_title);
+        people.set(row.user_id, person);
+      }
+      return [...people.values()].sort((a, b) => a.name.localeCompare(b.name));
+    };
+    const staff = [
+      { key: 'LEADER', people: group(members.filter((m) => m.role === 'PROJECT' && !m.form_id)) },
+      { key: 'DELEGADO', people: group(members.filter((m) => m.role === 'DELEGADO')) },
+      { key: 'SUPERVISOR', people: group(members.filter((m) => m.role === 'SUPERVISOR')) },
+      { key: 'PROJECT', people: group(members.filter((m) => m.role === 'PROJECT' && !!m.form_id)) },
+    ].filter((entry) => entry.people.length > 0);
+    const collectors = group(members.filter((m) => m.role === 'RECOLECTOR'));
+    const collectorsByForm = new Map<string, number>();
+    for (const m of members) {
+      if (m.role === 'RECOLECTOR' && m.form_id) collectorsByForm.set(m.form_id, (collectorsByForm.get(m.form_id) ?? 0) + 1);
+    }
+    const people = new Set(members.map((m) => m.user_id)).size;
+    return { staff, collectors, collectorsByForm, people };
+  });
+
+  /** Vista de solo lectura de los encuestadores (para quien no gestiona el equipo). */
+  readonly rosterSearch = signal('');
+  readonly rosterExpanded = signal(false);
+  readonly rosterPreviewSize = 12;
+  readonly filteredRoster = computed(() => {
+    const query = this.rosterSearch().trim().toLowerCase();
+    const collectors = this.teamSummary().collectors;
+    return query
+      ? collectors.filter((c) => `${c.name} ${c.email} ${c.forms.join(' ')}`.toLowerCase().includes(query))
+      : collectors;
+  });
+  readonly visibleRoster = computed(() =>
+    this.rosterExpanded() || this.rosterSearch() ? this.filteredRoster() : this.filteredRoster().slice(0, this.rosterPreviewSize),
+  );
+
+  onRosterSearch(event: Event): void {
+    this.rosterSearch.set((event.target as HTMLInputElement).value);
+  }
+
   canLeadSelectedProject = computed(() => {
     const project = this.selectedProject();
     const id = this.authService.user()?.id;
@@ -2304,8 +2472,15 @@ export class ProjectListComponent implements OnInit {
     supervisor_ids: [[] as number[]],
   });
 
+  /** Campos de la ficha metodológica del proyecto, en orden; todos obligatorios para validar. */
+  readonly methodologyFields = METHODOLOGY_FIELDS;
+
   technicalSheetForm = this.fb.group({
-    description: [''],
+    general_objective: [''],
+    specific_objectives: [''],
+    study_population: [''],
+    geographic_coverage: [''],
+    technique_instrument: [''],
     start_date: [''],
     end_date: [''],
     target_sample_size: [null as number | null],
@@ -2711,7 +2886,7 @@ export class ProjectListComponent implements OnInit {
         this.editingSheet.set(!sheet.id);
         if (sheet) {
           this.technicalSheetForm.patchValue({
-            description: sheet.description ?? '',
+            ...Object.fromEntries(METHODOLOGY_FIELDS.map((field) => [field, sheet[field] ?? ''])),
             start_date: sheet.start_date ?? '',
             end_date: sheet.end_date ?? '',
             target_sample_size: sheet.target_sample_size ?? null,
@@ -2782,7 +2957,7 @@ export class ProjectListComponent implements OnInit {
 
     this.savingSheet.set(true);
     const payload = {
-      description: this.technicalSheetForm.value.description ?? null,
+      ...Object.fromEntries(METHODOLOGY_FIELDS.map((field) => [field, this.technicalSheetForm.value[field]?.trim() || null])),
       start_date: this.technicalSheetForm.value.start_date ?? null,
       end_date: this.technicalSheetForm.value.end_date ?? null,
       target_sample_size: this.technicalSheetForm.value.target_sample_size ?? null,
@@ -2800,6 +2975,12 @@ export class ProjectListComponent implements OnInit {
         this.notify.error(err?.error?.message || this.translate.instant('projects.page.msg.sheetSaveFailed'));
       },
     });
+  }
+
+  /** La ficha guardada tiene todo lo que el backend exige para validarla. */
+  sheetReadyToValidate(): boolean {
+    const sheet = this.technicalSheet();
+    return !!sheet?.start_date && !!sheet.end_date && METHODOLOGY_FIELDS.every((field) => !!sheet[field]?.trim());
   }
 
   validateTechnicalSheet(): void {
@@ -3259,18 +3440,6 @@ export class ProjectListComponent implements OnInit {
     });
   }
 
-  roleLabel(role: string): string {
-    const labels: Record<string, string> = {
-      PROJECT: this.translate.instant('projects.roles.PROJECT'),
-      EDITOR: this.translate.instant('projects.roles.PROJECT'),
-      RECOLECTOR: this.translate.instant('projects.roles.RECOLECTOR'),
-      DELEGADO: 'Delegado',
-      SUPERVISOR: 'Supervisor',
-    };
-
-    return labels[role] ?? role;
-  }
-
   formStateLabel(state: string): string {
     const labels: Record<string, string> = {
       DRAFT: this.translate.instant('projects.formStates.DRAFT'),
@@ -3279,14 +3448,5 @@ export class ProjectListComponent implements OnInit {
     };
 
     return labels[state] ?? state;
-  }
-
-  scopeLabel(scope: ProjectMember['scope']): string {
-    const labels: Record<string, string> = {
-      Proyecto: this.translate.instant('projects.scopes.project'),
-      Formulario: this.translate.instant('projects.scopes.form'),
-    };
-
-    return labels[scope] ?? scope;
   }
 }

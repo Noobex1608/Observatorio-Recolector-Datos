@@ -179,5 +179,30 @@ class CascadingChoicesAndTestModeTest extends TestCase
 
         $this->getJson("/api/forms/{$form->id}/test")->assertForbidden();
         $this->postJson("/api/forms/{$form->id}/test-submit", ['data' => []])->assertForbidden();
+        $this->getJson("/api/forms/{$form->id}/test-link")->assertForbidden();
+    }
+
+    public function test_shared_test_link_works_without_session_and_saves_nothing(): void
+    {
+        [$form, $province, $canton] = $this->cascadeForm('DRAFT');
+        $token = $this->getJson("/api/forms/{$form->id}/test-link")->assertOk()->json('token');
+        $this->app['auth']->forgetGuards(); // quien recibe el enlace no tiene sesión
+
+        $this->getJson("/api/forms/public-test/{$form->id}?token={$token}")->assertOk()
+            ->assertJsonPath('test_mode', true)
+            ->assertJsonPath('questions.1.id', $canton);
+        $this->postJson("/api/forms/public-test/{$form->id}/submit?token={$token}", ['data' => [$province => 'Guayas', $canton => 'Manta']])
+            ->assertUnprocessable()->assertJsonValidationErrors("data.{$canton}");
+        $this->postJson("/api/forms/public-test/{$form->id}/submit?token={$token}", ['data' => ['_consentimiento_aceptado' => true, $province => 'Guayas', $canton => 'Guayaquil']])
+            ->assertOk()->assertJsonPath('answered', 2);
+        $this->assertSame(0, FormResponse::where('form_id', $form->id)->count());
+
+        // Sin token, con token de otro formulario, alterado o caducado: rechazado.
+        [$other] = $this->cascadeForm('DRAFT');
+        $this->getJson("/api/forms/public-test/{$form->id}")->assertForbidden();
+        $this->getJson("/api/forms/public-test/{$other->id}?token={$token}")->assertForbidden();
+        $this->getJson("/api/forms/public-test/{$form->id}?token={$token}x")->assertForbidden();
+        $this->travel(8)->days();
+        $this->getJson("/api/forms/public-test/{$form->id}?token={$token}")->assertForbidden();
     }
 }

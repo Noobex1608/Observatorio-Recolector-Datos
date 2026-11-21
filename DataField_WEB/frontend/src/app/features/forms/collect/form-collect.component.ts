@@ -49,7 +49,9 @@ interface QuestionVisualMeta {
             <strong>{{ 'forms.collect.test.title' | translate }}</strong>
             <span>{{ 'forms.collect.test.banner' | translate }}</span>
           </p>
-          <a mat-stroked-button [routerLink]="['/admin/forms', testFormId, 'edit']">{{ 'forms.collect.test.backToEditor' | translate }}</a>
+          @if (!testToken) {
+            <a mat-stroked-button [routerLink]="['/admin/forms', testFormId, 'edit']">{{ 'forms.collect.test.backToEditor' | translate }}</a>
+          }
         </aside>
       }
       @if (loading()) {
@@ -884,11 +886,18 @@ export class FormCollectComponent implements OnInit {
   /** Modo de prueba (/prueba/:formId): mismo recorrido que el encuestado, sin guardar respuestas. */
   readonly testMode = this.route.snapshot.data?.['testMode'] === true;
   readonly testFormId = this.route.snapshot.paramMap.get('formId') ?? '';
+  /** Token del enlace de prueba compartido (?token=): permite probar sin iniciar sesión. */
+  readonly testToken = this.route.snapshot.queryParamMap?.get('token') ?? '';
   readonly testAnswered = signal(0);
 
   constructor() {
     // Guarda el avance en la pestaña cada vez que cambia, para que una recarga no lo pierda.
     effect(() => {
+      // Una prueba terminada no deja rastro: al volver a abrir el enlace se empieza de cero.
+      if (this.testMode && this.submitted()) {
+        if (this.restored) this.clearProgress();
+        return;
+      }
       const progress: SavedProgress = {
         answers: this.answers(),
         consentAccepted: this.consentAccepted(),
@@ -941,7 +950,7 @@ export class FormCollectComponent implements OnInit {
       if (typeof saved.clientSubmissionId === 'string' && saved.clientSubmissionId) {
         this.clientSubmissionId = saved.clientSubmissionId;
       }
-      this.submitted.set(saved.submitted === true);
+      this.submitted.set(saved.submitted === true && !this.testMode);
     }
     this.restored = true;
   }
@@ -957,9 +966,11 @@ export class FormCollectComponent implements OnInit {
   }
 
   loadForm(): void {
-    const request = this.testMode
-      ? this.formService.fetchTestForm(this.testFormId)
-      : this.formService.fetchPublicForm(this.linkUuid);
+    const request = !this.testMode
+      ? this.formService.fetchPublicForm(this.linkUuid)
+      : this.testToken
+        ? this.formService.fetchSharedTestForm(this.testFormId, this.testToken)
+        : this.formService.fetchTestForm(this.testFormId);
     request.subscribe({
       next: (form) => {
         this.form.set({ ...form, questions: form.questions ?? [] });
@@ -976,7 +987,8 @@ export class FormCollectComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.error.set(this.translate.instant(this.testMode ? 'forms.collect.test.loadError' : 'forms.collect.errors.load'));
+        this.error.set(this.translate.instant(!this.testMode ? 'forms.collect.errors.load'
+          : this.testToken ? 'forms.collect.test.linkInvalid' : 'forms.collect.test.loadError'));
         this.loading.set(false);
       },
     });
@@ -1335,7 +1347,10 @@ export class FormCollectComponent implements OnInit {
     this.submitError.set('');
 
     if (this.testMode) {
-      this.formService.submitTestResponse(this.testFormId, this.normalizedAnswers()).subscribe({
+      const check = this.testToken
+        ? this.formService.submitSharedTestResponse(this.testFormId, this.testToken, this.normalizedAnswers())
+        : this.formService.submitTestResponse(this.testFormId, this.normalizedAnswers());
+      check.subscribe({
         next: (result) => {
           this.testAnswered.set(result.answered);
           this.submitted.set(true);

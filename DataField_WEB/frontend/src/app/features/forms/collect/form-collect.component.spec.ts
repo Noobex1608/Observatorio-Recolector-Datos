@@ -18,13 +18,17 @@ const form = {
   ],
 };
 
-function open(formService: Record<string, unknown>, route: { params?: Record<string, string>; data?: Record<string, unknown> } = {}) {
+function open(formService: Record<string, unknown>, route: { params?: Record<string, string>; query?: Record<string, string>; data?: Record<string, unknown> } = {}) {
   TestBed.resetTestingModule();
   TestBed.overrideComponent(FormCollectComponent, { set: { template: '', imports: [] } });
   TestBed.configureTestingModule({
     providers: [
       ...provideSpanishTranslations(),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(route.params ?? { uuid: 'abc' }), data: route.data ?? {} } } },
+      { provide: ActivatedRoute, useValue: { snapshot: {
+        paramMap: convertToParamMap(route.params ?? { uuid: 'abc' }),
+        queryParamMap: convertToParamMap(route.query ?? {}),
+        data: route.data ?? {},
+      } } },
       { provide: FormService, useValue: formService },
     ],
   });
@@ -207,6 +211,56 @@ describe('Opciones en cascada y modo de prueba', () => {
     expect(component.submitted()).toBe(false);
     expect(component.questionError('canton')).toBe('No corresponde a la provincia.');
     expect(component.submitError()).toBe('Revise las respuestas.');
+  });
+
+  it('con el enlace compartido (?token=) usa la prueba pública, sin sesión', () => {
+    const fetchTestForm = vi.fn();
+    const submitTestResponse = vi.fn();
+    const fetchSharedTestForm = vi.fn(() => of(cascade));
+    const submitSharedTestResponse = vi.fn(() => of({ message: 'ok', answered: 2, active_questions: 2 }));
+    const { component } = open(
+      { fetchTestForm, submitTestResponse, fetchSharedTestForm, submitSharedTestResponse },
+      { params: { formId: 'f2' }, query: { token: '123.abc' }, data: { testMode: true } },
+    );
+    component.acceptConsent();
+    component.setAnswer('prov', 'Guayas');
+    component.setAnswer('canton', 'Guayaquil');
+    component.onSubmit();
+
+    expect(fetchSharedTestForm).toHaveBeenCalledWith('f2', '123.abc');
+    expect(submitSharedTestResponse).toHaveBeenCalledWith('f2', '123.abc', expect.objectContaining({ canton: 'Guayaquil' }));
+    expect(fetchTestForm).not.toHaveBeenCalled();
+    expect(submitTestResponse).not.toHaveBeenCalled();
+  });
+
+  it('un enlace compartido caducado muestra un aviso claro', () => {
+    const { component } = open(
+      { fetchSharedTestForm: () => throwError(() => ({ status: 403 })) },
+      { params: { formId: 'f2' }, query: { token: 'viejo' }, data: { testMode: true } },
+    );
+    expect(component.error()).toContain('no es válido o ya caducó');
+  });
+
+  it('al terminar la prueba no queda estado: reabrir el enlace empieza de cero', () => {
+    const service = {
+      fetchTestForm: () => of(cascade),
+      submitTestResponse: () => of({ message: 'ok', answered: 2, active_questions: 2 }),
+    };
+    const route = { params: { formId: 'f2' }, data: { testMode: true } };
+    const first = open(service, route);
+    first.component.acceptConsent();
+    first.component.setAnswer('prov', 'Guayas');
+    first.component.setAnswer('canton', 'Guayaquil');
+    first.component.onSubmit();
+    TestBed.tick();
+    expect(first.component.submitted()).toBe(true);
+    expect(sessionStorage.getItem('uleam:collect:prueba:f2')).toBeNull();
+
+    // Aunque quede un avance viejo marcado como terminado, la prueba se abre nueva.
+    sessionStorage.setItem('uleam:collect:prueba:f2', JSON.stringify({ submitted: true, answers: {} }));
+    const reopened = open(service, route);
+    expect(reopened.component.submitted()).toBe(false);
+    expect(reopened.component.answers()['prov']).toBeUndefined();
   });
 });
 

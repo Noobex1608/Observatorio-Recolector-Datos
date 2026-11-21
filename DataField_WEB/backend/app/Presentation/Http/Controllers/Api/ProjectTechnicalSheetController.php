@@ -38,6 +38,7 @@ class ProjectTechnicalSheetController extends Controller
                 'id' => null,
                 'project_id' => $project->id,
                 'description' => null,
+                ...array_fill_keys(ProjectTechnicalSheet::METHODOLOGY_FIELDS, null),
                 'start_date' => null,
                 'end_date' => null,
                 'target_sample_size' => null,
@@ -62,7 +63,12 @@ class ProjectTechnicalSheetController extends Controller
             return response()->json(['message' => __('No tienes permisos para gestionar la ficha técnica de este proyecto')], 403);
         }
 
-        $data = $request->safe()->only(['description', 'start_date', 'end_date', 'target_sample_size']);
+        $data = $request->safe()->only([...ProjectTechnicalSheet::METHODOLOGY_FIELDS, 'start_date', 'end_date', 'target_sample_size']);
+        foreach (ProjectTechnicalSheet::METHODOLOGY_FIELDS as $field) {
+            if (array_key_exists($field, $data) && $data[$field] !== null) {
+                $data[$field] = trim((string) $data[$field]) ?: null;
+            }
+        }
         $sheet = DB::transaction(function () use ($project, $user, $data) {
             $sheet = ProjectTechnicalSheet::where('project_id', $project->id)->lockForUpdate()->first()
                 ?? new ProjectTechnicalSheet(['project_id' => $project->id]);
@@ -93,8 +99,9 @@ class ProjectTechnicalSheetController extends Controller
 
         $sheet = ProjectTechnicalSheet::where('project_id', $project->id)->first();
         abort_unless($sheet, 422, __('Primero guarde la ficha técnica.'));
-        abort_if(! $sheet->start_date || ! $sheet->end_date || ! $sheet->description,
-            422, __('La descripción y las fechas de inicio y fin son obligatorias para validar.'));
+        $missing = array_filter(ProjectTechnicalSheet::METHODOLOGY_FIELDS, fn ($field) => trim((string) $sheet->{$field}) === '');
+        abort_if($missing !== [] || ! $sheet->start_date || ! $sheet->end_date, 422,
+            __('Para validar, complete los objetivos, la población de estudio, la cobertura geográfica, la técnica e instrumento y las fechas del proyecto.'));
         abort_if($sheet->end_date->lessThan($sheet->start_date), 422,
             __('La fecha de fin no puede ser anterior a la fecha de inicio.'));
 

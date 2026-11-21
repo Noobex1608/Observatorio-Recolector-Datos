@@ -150,7 +150,15 @@
       "saving": "Saving…",
       "submit": "Confirm and create password",
       "introAfter": ". Use at least 12 characters with uppercase, lowercase letters and numbers.",
-      "introBefore": "Create the password for"
+      "introBefore": "Create the password for",
+      "microsoftTitle": "Confirm your user",
+      "microsoftIntroBefore": "Your institutional account",
+      "microsoftIntroAfter": " signs in with Microsoft 365, so you do not need to create a password. Confirm your user to finish.",
+      "microsoftSubmit": "Confirm my user",
+      "microsoftDoneTitle": "User confirmed",
+      "microsoftDoneText": "You can now sign in with your institutional Microsoft 365 account.",
+      "microsoftSignIn": "Sign in with Microsoft 365",
+      "failed": "The account could not be confirmed. Try again."
     }
   },
   "layout": {
@@ -606,9 +614,9 @@
       },
       "page": {
         "editForm": "Edit form",
-        "delimitOnSave": "Open zone boundaries after saving (requires a validated technical sheet)",
+        "delimitOnSave": "Open zone drawing on save (requires the project methodology sheet to be validated)",
         "lockedLine1": "This instrument is already published. To change questions or consent, use “Clone” in My forms.",
-        "lockedLine2": "The copy keeps the original form and its responses. Each form’s dates are managed in the project’s Technical sheet tab.",
+        "lockedLine2": "The copy will keep the original form and its responses. Each form's dates are managed in the project's Methodology sheet tab.",
         "consentLabel": "Required informed consent text",
         "consentPlaceholder": "Informed consent text shown at the start of the survey...",
         "collectionStart": "Collection start date",
@@ -718,7 +726,70 @@
           "editPermission": "Edit permission",
           "targetLabel": "Response target",
           "noLimit": "No limit",
-          "setLimit": "Set limit"
+          "setLimit": "Set limit",
+          "targetShort": "Target",
+          "optional": "(optional)",
+          "targetHint": "Leave it empty for no response limit.",
+          "modesLabel": "How to share",
+          "modeSingle": "One person",
+          "modeBulk": "Several people (Excel)",
+          "adding": "Assigning...",
+          "assign": "Assign user",
+          "createAndAssign": "Create account and assign",
+          "newAccountIntro": "This email has no account. Enter their names and ID number: they will be created as a collector, receive an email to confirm their account and join the project team.",
+          "fullName": "First and last names",
+          "cedula": "ID number",
+          "newAccountRequired": "To create the account, enter the names and a 10-digit ID number.",
+          "createdInvited": "The account for {{email}} was created, the confirmation email was sent and the form was assigned.",
+          "createdOnly": "The account for {{email}} was created and the form was assigned. Download their temporary password.",
+          "assignedOne": "Form assigned to {{email}}.",
+          "revoke": "Remove",
+          "name": "Name",
+          "emailShort": "Email",
+          "progress": "Progress",
+          "actions": "Actions",
+          "noName": "No name",
+          "completed": "Completed",
+          "reactivate": "Reactivate",
+          "responsesCount": "{{count}} responses",
+          "credentials": {
+            "notice": "{{count}} institutional account(s) received a temporary password because Microsoft 365 is not configured. Download them now: they will not be shown again.",
+            "download": "Download passwords",
+            "name": "Name",
+            "email": "Email",
+            "password": "Temporary password",
+            "file": "temporary-passwords.csv"
+          },
+          "bulk": {
+            "step1": "Download the template",
+            "step1Text": "Columns: email, first and last names, ID number, role and target responses (optional). Names and ID number are only required for people who do not have an account yet.",
+            "step2": "Upload the completed file",
+            "step2Text": "Accepts .xlsx and .xls, up to 500 people. Before assigning you will see a preview with the errors of each row.",
+            "downloadTemplate": "Download template",
+            "chooseFile": "Choose file",
+            "templateFile": "form-sharing-template.xls",
+            "templateFailed": "The template could not be downloaded.",
+            "wrongType": "Choose an Excel file (.xlsx or .xls).",
+            "readFailed": "The file could not be checked.",
+            "importFailed": "The form could not be shared. Nobody was assigned.",
+            "reading": "Checking the file...",
+            "summary": "{{count}} row(s) · {{created}} new account(s)",
+            "errorsCount": "{{count}} row(s) with errors",
+            "row": "Row",
+            "person": "Person",
+            "state": "Status",
+            "status": {
+              "nuevo": "New account",
+              "existente": "Has an account",
+              "asignado": "Already assigned (will be updated)",
+              "error": "Has errors"
+            },
+            "confirm": "Assign to {{count}} person(s)",
+            "fixFirst": "Fix the rows with errors in the Excel file and upload it again. Nobody is assigned until everything is correct.",
+            "done": "Form assigned to {{count}} person(s).",
+            "created": "{{count}} new account(s) were created and added to the project team.",
+            "invited": "The confirmation email was sent to {{count}} person(s)."
+          }
         },
         "incomplete": "{{count}} incomplete",
         "questionsWord": "questions",
@@ -764,7 +835,7 @@
           "completeBeforeTest": "Complete the flagged questions before testing the form.",
           "testSaveFailed": "The form could not be saved for testing.",
           "saveForTestLink": "Save the form to get the test link.",
-          "testLinkCopied": "Test link copied. Whoever opens it signs in and needs access to the form; responses are not saved.",
+          "testLinkCopied": "Test link copied. It opens without signing in for 7 days; responses are not saved.",
           "copyFailed": "The link could not be copied.",
           "noGeolocation": "Geolocation is not available in this browser.",
           "locationFailed": "The current location could not be obtained: {{reason}}",
@@ -989,7 +1060,8 @@
         "doneTitle": "Test completed",
         "doneText": "The answers follow the form rules ({{answered}} answered). Nothing was saved.",
         "again": "Test again",
-        "loadError": "The test could not be opened. Check that you have access to this form."
+        "loadError": "The test could not be opened. Check that you have access to this form.",
+        "linkInvalid": "This test link is invalid or has expired. Ask whoever shared it for a new link."
       },
       "loading": "Loading form...",
       "stepMode": "Complete the current question to continue.",
@@ -1064,6 +1136,55 @@
         "cedulaPrefix": "The ID number is not valid: check the first digits.",
         "cedulaCheck": "The ID number is not valid: check the last digit."
       }
+    },
+    "technicalSheet": {
+      "title": "Form technical sheet",
+      "optional": "Optional",
+      "subtitle": "Survey methodology. It is optional: the form can be published without it. Validated by the project leader or delegate.",
+      "status": {
+        "DRAFT": "Draft",
+        "VALIDATED": "Validated"
+      },
+      "loading": "Loading technical sheet…",
+      "loadFailed": "The technical sheet could not be loaded.",
+      "draftNotice": "Pending validation. Any saved change returns the sheet to draft.",
+      "validatedBy": "Validated by {{name}} on {{date}}.",
+      "parameter": "Parameter",
+      "specification": "Methodological specification",
+      "params": {
+        "target_universe": "Target population",
+        "geographic_coverage": "Geographic coverage",
+        "sample_size": "Sample size",
+        "error_margin_confidence": "Margin of error and confidence",
+        "field_technique": "Fieldwork technique",
+        "quality_control": "Quality control"
+      },
+      "placeholders": {
+        "target_universe": "Population the survey represents, with its size and distribution.",
+        "geographic_coverage": "Territory where data is collected.",
+        "sample_size": "Completed surveys, distribution and non-response adjustment.",
+        "error_margin_confidence": "Margin of error and confidence level.",
+        "field_technique": "How the survey is applied in the field.",
+        "quality_control": "How survey quality is verified."
+      },
+      "template": {
+        "target_universe": "Residents of [canton/province] aged over [age] [condition, e.g. eligible to vote] ([population size]). Distribution: Urban, Rural.",
+        "geographic_coverage": "Urban sectors of the canton seat, as well as rural parishes and settlements of [canton].",
+        "sample_size": "[number] completed surveys: urban = [number], rural = [number], with a +[percentage]% adjustment for refusal/non-response.",
+        "error_margin_confidence": "Margin of error of [5]%, with a [95]% confidence level.",
+        "field_technique": "Face-to-face household interviews (CAPI)[ + complementary technique].",
+        "quality_control": "[100]% GPS validation, direct supervision."
+      },
+      "useTemplate": "Use template",
+      "save": "Save sheet",
+      "validate": "Validate sheet",
+      "placeholderHint": "Replace the template text in brackets [ ] with the survey details.",
+      "validateHint": "To validate, save your changes and fill in all six parameters with no brackets left.",
+      "whoValidates": "The project leader or delegate must validate this sheet.",
+      "saved": "Technical sheet saved.",
+      "saveFailed": "The technical sheet could not be saved.",
+      "validated": "Technical sheet validated.",
+      "validateFailed": "The technical sheet could not be validated."
     }
   },
   "projects": {
@@ -1092,8 +1213,11 @@
     "projectScope": "Project",
     "formScope": "Form",
     "roles": {
+      "LEADER": "Project leader",
       "PROJECT": "Project Manager",
-      "RECOLECTOR": "Collector"
+      "RECOLECTOR": "Collector",
+      "DELEGADO": "Delegate",
+      "SUPERVISOR": "Supervisor"
     },
     "scopes": {
       "project": "Project",
@@ -1109,13 +1233,11 @@
       "save": "Failed to save project"
     },
     "technicalSheet": {
-      "description": "Survey description and methodology",
-      "descriptionPlaceholder": "Describe the study goals, target population, estimated sample and collection method...",
-      "draftNotice": "Draft sheet. It must be validated before the survey starts.",
+      "draftNotice": "Methodology sheet in draft. The leader must validate it to enable the project's forms.",
       "endBeforeStart": "The end date cannot be earlier than the start date.",
-      "endDate": "End date",
-      "saveDraft": "Save technical sheet",
-      "startDate": "Start date",
+      "endDate": "Project end",
+      "saveDraft": "Save methodology sheet",
+      "startDate": "Project start",
       "status": "Sheet status",
       "statuses": {
         "COMPLETED": "Completed",
@@ -1123,11 +1245,41 @@
         "IN_PROGRESS": "In progress",
         "VALIDATED": "Validated"
       },
-      "subtitle": "Set the study goals, methodology, dates and geographic scope",
-      "targetSampleSize": "Target sample (total quota)",
-      "title": "Survey technical sheet",
-      "validateButton": "Validate technical sheet",
-      "validatedInfo": "Validated by {{name}} on {{date}}"
+      "subtitle": "Defines the project's objectives, population, coverage, technique and dates",
+      "targetSampleSize": "Project target sample (total quota)",
+      "title": "Project methodology sheet",
+      "validateButton": "Validate methodology sheet",
+      "validatedInfo": "Methodology sheet validated by {{name}} on {{date}}",
+      "projectDatesTitle": "Project dates",
+      "projectDatesNote": "Period of the whole project, not of a single survey. Each form sets its own dates within this period.",
+      "incompleteHint": "To validate, fill in every sheet field and the project dates, then save it.",
+      "fields": {
+        "general_objective": {
+          "label": "General objective",
+          "placeholder": "E.g. Understand voting intention in the canton of Pichincha for the 2027 elections.",
+          "hint": "Purpose of the data to be collected."
+        },
+        "specific_objectives": {
+          "label": "Specific objectives",
+          "placeholder": "E.g. 1) Measure participation by urban and rural area. 2) Identify the population's priority issues.",
+          "hint": "What exactly the data should tell you."
+        },
+        "study_population": {
+          "label": "Study population",
+          "placeholder": "E.g. Residents of the canton over 16 who are eligible to vote.",
+          "hint": "Who the study is about."
+        },
+        "geographic_coverage": {
+          "label": "Geographic coverage",
+          "placeholder": "E.g. Ecuador, Manabí, canton of Pichincha: canton seat and rural parishes.",
+          "hint": "Country, province, canton, parish or specific area."
+        },
+        "technique_instrument": {
+          "label": "Technique and instrument",
+          "placeholder": "E.g. Survey, interview, observation, technical measurement or administrative record, along with its questionnaire or guide.",
+          "hint": "Free text: how the data is collected and with which instrument."
+        }
+      }
     },
     "zones": {
       "addZone": "Add zone",
@@ -1169,15 +1321,15 @@
       "createProject": "Create project",
       "createFirst": "Create the first project",
       "tabs": {
-        "sheet": "Technical sheet",
+        "sheet": "Methodology sheet",
         "forms": "Forms and members",
         "zones": "Zones",
         "supervision": "Supervision"
       },
-      "sheetIntro": "One sheet for the whole project. Validating it enables questions, zones and publishing for all its forms; each form sets its dates within this period.",
+      "sheetIntro": "One methodology sheet for the whole project (not for a single survey). Validating it enables questions, zones and publishing for all its forms; each form sets its dates within the project period.",
       "adminFallback": "Administrator",
       "editSheet": "Edit sheet",
-      "sheetRevalidate": "Saving changes returns the sheet to draft: draft forms cannot be edited or published until the leader validates it again. Published forms keep receiving surveys.",
+      "sheetRevalidate": "Saving changes returns the methodology sheet to draft: draft forms cannot be edited or published until the leader validates it again. Published forms keep receiving responses.",
       "formPeriods": "Period of each form",
       "start": "Start",
       "end": "End",
@@ -1214,7 +1366,7 @@
         "next": "Next",
         "assignFormsTitle": "Assign forms to the selected collectors",
         "assignForms": "Assign forms",
-        "import": "Import Excel (.xlsx)",
+        "import": "Import Excel (.xlsx or .xls)",
         "previewRows": "Preview: {{count}} row(s)",
         "confirmImport": "Confirm import",
         "newAccounts": "{{count}} new account(s). Download the temporary passwords now; they will not be shown again.",
@@ -1224,13 +1376,17 @@
         "clearSelection": "Clear selection ({{count}})",
         "formsCount": "{{count}} form(s)",
         "page": "Page {{page}} of {{pages}} · {{total}} collectors",
-        "total": "{{count}} collector(s)"
+        "total": "{{count}} collector(s)",
+        "status": {
+          "nuevo": "new account",
+          "existente": "has an account"
+        }
       },
       "zones": {
         "selectForm": "First choose the form",
-        "sheetRequired": "The project technical sheet must be validated before drawing zones.",
-        "goToSheet": "Go to the technical sheet to validate it",
-        "askLeader": "Ask the project leader to validate the technical sheet.",
+        "sheetRequired": "The project methodology sheet must be validated before drawing zones.",
+        "goToSheet": "Go to the methodology sheet to validate it",
+        "askLeader": "Ask the project leader to validate the methodology sheet.",
         "kpiZones": "Zones drawn",
         "kpiPool": "Collector pool",
         "kpiAssigned": "Assigned to zones",
@@ -1278,7 +1434,7 @@
         "descriptionPlaceholder": "Overall goal of the collection instrument",
         "start": "Start date (optional)",
         "end": "End date (optional)",
-        "note": "The form is created as a draft. Its dates must fall within the project technical sheet period; if you leave them empty, it uses that period when published. Questions are enabled once the leader validates the project sheet.",
+        "note": "The form will be created as a draft. Its dates must fall within the project period (methodology sheet); if left empty, it will use that period when published. Questions are enabled once the leader validates the project methodology sheet.",
         "creating": "Creating form...",
         "project": "Project:"
       },
@@ -1299,7 +1455,7 @@
         "templateFailed": "The template could not be downloaded",
         "readFailed": "The file could not be read",
         "imported": "{{count}} collector(s) imported.",
-        "invited": "{{count}} external user(s) will get an email to confirm their account and create a password.",
+        "invited": "The confirmation email was sent to {{count}} new person(s): ULEAM addresses confirm their user and sign in with Microsoft 365; external addresses confirm and create their password.",
         "importFailed": "The import failed",
         "collectorUpdated": "Collector updated",
         "updateFailed": "The update failed",
@@ -1314,9 +1470,9 @@
         "confirmFailed": "Could not confirm",
         "published": "Survey published",
         "publishFailed": "Could not publish",
-        "sheetSaved": "Technical sheet saved",
-        "sheetSaveFailed": "The technical sheet could not be saved",
-        "sheetValidated": "Technical sheet validated",
+        "sheetSaved": "Methodology sheet saved",
+        "sheetSaveFailed": "Could not save the methodology sheet",
+        "sheetValidated": "Methodology sheet validated",
         "sheetDatesRequired": "Set start and end dates to validate",
         "endBeforeStart": "The end date cannot be earlier than the start date.",
         "datesSaved": "Dates for “{{title}}” saved.",
@@ -1347,7 +1503,7 @@
         "selectedOne": "1 selected",
         "selectedMany": "{{count}} selected",
         "formCreated": "Form created as a draft.",
-        "formCreatedNeedsSheet": "Form created as a draft. Complete and validate the project technical sheet to edit its questions.",
+        "formCreatedNeedsSheet": "Form created as a draft. Complete and validate the project methodology sheet to edit its questions.",
         "formCreateFailed": "The form could not be created",
         "deleteProject": "Delete project",
         "deleteProjectMessage": "Delete the project “{{name}}”? This cannot be undone.",
@@ -1356,6 +1512,22 @@
       },
       "leaders": "Leaders",
       "you": "(you)"
+    },
+    "team": {
+      "title": "Project team",
+      "peopleCount": "{{count}} people",
+      "groups": {
+        "LEADER": "Project leaders",
+        "DELEGADO": "Delegates",
+        "SUPERVISOR": "Supervisors",
+        "PROJECT": "Form managers"
+      },
+      "formCollectors": "{{count}} collector(s)",
+      "collectorsTitle": "Collectors ({{count}})",
+      "searchCollectors": "Search collectors by name, email or form",
+      "noMatch": "No collector matches the search.",
+      "showAll": "Show all {{count}}",
+      "showLess": "Show less"
     }
   },
   "audit": {

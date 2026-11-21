@@ -1,0 +1,93 @@
+<section class="share-bulk" [attr.aria-busy]="busy()">
+  <ol class="bulk-steps">
+    <li>
+      <div>
+        <strong>{{ 'forms.builder.page.share.bulk.step1' | translate }}</strong>
+        <p>{{ 'forms.builder.page.share.bulk.step1Text' | translate }}</p>
+      </div>
+      <button type="button" class="btn" [disabled]="busy()" (click)="downloadTemplate()">
+        <span class="material-icons" aria-hidden="true">download</span>
+        {{ 'forms.builder.page.share.bulk.downloadTemplate' | translate }}
+      </button>
+    </li>
+    <li>
+      <div>
+        <strong>{{ 'forms.builder.page.share.bulk.step2' | translate }}</strong>
+        <p>{{ 'forms.builder.page.share.bulk.step2Text' | translate }}</p>
+      </div>
+      <label class="btn bulk-upload" [class.disabled]="busy()">
+        <span class="material-icons" aria-hidden="true">upload_file</span>
+        {{ 'forms.builder.page.share.bulk.chooseFile' | translate }}
+        <input type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" [disabled]="busy()" (change)="chooseFile($event)" />
+      </label>
+    </li>
+  </ol>
+
+  @if (error()) {
+    <div class="alert" role="alert">{{ error() }}</div>
+  }
+  @if (busy() && !rows().length) {
+    <p class="hint" role="status">{{ 'forms.builder.page.share.bulk.reading' | translate }}</p>
+  }
+
+  @if (rows().length) {
+    <div class="bulk-summary" role="status">
+      <strong>{{ file()?.name }}</strong>
+      <span>{{ 'forms.builder.page.share.bulk.summary' | translate: { count: rows().length, created: newCount() } }}</span>
+      @if (errorCount()) {
+        <span class="bulk-summary-errors">{{ 'forms.builder.page.share.bulk.errorsCount' | translate: { count: errorCount() } }}</span>
+      }
+    </div>
+    <div class="bulk-table-wrap">
+      <table class="bulk-table">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'forms.builder.page.share.bulk.row' | translate }}</th>
+            <th scope="col">{{ 'forms.builder.page.share.bulk.person' | translate }}</th>
+            <th scope="col">{{ 'forms.builder.page.share.cedula' | translate }}</th>
+            <th scope="col">{{ 'forms.builder.page.share.role' | translate }}</th>
+            <th scope="col">{{ 'forms.builder.page.share.targetShort' | translate }}</th>
+            <th scope="col">{{ 'forms.builder.page.share.bulk.state' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.row) {
+            <tr [class.invalid]="row.errors.length">
+              <td>{{ row.row }}</td>
+              <td>
+                <div class="person">
+                  <strong>{{ row.name || '—' }}</strong>
+                  <span>{{ row.email || '—' }}</span>
+                </div>
+                @if (row.errors.length) {
+                  <ul class="row-errors">
+                    @for (message of row.errors; track $index) { <li>{{ message }}</li> }
+                  </ul>
+                }
+              </td>
+              <td>{{ row.cedula || '—' }}</td>
+              <td>{{ roleLabel(row.role) }}</td>
+              <td>{{ row.target_responses ?? ('forms.builder.page.share.noLimit' | translate) }}</td>
+              <td>
+                @if (row.errors.length) {
+                  <span class="status status-error">{{ 'forms.builder.page.share.bulk.status.error' | translate }}</span>
+                } @else {
+                  <span class="status status-{{ row.status }}">{{ statusLabel(row) }}</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="bulk-actions">
+      <button type="button" class="btn" [disabled]="busy()" (click)="clear()">{{ 'common.buttons.cancel' | translate }}</button>
+      <button type="button" class="btn btn-primary" [disabled]="!valid() || busy()" (click)="confirm()">
+        {{ busy() ? ('forms.builder.page.share.adding' | translate) : ('forms.builder.page.share.bulk.confirm' | translate: { count: rows().length }) }}
+      </button>
+    </div>
+    @if (!valid()) {
+      <p class="hint">{{ 'forms.builder.page.share.bulk.fixFirst' | translate }}</p>
+    }
+  }
+</section>

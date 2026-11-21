@@ -90,11 +90,15 @@ export class AuthService {
     );
   }
 
-  /** Usuario externo: confirma su correo y crea su contraseña con el enlace de la invitación. */
-  activateAccount(email: string, token: string, password: string): Observable<{ message: string }> {
-    return this.api.post<{ message: string }>('/auth/activate', {
-      email, token, password, password_confirmation: password,
-    });
+  /**
+   * Enlace de la invitación. Externo: confirma su correo y crea su contraseña.
+   * Institucional ULEAM (sin `password`): solo confirma su usuario y después entra con Microsoft 365.
+   */
+  activateAccount(email: string, token: string, password?: string): Observable<{ message: string; microsoft?: boolean }> {
+    const body = password === undefined
+      ? { email, token }
+      : { email, token, password, password_confirmation: password };
+    return this.api.post<{ message: string; microsoft?: boolean }>('/auth/activate', body);
   }
 
   changePassword(currentPassword: string, password: string): Observable<unknown> {
@@ -210,7 +214,12 @@ export class AuthService {
   }
 }
 
-/** Solo rutas internas: evita redirecciones abiertas (//otro-sitio) y bucles hacia el login. */
+/**
+ * Solo rutas internas: evita redirecciones abiertas (//otro-sitio) y bucles hacia el login.
+ * Tampoco el modo de prueba: no necesita sesión y, si se recordara, quien entra después al sistema
+ * volvería a caer en la prueba.
+ */
 function isSafeReturnUrl(url: string): boolean {
-  return url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\') && !url.startsWith('/auth');
+  return url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/\\') && !url.startsWith('/auth')
+    && !url.startsWith('/prueba');
 }

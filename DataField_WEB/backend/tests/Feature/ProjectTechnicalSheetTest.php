@@ -49,7 +49,7 @@ class ProjectTechnicalSheetTest extends TestCase
             ->assertJsonPath('message', 'El líder debe validar la ficha técnica del proyecto antes de editar preguntas');
 
         $this->postJson("/api/projects/{$this->project->id}/technical-sheet", [
-            'description' => 'Levantamiento cantonal', 'start_date' => '2026-11-01', 'end_date' => '2026-12-15', 'target_sample_size' => 800,
+            ...$this->methodologySheet(), 'start_date' => '2026-11-01', 'end_date' => '2026-12-15', 'target_sample_size' => 800,
         ])->assertOk()->assertJsonPath('status', 'DRAFT');
         $this->postJson("/api/projects/{$this->project->id}/technical-sheet/validate")->assertOk()->assertJsonPath('status', 'VALIDATED');
 
@@ -87,11 +87,11 @@ class ProjectTechnicalSheetTest extends TestCase
         Sanctum::actingAs($this->leader);
         $url = "/api/projects/{$this->project->id}/technical-sheet";
 
-        $this->postJson($url, ['description' => 'Periodo corto', 'start_date' => '2026-11-01', 'end_date' => '2026-12-10'])->assertOk();
+        $this->postJson($url, [...$this->methodologySheet(), 'start_date' => '2026-11-01', 'end_date' => '2026-12-10'])->assertOk();
         $this->postJson("{$url}/validate")->assertStatus(422)
             ->assertJsonPath('message', 'Estos formularios tienen fechas fuera del periodo de la ficha: Comercios. Ajuste sus fechas o el periodo antes de validar.');
 
-        $this->postJson($url, ['description' => 'Periodo completo', 'start_date' => '2026-11-01', 'end_date' => '2026-12-31'])->assertOk();
+        $this->postJson($url, [...$this->methodologySheet(), 'start_date' => '2026-11-01', 'end_date' => '2026-12-31'])->assertOk();
         $this->postJson("{$url}/validate")->assertOk()->assertJsonPath('status', 'VALIDATED');
     }
 
@@ -126,5 +126,34 @@ class ProjectTechnicalSheetTest extends TestCase
         $this->assertSame('Única ficha', $single->description);
         $this->assertNull($single->target_sample_size);
         $this->assertSame(3, DB::table('form_technical_sheets')->count(), 'Las fichas por formulario se conservan como historial');
+    }
+
+    public function test_methodology_sheet_needs_every_methodology_field_to_validate(): void
+    {
+        Sanctum::actingAs($this->leader);
+        $url = "/api/projects/{$this->project->id}/technical-sheet";
+        $dates = ['start_date' => '2026-11-01', 'end_date' => '2026-12-15'];
+
+        $partial = $this->methodologySheet();
+        $partial['technique_instrument'] = '   ';
+        $this->postJson($url, $partial + $dates)->assertOk()->assertJsonPath('technique_instrument', null);
+        $this->postJson("{$url}/validate")->assertStatus(422)
+            ->assertJsonPath('message', 'Para validar, complete los objetivos, la población de estudio, la cobertura geográfica, la técnica e instrumento y las fechas del proyecto.');
+
+        $this->postJson($url, $this->methodologySheet() + $dates)->assertOk()
+            ->assertJsonPath('study_population', 'Población mayor de 16 años apta para votar.');
+        $this->postJson("{$url}/validate")->assertOk()->assertJsonPath('status', 'VALIDATED');
+    }
+
+    public function test_migration_moves_the_old_description_to_the_general_objective(): void
+    {
+        ProjectTechnicalSheet::create(['project_id' => $this->project->id, 'description' => 'Descripción anterior', 'status' => 'VALIDATED']);
+
+        (require database_path('migrations/2026_11_20_000002_add_methodology_fields_to_project_technical_sheets.php'))->down();
+        (require database_path('migrations/2026_11_20_000002_add_methodology_fields_to_project_technical_sheets.php'))->up();
+
+        $sheet = ProjectTechnicalSheet::where('project_id', $this->project->id)->firstOrFail();
+        $this->assertSame('Descripción anterior', $sheet->general_objective);
+        $this->assertSame('VALIDATED', $sheet->status, 'Las fichas validadas siguen validadas');
     }
 }

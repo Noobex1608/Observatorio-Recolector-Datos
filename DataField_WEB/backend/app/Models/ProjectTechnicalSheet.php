@@ -10,9 +10,23 @@ class ProjectTechnicalSheet extends Model
 {
     use HasFactory, HasUuids;
 
+    /**
+     * Ficha metodológica del proyecto, en orden de presentación. Todos son obligatorios para validar,
+     * junto con las fechas del proyecto. «description» es la descripción libre anterior (historial).
+     */
+    public const METHODOLOGY_FIELDS = [
+        'general_objective', 'specific_objectives', 'study_population',
+        'geographic_coverage', 'technique_instrument',
+    ];
+
     protected $fillable = [
         'project_id',
         'description',
+        'general_objective',
+        'specific_objectives',
+        'study_population',
+        'geographic_coverage',
+        'technique_instrument',
         'start_date',
         'end_date',
         'target_sample_size',

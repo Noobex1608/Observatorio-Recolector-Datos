@@ -154,6 +154,29 @@ export interface ResponseFilters {
   collector?: string | null;
 }
 
+/** Parámetros de la ficha técnica metodológica de un formulario, en orden de presentación. */
+export const FORM_SHEET_PARAMETERS = [
+  'target_universe',
+  'geographic_coverage',
+  'sample_size',
+  'error_margin_confidence',
+  'field_technique',
+  'quality_control',
+] as const;
+export type FormSheetParameter = (typeof FORM_SHEET_PARAMETERS)[number];
+
+export interface FormTechnicalSheet extends Record<FormSheetParameter, string | null> {
+  id: string | null;
+  form_id: string;
+  status: 'DRAFT' | 'VALIDATED';
+  validated_at: string | null;
+  validator: { id: number; name: string; email: string } | null;
+  creator: { id: number; name: string; email: string } | null;
+  updated_at: string | null;
+  can_edit: boolean;
+  can_validate: boolean;
+}
+
 export interface FormShare {
   id: string;
   form_id: string;
@@ -165,6 +188,41 @@ export interface FormShare {
   user_email?: string;
   user_rol?: string;
   user?: { id: string; name: string; email: string };
+}
+
+/** Cuenta institucional creada con contraseña temporal (solo si Microsoft 365 no está configurado). */
+export interface ShareCredential {
+  name: string;
+  email: string;
+  password: string;
+}
+
+/** Fila de la vista previa de «Compartir formulario» desde Excel. */
+export interface ShareImportRow {
+  row: number;
+  email: string;
+  name: string;
+  cedula: string;
+  role: 'PROJECT' | 'RECOLECTOR' | string;
+  target_responses: number | null;
+  /** nuevo = se crea la cuenta; existente = tiene cuenta; asignado = ya tenía el formulario (se actualiza). */
+  status: 'nuevo' | 'existente' | 'asignado';
+  errors: string[];
+}
+
+export interface ShareImportResult {
+  rows?: ShareImportRow[];
+  valid?: boolean;
+  imported?: number;
+  created?: number;
+  credentials?: ShareCredential[];
+  invited?: string[];
+}
+
+export interface CreateShareResult extends FormShare {
+  account_created?: boolean;
+  invited?: boolean;
+  credentials?: ShareCredential[];
 }
 
 @Injectable({
@@ -228,6 +286,18 @@ export class FormService {
     return this.http.post<Form>(`${this.apiUrl}/${id}/clone`, {});
   }
 
+  getFormSheet(id: string): Observable<FormTechnicalSheet> {
+    return this.http.get<FormTechnicalSheet>(`${this.apiUrl}/${id}/form-sheet`);
+  }
+
+  saveFormSheet(id: string, data: Partial<Record<FormSheetParameter, string | null>>): Observable<FormTechnicalSheet> {
+    return this.http.put<FormTechnicalSheet>(`${this.apiUrl}/${id}/form-sheet`, data);
+  }
+
+  validateFormSheet(id: string): Observable<FormTechnicalSheet> {
+    return this.http.post<FormTechnicalSheet>(`${this.apiUrl}/${id}/form-sheet/validate`, {});
+  }
+
   deployForm(id: string): Observable<Form> {
     return this.http.post<Form>(`${this.apiUrl}/${id}/deploy`, {});
   }
@@ -252,8 +322,21 @@ export class FormService {
     return this.http.get<FormShare[]>(`${this.apiUrl}/${formId}/shares`);
   }
 
-  createShare(formId: string, data: { email: string; role: 'PROJECT' | 'RECOLECTOR'; target_responses?: number | null }): Observable<FormShare> {
-    return this.http.post<FormShare>(`${this.apiUrl}/${formId}/shares`, data);
+  /** `name` y `cedula` solo hacen falta para crear la cuenta de alguien que todavía no la tiene. */
+  createShare(formId: string, data: { email: string; role: 'PROJECT' | 'RECOLECTOR'; target_responses?: number | null; name?: string; cedula?: string }): Observable<CreateShareResult> {
+    return this.http.post<CreateShareResult>(`${this.apiUrl}/${formId}/shares`, data);
+  }
+
+  getShareTemplate(formId: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${formId}/shares/template`, { responseType: 'blob' });
+  }
+
+  /** Con `preview` solo valida el Excel (.xlsx o .xls) y devuelve los errores por fila. */
+  importShares(formId: string, file: File, preview: boolean): Observable<ShareImportResult> {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('preview', preview ? '1' : '0');
+    return this.http.post<ShareImportResult>(`${this.apiUrl}/${formId}/shares/import`, body);
   }
 
   updateShareTarget(formId: string, shareId: string, target_responses: number | null): Observable<FormShare> {
@@ -313,6 +396,22 @@ export class FormService {
   /** Valida una respuesta de prueba con las reglas reales; el servidor no guarda nada. */
   submitTestResponse(formId: string, data: Record<string, unknown>): Observable<{ message: string; answered: number; active_questions: number }> {
     return this.http.post<{ message: string; answered: number; active_questions: number }>(`${this.apiUrl}/${formId}/test-submit`, { data });
+  }
+
+  /** Enlace de prueba para compartir: firmado, caduca y se abre sin iniciar sesión. */
+  getTestLink(formId: string): Observable<{ token: string; expires_at: string }> {
+    return this.http.get<{ token: string; expires_at: string }>(`${this.apiUrl}/${formId}/test-link`);
+  }
+
+  /** Prueba abierta con un enlace compartido (sin sesión). */
+  fetchSharedTestForm(formId: string, token: string): Observable<Form & { test_mode: true }> {
+    return this.http.get<Form & { test_mode: true }>(`${this.apiUrl}/public-test/${formId}`, { params: { token } });
+  }
+
+  /** Valida la respuesta de una prueba compartida; el servidor no guarda nada. */
+  submitSharedTestResponse(formId: string, token: string, data: Record<string, unknown>): Observable<{ message: string; answered: number; active_questions: number }> {
+    return this.http.post<{ message: string; answered: number; active_questions: number }>(
+      `${this.apiUrl}/public-test/${formId}/submit`, { data }, { params: { token } });
   }
 
   submitResponse(linkUuid: string, data: Record<string, unknown>, clientSubmissionId: string): Observable<{ message: string; id: string }> {

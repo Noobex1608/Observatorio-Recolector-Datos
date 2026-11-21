@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { AuthService } from '@core/services/auth.service';
-import { Form, FormService, FormShare } from '@core/services/form.service';
+import { Form, FormService, FormShare, ShareCredential } from '@core/services/form.service';
 import { User } from '@core/models/user/user.interface';
 import { UserService } from '@core/services/user.service';
 import { NotificationService } from '@core/services/notification.service';
@@ -78,6 +78,16 @@ export class FormDashboardViewModel {
   editingShareId = signal<string | null>(null);
   editTargetValue = signal<number | null>(null);
   savingTarget = signal(false);
+  /** Una persona o varias desde Excel. */
+  shareMode = signal<'single' | 'bulk'>('single');
+  /** Datos para crear la cuenta cuando el correo no está registrado. */
+  shareName = signal('');
+  shareCedula = signal('');
+  shareNotice = signal('');
+  shareCredentials = signal<ShareCredential[]>([]);
+  /** El correo es válido y no corresponde a ninguna cuenta: se piden nombres y cédula para crearla. */
+  needsNewAccount = computed(() => !this.lookingUpUser() && !this.matchedUser()
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.shareEmail().trim()));
 
   linkModalOpen = signal(false);
   linkUrl = signal('');
@@ -278,6 +288,7 @@ export class FormDashboardViewModel {
     this.shareError.set('');
     this.matchedUser.set(null);
     this.editingShareId.set(null);
+    this.resetShareExtras();
     this.shareModalOpen.set(true);
     void this.loadShares(formId);
   }
@@ -288,7 +299,44 @@ export class FormDashboardViewModel {
     this.shares.set([]);
     this.shareError.set('');
     this.matchedUser.set(null);
+    this.resetShareExtras();
     this.clearLookupTimer();
+  }
+
+  private resetShareExtras(): void {
+    this.shareMode.set('single');
+    this.shareName.set('');
+    this.shareCedula.set('');
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
+  }
+
+  setShareMode(mode: 'single' | 'bulk'): void {
+    this.shareMode.set(mode);
+    this.shareError.set('');
+    this.shareNotice.set('');
+  }
+
+  /** Importación masiva (componente hijo): limpiar avisos al empezar y mostrar el resultado al terminar. */
+  onBulkStarted(): void {
+    this.shareError.set('');
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
+  }
+
+  onBulkImported(result: { notice: string; credentials: ShareCredential[] }): void {
+    this.usersCache = null;
+    this.shareNotice.set(result.notice);
+    this.shareCredentials.set(result.credentials);
+    const formId = this.shareFormId();
+    if (formId) void this.loadShares(formId);
+  }
+
+  /** Las contraseñas temporales se muestran una sola vez. */
+  takeShareCredentials(): ShareCredential[] {
+    const credentials = this.shareCredentials();
+    this.shareCredentials.set([]);
+    return credentials;
   }
 
   async loadShares(formId: string): Promise<void> {
@@ -357,20 +405,41 @@ export class FormDashboardViewModel {
       return;
     }
 
+    const creating = this.needsNewAccount();
+    if (creating && (!this.shareName().trim() || !/^\d{10}$/.test(this.shareCedula().trim()))) {
+      this.shareError.set(this.translate.instant('forms.builder.page.share.newAccountRequired'));
+      return;
+    }
+
     this.addingShare.set(true);
     this.shareError.set('');
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
     try {
-      await firstValueFrom(
+      const email = this.shareEmail().trim();
+      // «Respuestas objetivo» es opcional: null = sin límite.
+      const result = await firstValueFrom(
         this.formService.createShare(formId, {
-          email: this.shareEmail().trim(),
+          email,
           role: this.shareRole(),
           target_responses: this.shareRole() === 'RECOLECTOR' ? this.shareTarget() : null,
+          ...(creating ? { name: this.shareName().trim(), cedula: this.shareCedula().trim() } : {}),
         }),
       );
       this.shareEmail.set('');
+      this.shareName.set('');
+      this.shareCedula.set('');
       this.shareRole.set('RECOLECTOR');
       this.shareTarget.set(null);
       this.matchedUser.set(null);
+      if (result.account_created) {
+        this.usersCache = null;
+        this.shareCredentials.set(result.credentials ?? []);
+        this.shareNotice.set(this.translate.instant(
+          result.invited ? 'forms.builder.page.share.createdInvited' : 'forms.builder.page.share.createdOnly', { email }));
+      } else {
+        this.shareNotice.set(this.translate.instant('forms.builder.page.share.assignedOne', { email }));
+      }
       await this.loadShares(formId);
     } catch (error: any) {
       this.shareError.set(error?.error?.message || this.translate.instant('forms.dashboard.errors.share'));

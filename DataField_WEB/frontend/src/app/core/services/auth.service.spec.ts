@@ -59,14 +59,14 @@ describe('AuthService: vuelve a la página que pidió iniciar sesión', () => {
 
   it('recuerda una ruta interna una sola vez', () => {
     const auth = TestBed.inject(AuthService);
-    auth.rememberReturnUrl('/prueba/f1');
-    expect(auth.takeReturnUrl()).toBe('/prueba/f1');
+    auth.rememberReturnUrl('/admin/forms/f1/edit');
+    expect(auth.takeReturnUrl()).toBe('/admin/forms/f1/edit');
     expect(auth.takeReturnUrl()).toBe('/admin/dashboard');
   });
 
-  it('ignora destinos externos o de inicio de sesión', () => {
+  it('ignora destinos externos, de inicio de sesión o del modo de prueba', () => {
     const auth = TestBed.inject(AuthService);
-    for (const url of ['//evil.example', 'https://evil.example', '/auth/login', '/\\evil.example']) {
+    for (const url of ['//evil.example', 'https://evil.example', '/auth/login', '/\\evil.example', '/prueba/f1?token=1.a']) {
       auth.rememberReturnUrl(url);
       expect(auth.takeReturnUrl()).toBe('/admin/dashboard');
     }
