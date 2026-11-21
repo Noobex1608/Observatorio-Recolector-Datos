@@ -108,6 +108,11 @@ Una por proyecto (pestaña «Ficha metodologica» en `/admin/proyectos`; API `/a
 - Para validar (solo el lider) se exigen los cinco campos y las fechas. Su validacion habilita preguntas, zonas y publicacion de los formularios del proyecto; cada formulario fija sus fechas dentro del periodo del proyecto.
 - La antigua `description` se copio a `general_objective` (migracion `2026_11_20_000002`) y queda como historial. En pruebas, `TestCase::methodologySheet()` da un contenido valido.
 
+### Delimitacion zonal (opcional)
+
+- Las zonas de un formulario (`project_zones`) son opcionales: se publica sin ellas y las respuestas no exigen `_project_geofence`. Si el formulario tiene zonas, el encuestador debe indicar una zona asignada (o una excepcion justificada).
+- La API movil devuelve `uses_zones` (en `/api/mobile/forms` y en los metadatos de avance); la PWA solo muestra «Sin zona asignada» cuando el formulario usa zonas y al encuestador no le toco ninguna.
+
 ### Ficha tecnica del formulario
 
 Ademas de la ficha metodologica del proyecto, cada formulario tiene su ficha tecnica metodologica, visible en el editor (`/admin/forms/:id/edit`, componente `features/forms/technical-sheet/`):

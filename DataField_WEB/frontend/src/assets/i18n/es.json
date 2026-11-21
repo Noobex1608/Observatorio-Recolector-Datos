@@ -1283,7 +1283,7 @@
     },
     "zones": {
       "title": "Delimitación Multizona y Encuestadores",
-      "subtitle": "Delimita la cobertura en el mapa y distribuye los encuestadores por zonas",
+      "subtitle": "Opcional: delimita la cobertura en el mapa y distribuye los encuestadores por zonas",
       "addZone": "Agregar Zona",
       "editZone": "Editar Zona",
       "deleteZone": "Eliminar Zona",
@@ -1300,7 +1300,7 @@
       "totalPool": "Pool Total de Encuestadores: {{count}}",
       "unassignedCount": "Sin Asignar: {{count}}",
       "assignedSummary": "Encuestadores Asignados: {{assigned}} / {{total}}",
-      "noZones": "Aún no se han delimitado zonas para este proyecto."
+      "noZones": "Este formulario no tiene zonas. Son opcionales: sin zonas, se puede responder desde cualquier ubicación y publicar igual."
     },
     "page": {
       "eyebrow": "Gestión de proyectos",

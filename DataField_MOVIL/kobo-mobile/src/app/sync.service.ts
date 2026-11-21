@@ -72,6 +72,7 @@ export class SyncService {
           project_id: detalle.project_id || form.project_id,
           project_name: detalle.project_name || form.project_name,
           project_zones: detalle.project_zones || form.project_zones || [],
+          uses_zones: detalle.uses_zones ?? form.uses_zones,
         });
         descargados++;
       } catch {
@@ -194,6 +195,7 @@ export class SyncService {
       await this.db.forms.update(meta.id, {
         target_responses: meta.target_responses ?? undefined,
         responses_count: meta.responses_count ?? undefined,
+        uses_zones: meta.uses_zones ?? form.uses_zones,
         project_zones: (form.project_zones ?? []).map(zone => {
           const remote = progress.get(zone.id);
           return remote ? { ...zone, target_responses: remote.target_responses, responses_count: remote.responses_count } : zone;

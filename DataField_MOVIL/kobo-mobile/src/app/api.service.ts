@@ -51,6 +51,8 @@ export interface BackendForm {
   project_id?: string;
   project_name?: string;
   project_zones?: BackendProjectZone[];
+  /** El formulario tiene zonas delimitadas (son opcionales). */
+  uses_zones?: boolean;
 }
 
 export interface BackendFormMetadata {
@@ -58,6 +60,7 @@ export interface BackendFormMetadata {
   title: string;
   target_responses?: number | null;
   responses_count?: number | null;
+  uses_zones?: boolean;
   zones_progress?: Array<{ id: string; target_responses: number | null; responses_count: number }>;
 }
 
