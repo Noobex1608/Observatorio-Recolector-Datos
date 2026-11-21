@@ -166,6 +166,7 @@ class FormController extends Controller
                 'step_by_step' => (bool) $form->step_by_step,
                 'target_responses' => $stats['target_responses'] ?? null,
                 'responses_count' => $stats['responses_count'] ?? null,
+                'uses_zones' => $form->zones->isNotEmpty(),
                 // Avance por zona para que la app actualice cuántas encuestas faltan sin volver a descargar.
                 'zones_progress' => $form->zones->map(fn ($zone) => [
                     'id' => $zone->id,
@@ -420,9 +421,7 @@ class FormController extends Controller
         if ($form->end_date && $form->end_date->format('Y-m-d') < $today) {
             return response()->json(['message' => __('La fecha de fin del formulario ya pasó. Actualice sus fechas (dentro del periodo del proyecto) antes de publicar.')], 422);
         }
-        if (! $form->zones()->exists()) {
-            return response()->json(['message' => __('Delimite al menos una zona antes de publicar')], 422);
-        }
+        // La delimitación zonal es opcional: sin zonas se responde desde cualquier ubicación.
         if (! $form->questions()->exists()) {
             return response()->json(['message' => __('Agregue al menos una pregunta antes de publicar')], 422);
         }
@@ -1630,6 +1629,8 @@ class FormController extends Controller
 
             $applicableZones = (! $user || $user->canManageProjects() || $user->leadsProject($form->project_id))
                 ? $zones : $userZones;
+            // Zonas opcionales: la app distingue "el formulario no usa zonas" de "no tienes zona asignada".
+            $data['uses_zones'] = $zones->isNotEmpty();
 
             $zoneCounts ??= $this->zoneResponseCounts([$form->id]);
             $data['project_zones'] = $applicableZones->values()->map(function ($zone) use ($zoneCounts) {
@@ -1649,6 +1650,7 @@ class FormController extends Controller
             })->toArray();
         } else {
             $data['project_zones'] = [];
+            $data['uses_zones'] = false;
         }
 
         if ($user) {

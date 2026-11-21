@@ -902,7 +902,8 @@ interface MemberSlot {
                           </mat-card-content>
                         </mat-card>
                       }
-                      @if (canLeadSelectedProject() && selectedForm()?.state === 'DRAFT' && zones().length > 0) {
+                      <!-- Las zonas son opcionales: se puede publicar sin delimitar ninguna. -->
+                      @if (canLeadSelectedProject() && selectedForm()?.state === 'DRAFT') {
                         <button mat-flat-button color="primary" type="button" (click)="publishSelectedForm()">{{ 'projects.page.publish' | translate }}</button>
                       }
                     </div>

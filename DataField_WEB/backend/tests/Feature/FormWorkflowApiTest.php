@@ -110,4 +110,41 @@ class FormWorkflowApiTest extends TestCase
             ->assertOk()->assertJsonPath('state', 'DEPLOYED');
         $this->assertSame($newEndDate, Form::findOrFail($formId)->end_date->format('Y-m-d'));
     }
+
+    public function test_zones_are_optional_to_publish_and_collect(): void
+    {
+        $leader = User::factory()->create(['rol' => User::ROLE_PROJECT]);
+        $collector = User::factory()->create(['rol' => User::ROLE_USER]);
+        $project = Project::create(['name' => 'Sin zonas', 'created_by' => $leader->id]);
+        $project->leaders()->attach($leader->id);
+        $project->technicalSheet()->create([
+            ...$this->methodologySheet(), 'status' => 'VALIDATED',
+            'start_date' => today('America/Guayaquil')->format('Y-m-d'),
+            'end_date' => today('America/Guayaquil')->addMonth()->format('Y-m-d'),
+        ]);
+
+        Sanctum::actingAs($leader);
+        $formId = $this->postJson('/api/forms', [
+            'project_id' => $project->id, 'title' => 'Encuesta abierta',
+            'consent_text' => 'Acepto participar en esta encuesta abierta.',
+        ])->assertCreated()->json('id');
+        $question = $this->postJson("/api/forms/{$formId}/questions", [
+            'type' => 'TEXT', 'label' => 'Opinión', 'required' => true, 'order' => 1,
+        ])->assertCreated()->json('id');
+
+        // Sin ninguna zona delimitada, se publica igual.
+        $this->postJson("/api/forms/{$formId}/deploy")->assertOk()->assertJsonPath('state', 'DEPLOYED');
+        $form = Form::findOrFail($formId);
+        $form->shares()->create(['user_id' => $collector->id, 'role' => 'RECOLECTOR']);
+
+        // El encuestador ve que el formulario no usa zonas y envía sin ubicación de zona.
+        Sanctum::actingAs($collector);
+        $mobile = collect($this->getJson('/api/mobile/forms')->assertOk()->json())->firstWhere('id', $formId);
+        $this->assertFalse($mobile['uses_zones']);
+        $this->assertSame([], $mobile['project_zones']);
+        $this->postJson("/api/forms/submit/{$form->link_uuid}", [
+            'client_submission_id' => (string) \Illuminate\Support\Str::uuid(),
+            'data' => [$question => 'Bien', '_consentimiento_aceptado' => true],
+        ])->assertCreated();
+    }
 }

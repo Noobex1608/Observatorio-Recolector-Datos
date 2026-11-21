@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import Dexie from 'dexie';
+import Dexie from 'dexie';
 import { trimTrailingSlashes } from './utils/url';
 
 export const ACCOUNT_SCOPE_KEY = 'kobo_account_scope';
@@ -54,6 +54,8 @@ export interface FormDefinition {
   project_id?: string;
   project_name?: string;
   project_zones?: ProjectZoneInfo[];
+  /** El formulario tiene zonas delimitadas. Sin zonas (opcionales) se responde desde cualquier lugar. */
+  uses_zones?: boolean;
 }
 
 export type QuestionType =

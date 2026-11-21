@@ -165,7 +165,8 @@
                 <span class="pill-badge neutral">Inicia {{ form.start_date }}</span>
               }
             </div>
-            @if (auth.obtenerRol() === 'RECOLECTOR' && (form.project_zones?.length ?? 0) === 0) {
+            <!-- Solo si el formulario usa zonas (son opcionales) y a este encuestador no le tocó ninguna. -->
+            @if (auth.obtenerRol() === 'RECOLECTOR' && form.uses_zones !== false && (form.project_zones?.length ?? 0) === 0) {
               <p class="field-shift-unassigned">Sin zona asignada. Solicita al líder del proyecto que delimite y asigne una zona.</p>
             }
           </div>
