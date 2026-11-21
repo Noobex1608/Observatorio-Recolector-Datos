@@ -18,15 +18,28 @@ class AccountActivationController extends Controller
 {
     public function __construct(private readonly AccountInvitation $invitations) {}
 
+    /**
+     * Externos: confirman el correo y crean su contraseña.
+     * Institucionales con Microsoft 365: solo confirman su usuario (no tienen contraseña local).
+     */
     public function activate(Request $request): JsonResponse
     {
+        $request->validate(['email' => ['required', 'email'], 'token' => ['required', 'string']]);
+        $microsoft = $this->invitations->usesMicrosoft((string) $request->input('email'));
         $data = $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
-            'password' => ['required', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()],
+            'password' => $microsoft ? ['prohibited'] : ['required', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()],
         ]);
+        $data['password'] = $data['password'] ?? null;
 
-        $status = Password::broker('invitations')->reset($data, function (User $user, string $password) {
+        $status = Password::broker('invitations')->reset($data, function (User $user, ?string $password) use ($microsoft) {
+            if ($microsoft) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+                AuditLogService::log($user, 'ACCOUNT_ACTIVATED', 'usuarios', ':name confirmó su usuario institucional.', [], params: ['name' => $user->name]);
+
+                return;
+            }
             $user->forceFill([
                 'password' => $password,
                 'email_verified_at' => now(),
@@ -39,7 +52,12 @@ class AccountActivationController extends Controller
         abort_unless($status === Password::PASSWORD_RESET, 422,
             __('El enlace no es válido o ya venció. Pide al administrador que te reenvíe la invitación.'));
 
-        return response()->json(['message' => __('Cuenta confirmada. Ya puedes iniciar sesión.')]);
+        return response()->json([
+            'message' => $microsoft
+                ? __('Usuario confirmado. Entra con tu cuenta institucional de Microsoft 365.')
+                : __('Cuenta confirmada. Ya puedes iniciar sesión.'),
+            'microsoft' => $microsoft,
+        ]);
     }
 
     public function resend(Request $request, string $id): JsonResponse

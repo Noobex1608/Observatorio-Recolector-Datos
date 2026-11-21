@@ -4,7 +4,10 @@ import { Component, computed, effect, HostListener, inject, OnDestroy, OnInit, s
 import { DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormQuestion, FormShare, FormService, XlsFormImportPreview } from '@core/services/form.service';
+import { FormQuestion, FormShare, FormService, ShareCredential, XlsFormImportPreview } from '@core/services/form.service';
+import { ShareBulkImportComponent, ShareBulkResult } from '../share/share-bulk-import.component';
+import { downloadShareCredentials } from '../share/share-credentials';
+import { FormTechnicalSheetComponent } from '../technical-sheet/form-technical-sheet.component';
 import { AuthService } from '@core/services/auth.service';
 import { NotificationService } from '@core/services/notification.service';
 import { UserService } from '@core/services/user.service';
@@ -13,6 +16,7 @@ import { CASCADE_MULTIPLE, FormBuilderViewModel, FormQuestionDraft, FormQuestion
 import { ProjectService } from '@core/services/project.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { TEXT_FORMATS, TextFormat, textFormatInput } from '@core/utils/text-format';
+import { firstValueFrom } from 'rxjs';
 
 type PreviewMode = 'mobile' | 'web';
 /** Clave de la sección «Sin sección» en los conjuntos de estado de la vista. */
@@ -22,9 +26,9 @@ type PreviewQuestion = FormQuestionDraft & { displayLabel: string };
 @Component({
   selector: 'app-builder',
   standalone: true,
-  imports: [A11yModule, CommonModule, FormsModule, RouterLink, TranslateModule],
+  imports: [A11yModule, CommonModule, FormsModule, RouterLink, TranslateModule, ShareBulkImportComponent, FormTechnicalSheetComponent],
   templateUrl: './builder.component.html',
-  styleUrls: ['./builder.component.scss', './builder-tools.component.scss'],
+  styleUrls: ['./builder.component.scss', './builder-tools.component.scss', '../share/share-modal.scss'],
   providers: [FormBuilderViewModel],
 })
 export class BuilderComponent implements OnInit, OnDestroy {
@@ -229,6 +233,12 @@ export class BuilderComponent implements OnInit, OnDestroy {
   savingTarget = false;
   matchedUser: User | null = null;
   lookingUpUser = false;
+  /** Datos para crear la cuenta cuando el correo no está registrado. */
+  shareName = '';
+  shareCedula = '';
+  readonly shareMode = signal<'single' | 'bulk'>('single');
+  readonly shareNotice = signal('');
+  readonly shareCredentials = signal<ShareCredential[]>([]);
   private usersCache: User[] | null = null;
   private lookupTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -620,9 +630,13 @@ export class BuilderComponent implements OnInit, OnDestroy {
     return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   }
 
-  /** Enlace del modo de prueba: recorre el formulario guardado como encuestado, sin publicarlo. */
-  testRunUrl(formId: string): string {
-    const path = this.router.serializeUrl(this.router.createUrlTree(['/prueba', formId]));
+  /**
+   * Enlace del modo de prueba: recorre el formulario guardado como encuestado, sin publicarlo.
+   * Con `token` (enlace compartido) se abre sin iniciar sesión hasta que caduca.
+   */
+  testRunUrl(formId: string, token?: string): string {
+    const queryParams = token ? { token } : {};
+    const path = this.router.serializeUrl(this.router.createUrlTree(['/prueba', formId], { queryParams }));
     return new URL(path.replace(/^\//, ''), this.document.baseURI).toString();
   }
 
@@ -663,7 +677,8 @@ export class BuilderComponent implements OnInit, OnDestroy {
       return;
     }
     try {
-      await navigator.clipboard.writeText(this.testRunUrl(formId));
+      const { token } = await firstValueFrom(this.formService.getTestLink(formId));
+      await navigator.clipboard.writeText(this.testRunUrl(formId, token));
       this.notify.success(this.i18n.instant('forms.builder.page.msg.testLinkCopied'));
     } catch {
       this.notify.error(this.i18n.instant('forms.builder.page.msg.copyFailed'));
@@ -789,6 +804,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     }
     this.shareModalOpen = true;
     this.shareError = '';
+    this.shareNotice.set('');
     this.loadShares(formId);
   }
 
@@ -796,7 +812,43 @@ export class BuilderComponent implements OnInit, OnDestroy {
     this.shareModalOpen = false;
     this.shareError = '';
     this.matchedUser = null;
+    this.shareName = '';
+    this.shareCedula = '';
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
     this.clearLookupTimer();
+  }
+
+  setShareMode(mode: 'single' | 'bulk'): void {
+    this.shareMode.set(mode);
+    this.shareError = '';
+    this.shareNotice.set('');
+  }
+
+  /** El correo es válido y no corresponde a ninguna cuenta: se piden nombres y cédula para crearla. */
+  get needsNewAccount(): boolean {
+    return !this.lookingUpUser && !this.matchedUser && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.shareEmail.trim());
+  }
+
+  /** Importación masiva (componente hijo): limpiar avisos al empezar y mostrar el resultado al terminar. */
+  onBulkStarted(): void {
+    this.shareError = '';
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
+  }
+
+  onBulkImported(result: ShareBulkResult): void {
+    this.usersCache = null;
+    this.shareNotice.set(result.notice);
+    this.shareCredentials.set(result.credentials);
+    const formId = this.vm.formId();
+    if (formId) this.loadShares(formId);
+  }
+
+  /** Contraseñas temporales (solo institucionales mientras Microsoft 365 no está configurado): se descargan una vez. */
+  downloadShareCredentials(): void {
+    downloadShareCredentials(this.document, this.i18n, this.shareCredentials());
+    this.shareCredentials.set([]);
   }
 
   setShareRole(role: 'PROJECT' | 'RECOLECTOR'): void {
@@ -854,19 +906,47 @@ export class BuilderComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // «Respuestas objetivo» es opcional: vacío = sin límite.
+    const rawTarget = this.shareTarget as number | string | null;
+    const target = rawTarget === null || rawTarget === '' ? null : Number(rawTarget);
+    if (this.shareRole === 'RECOLECTOR' && target !== null && (!Number.isInteger(target) || target < 1)) {
+      this.shareError = this.i18n.instant('forms.builder.page.msg.invalidTarget');
+      return;
+    }
+    const creating = this.needsNewAccount;
+    if (creating && (!this.shareName.trim() || !/^\d{10}$/.test(this.shareCedula.trim()))) {
+      this.shareError = this.i18n.instant('forms.builder.page.share.newAccountRequired');
+      return;
+    }
+
     this.addingShare = true;
     this.shareError = '';
+    this.shareNotice.set('');
+    this.shareCredentials.set([]);
 
     this.formService.createShare(formId, {
       email: this.shareEmail.trim(),
       role: this.shareRole,
-      target_responses: this.shareRole === 'RECOLECTOR' ? this.shareTarget : null,
+      target_responses: this.shareRole === 'RECOLECTOR' ? target : null,
+      ...(creating ? { name: this.shareName.trim(), cedula: this.shareCedula.trim() } : {}),
     }).subscribe({
-      next: () => {
+      next: (result) => {
+        const email = this.shareEmail.trim();
         this.shareEmail = '';
+        this.shareName = '';
+        this.shareCedula = '';
         this.shareRole = 'RECOLECTOR';
         this.shareTarget = null;
+        this.matchedUser = null;
         this.addingShare = false;
+        if (result.account_created) {
+          this.usersCache = null;
+          this.shareCredentials.set(result.credentials ?? []);
+          this.shareNotice.set(this.i18n.instant(
+            result.invited ? 'forms.builder.page.share.createdInvited' : 'forms.builder.page.share.createdOnly', { email }));
+        } else {
+          this.shareNotice.set(this.i18n.instant('forms.builder.page.share.assignedOne', { email }));
+        }
         this.loadShares(formId);
       },
       error: (err) => {
@@ -882,7 +962,7 @@ export class BuilderComponent implements OnInit, OnDestroy {
     const accepted = await this.notify.confirm({
       title: this.i18n.instant('forms.builder.page.msg.revokeTitle'),
       message: this.i18n.instant('forms.builder.page.msg.revokeMessage'),
-      confirmText: 'Retirar',
+      confirmText: this.i18n.instant('forms.builder.page.share.revoke'),
       tone: 'danger',
     });
     if (!accepted) return;

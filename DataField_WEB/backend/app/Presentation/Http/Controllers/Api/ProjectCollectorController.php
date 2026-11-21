@@ -2,8 +2,8 @@
 
 namespace App\Presentation\Http\Controllers\Api;
 
-use App\Application\Auth\Services\AccountInvitation;
 use App\Application\Forms\Services\FormShareAccess;
+use App\Application\Projects\Services\CollectorImport;
 use App\Http\Controllers\Controller;
 use App\Models\FormUserShare;
 use App\Models\Project;
@@ -14,14 +14,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectCollectorController extends Controller
 {
+    private const HEADER = ['Cédula', 'Nombres', 'Apellidos', 'Correo electrónico'];
+
+    public function __construct(private readonly CollectorImport $importer) {}
+
     private function managedProject(Request $request, string $id): Project
     {
         $project = Project::findOrFail($id);
@@ -34,17 +34,8 @@ class ProjectCollectorController extends Controller
     {
         $this->managedProject($request, $id);
 
-        return response()->streamDownload(function () {
-            $sheet = new Spreadsheet;
-            $sheet->getActiveSheet()->fromArray(['Cédula', 'Nombres', 'Apellidos', 'Correo electrónico'], null, 'A1');
-            $sheet->getActiveSheet()->getStyle('A1:D1')->getFont()->setBold(true);
-            $sheet->getActiveSheet()->getStyle('A2:A501')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
-            foreach (['A' => 18, 'B' => 28, 'C' => 28, 'D' => 38] as $column => $width) {
-                $sheet->getActiveSheet()->getColumnDimension($column)->setWidth($width);
-            }
-            (new Xlsx($sheet))->save('php://output');
-            $sheet->disconnectWorksheets();
-        }, 'plantilla-encuestadores.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        return $this->importer->template('plantilla-encuestadores.xlsx', self::HEADER,
+            ['A' => 18, 'B' => 28, 'C' => 28, 'D' => 38], ['A']);
     }
 
     /**
@@ -161,45 +152,28 @@ class ProjectCollectorController extends Controller
         ])->values()->all();
     }
 
+    /**
+     * Importación masiva desde la plantilla (.xlsx o .xls). Con `preview` solo valida y devuelve los errores por fila.
+     * Las personas nuevas reciben el correo de confirmación: institucionales (Microsoft 365) solo confirman su usuario;
+     * externas confirman y crean su contraseña.
+     */
     public function import(Request $request, string $id): JsonResponse
     {
         $project = $this->managedProject($request, $id);
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx', 'max:2048'],
+            'file' => CollectorImport::FILE_RULES,
             'preview' => ['sometimes', 'boolean'],
         ]);
-        try {
-            $spreadsheet = IOFactory::load($data['file']->getRealPath());
-            $rows = $spreadsheet->getActiveSheet()->toArray(null, false, true, false);
-            $spreadsheet->disconnectWorksheets();
-        } catch (\Throwable) {
-            abort(422, __('El archivo Excel no se pudo leer. Descarga y completa la plantilla oficial.'));
-        }
-        abort_if(count($rows) > 501, 422, __('Máximo 500 encuestadores por archivo.'));
-        $header = array_map(fn ($value) => Str::ascii(Str::lower(trim((string) $value))), array_slice($rows[0] ?? [], 0, 4));
-        abort_unless($header === ['cedula', 'nombres', 'apellidos', 'correo electronico'], 422, __('Utiliza la plantilla oficial sin cambiar las columnas.'));
+        $rows = $this->importer->readRows($data['file'], self::HEADER);
 
         $preview = [];
         $seenEmails = [];
         $seenCedulas = [];
-        foreach (array_slice($rows, 1, null, true) as $index => $row) {
-            if (count(array_filter(array_slice($row, 0, 4), fn ($v) => trim((string) $v) !== '')) === 0) {
-                continue;
-            }
-            $cedula = trim((string) ($row[0] ?? ''));
-            $nombres = trim((string) ($row[1] ?? ''));
-            $apellidos = trim((string) ($row[2] ?? ''));
-            $email = Str::lower(trim((string) ($row[3] ?? '')));
-            $errors = [];
-            if (! preg_match('/^[0-9]{10}$/', $cedula)) {
-                $errors[] = __('Cédula: deben ser 10 dígitos.');
-            }
-            if ($nombres === '' || $apellidos === '' || mb_strlen($nombres.' '.$apellidos) > 255) {
-                $errors[] = __('Nombres y apellidos obligatorios (máximo 255 caracteres).');
-            }
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 255) {
-                $errors[] = __('Correo electrónico inválido.');
-            }
+        foreach ($rows as $number => [$cedula, $nombres, $apellidos, $email]) {
+            $cedula = CollectorImport::cedula($cedula);
+            $email = Str::lower($email);
+            $errors = $this->importer->identityErrors(
+                $nombres === '' || $apellidos === '' ? '' : trim($nombres.' '.$apellidos), $cedula, $email);
             if (isset($seenEmails[$email])) {
                 $errors[] = __('Correo duplicado en el archivo.');
             }
@@ -208,24 +182,17 @@ class ProjectCollectorController extends Controller
             }
             $seenEmails[$email] = true;
             $seenCedulas[$cedula] = true;
-            $existingByEmail = User::withTrashed()->whereRaw('LOWER(email) = ?', [$email])->first();
-            $existingByCedula = User::withTrashed()->where('cedula', $cedula)->first();
-            $existing = $existingByEmail ?? $existingByCedula;
+            [$existing, $conflict] = $this->importer->findCollector($email, $cedula);
             $status = 'nuevo';
-            if ($existing) {
-                if (($existingByEmail && $existingByCedula && $existingByEmail->id !== $existingByCedula->id)
-                    || $existing->trashed() || ! $existing->is_active || $existing->rol !== User::ROLE_USER
-                    || strcasecmp($existing->email, $email) !== 0 || ($existing->cedula && $existing->cedula !== $cedula)) {
-                    $errors[] = __('Correo o cédula ya pertenece a otra cuenta.');
-                } elseif ($project->collectors()->whereKey($existing->id)->exists()) {
-                    $errors[] = __('Ya pertenece a este proyecto.');
-                } else {
-                    $status = 'existente';
-                }
+            if ($conflict) {
+                $errors[] = __('Correo o cédula ya pertenece a otra cuenta.');
+            } elseif ($existing && $this->importer->membership($project, $existing->id) !== null) {
+                $errors[] = __('Ya pertenece a este proyecto.');
+            } elseif ($existing) {
+                $status = 'existente';
             }
-            $preview[] = ['row' => $index + 1, 'cedula' => $cedula, 'name' => trim($nombres.' '.$apellidos), 'email' => $email, 'status' => $status, 'errors' => $errors];
+            $preview[] = ['row' => $number, 'cedula' => $cedula, 'name' => trim($nombres.' '.$apellidos), 'email' => $email, 'status' => $status, 'errors' => $errors];
         }
-        abort_if(count($preview) === 0, 422, __('La plantilla no contiene encuestadores.'));
         $hasErrors = collect($preview)->contains(fn ($row) => count($row['errors']) > 0);
         if ($request->boolean('preview')) {
             return response()->json(['rows' => $preview, 'valid' => ! $hasErrors]);
@@ -234,26 +201,11 @@ class ProjectCollectorController extends Controller
 
         $credentials = [];
         $invited = [];
-        $invitations = app(AccountInvitation::class);
-        DB::transaction(function () use ($project, $preview, $request, $invitations, &$credentials, &$invited) {
+        DB::transaction(function () use ($project, $preview, $request, &$credentials, &$invited) {
             foreach ($preview as $row) {
                 $user = User::whereRaw('LOWER(email) = ?', [$row['email']])->first();
                 if (! $user) {
-                    // Externos: correo de confirmación para crear su contraseña. Internos: Microsoft 365.
-                    // Solo si Microsoft no está configurado, los internos reciben una contraseña temporal.
-                    $external = $invitations->needsInvitation($row['email']);
-                    $temporary = ! $external && ! $invitations->usesMicrosoft($row['email']);
-                    $password = $temporary ? Str::random(24) : $invitations->placeholderPassword();
-                    $user = User::create([
-                        'name' => $row['name'], 'email' => $row['email'], 'cedula' => $row['cedula'],
-                        'password' => $password, 'rol' => User::ROLE_USER,
-                        'is_active' => true, 'must_change_password' => $temporary,
-                    ]);
-                    if ($temporary) {
-                        $credentials[] = ['name' => $row['name'], 'email' => $row['email'], 'password' => $password];
-                    } elseif ($external) {
-                        $invited[] = $user;
-                    }
+                    $user = $this->importer->createCollector($row['name'], $row['email'], $row['cedula'], $credentials, $invited);
                 } elseif (! $user->cedula) {
                     $user->update(['cedula' => $row['cedula']]);
                 }
@@ -263,18 +215,10 @@ class ProjectCollectorController extends Controller
                 'Importó encuestadores al proyecto.', ['project_id' => $project->id, 'count' => count($preview)]);
         });
 
-        foreach ($invited as $user) {
-            try {
-                $invitations->send($user);
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('No se pudo enviar la invitación', ['user_id' => $user->id, 'error' => $e->getMessage()]);
-            }
-        }
-
         return response()->json([
             'imported' => count($preview),
             'credentials' => $credentials,
-            'invited' => array_map(fn (User $user) => $user->email, $invited),
+            'invited' => $this->importer->sendInvitations($invited),
         ], 201)
             ->header('Cache-Control', 'no-store');
     }

@@ -4,7 +4,12 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
-/** Usuario externo: confirma su correo y crea su contraseña desde el enlace de la invitación. */
+/**
+ * Enlace de la invitación.
+ * - Externo: confirma su correo y crea su contraseña.
+ * - Institucional ULEAM (`tipo=microsoft`): solo confirma su usuario y luego entra con Microsoft 365.
+ *   El servidor decide según el correo; el parámetro solo elige qué formulario mostrar.
+ */
 @Component({
   standalone: true,
   selector: 'app-activate-account',
@@ -13,9 +18,15 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     <main class="activate-page">
       @if (done()) {
         <section class="card" aria-live="polite">
-          <h1>{{ 'auth.activate.doneTitle' | translate }}</h1>
-          <p>{{ 'auth.activate.doneText' | translate }}</p>
-          <a routerLink="/auth/login" class="btn-primary">{{ 'auth.activate.signIn' | translate }}</a>
+          @if (microsoft()) {
+            <h1>{{ 'auth.activate.microsoftDoneTitle' | translate }}</h1>
+            <p>{{ 'auth.activate.microsoftDoneText' | translate }}</p>
+            <button type="button" class="btn-primary" (click)="signInWithMicrosoft()">{{ 'auth.activate.microsoftSignIn' | translate }}</button>
+          } @else {
+            <h1>{{ 'auth.activate.doneTitle' | translate }}</h1>
+            <p>{{ 'auth.activate.doneText' | translate }}</p>
+            <a routerLink="/auth/login" class="btn-primary">{{ 'auth.activate.signIn' | translate }}</a>
+          }
         </section>
       } @else if (!token || !email) {
         <section class="card">
@@ -23,6 +34,13 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
           <p role="alert">{{ 'auth.activate.incompleteText' | translate }}</p>
           <a routerLink="/auth/login" class="btn-primary">{{ 'auth.activate.goToLogin' | translate }}</a>
         </section>
+      } @else if (microsoft()) {
+        <form class="card" (ngSubmit)="confirmInstitutional()">
+          <h1>{{ 'auth.activate.microsoftTitle' | translate }}</h1>
+          <p>{{ 'auth.activate.microsoftIntroBefore' | translate }} <strong>{{ email }}</strong>{{ 'auth.activate.microsoftIntroAfter' | translate }}</p>
+          @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+          <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? ('auth.activate.saving' | translate) : ('auth.activate.microsoftSubmit' | translate) }}</button>
+        </form>
       } @else {
         <form class="card" [formGroup]="form" (ngSubmit)="submit()">
           <h1>{{ 'auth.activate.title' | translate }}</h1>
@@ -60,6 +78,7 @@ export class ActivateAccountComponent {
   private readonly params = inject(ActivatedRoute).snapshot.queryParamMap;
   readonly token = this.params.get('token') ?? '';
   readonly email = this.params.get('email') ?? '';
+  readonly microsoft = signal(this.params.get('tipo') === 'microsoft');
   readonly busy = signal(false);
   readonly error = signal('');
   readonly done = signal(false);
@@ -78,13 +97,36 @@ export class ActivateAccountComponent {
       this.error.set(this.i18n.instant('auth.passwords.mismatch'));
       return;
     }
+    this.send(password);
+  }
+
+  /** Institucional: solo confirma el usuario; no hay contraseña local. */
+  confirmInstitutional(): void {
+    this.send();
+  }
+
+  signInWithMicrosoft(): void {
+    this.auth.startMicrosoftLogin();
+  }
+
+  private send(password?: string): void {
     this.busy.set(true);
     this.error.set('');
     this.auth.activateAccount(this.email, this.token, password).subscribe({
-      next: () => this.done.set(true),
+      next: (result) => {
+        if (typeof result?.microsoft === 'boolean') this.microsoft.set(result.microsoft);
+        this.done.set(true);
+      },
       error: (err) => {
         this.busy.set(false);
-        this.error.set(err?.error?.message || 'No se pudo confirmar la cuenta. Intenta de nuevo.');
+        // Enlace con tipo equivocado: el servidor pide (o rechaza) la contraseña según el correo.
+        const fieldErrors = err?.error?.errors ?? {};
+        if (this.microsoft() && fieldErrors.password) {
+          this.microsoft.set(false);
+          this.error.set('');
+          return;
+        }
+        this.error.set(err?.error?.message || this.i18n.instant('auth.activate.failed'));
       },
     });
   }

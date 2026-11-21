@@ -86,17 +86,36 @@ Sesion en `AuthSessionService` persiste a `localStorage`. Token Sanctum via `aut
 | `/admin/usuarios/:id` | `UsuarioFormComponent` | Editar usuario (requiere SUPER_ADMIN) |
 | `/perfil` | `ProfileComponent` | Perfil de usuario |
 | `/collect/:uuid` | `FormCollectComponent` | Coleccion publica (sin auth) |
-| `/prueba/:formId` | `FormCollectComponent` (modo prueba) | Probar un formulario (incluso borrador) sin guardar respuestas; requiere sesion y acceso al formulario |
+| `/prueba/:formId` | `FormCollectComponent` (modo prueba) | Probar un formulario (incluso borrador) sin guardar respuestas. Sin `?token=` requiere sesion y acceso al formulario; con el token del enlace compartido se abre sin sesion |
 
 ### Asignacion de formularios
 
-El builder (`/admin/forms/builder`) incluye modal "Compartir":
+El builder (`/admin/forms/builder`) y el panel de formularios (`/admin/dashboard`) incluyen el modal "Compartir" (estilos comunes en `features/forms/share/`):
 
 - Busqueda de usuario por correo con preview (nombre, email, rol).
-- Asignacion con rol (`PROJECT` / `RECOLECTOR`) y respuestas objetivo (`target_responses`).
+- Asignacion con rol (`PROJECT` / `RECOLECTOR`) y respuestas objetivo opcionales (`target_responses`; vacio = sin limite).
+- Si el correo no tiene cuenta, el modal pide nombres y cedula: se crea como `RECOLECTOR`, recibe el correo de confirmacion y entra al equipo del proyecto (`POST /shares` con `name` y `cedula`). Toda asignacion agrega a la persona al equipo del proyecto; si esta inactiva en el equipo se rechaza.
+- «Varias personas (Excel)»: `GET /api/forms/{id}/shares/template` (plantilla `.xls`: correo, nombres y apellidos, cedula, rol, respuestas objetivo opcional) y `POST /api/forms/{id}/shares/import` (`.xlsx`/`.xls`, hasta 500 filas; `preview=1` devuelve estado y errores por fila; sin errores asigna todo o nada). Componente `features/forms/share/share-bulk-import.component.ts`; servicio comun `App\Application\Projects\Services\CollectorImport` (tambien lo usa la importacion de encuestadores del proyecto, que ahora acepta `.xls`).
 - Tabla de usuarios asignados con barra de progreso (respuestas enviadas / objetivo).
 - Edicion inline de target, botones Reactivar/Retirar.
 - Endpoints: `GET/POST/PATCH/DELETE /api/forms/{id}/shares`.
+
+### Ficha metodologica del proyecto
+
+Una por proyecto (pestaña «Ficha metodologica» en `/admin/proyectos`; API `/api/projects/{id}/technical-sheet`, tabla `project_technical_sheets`). Es del proyecto, no de un levantamiento:
+
+- Campos: objetivo general, objetivos especificos, poblacion de estudio, cobertura geografica (pais, provincia, canton, parroquia o zona) y tecnica e instrumento (texto libre), mas las fechas de inicio y fin del proyecto y la muestra objetivo.
+- Para validar (solo el lider) se exigen los cinco campos y las fechas. Su validacion habilita preguntas, zonas y publicacion de los formularios del proyecto; cada formulario fija sus fechas dentro del periodo del proyecto.
+- La antigua `description` se copio a `general_objective` (migracion `2026_11_20_000002`) y queda como historial. En pruebas, `TestCase::methodologySheet()` da un contenido valido.
+
+### Ficha tecnica del formulario
+
+Ademas de la ficha metodologica del proyecto, cada formulario tiene su ficha tecnica metodologica, visible en el editor (`/admin/forms/:id/edit`, componente `features/forms/technical-sheet/`):
+
+- Parametros: universo objetivo, cobertura geografica, tamaño muestral, margen de error y confianza, tecnica de campo y control de calidad (`form_technical_sheets`; las columnas antiguas `description`/fechas/`target_sample_size` quedan como historial).
+- «Usar plantilla» rellena los vacios con un texto guia con marcadores `[ ... ]`; el editor no deja validar mientras queden marcadores.
+- La editan quienes pueden editar el formulario y el delegado; la validan solo el lider o el delegado del proyecto. Guardar un cambio la devuelve a borrador.
+- Endpoints: `GET/PUT /api/forms/{id}/form-sheet`, `POST /api/forms/{id}/form-sheet/validate` (exige los seis parametros). Es opcional (asi se indica en la pantalla): no bloquea la publicacion.
 
 El dashboard (`/admin/dashboard`) tambien muestra usuarios asignados por formulario con progreso.
 
@@ -167,7 +186,8 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - Opciones en cascada (provincia → canton → parroquia): `properties.choice_filter = { question_id, parents }` en preguntas `SINGLE_CHOICE`/`MULTIPLE_CHOICE`; `parents[i]` son las respuestas de la pregunta origen (anterior, de opciones) que muestran la opcion i; vacio = siempre. Se valida al guardar (`ChoiceFilter`/`FormSchemaValidator`) y al enviar (`FormResponseValidator`). Web `/collect` y PWA filtran y borran la respuesta que deja de corresponder (`choice-filter.ts`, copia en la PWA).
 - Subpregunta condicionada («Otro → especifique»): `properties.show_if = { options: [...] }` en una subpregunta cuyo padre es `SINGLE_CHOICE`/`MULTIPLE_CHOICE`; se muestra solo si entre lo elegido en el padre esta alguna de esas opciones (sin `show_if`, basta con que el padre tenga respuesta). Lo evaluan `FormFlowEngine`/`ShowIf` (backend), `/collect` y la PWA (ocultan, saltan en el paso a paso y no envian lo oculto). Se configura en el editor («Cuando se muestra»). Excel: XLSForm `relevant` del tipo `selected(${p}, 'otro')` o `${p} = 'otro'` (varias con `or`); plantilla simple, columna «Solo si elige» junto a «Subpregunta de (N.º)».
 - Excel: XLSForm usa la columna estandar `choice_filter` (`provincia=${provincia}` con una columna `provincia` en `choices`); la plantilla simple usa la columna «Opciones según (N.º)» y grupos en «Opciones»: `Manabí: Portoviejo; Manta | Guayas: Guayaquil`. Ambas exportaciones conservan la cascada.
-- Modo de prueba: `GET /api/forms/{id}/test` y `POST /api/forms/{id}/test-submit` (quien puede ver el formulario). Valida con las mismas reglas que un envio real y no guarda nada. El editor abre `/prueba/:formId` en la misma pestaña (la sesion sin «Recordarme» vive en `sessionStorage`); al pedir login se recuerda la pagina y se vuelve a ella al entrar (`AuthService.rememberReturnUrl`).
+- Modo de prueba: `GET /api/forms/{id}/test` y `POST /api/forms/{id}/test-submit` (quien puede ver el formulario). Valida con las mismas reglas que un envio real y no guarda nada. El editor abre `/prueba/:formId` en la misma pestaña (la sesion sin «Recordarme» vive en `sessionStorage`).
+- Enlace de prueba compartido: el boton de copiar pide `GET /api/forms/{id}/test-link` (quien puede ver el formulario) y copia `/prueba/:formId?token=...`. El token esta firmado con `APP_KEY` y caduca a los 7 dias; quien lo abre no necesita sesion (`GET /api/forms/public-test/{id}?token=` y `POST /api/forms/public-test/{id}/submit?token=`, no guardan nada). Al terminar la prueba se borra su avance de la pestaña y `/prueba` nunca se recuerda como pagina de retorno del login, para que al entrar despues al sistema no se vuelva a la prueba.
 
 ### Fotos de perfil
 
@@ -179,6 +199,7 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - Internos: correos de `AUTH_INTERNAL_EMAIL_DOMAINS` (por defecto `uleam.edu.ec`, `live.uleam.edu.ec`, `dn.uleam.edu.ec`). Con `MICROSOFT_CLIENT_ID/SECRET/TENANT_ID` configurados entran solo con Microsoft 365 (OpenID Connect): sin contraseña local, sin correo de confirmacion ni cambio de contraseña. El `SUPER_ADMIN` conserva la contraseña como acceso de emergencia. La cuenta debe existir en el panel (no se crean cuentas al entrar).
 - Flujo: `GET /api/auth/microsoft/redirect?return=<frontend>/auth/microsoft` → Microsoft → `GET /api/auth/microsoft/callback` → el frontend recibe un codigo de un solo uso y lo canjea en `POST /api/auth/microsoft/exchange`. `return` solo se acepta si su origen esta en `CORS_ALLOWED_ORIGINS`. `GET /api/auth/providers` indica si Microsoft esta activo.
 - Externos: al crearlos (panel o importacion de recolectores) reciben un correo de confirmacion con enlace a `FRONTEND_URL/auth/activar` (72 h) para crear su contraseña (`POST /api/auth/activate`). Reenvio: `POST /api/users/{id}/invitation`. Si un administrador les fija una contraseña, deben cambiarla al entrar.
+- Importaciones masivas (encuestadores del proyecto y «Compartir formulario»): cada persona nueva recibe correo. Institucional con Microsoft configurado: el enlace lleva `tipo=microsoft`, solo confirma su usuario (`POST /api/auth/activate` sin contraseña) y luego entra con Microsoft 365. Externa: confirma y crea su contraseña. El correo va en el idioma por defecto (`APP_LOCALE`), no en el de quien importa.
 - Correo saliente: `MAIL_MAILER=microsoft-graph` envia desde `MICROSOFT_MAIL_SENDER` (buzon propio de la app; permiso `Mail.Send` limitado a ese buzon con una Application Access Policy).
 - Mientras Microsoft no este configurado, los internos se crean con contraseña como antes.
 - Desarrollo local: sin `ADMIN_EMAIL`/`ADMIN_PASSWORD` en el `.env`, `AdminUserSeeder` crea `superadmin@datafield.test` (dominio de pruebas no institucional, entra con contraseña; la clave esta en el seeder). No usar un `@uleam.edu.ec` inexistente en Microsoft como superadmin de pruebas. Un `SUPER_ADMIN` con correo institucional puede entrar con contraseña desde el enlace de emergencia del login.

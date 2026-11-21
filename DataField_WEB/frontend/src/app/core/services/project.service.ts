@@ -68,11 +68,27 @@ export interface ProjectPayload {
   supervisor_ids?: number[];
 }
 
+/** Campos de la ficha metodológica del proyecto, en orden de presentación. */
+export const METHODOLOGY_FIELDS = [
+  'general_objective',
+  'specific_objectives',
+  'study_population',
+  'geographic_coverage',
+  'technique_instrument',
+] as const;
+export type MethodologyField = (typeof METHODOLOGY_FIELDS)[number];
+
 export interface ProjectTechnicalSheet {
   id?: string;
   project_id?: string;
   form_id?: string;
+  /** Descripción libre anterior (historial); su texto se copió al objetivo general. */
   description?: string | null;
+  general_objective?: string | null;
+  specific_objectives?: string | null;
+  study_population?: string | null;
+  geographic_coverage?: string | null;
+  technique_instrument?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   target_sample_size?: number | null;

@@ -39,7 +39,7 @@ class FormWorkflowApiTest extends TestCase
             'name' => 'Edificaciones de Manta',
         ])->assertOk()->assertJsonPath('name', 'Edificaciones de Manta');
         $this->postJson("/api/projects/{$project->id}/technical-sheet", [
-            'description' => 'Levantamiento en edificios existentes',
+            ...$this->methodologySheet(),
             'start_date' => today('America/Guayaquil')->format('Y-m-d'),
             'end_date' => today('America/Guayaquil')->addMonth()->format('Y-m-d'),
             'target_sample_size' => 100,
@@ -99,7 +99,7 @@ class FormWorkflowApiTest extends TestCase
 
         // Editar la ficha del proyecto la devuelve a borrador y frena la publicación hasta validarla.
         $this->postJson("/api/projects/{$project->id}/technical-sheet", [
-            'description' => 'Renovación del levantamiento territorial',
+            ...$this->methodologySheet(),
             'start_date' => now('America/Guayaquil')->subDays(10)->toDateString(),
             'end_date' => now('America/Guayaquil')->addMonth()->toDateString(),
         ])->assertOk()->assertJsonPath('status', 'DRAFT');

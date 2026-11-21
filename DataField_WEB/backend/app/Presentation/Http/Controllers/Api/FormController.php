@@ -626,14 +626,34 @@ class FormController extends Controller
         $form = $this->findShareManageableForm($id, $request->user());
 
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|max:255',
             'role' => 'required|in:PROJECT,RECOLECTOR',
             'target_responses' => 'nullable|integer|min:1',
+            // Solo para crear la cuenta de alguien que todavía no la tiene.
+            'name' => 'nullable|string|max:255',
+            'cedula' => 'nullable|string|max:20',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $importer = app(\App\Application\Projects\Services\CollectorImport::class);
+        $email = Str::lower(trim((string) $request->email));
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+        $invited = [];
+        $credentials = [];
         if (! $user) {
-            return response()->json(['message' => __('No existe un usuario con ese correo')], 404);
+            $name = trim((string) $request->input('name', ''));
+            $cedula = \App\Application\Projects\Services\CollectorImport::cedula((string) $request->input('cedula', ''));
+            if ($name === '' && $cedula === '') {
+                return response()->json(['message' => __('No existe un usuario con ese correo')], 404);
+            }
+            [$existing, $conflict] = $importer->findCollector($email, $cedula);
+            $errors = $importer->identityErrors($name, $cedula, $email);
+            if ($existing || $conflict) {
+                $errors[] = __('Correo o cédula ya pertenece a otra cuenta.');
+            }
+            if ($errors !== []) {
+                return response()->json(['message' => implode(' ', $errors)], 422);
+            }
+            $user = $importer->createCollector($name, $email, $cedula, $credentials, $invited);
         }
 
         if ((int) $user->id === (int) $form->user_id) {
@@ -642,6 +662,13 @@ class FormController extends Controller
 
         if (! $user->isUser()) {
             return response()->json(['message' => __('Solo usuarios recolectores pueden recibir permisos por formulario')], 422);
+        }
+
+        if ($form->project && $importer->membership($form->project, $user->id) === false) {
+            return response()->json(['message' => __('Está inactivo en el equipo del proyecto. Actívalo en «Formularios y miembros» antes de asignarle formularios.')], 422);
+        }
+        if ($form->project) {
+            $importer->ensureMember($form->project, $user);
         }
 
         $share = FormUserShare::updateOrCreate(
@@ -662,7 +689,15 @@ class FormController extends Controller
             $request->role === 'RECOLECTOR' ? $request->target_responses : null
         );
 
-        return response()->json($share->load('user:id,name,email,rol'), 201);
+        // Cuenta nueva: correo de confirmación (institucional con Microsoft 365 o externo con contraseña);
+        // sin Microsoft configurado, un institucional recibe una contraseña temporal que se muestra una sola vez.
+        $sent = $importer->sendInvitations($invited);
+
+        return response()->json($share->load('user:id,name,email,rol')->toArray() + [
+            'account_created' => $invited !== [] || $credentials !== [],
+            'invited' => $sent !== [],
+            'credentials' => $credentials,
+        ], 201)->header('Cache-Control', 'no-store');
     }
 
     #[OA\Delete(path: '/forms/{id}/shares/{share_id}', summary: 'Retirar invitacion', security: [['sanctum' => []]], tags: ['Forms'])]
@@ -761,7 +796,56 @@ class FormController extends Controller
      */
     public function testForm(Request $request, string $id): JsonResponse
     {
+        return $this->testFormPayload($this->findViewableForm($id, $request->user()));
+    }
+
+    /**
+     * Enlace de prueba para compartir: firmado y con caducidad, se abre sin iniciar sesión.
+     * Solo lo genera quien puede ver el formulario.
+     */
+    public function testLink(Request $request, string $id): JsonResponse
+    {
         $form = $this->findViewableForm($id, $request->user());
+        $expires = now()->addDays(self::TEST_LINK_DAYS)->getTimestamp();
+
+        return response()->json([
+            'token' => $expires.'.'.$this->testLinkSignature((string) $form->id, $expires),
+            'expires_at' => date(DATE_ATOM, $expires),
+        ]);
+    }
+
+    /** Prueba abierta con el enlace compartido (sin sesión). */
+    public function publicTestForm(Request $request, string $id): JsonResponse
+    {
+        return $this->testFormPayload($this->formFromTestToken($request, $id));
+    }
+
+    /** Valida la respuesta de una prueba abierta con el enlace compartido; no guarda nada. */
+    public function publicTestSubmit(Request $request, string $id): JsonResponse
+    {
+        return $this->validateTestAnswers($request, $this->formFromTestToken($request, $id));
+    }
+
+    private const TEST_LINK_DAYS = 7;
+
+    private function testLinkSignature(string $formId, int $expires): string
+    {
+        return hash_hmac('sha256', "form-test|{$formId}|{$expires}", (string) config('app.key'));
+    }
+
+    private function formFromTestToken(Request $request, string $id): Form
+    {
+        $token = (string) $request->query('token', '');
+        [$expires, $signature] = array_pad(explode('.', $token, 2), 2, '');
+        $valid = ctype_digit($expires) && (int) $expires >= now()->getTimestamp()
+            && hash_equals($this->testLinkSignature($id, (int) $expires), $signature);
+        abort_unless($valid, 403, __('El enlace de prueba no es válido o ya caducó.'));
+
+        return Form::findOrFail($id);
+    }
+
+    private function testFormPayload(Form $form): JsonResponse
+    {
         $form->load(['questions' => fn ($q) => $q->orderBy('order')]);
 
         $data = $form->only(['id', 'title', 'description', 'state', 'step_by_step', 'require_consent', 'consent_text', 'start_date', 'end_date']);
@@ -777,7 +861,11 @@ class FormController extends Controller
      */
     public function testSubmit(Request $request, string $id): JsonResponse
     {
-        $form = $this->findViewableForm($id, $request->user());
+        return $this->validateTestAnswers($request, $this->findViewableForm($id, $request->user()));
+    }
+
+    private function validateTestAnswers(Request $request, Form $form): JsonResponse
+    {
         $input = $request->validate(['data' => 'required|array']);
         $data = $input['data'];
 
