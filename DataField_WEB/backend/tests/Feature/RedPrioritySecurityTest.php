@@ -188,4 +188,40 @@ class RedPrioritySecurityTest extends TestCase
             ->assertJsonPath('expected_revision', 0)
             ->assertJsonPath('current_revision', 1);
     }
+
+    public function test_complete_draft_keeps_every_question_property(): void
+    {
+        [$form, $owner] = $this->campaign();
+        $form->update(['state' => 'DRAFT', 'instrument_locked' => false, 'link_uuid' => null]);
+        $form->project->technicalSheet()->create(['status' => 'VALIDATED', 'created_by' => $owner->id, 'validated_by' => $owner->id]);
+        Sanctum::actingAs($owner);
+        [$provincia, $otra, $canton, $video] = [(string) Str::uuid(), (string) Str::uuid(), (string) Str::uuid(), (string) Str::uuid()];
+        $payload = ['title' => 'Escrutinio', 'step_by_step' => true, 'consent_text' => $form->consent_text,
+            'expected_revision' => 0, 'questions' => [
+                ['id' => $provincia, 'type' => 'SINGLE_CHOICE', 'label' => 'Provincia', 'required' => true, 'order' => 1,
+                    'options' => ['Manabí', 'Guayas', 'Otro']],
+                ['id' => $otra, 'type' => 'TEXT', 'label' => 'Provincia (escriba el nombre)', 'required' => true, 'order' => 2,
+                    'parent_question_id' => $provincia, 'properties' => ['show_if' => ['options' => ['Otro']], 'text_format' => 'email']],
+                ['id' => $canton, 'type' => 'SINGLE_CHOICE', 'label' => 'Cantón', 'required' => true, 'order' => 3,
+                    'options' => ['Manta', 'Guayaquil'],
+                    'properties' => ['choice_filter' => ['question_id' => $provincia, 'parents' => [['Manabí'], ['Guayas']]]]],
+                ['id' => $video, 'type' => 'MULTIMEDIA', 'label' => 'Video', 'required' => false, 'order' => 4,
+                    'properties' => ['media_type' => 'video', 'max_video_seconds' => 90]],
+            ]];
+
+        // La duración del video se sigue validando.
+        $invalid = $payload;
+        $invalid['questions'][3]['properties']['max_video_seconds'] = 500;
+        $this->putJson('/api/forms/'.$form->id.'/draft', $invalid)->assertStatus(422);
+
+        // Antes, validar max_video_seconds descartaba todas las demás propiedades al guardar.
+        $this->putJson('/api/forms/'.$form->id.'/draft', $payload)->assertOk();
+        $saved = $form->questions()->get()->keyBy('id');
+        $this->assertSame(['options' => ['Otro']], $saved[$otra]->properties['show_if']);
+        $this->assertSame('email', $saved[$otra]->properties['text_format']);
+        // jsonb reordena las claves: se compara el contenido, no el orden.
+        $this->assertEquals(['question_id' => $provincia, 'parents' => [['Manabí'], ['Guayas']]], $saved[$canton]->properties['choice_filter']);
+        $this->assertSame(90, $saved[$video]->properties['max_video_seconds']);
+        $this->assertSame('video', $saved[$video]->properties['media_type']);
+    }
 }
