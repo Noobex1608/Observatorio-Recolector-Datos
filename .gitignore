@@ -42,4 +42,4 @@ scripts/zap/reporte/
 
 scripts/
 
-loadtest/
+# loadtest/ se versiona (respaldo de las pruebas de carga); sus archivos generados se ignoran en loadtest/.gitignore.

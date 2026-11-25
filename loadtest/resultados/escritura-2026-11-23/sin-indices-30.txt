@@ -1,0 +1,44 @@
+time="2026-11-23T23:51:04Z" level=warning msg="Insufficient VUs, reached 600 active VUs and cannot initialize more" executor=constant-arrival-rate scenario=envios
+time="2026-11-23T23:52:07Z" level=warning msg="HTTP 0: null" source=console
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    t_envio
+    ✗ 'p(95)<2000' p(95)=55.14s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1296    10.799819/s
+    checks_succeeded...: 100.00% 1296 out of 1296
+    checks_failed......: 0.00%   0 out of 1296
+
+    ✓ envío 2xx
+
+    CUSTOM
+    t_envio........................: avg=30.77s med=31.17s p(90)=53.66s p(95)=55.14s p(99)=56.52s max=57.25s
+
+    HTTP
+    http_req_duration..............: avg=30.77s med=31.17s p(90)=53.66s p(95)=55.14s p(99)=56.52s max=57.25s
+      { expected_response:true }...: avg=30.77s med=31.17s p(90)=53.66s p(95)=55.14s p(99)=56.52s max=57.25s
+    http_req_failed................: 0.00%  0 out of 1296
+    http_reqs......................: 1296   10.799819/s
+
+    EXECUTION
+    dropped_iterations.............: 1126   9.383176/s
+    iteration_duration.............: avg=30.77s med=31.17s p(90)=53.66s p(95)=55.14s p(99)=56.52s max=57.25s
+    iterations.....................: 1296   10.799819/s
+    vus............................: 279    min=22        max=600
+    vus_max........................: 600    min=120       max=600
+
+    NETWORK
+    data_received..................: 1.2 MB 9.9 kB/s
+    data_sent......................: 2.5 MB 21 kB/s
+
+
+
+time="2026-11-23T23:52:08Z" level=error msg="thresholds on metrics 't_envio' have been crossed"

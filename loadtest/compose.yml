@@ -1,0 +1,79 @@
+# Copia local de la API de producción para pruebas de carga con k6 (no toca el servidor real).
+# Mismos límites que deploy/compose.yml: api 1 CPU / 1 GB, db 1 CPU / 2 GB; PHP-FPM con 12 workers
+# (deploy/api/php-fpm.conf) y memory_limit 256M (imagen de la API).
+# Imagen: docker build -t udf-api-base DataField_WEB/backend
+#         docker build -f deploy/api/Dockerfile --build-arg BASE=udf-api-base -t udf-api-local .
+# FPM_CONF elige la configuración de PHP-FPM (por defecto la de deploy/api, 12 workers).
+# STUB_DELAY_MS: demora por subida en el almacenamiento simulado (por defecto 0).
+# Guía completa y resultados: loadtest/README.md
+name: udf-loadtest
+
+x-api-entorno: &api-entorno
+  APP_NAME: ULEAM DataField
+  APP_ENV: production
+  APP_DEBUG: "false"
+  # Clave solo para esta copia local de prueba (no es la de ningún entorno real).
+  APP_KEY: base64:bG9hZHRlc3QtbG9jYWwta2V5LTMyLWJ5dGVzLW9rIQ==
+  APP_URL: http://localhost:8081
+  APP_LOCALE: es
+  APP_FALLBACK_LOCALE: es
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: warning
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: udf
+  DB_USERNAME: postgres
+  DB_PASSWORD: loadtest
+  SESSION_DRIVER: cookie
+  CACHE_STORE: file
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: local
+  MAIL_MAILER: log
+  CORS_ALLOWED_ORIGINS: http://localhost:8081
+  SUPABASE_FORM_SCHEMA_SYNC_ENABLED: "false"
+  SUPABASE_RESPONSE_SYNC_ENABLED: "false"
+  VIDEO_STORAGE_DRIVER: local
+  # Los archivos de las respuestas van al almacenamiento simulado (servicio «almacenamiento»), no a internet.
+  RESPONSE_MEDIA_DRIVER: supabase
+  SUPABASE_URL: http://almacenamiento:8080
+  SUPABASE_SERVICE_ROLE_KEY: sb_secret_loadtest_local
+
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: udf
+      POSTGRES_PASSWORD: loadtest
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d udf"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 2G }
+
+  almacenamiento:
+    image: udf-api-base
+    entrypoint: ["php", "-S", "0.0.0.0:8080", "/stub/almacenamiento-simulado.php"]
+    environment:
+      PHP_CLI_SERVER_WORKERS: "16"
+      STUB_DELAY_MS: ${STUB_DELAY_MS:-0}
+    volumes:
+      - ./almacenamiento-simulado.php:/stub/almacenamiento-simulado.php:ro
+
+  api:
+    image: udf-api-local
+    depends_on:
+      db: { condition: service_healthy }
+      almacenamiento: { condition: service_started }
+    environment: *api-entorno
+    volumes:
+      - ./seed.php:/var/www/html/loadtest-seed.php:ro
+      - ${FPM_CONF:-../deploy/api/php-fpm.conf}:/usr/local/etc/php-fpm.d/zz-otm.conf:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 1G }

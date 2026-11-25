@@ -1,0 +1,5 @@
+# Tokens de la base local de prueba (se regeneran con seed.php): no se suben.
+tokens.json
+tokens-escritura.json
+# Fotos de relleno de k6-fotos.js (las genera correr-respaldo.sh; pesan hasta 30 MB).
+fotos/

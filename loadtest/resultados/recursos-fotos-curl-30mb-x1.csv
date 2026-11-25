@@ -1,0 +1,5 @@
+hora,contenedor,cpu,memoria
+11:27:16,udf-loadtest-api-1,3.95%,78.17MiB / 1GiB
+11:27:18,udf-loadtest-api-1,15.77%,121.7MiB / 1GiB
+11:27:20,udf-loadtest-api-1,84.76%,192.9MiB / 1GiB
+11:27:22,udf-loadtest-api-1,0.03%,78.21MiB / 1GiB
