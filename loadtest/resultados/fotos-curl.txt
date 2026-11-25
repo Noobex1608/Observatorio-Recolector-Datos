@@ -1,0 +1,51 @@
+== Envíos uno a la vez (3 por tamaño): código HTTP, bytes subidos y tiempo total
+1 MB #1: 201 subida=1398553B total=1.146583s
+1 MB #2: 201 subida=1398553B total=1.135385s
+1 MB #3: 201 subida=1398553B total=1.140059s
+5 MB #1: 201 subida=6990957B total=1.431355s
+5 MB #2: 201 subida=6990957B total=1.421652s
+5 MB #3: 201 subida=6990957B total=1.495713s
+30 MB #1: 201 subida=41943489B total=3.130292s
+30 MB #2: 201 subida=41943489B total=3.428283s
+30 MB #3: 201 subida=41943489B total=3.081876s
+== 1 envíos de 30 MB a la vez
+#1 201 subida=41943489B total=3.122400s
+tanda completa en 7 s
+memoria máxima de la API: 192.9MiB
+oom_contenedor=false workers_terminados_por_senal=0
+== 4 envíos de 30 MB a la vez
+#1 201 subida=41943489B total=9.212443s
+#2 201 subida=41943489B total=10.704496s
+#4 201 subida=41943489B total=12.176287s
+#3 201 subida=41943489B total=13.604960s
+tanda completa en 18 s
+memoria máxima de la API: 452.2MiB
+oom_contenedor=false workers_terminados_por_senal=0
+== 8 envíos de 30 MB a la vez
+#4 201 subida=41943489B total=19.868187s
+#1 201 subida=41943489B total=21.761389s
+#2 201 subida=41943489B total=23.144187s
+#5 201 subida=41943489B total=24.738478s
+#8 201 subida=41943489B total=26.175939s
+#7 201 subida=41943489B total=27.596715s
+#3 201 subida=41943489B total=29.033118s
+#6 201 subida=41943489B total=30.682992s
+tanda completa en 37 s
+memoria máxima de la API: 1019MiB
+oom_contenedor=false workers_terminados_por_senal=0
+== 12 envíos de 30 MB a la vez
+#9 201 subida=41943489B total=33.789120s
+#2 201 subida=41943489B total=35.462756s
+#3 201 subida=41943489B total=36.906232s
+#6 201 subida=41943489B total=38.438347s
+#12 201 subida=41943489B total=40.003089s
+#10 201 subida=41943489B total=41.538850s
+#7 201 subida=41943489B total=42.928637s
+#4 201 subida=41943489B total=44.520504s
+#11 201 subida=41943489B total=46.175169s
+#1 201 subida=41943489B total=47.748664s
+#8 201 subida=41943489B total=49.230934s
+#5 201 subida=41943489B total=50.718082s
+tanda completa en 58 s
+memoria máxima de la API: 1022MiB
+oom_contenedor=false workers_terminados_por_senal=0

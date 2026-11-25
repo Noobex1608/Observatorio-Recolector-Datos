@@ -1,0 +1,44 @@
+time="2026-11-24T00:20:36Z" level=warning msg="HTTP 422: {\n    \"message\": \"Has alcanzado el l\\u00edmite de respuestas para este formulario.\"\n}" source=console
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=6.73%
+
+    t_envio
+    ✓ 'p(95)<2000' p(95)=55.26ms
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 2701   29.998482/s
+    checks_succeeded...: 93.26% 2519 out of 2701
+    checks_failed......: 6.73%  182 out of 2701
+
+    ✗ envío 2xx
+      ↳  93% — ✓ 2519 / ✗ 182
+
+    CUSTOM
+    envios_rechazados..............: 182    2.021371/s
+    t_envio........................: avg=36.26ms med=32.53ms p(90)=41.78ms p(95)=55.26ms p(99)=114.03ms max=191.91ms
+
+    HTTP
+    http_req_duration..............: avg=36.26ms med=32.53ms p(90)=41.78ms p(95)=55.26ms p(99)=114.03ms max=191.91ms
+      { expected_response:true }...: avg=36.61ms med=32.7ms  p(90)=42.05ms p(95)=55.93ms p(99)=116.07ms max=191.91ms
+    http_req_failed................: 6.73%  182 out of 2701
+    http_reqs......................: 2701   29.998482/s
+
+    EXECUTION
+    iteration_duration.............: avg=36.85ms med=33.09ms p(90)=42.61ms p(95)=56.17ms p(99)=115.28ms max=192.8ms 
+    iterations.....................: 2701   29.998482/s
+    vus............................: 1      min=1           max=5  
+    vus_max........................: 120    min=120         max=120
+
+    NETWORK
+    data_received..................: 2.5 MB 28 kB/s
+    data_sent......................: 4.3 MB 48 kB/s
+
+
+
+time="2026-11-24T00:20:42Z" level=error msg="thresholds on metrics 'http_req_failed' have been crossed"

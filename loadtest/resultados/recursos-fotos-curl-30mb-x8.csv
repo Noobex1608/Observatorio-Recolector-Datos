@@ -1,0 +1,19 @@
+hora,contenedor,cpu,memoria
+11:28:13,udf-loadtest-api-1,0.03%,78.61MiB / 1GiB
+11:28:15,udf-loadtest-api-1,0.02%,78.61MiB / 1GiB
+11:28:17,udf-loadtest-api-1,42.83%,127.7MiB / 1GiB
+11:28:19,udf-loadtest-api-1,98.97%,400.5MiB / 1GiB
+11:28:22,udf-loadtest-api-1,99.77%,693.1MiB / 1GiB
+11:28:24,udf-loadtest-api-1,103.15%,753MiB / 1GiB
+11:28:26,udf-loadtest-api-1,102.34%,753MiB / 1GiB
+11:28:28,udf-loadtest-api-1,98.86%,752.9MiB / 1GiB
+11:28:31,udf-loadtest-api-1,99.40%,754.2MiB / 1GiB
+11:28:33,udf-loadtest-api-1,98.09%,1019MiB / 1GiB
+11:28:35,udf-loadtest-api-1,102.34%,898.4MiB / 1GiB
+11:28:37,udf-loadtest-api-1,8.04%,352.6MiB / 1GiB
+11:28:39,udf-loadtest-api-1,31.06%,377.8MiB / 1GiB
+11:28:41,udf-loadtest-api-1,48.73%,321.3MiB / 1GiB
+11:28:43,udf-loadtest-api-1,11.03%,281.7MiB / 1GiB
+11:28:45,udf-loadtest-api-1,38.09%,202.9MiB / 1GiB
+11:28:47,udf-loadtest-api-1,56.91%,160.9MiB / 1GiB
+11:28:49,udf-loadtest-api-1,0.03%,64.74MiB / 1GiB

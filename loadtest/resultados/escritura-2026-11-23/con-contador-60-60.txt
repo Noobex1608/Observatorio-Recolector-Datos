@@ -1,0 +1,42 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    t_envio
+    ✗ 'p(95)<2000' p(95)=18.74s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1987    33.512837/s
+    checks_succeeded...: 100.00% 1987 out of 1987
+    checks_failed......: 0.00%   0 out of 1987
+
+    ✓ envío 2xx
+
+    CUSTOM
+    t_envio........................: avg=10.75s med=10.98s p(90)=17.97s p(95)=18.74s p(99)=19.26s max=19.47s
+
+    HTTP
+    http_req_duration..............: avg=10.75s med=10.98s p(90)=17.97s p(95)=18.74s p(99)=19.26s max=19.47s
+      { expected_response:true }...: avg=10.75s med=10.98s p(90)=17.97s p(95)=18.74s p(99)=19.26s max=19.47s
+    http_req_failed................: 0.00%  0 out of 1987
+    http_reqs......................: 1987   33.512837/s
+
+    EXECUTION
+    dropped_iterations.............: 413    6.965678/s
+    iteration_duration.............: avg=10.75s med=10.98s p(90)=17.97s p(95)=18.74s p(99)=19.26s max=19.47s
+    iterations.....................: 1987   33.512837/s
+    vus............................: 18     min=18        max=651
+    vus_max........................: 653    min=240       max=653
+
+    NETWORK
+    data_received..................: 1.8 MB 31 kB/s
+    data_sent......................: 3.2 MB 54 kB/s
+
+
+
+time="2026-11-24T00:23:52Z" level=error msg="thresholds on metrics 't_envio' have been crossed"
