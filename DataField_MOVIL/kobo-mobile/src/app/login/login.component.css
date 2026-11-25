@@ -21,6 +21,9 @@
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+  /* La foto puede ir bajo la barra de estado; el formulario no debe quedar bajo la de navegación. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
   background: #fff;
   color: #2c3339;
 }

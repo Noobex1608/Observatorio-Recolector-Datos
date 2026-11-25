@@ -22,6 +22,7 @@ import { textFormatError, textFormatInput, textFormatOf } from '../utils/text-fo
 import { mediaBudgetError } from '../utils/media-limits';
 import { StoragePersistenceService } from '../services/storage-persistence.service';
 import { allowedOptions, choiceFilterOf, pruneCascadeAnswers, showIfMatches, showIfOf } from '../utils/choice-filter';
+import { hoyLocal } from '../utils/fecha-local';
 
 @Component({
   selector: 'app-llenar-encuesta',
@@ -120,7 +121,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       form.step_by_step = true;
       this.formulario = form;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = hoyLocal();
       if (form.start_date && today < form.start_date) {
         this.errorCarga = `Esta encuesta aún no está disponible. Su fecha de inicio es ${form.start_date}.`;
         this.cargando = false;

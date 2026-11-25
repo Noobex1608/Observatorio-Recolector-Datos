@@ -5,7 +5,8 @@
   background-color: var(--bg-app, #ffffff);
   color: var(--text, #1e293b);
   position: relative;
-  padding-bottom: 80px; /* Space for sticky bottom dock bar */
+  /* Espacio para la barra inferior fija, más la barra de navegación del sistema. */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -16,6 +17,8 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  /* Debajo de la barra de estado del teléfono, no bajo ella. */
+  padding-top: env(safe-area-inset-top, 0px);
   background-color: var(--bg-card, #ffffff);
   border-bottom: 1px solid var(--border, #e2e8f0);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);

@@ -27,12 +27,19 @@ class ProjectZone extends Model
         'assigned_count',
     ];
 
+    /**
+     * Contador interno para la meta de la zona (lo mantiene FormResponse). No sale en la API: las
+     * pantallas muestran el conteo calculado desde form_responses.
+     */
+    protected $hidden = ['responses_received'];
+
     protected $casts = [
         'target_lat' => 'float',
         'target_lng' => 'float',
         'radius_meters' => 'integer',
         'target_responses' => 'integer',
         'assigned_count' => 'integer',
+        'responses_received' => 'integer',
         'hierarchy_json' => 'array',
         'geometry_json' => 'array',
     ];

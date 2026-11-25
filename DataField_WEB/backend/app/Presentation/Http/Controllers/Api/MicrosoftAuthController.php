@@ -33,6 +33,12 @@ class MicrosoftAuthController extends Controller
 
     private const LOGIN_CODE_TTL_SECONDS = 120;
 
+    /** Cuánto se recuerda el resultado de un callback para responder igual si el navegador lo repite. */
+    private const CALLBACK_REPLAY_TTL_SECONDS = 30;
+
+    /** Clave del callback en curso (state + código de Microsoft); null si no se debe recordar. */
+    private ?string $replayKey = null;
+
     public function __construct(
         private readonly MicrosoftOidc $microsoft,
         private readonly SessionIssuer $sessions,
@@ -64,13 +70,32 @@ class MicrosoftAuthController extends Controller
     public function callback(Request $request): RedirectResponse
     {
         $state = (string) $request->query('state', '');
+        // Chrome en Android puede pedir el callback dos veces seguidas al volver a la app instalada.
+        // La segunda petición ya no encuentra el flujo (se consume en la primera) y respondía «expired»,
+        // que era lo que veía la persona. Con la misma URL (state + código de Microsoft) se repite el
+        // resultado de la primera; el código de inicio que lleva sigue siendo de un solo uso.
+        $this->replayKey = $state !== '' ? 'ms-oidc-done:'.hash('sha256', $state.'|'.(string) $request->query('code', '')) : null;
+        if ($this->replayKey !== null && is_string($previous = Cache::get($this->replayKey))) {
+            return redirect()->away($previous);
+        }
         $flow = $state !== '' ? Cache::pull("ms-oidc:{$state}") : null;
         $return = is_array($flow) ? $flow['return'] : config('services.frontend_url').'/auth/microsoft';
 
         if (! is_array($flow)) {
+            $this->replayKey = null;
+
             return $this->back($return, ['error' => 'expired']);
         }
         if ($request->filled('error')) {
+            // Microsoft devolvió el error en la URL (p. ej. AADSTS50011, URI de retorno no registrada): se
+            // registra su código para poder diagnosticarlo; la persona solo ve «cancelado» o «fallido».
+            if ($request->query('error') !== 'access_denied') {
+                Log::warning('Microsoft devolvió un error en el inicio de sesión', [
+                    'error' => Str::limit((string) $request->query('error'), 100, ''),
+                    'description' => Str::limit((string) $request->query('error_description'), 300, ''),
+                ]);
+            }
+
             return $this->back($return, ['error' => $request->query('error') === 'access_denied' ? 'cancelled' : 'failed']);
         }
 
@@ -176,6 +201,11 @@ class MicrosoftAuthController extends Controller
 
     private function back(string $return, array $params): RedirectResponse
     {
-        return redirect()->away($return.'?'.http_build_query($params));
+        $url = $return.'?'.http_build_query($params);
+        if ($this->replayKey !== null) {
+            Cache::put($this->replayKey, $url, self::CALLBACK_REPLAY_TTL_SECONDS);
+        }
+
+        return redirect()->away($url);
     }
 }

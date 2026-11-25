@@ -6,7 +6,9 @@ WORKDIR /app
 COPY DataField_WEB/frontend/package.json DataField_WEB/frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY DataField_WEB/frontend/ ./
-RUN printf "export const environment = {\n  production: true,\n  apiUrl: '/api',\n};\n" > src/environments/environment.prod.ts \
+# i18nVersion: hash del contenido de las traducciones; cambia la URL de es.json/en.json solo cuando cambian.
+RUN I18N_VERSION="$(cat src/assets/i18n/*.json | sha256sum | cut -c1-12)" \
+    && printf "export const environment = {\n  production: true,\n  apiUrl: '/api',\n  i18nVersion: '%s',\n};\n" "$I18N_VERSION" > src/environments/environment.prod.ts \
     && bun run build \
     && test -f dist/frontend/browser/index.html \
     && rm -f dist/frontend/browser/_headers dist/frontend/browser/_redirects

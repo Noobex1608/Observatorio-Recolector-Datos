@@ -66,7 +66,8 @@ export class LoginComponent {
     try {
       const retorno = new URL('auth/microsoft', document.baseURI).href;
       const url = this.api.microsoftLoginUrl(servidor, retorno);
-      sessionStorage.setItem(MICROSOFT_SERVER_KEY, servidor);
+      // localStorage: la página de retorno puede abrirse en otra pestaña o en la app instalada.
+      localStorage.setItem(MICROSOFT_SERVER_KEY, servidor);
       this.cargando.set(true);
       window.location.assign(url);
     } catch (error) {

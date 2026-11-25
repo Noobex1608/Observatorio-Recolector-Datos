@@ -1,5 +1,6 @@
 .lista-page-container {
-  padding: 1rem;
+  /* Respeta la barra de estado y la de navegación del teléfono. */
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
   background-color: var(--bg-app, #ffffff);
   color: var(--text, #0f172a);
   min-height: 100vh;

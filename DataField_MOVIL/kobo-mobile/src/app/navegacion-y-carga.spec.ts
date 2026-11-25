@@ -134,8 +134,8 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
   });
 
   it('Lista de encuestas actualiza el avance con conexión y abre solo las habilitadas', async () => {
-    const sync = { actualizarAvance: vi.fn(async () => undefined) };
-    const { instance, router } = setup(ListaEncuestasComponent, [
+    const sync = { actualizarAvance: vi.fn(async () => ({ quitados: [], conPendientes: [] })) };
+    const { instance, router, toast } = setup(ListaEncuestasComponent, [
       { provide: DbService, useValue: fakeDb([{ id: 'f1', title: 'Hogares', questions: [] }]) },
       { provide: SyncService, useValue: sync },
       { provide: AuthService, useValue: { obtenerRol: () => 'RECOLECTOR' } },
@@ -145,9 +145,17 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
     await flush();
     expect(sync.actualizarAvance).toHaveBeenCalled();
 
-    instance.irALlenar('f1', true);
+    // Bloqueada: no navega, pero explica por qué (antes el toque no hacía nada).
+    const base = { id: 'f1', start_date: '2026-12-29', end_date: '2026-12-30', completado: false, expirado: false, noIniciado: false };
+    instance.irALlenar({ ...base, noIniciado: true });
+    expect(toast.show).toHaveBeenLastCalledWith(expect.stringContaining('se habilita el 2026-12-29'), 'info');
+    instance.irALlenar({ ...base, expirado: true });
+    expect(toast.show).toHaveBeenLastCalledWith(expect.stringContaining('terminó el 2026-12-30'), 'info');
+    instance.irALlenar({ ...base, completado: true });
+    expect(toast.show).toHaveBeenLastCalledWith(expect.stringContaining('meta de respuestas'), 'info');
     expect(router.navigate).not.toHaveBeenCalled();
-    instance.irALlenar('f1', false);
+
+    instance.irALlenar(base);
     expect(router.navigate).toHaveBeenCalledWith(['/llenar', 'f1']);
   });
 

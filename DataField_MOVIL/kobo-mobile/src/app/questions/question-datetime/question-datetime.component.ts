@@ -10,6 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FormQuestion } from '../../db.service';
+import { hoyLocal } from '../../utils/fecha-local';
 
 @Component({
   selector: 'app-question-datetime',
@@ -86,7 +87,7 @@ export class QuestionDateTimeComponent {
     const type = this.qType();
 
     if (type === 'DATE') {
-      const formatted = now.toISOString().split('T')[0];
+      const formatted = hoyLocal(now);
       this.onValueInput(formatted);
     } else if (type === 'TIME') {
       const hours = String(now.getHours()).padStart(2, '0');

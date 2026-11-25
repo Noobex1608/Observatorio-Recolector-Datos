@@ -112,6 +112,7 @@ Una por proyecto (pestaña «Ficha metodologica» en `/admin/proyectos`; API `/a
 
 - Las zonas de un formulario (`project_zones`) son opcionales: se publica sin ellas y las respuestas no exigen `_project_geofence`. Si el formulario tiene zonas, el encuestador debe indicar una zona asignada (o una excepcion justificada).
 - La API movil devuelve `uses_zones` (en `/api/mobile/forms` y en los metadatos de avance); la PWA solo muestra «Sin zona asignada» cuando el formulario usa zonas y al encuestador no le toco ninguna.
+- Meta de la zona: el envio la compara con `project_zones.responses_received` (respuestas vigentes de la zona), no con un `COUNT`, porque se revisa con la fila del formulario bloqueada. Lo mantienen los eventos de `FormResponse` (crear suma, anular resta, restaurar suma); no sale en la API. Si se agrega otra forma de crear, anular o mover respuestas entre zonas sin pasar por Eloquent, hay que ajustar el contador. Las pantallas siguen contando desde `form_responses`.
 
 ### Ficha tecnica del formulario
 
@@ -134,6 +135,7 @@ Las respuestas (`/admin/forms/:id/responses`) muestran contadores de progreso po
 - Borradores persisten en IndexedDB hasta enviar; al abrir desde la lista se inicia formulario nuevo.
 - Sincronizacion con backend via `SyncService` + `ApiService`.
 - Al enviar respuesta, `responses_count` local se incrementa para mantener progreso preciso.
+- Formularios retirados: al sincronizar con conexion (inicio, lista y despues de enviar), los formularios del telefono que `/api/mobile/forms/metadata` ya no devuelve (archivados, eliminados o sin asignar) pierden su registro local de enviadas (`SyncService.limpiarEnviados`, solo estado `enviado`) y se quitan del telefono; si tienen borradores o pendientes de envio se conservan y se avisa. «Quitar formularios» tiene una casilla opcional (desmarcada) para borrar tambien el registro de enviadas. Nunca se borran borradores ni pendientes.
 - Perfil de usuario editable (`/perfil`).
 - Pide almacenamiento persistente (`navigator.storage.persist()`) al abrir y al terminar encuestas, para que el navegador no borre borradores ni pendientes; el estado se ve en Ajustes.
 - Antes de terminar una encuesta revisa el limite del servidor por respuesta (35 MB y 10 archivos en total, `utils/media-limits.ts`); los envios rechazados que no se arreglan reintentando guardan su motivo (`errorEnvio`) y se muestra en «Listo para enviar».

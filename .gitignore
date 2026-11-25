@@ -41,3 +41,5 @@ scripts/sonar/.sonar-local.env
 scripts/zap/reporte/
 
 scripts/
+
+loadtest/
