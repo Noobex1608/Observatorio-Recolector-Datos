@@ -1,5 +1,6 @@
 .perfil-container {
-  padding: 12px;
+  /* Respeta la barra de estado y la de navegación del teléfono. */
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(12px + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   flex: 1;
   display: flex;

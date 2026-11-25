@@ -7,6 +7,30 @@ import { ACCOUNT_SCOPE_KEY, DbService } from './db.service';
 import { MediaStorageService } from './services/media-storage.service';
 import { zonaDeRespuesta } from './utils/zone-progress';
 
+/** Títulos de los formularios que el servidor ya no ofrece, según lo que se hizo con cada uno. */
+export interface FormulariosRetirados {
+  /** Se quitaron del teléfono junto con el registro de lo enviado. */
+  quitados: string[];
+  /** Se conservan porque tienen borradores o encuestas sin enviar. */
+  conPendientes: string[];
+}
+
+/** Aviso para el encuestador, o null si no se retiró nada. */
+export function avisoRetirados({ quitados, conPendientes }: FormulariosRetirados): string | null {
+  const partes: string[] = [];
+  if (quitados.length > 0) {
+    partes.push(quitados.length === 1
+      ? `«${quitados[0]}» ya no está disponible (se archivó o se retiró) y se quitó del teléfono.`
+      : `${quitados.length} formularios ya no están disponibles y se quitaron del teléfono.`);
+  }
+  if (conPendientes.length > 0) {
+    partes.push(conPendientes.length === 1
+      ? `«${conPendientes[0]}» ya no está disponible, pero tienes encuestas sin enviar de ese formulario: se conservan en el teléfono.`
+      : `${conPendientes.length} formularios ya no están disponibles, pero tienen encuestas sin enviar: se conservan en el teléfono.`);
+  }
+  return partes.length > 0 ? partes.join(' ') : null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SyncService {
   private auth = inject(AuthService);
@@ -184,10 +208,12 @@ export class SyncService {
    * Actualiza, sin volver a descargar preguntas ni mapas, las metas y el avance de los formularios
    * guardados en el teléfono: el del encuestador y el de cada zona.
    */
-  async actualizarAvance(): Promise<void> {
+  async actualizarAvance(): Promise<FormulariosRetirados> {
+    const sinCambios: FormulariosRetirados = { quitados: [], conPendientes: [] };
     const servidor = this.auth.obtenerUrlServidor();
-    if (!servidor || !navigator.onLine || this.auth.esModoDemo()) return;
+    if (!servidor || !navigator.onLine || this.auth.esModoDemo()) return sinCambios;
     const metadata = await this.api.fetchFormsMetadata(servidor);
+    const retirados = await this.retirarFormulariosNoDisponibles(new Set(metadata.map(meta => meta.id)));
     for (const meta of metadata) {
       const form = await this.db.forms.get(meta.id);
       if (!form) continue;
@@ -202,6 +228,45 @@ export class SyncService {
         }),
       });
     }
+    return retirados;
+  }
+
+  /**
+   * Formularios del teléfono que el servidor ya no ofrece (archivados, eliminados o sin asignar):
+   * se borra el registro de lo ya enviado (las respuestas siguen en el servidor) y, si no queda
+   * nada por terminar o enviar, también el formulario. Borradores y pendientes de envío nunca se
+   * tocan: en ese caso el formulario se conserva para no perderlos.
+   */
+  private async retirarFormulariosNoDisponibles(disponibles: Set<string>): Promise<FormulariosRetirados> {
+    const resultado: FormulariosRetirados = { quitados: [], conPendientes: [] };
+    const locales = await this.db.forms.toArray();
+    for (const form of locales.filter(f => !disponibles.has(f.id))) {
+      await this.limpiarEnviados([form.id]);
+      const pendientes = await this.db.responses.where('formId').equals(form.id).count();
+      if (pendientes === 0) {
+        await this.db.forms.delete(form.id);
+        resultado.quitados.push(form.title);
+      } else {
+        resultado.conPendientes.push(form.title);
+      }
+    }
+    return resultado;
+  }
+
+  /**
+   * Quita del teléfono el registro de las encuestas ya enviadas de esos formularios (y sus archivos
+   * locales). Solo las de estado «enviado»: borradores y pendientes de envío se conservan.
+   */
+  async limpiarEnviados(formIds: string[]): Promise<number> {
+    if (formIds.length === 0) return 0;
+    return this.db.transaction('rw', this.db.responses, this.db.mediaBlobs, async () => {
+      const ids = (await this.db.responses.where('formId').anyOf(formIds).filter(r => r.estado === 'enviado').primaryKeys())
+        .filter((id): id is number => typeof id === 'number');
+      if (ids.length === 0) return 0;
+      await this.db.mediaBlobs.where('responseId').anyOf(ids).delete();
+      await this.db.responses.bulkDelete(ids);
+      return ids.length;
+    });
   }
 
   async cantidadPendientes(): Promise<number> {

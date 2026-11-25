@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { DbService } from '../db.service';
 import { AuthService } from '../auth.service';
 import { ApiService } from '../api.service';
-import { SyncService } from '../sync.service';
+import { SyncService, avisoRetirados } from '../sync.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { TranslatePipe } from '../translate.pipe';
@@ -49,6 +49,8 @@ export class InicioComponent implements OnInit, OnDestroy {
   formulariosLocales: { id: string; title: string; downloadedAt: number }[] = [];
   seleccionBorrar = new Set<string>();
   borrandoSeleccion = false;
+  /** Opcional al quitar formularios: borrar también el registro local de lo ya enviado. */
+  borrarEnviadosAlQuitar = false;
 
   ngOnInit(): void {
     void this.inicializar();
@@ -63,6 +65,21 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
     window.addEventListener('online', this.actualizarEstadoRed);
     window.addEventListener('offline', this.actualizarEstadoRed);
+    void this.retirarFormulariosNoDisponibles();
+  }
+
+  /** Con conexión, quita los formularios archivados o retirados en el servidor (y su registro de enviados). */
+  private async retirarFormulariosNoDisponibles(): Promise<void> {
+    if (!navigator.onLine) return;
+    try {
+      const aviso = avisoRetirados(await this.sync.actualizarAvance());
+      if (!aviso) return;
+      await this.cargarContadores();
+      this.toast.show(aviso, 'info');
+      this.cdr.detectChanges();
+    } catch {
+      // Sin servidor se quedan los datos guardados; se reintenta en la próxima apertura.
+    }
   }
 
   ngOnDestroy() {
@@ -143,6 +160,7 @@ export class InicioComponent implements OnInit, OnDestroy {
     }));
 
     this.borrandoSeleccion = false;
+    this.borrarEnviadosAlQuitar = false;
 
     if (this.formulariosLocales.length === 0) {
       this.toast.show('No hay formularios descargados para borrar.', 'info');
@@ -180,12 +198,21 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     const ids = Array.from(this.seleccionBorrar);
-    await Promise.all(ids.map(id => this.db.forms.delete(id)));
-    this.seleccionBorrar.clear();
-    this.borrandoSeleccion = false;
+    let enviadosBorrados = 0;
+    try {
+      await Promise.all(ids.map(id => this.db.forms.delete(id)));
+      // Solo lo ya enviado (sigue en el servidor); borradores y pendientes de envío se conservan.
+      if (this.borrarEnviadosAlQuitar) enviadosBorrados = await this.sync.limpiarEnviados(ids);
+    } finally {
+      this.seleccionBorrar.clear();
+      this.borrarEnviadosAlQuitar = false;
+      this.borrandoSeleccion = false;
+    }
 
     await this.cargarContadores();
-    this.toast.show(`Se eliminaron ${ids.length} formulario(s) del dispositivo.`);
+    this.toast.show(enviadosBorrados > 0
+      ? `Se quitaron ${ids.length} formulario(s) y el registro de ${enviadosBorrados} encuesta(s) enviada(s). Siguen guardadas en el servidor.`
+      : `Se eliminaron ${ids.length} formulario(s) del dispositivo.`);
     this.cdr.detectChanges();
   }
 

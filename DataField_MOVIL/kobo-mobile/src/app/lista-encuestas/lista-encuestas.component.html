@@ -81,7 +81,7 @@
           class="encuesta-card-interactive"
           [class.completed]="form.completado || form.expirado"
           [class.disabled]="form.noIniciado"
-          (click)="irALlenar(form.id, form.completado || form.expirado || form.noIniciado)"
+          (click)="irALlenar(form)"
         >
           <!-- Icono SVG en contenedor redondeado -->
           <div class="card-icon-box" [class.success]="form.completado">

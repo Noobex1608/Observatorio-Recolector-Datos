@@ -8,6 +8,10 @@ import { AuthService } from '../auth.service';
 export const MICROSOFT_SERVER_KEY = 'kobo_microsoft_server';
 /** Mensaje de error que se muestra en el login tras volver de Microsoft. */
 export const MICROSOFT_ERROR_KEY = 'kobo_microsoft_error';
+/** Código de Microsoft que una copia de la página de retorno está canjeando (evita canjearlo dos veces). */
+export const MICROSOFT_CODE_IN_USE_KEY = 'kobo_microsoft_code_in_use';
+/** Último código canjeado con éxito: la otra copia de la página sabe que la sesión ya quedó guardada. */
+export const MICROSOFT_CODE_DONE_KEY = 'kobo_microsoft_code_done';
 
 const MENSAJES: Record<string, string> = {
   cancelled: 'Cancelaste el inicio de sesión con Microsoft.',
@@ -46,22 +50,63 @@ export class MicrosoftCallbackComponent implements OnInit {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const error = params.get('error');
-    const servidor = sessionStorage.getItem(MICROSOFT_SERVER_KEY);
-    sessionStorage.removeItem(MICROSOFT_SERVER_KEY);
+    // localStorage y no sessionStorage: Chrome en Android puede abrir esta página dos veces (en la app
+    // instalada y en la pestaña donde volvió Microsoft), y cada copia tiene su propio sessionStorage.
+    const servidor = localStorage.getItem(MICROSOFT_SERVER_KEY) ?? sessionStorage.getItem(MICROSOFT_SERVER_KEY);
     // El código no debe quedar en el historial.
     window.history.replaceState(null, '', window.location.pathname);
 
     if (error || !code || !servidor) {
+      this.limpiarFlujo();
       this.volverAlLogin(MENSAJES[error ?? ''] ?? MENSAJES['failed']);
       return;
     }
+
+    // El código es de un solo uso: si otra copia de esta página ya lo está canjeando, se espera su sesión.
+    if (localStorage.getItem(MICROSOFT_CODE_IN_USE_KEY) === code) {
+      if (await this.esperarSesion(code)) {
+        this.irAlInicio();
+      } else {
+        this.volverAlLogin(MENSAJES['failed']);
+      }
+      return;
+    }
+    localStorage.setItem(MICROSOFT_CODE_IN_USE_KEY, code);
+
     try {
       const response = await this.api.exchangeMicrosoftCode(servidor, code);
       this.auth.guardarSesion(response.token, response.user.id, response.user.name, response.user.email, response.user.rol, servidor);
-      window.location.replace(new URL('.', document.baseURI).href);
+      localStorage.setItem(MICROSOFT_CODE_DONE_KEY, code);
+      this.limpiarFlujo();
+      this.irAlInicio();
     } catch (err) {
+      // Otra copia pudo canjearlo primero y dejar la sesión guardada: no es un error para la persona.
+      if (localStorage.getItem(MICROSOFT_CODE_DONE_KEY) === code) {
+        this.irAlInicio();
+        return;
+      }
+      this.limpiarFlujo();
       this.volverAlLogin(err instanceof HttpErrorResponse && err.error?.message ? err.error.message : MENSAJES['failed']);
     }
+  }
+
+  /** Espera (hasta ~10 s) a que la otra copia de la página guarde la sesión de este código. */
+  private async esperarSesion(code: string): Promise<boolean> {
+    for (let i = 0; i < 40; i++) {
+      if (localStorage.getItem(MICROSOFT_CODE_DONE_KEY) === code && this.auth.obtenerToken()) return true;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    return false;
+  }
+
+  private limpiarFlujo(): void {
+    localStorage.removeItem(MICROSOFT_SERVER_KEY);
+    sessionStorage.removeItem(MICROSOFT_SERVER_KEY);
+    localStorage.removeItem(MICROSOFT_CODE_IN_USE_KEY);
+  }
+
+  private irAlInicio(): void {
+    window.location.replace(new URL('.', document.baseURI).href);
   }
 
   private volverAlLogin(mensaje: string): void {

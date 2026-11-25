@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
@@ -50,12 +51,15 @@ class AuditLogController extends Controller
             });
         }
 
+        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date']]);
+
+        // Rangos sobre la columna tal cual (no whereDate): `created_at::date` impide usar el índice de created_at.
         if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->query('date_from'));
+            $query->where('created_at', '>=', Carbon::parse($request->query('date_from'))->startOfDay());
         }
 
         if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->query('date_to'));
+            $query->where('created_at', '<', Carbon::parse($request->query('date_to'))->startOfDay()->addDay());
         }
 
         $perPage = max(1, min((int) $request->query('per_page', 20), 100));

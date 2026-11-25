@@ -548,6 +548,10 @@ svg {
 
 .opcion-marcada { border-color: var(--primary); background: var(--bg-item-hover); }
 
+/* Casilla aparte de la lista: alinea el texto largo arriba y la separa de los botones. */
+.opcion-extra { align-items: flex-start; margin-bottom: 12px; }
+.opcion-extra input { margin-top: 2px; }
+
 .opcion-texto {
   display: grid;
   gap: 2px;

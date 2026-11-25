@@ -30,6 +30,9 @@ class MicrosoftAuthAndInvitationTest extends TestCase
 
     private bool $tokenEndpointFaked = false;
 
+    /** URL del último callback de signInWithMicrosoft, para repetirlo como lo hace el navegador. */
+    private string $lastCallbackUrl = '';
+
     private function enableMicrosoft(): void
     {
         config([
@@ -70,7 +73,9 @@ class MicrosoftAuthAndInvitationTest extends TestCase
             ])]);
         }
 
-        return (string) $this->get('/api/auth/microsoft/callback?code=codigo&state='.$authorize['state'])->headers->get('Location');
+        $this->lastCallbackUrl = '/api/auth/microsoft/callback?code=codigo&state='.$authorize['state'];
+
+        return (string) $this->get($this->lastCallbackUrl)->headers->get('Location');
     }
 
     public function test_microsoft_is_disabled_until_configured(): void
@@ -113,6 +118,27 @@ class MicrosoftAuthAndInvitationTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
         // El código es de un solo uso.
         $this->postJson('/api/auth/microsoft/exchange', ['code' => $back['code']])->assertStatus(401);
+    }
+
+    public function test_repeated_callback_from_the_browser_returns_the_same_result_instead_of_expired(): void
+    {
+        $this->enableMicrosoft();
+        User::factory()->create(['email' => 'docente@uleam.edu.ec', 'rol' => User::ROLE_PROJECT]);
+
+        $first = $this->signInWithMicrosoft('docente@uleam.edu.ec');
+        $this->assertStringStartsWith(self::RETURN_URL.'?code=', $first);
+        // Chrome en Android repite el callback con la misma URL: recibe el mismo resultado, no «expired».
+        parse_str((string) parse_url($first, PHP_URL_QUERY), $back);
+        $callbackUrl = $this->lastCallbackUrl;
+        $this->assertSame($first, (string) $this->get($callbackUrl)->headers->get('Location'));
+
+        // El código de inicio sigue siendo de un solo uso.
+        $this->postJson('/api/auth/microsoft/exchange', ['code' => $back['code']])->assertOk();
+        $this->postJson('/api/auth/microsoft/exchange', ['code' => $back['code']])->assertStatus(401);
+
+        // Mismo state con otro código de Microsoft: no se reutiliza el resultado.
+        $otherCode = str_replace('code=codigo', 'code=otro', $callbackUrl);
+        $this->assertStringEndsWith('error=expired', (string) $this->get($otherCode)->headers->get('Location'));
     }
 
     public function test_callback_rejects_external_unknown_inactive_and_tampered_logins(): void

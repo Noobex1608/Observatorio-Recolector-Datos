@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\ProjectZone;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -133,10 +134,47 @@ class ZoneAssignmentRulesTest extends TestCase
             ],
         ]);
 
-        $submit()->assertCreated();
+        $first = $submit()->assertCreated()->json('id');
         $submit()->assertCreated();
         $submit()->assertStatus(422)->assertJsonPath('message', 'La zona «Centro» ya alcanzó su meta de 2 encuestas.');
         $this->assertSame(2, $this->form->responses()->count());
+        $this->assertSame(2, $zone->fresh()->responses_received);
+
+        // Anular una respuesta libera un cupo de la meta; restaurarla lo vuelve a ocupar.
+        Sanctum::actingAs(User::factory()->create(['rol' => User::ROLE_SUPER_ADMIN]));
+        $first ??= $this->form->responses()->oldest()->value('id');
+        $this->postJson("/api/data-center/responses/{$first}/void", ['reason' => 'Encuesta duplicada'])->assertOk();
+        $this->assertSame(1, $zone->fresh()->responses_received);
+        $this->postJson("/api/data-center/trash/responses/{$first}/restore")->assertOk();
+        $this->assertSame(2, $zone->fresh()->responses_received);
+        $this->postJson("/api/data-center/responses/{$first}/void", ['reason' => 'Encuesta duplicada'])->assertOk();
+
+        Sanctum::actingAs($collector);
+        $submit()->assertCreated();
+        $submit()->assertStatus(422);
+        $this->assertSame(2, $zone->fresh()->responses_received);
+        $this->assertSame(2, $this->form->responses()->count());
+    }
+
+    public function test_zone_counter_migration_counts_only_current_responses_of_the_zone_form(): void
+    {
+        $zone = ProjectZone::create(['project_id' => $this->project->id, 'form_id' => $this->form->id, 'name' => 'Centro']);
+        $other = Form::create(['title' => 'Otro', 'user_id' => $this->leader->id, 'project_id' => $this->project->id, 'state' => 'DRAFT']);
+        $make = fn (Form $form) => $form->responses()->create([
+            'client_submission_id' => (string) Str::uuid(), 'submission_hash' => hash('sha256', Str::uuid()),
+            'data' => ['_project_geofence' => ['zone_id' => $zone->id]],
+        ]);
+        $make($this->form);
+        $make($this->form);
+        $make($this->form)->delete();
+        $make($other);
+        DB::table('project_zones')->update(['responses_received' => 0]);
+
+        $migration = require database_path('migrations/2026_11_23_000003_add_responses_received_to_project_zones.php');
+        $migration->down();
+        $migration->up();
+
+        $this->assertSame(2, $zone->fresh()->responses_received);
     }
 
     public function test_removed_collector_keeps_personal_goal_archived_and_gets_it_back(): void

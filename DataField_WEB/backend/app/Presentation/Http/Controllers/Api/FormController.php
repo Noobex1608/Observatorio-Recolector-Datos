@@ -1665,12 +1665,19 @@ class FormController extends Controller
 
     /**
      * Encuestas recibidas por zona (la zona viaja en data._project_geofence.zone_id), en una consulta.
+     * Solo mira los formularios que tienen zonas: la PWA llama a esto en cada sincronización y,
+     * sin zonas, no hay nada que contar. En PostgreSQL lo resuelve el índice
+     * form_responses_form_zone_index (migración 2026_11_23_000001).
      *
      * @param  array<int, string>  $formIds
      * @return array<string, int> zone_id => total
      */
     private function zoneResponseCounts(array $formIds): array
     {
+        if ($formIds === []) {
+            return [];
+        }
+        $formIds = \App\Models\ProjectZone::whereIn('form_id', $formIds)->distinct()->pluck('form_id')->all();
         if ($formIds === []) {
             return [];
         }

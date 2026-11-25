@@ -1,7 +1,7 @@
 <!-- Inicio de la app de campo: qué falta enviar, la acción del día y el resto agrupado en filas. -->
 <header class="barra">
   <!-- Solo el retrato de la ULEAM: el logotipo completo es ilegible a este tamaño. -->
-  <img class="barra-logo" src="/uleam-isotipo.png" alt="" width="32" height="32" />
+  <img class="barra-logo" src="uleam-isotipo.png" alt="" width="32" height="32" />
   <p class="barra-marca"><span class="barra-uleam">ULEAM</span> DataField</p>
 
   <div class="perfil">
@@ -227,6 +227,14 @@
           </label>
         }
       </div>
+
+      <label class="opcion opcion-extra" [class.opcion-marcada]="borrarEnviadosAlQuitar">
+        <input type="checkbox" [checked]="borrarEnviadosAlQuitar" (change)="borrarEnviadosAlQuitar = !borrarEnviadosAlQuitar" />
+        <span class="opcion-texto">
+          Borrar también el registro de lo que ya envié de estos formularios
+          <small>Las respuestas siguen guardadas en el servidor. Borradores y encuestas sin enviar no se tocan.</small>
+        </span>
+      </label>
 
       <div class="hoja-acciones">
         <button type="button" class="boton boton-borde" (click)="cancelarBorrar()">{{ 'cancel' | translate }}</button>

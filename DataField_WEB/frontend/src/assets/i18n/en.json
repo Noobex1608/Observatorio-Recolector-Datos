@@ -102,7 +102,7 @@
       "universityName": "Universidad Laica Eloy Alfaro de Manabí",
       "campusAlt": "Campus of Universidad Laica Eloy Alfaro de Manabí",
       "microsoft": "Sign in with Microsoft",
-      "microsoftHint": "ULEAM faculty, staff and students (&#64;uleam.edu.ec, &#64;live.uleam.edu.ec, &#64;dn.uleam.edu.ec).",
+      "microsoftHint": "ULEAM faculty, staff and students (@uleam.edu.ec, @live.uleam.edu.ec, @dn.uleam.edu.ec).",
       "externalUsers": "External users: email and password",
       "institutionalNote": "This is a ULEAM institutional account: sign in with Microsoft, no DataField password needed.",
       "emergencyPassword": "I am a super administrator: use the emergency password",

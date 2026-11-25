@@ -48,12 +48,14 @@ class StoreFormResponse
                     abort_if($form->responses()->where('user_id', $user->id)->count() >= $share->target_responses,
                         422, __('Has alcanzado el límite de respuestas para este formulario.'));
                 }
-                // Meta de encuestas de la zona: la fila del formulario ya está bloqueada, así que el conteo
-                // y la inserción no se cruzan con otro envío del mismo formulario.
+                // Meta de encuestas de la zona: la fila del formulario ya está bloqueada, así que la lectura
+                // del contador y la inserción (que lo incrementa) no se cruzan con otro envío del formulario.
+                // Se usa el contador y no un COUNT: contar miles de respuestas con el bloqueo tomado
+                // limitaba los envíos por segundo de cada formulario.
                 $zoneId = is_array($data['_project_geofence'] ?? null) ? ($data['_project_geofence']['zone_id'] ?? null) : null;
                 $zone = is_string($zoneId) ? $form->zones()->whereKey($zoneId)->first() : null;
                 if ($zone && $zone->target_responses !== null) {
-                    abort_if($form->responses()->where('data->_project_geofence->zone_id', $zone->id)->count() >= $zone->target_responses,
+                    abort_if($zone->responses_received >= $zone->target_responses,
                         422, __('La zona «:name» ya alcanzó su meta de :target_responses encuestas.', ['name' => $zone->name, 'target_responses' => $zone->target_responses]));
                 }
                 // El trazado GPS va en su propia columna: no es una respuesta y no debe salir en exportes.

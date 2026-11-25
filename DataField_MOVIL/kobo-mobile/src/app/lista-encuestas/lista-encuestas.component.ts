@@ -6,8 +6,9 @@ import { DbService, FormDefinition } from '../db.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { AuthService } from '../auth.service';
-import { SyncService } from '../sync.service';
+import { SyncService, avisoRetirados } from '../sync.service';
 import { pendientesPorZona, restantesZona } from '../utils/zone-progress';
+import { hoyLocal } from '../utils/fecha-local';
 
 interface FormWithProgress extends FormDefinition {
   enviadosCount: number;
@@ -47,8 +48,9 @@ export class ListaEncuestasComponent implements OnInit {
     // Con conexión, trae el avance real de las metas (también lo que enviaron otros encuestadores).
     if (navigator.onLine) {
       try {
-        await this.sync.actualizarAvance();
+        const aviso = avisoRetirados(await this.sync.actualizarAvance());
         await this.cargarFormularios();
+        if (aviso) this.toast.show(aviso, 'info');
       } catch {
         // Sin servidor se muestran los últimos datos guardados.
       }
@@ -81,7 +83,7 @@ export class ListaEncuestasComponent implements OnInit {
         pendientesByForm[r.formId] = (pendientesByForm[r.formId] ?? 0) + 1;
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = hoyLocal();
       const pendientesZona = pendientesPorZona(pendientes);
 
       this.formularios = forms.map(f => {
@@ -123,9 +125,21 @@ export class ListaEncuestasComponent implements OnInit {
     );
   }
 
-  irALlenar(formId: string, disabled: boolean) {
-    if (disabled) return;
-    void this.router.navigate(['/llenar', formId]);
+  /** Abre la encuesta; si no se puede llenar, explica por qué en lugar de no hacer nada. */
+  irALlenar(form: Pick<FormWithProgress, 'id' | 'start_date' | 'end_date' | 'completado' | 'expirado' | 'noIniciado'>) {
+    if (form.noIniciado) {
+      this.toast.show(`Esta encuesta se habilita el ${form.start_date}. Aún no se pueden registrar respuestas.`, 'info');
+      return;
+    }
+    if (form.expirado) {
+      this.toast.show(`El periodo de esta encuesta terminó el ${form.end_date}. Ya no se registran respuestas.`, 'info');
+      return;
+    }
+    if (form.completado) {
+      this.toast.show('Ya se alcanzó la meta de respuestas de esta encuesta.', 'info');
+      return;
+    }
+    void this.router.navigate(['/llenar', form.id]);
   }
 
   trackById(_index: number, form: FormDefinition) {

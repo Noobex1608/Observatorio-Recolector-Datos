@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, PLATFORM_ID } from '@angular/core';
 import { TranslateLoader, Translation } from '@ngx-translate/core';
 import { Observable, of } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 // Traducciones básicas para SSR (carga rápida inicial)
 const SSR_TRANSLATIONS: Record<string, Translation> = {
@@ -67,8 +68,10 @@ export class TranslateBrowserLoader implements TranslateLoader {
       return of(SSR_TRANSLATIONS[lang] || SSR_TRANSLATIONS['es'] || {});
     }
 
-    // En el navegador, cargar traducciones completas vía HTTP
-    return this.http.get<Translation>(`${this.prefix}${lang}${this.suffix}`);
+    // En el navegador, cargar traducciones completas vía HTTP. La versión cambia cuando cambian
+    // las traducciones, así ninguna caché sirve un JSON anterior al JavaScript desplegado.
+    const version = environment.i18nVersion ? `?v=${encodeURIComponent(environment.i18nVersion)}` : '';
+    return this.http.get<Translation>(`${this.prefix}${lang}${this.suffix}${version}`);
   }
 }
 
