@@ -26,7 +26,7 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => ['X-Correlation-ID'],
+    'exposed_headers' => ['X-Correlation-ID', 'Retry-After'],
 
     'max_age' => 86400,
 

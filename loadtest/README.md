@@ -30,6 +30,8 @@ para comparar escenarios y ubicar el orden de magnitud. No son una garantía de 
 | `k6-escritura.js` | `POST /api/mobile/submit` sin archivos, con zona | Solo envíos, a ritmo fijo, para ver dónde se satura la escritura. |
 | `k6-fotos.js` | `POST /api/mobile/submit` con **una foto de 1, 5 o 30 MB** | Envíos con archivo, como los manda la PWA: la foto va en base64 dentro del JSON (30 MB son unos 40 MB de JSON). |
 | `k6-exportaciones.js` | `GET /api/forms/{id}/export?format=csv\|xlsx` | Varias **exportaciones a la vez** (riesgo de memoria). CSV sobre los formularios grandes; XLSX sobre 1.000 respuestas, el máximo que permite el código. |
+| `k6-mixta.js` | Las tres anteriores **en la misma corrida** | Los 400 encuestadores con ritmo de campo, fotos de 0,5 MB (lo que manda la PWA ahora que las reduce) a 30 por minuto con 3 s por subida, y 6 exportaciones CSV que arrancan juntas al minuto 3. |
+| `k6-campo.js` con `IP_COMPARTIDA` | Igual que `k6-campo.js` | Los 400 encuestadores **detrás de una sola IP**, como una brigada o un campus en la misma red. Comprueba que el límite de envíos es por persona y no por IP. |
 
 ### Qué significa «400 usuarios» en `k6-campo.js`
 
@@ -149,6 +151,42 @@ Solo envíos sin archivo y con zona, a ritmo fijo (`k6-escritura.js`), antes y d
 | 30 | se satura (atiende ~11/s) | p95 73 ms, 0 % errores |
 | Techo | ~12/s | ~33/s (la API llega al 99 % de CPU) |
 
+### 5. Mixta: 400 encuestadores + fotos + exportaciones a la vez (26/11/2026, `k6-mixta.js`; entorno en `resultados/entorno-2026-11-26.txt`)
+
+Con los cambios de este día: la foto se sube antes de bloquear el formulario, la PWA reduce las fotos y el
+límite de envíos es por persona. Almacenamiento simulado con **3 s por subida**. En la misma corrida de 7,5 min:
+400 encuestadores con ritmo de campo, fotos de 0,5 MB a 30 por minuto durante 5 min y **6 exportaciones CSV**
+de ~35.000 respuestas que arrancan juntas al minuto 3.
+
+| Escenario | Peticiones | Errores | Mediana | p95 | Máx. |
+|---|---|---|---|---|---|
+| Encuestadores | 7.326 | **0 %** | 29 ms | 9,1 s | 11,5 s |
+| Fotos de 0,5 MB (3 s por subida) | 150 | **0 %** | 3,1 s | 13,9 s | 14,7 s |
+| Exportaciones CSV (20 MB c/u) | 6 | **0 %** | 53 s | 55,7 s | 56,3 s |
+
+API: CPU mediana 30 %, **100 % durante ~55 s** (lo que duran las 6 exportaciones); **memoria máxima 518 MiB**
+de 1 GB; ningún worker murió. Ningún 429.
+
+**Lectura:**
+- **Memoria resuelta para las fotos:** con fotos de 0,5 MB el pico (518 MiB) es prácticamente el de las 6
+  exportaciones solas (530 MiB). Antes, 8 fotos de 30 MB a la vez ya llegaban a 1 GB.
+- **Las fotos ya no hacen fila por el bloqueo:** con 3 s por subida pasaron las 30 por minuto (150 de 150).
+  Antes, con la subida dentro del bloqueo, el mismo formulario no pasaba de ~14 por minuto.
+- **Lo que queda: las exportaciones grandes.** Mientras corren las 6 CSV, la CPU está al 100 % y el p95 de los
+  encuestadores sube a ~9 s (fuera de ese minuto, la mediana es 29 ms). No hay errores, pero se nota.
+
+### 6. IP compartida: los 400 detrás de una sola IP (26/11/2026, `k6-campo.js` con `IP_COMPARTIDA`)
+
+Igual que la prueba de campo, pero **todos llegan con la misma IP** (203.0.113.10), como una brigada o un
+campus en la misma red. Fueron ~2.300 envíos (el 30 % de 7.695 peticiones), unos 300 por minuto desde esa IP.
+
+| Peticiones | Errores | 429 | p95 | Máx. | CPU de la API (mediana / máx.) | Memoria máx. |
+|---|---|---|---|---|---|---|
+| 7.695 | **0 %** | **0** | 38 ms | 177 ms | 27 % / 51 % | 123 MiB |
+
+**Lectura:** con el límite anterior (60 envíos por minuto **por IP**), la mayor parte de esos ~300 por minuto
+habría recibido 429. Con el límite **por persona** (60/min, y 30/min por formulario) no hubo ninguno.
+
 ## Conclusiones para TI
 
 1. **«400 usuarios» significa:** 400 usuarios virtuales a la vez durante 5 min sostenidos, con pausas de
@@ -158,14 +196,19 @@ Solo envíos sin archivo y con zona, a ritmo fijo (`k6-escritura.js`), antes y d
    livianas**. 400 encuestadores funcionan porque la mayoría está llenando la encuesta en el teléfono.
 3. **Memoria:** coincidimos con TI. En uso normal la API no pasa de ~135 MiB, pero **8 a 12 fotos de 30 MB
    a la vez llegan a 1 GB**, y 6 exportaciones CSV grandes usan 530 MiB.
-4. **Lo que no se probó:** producción (a propósito), la latencia real de SharePoint, la red y Traefik, ni
-   fotos y exportaciones mezcladas con los 400 usuarios en la misma corrida.
+4. **Mixta e IP compartida (26/11):** los 400 usuarios con fotos y 6 exportaciones a la vez dan 0 % de errores y
+   518 MiB de memoria máxima; los 400 detrás de una sola IP, 0 % de errores y ningún 429.
+5. **Lo que no se probó:** producción (a propósito), la latencia real de SharePoint (se imitó con 3 s), la red
+   y Traefik.
 
 ## Recomendaciones
 
 | # | Qué | Por qué |
 |---|---|---|
-| 1 | **Subir el archivo antes de tomar el bloqueo del formulario** (y borrarlo si el envío falla). | Hoy la latencia de SharePoint hace fila para todo el formulario (~14 envíos/min con 4 s de subida). |
-| 2 | **Reducir las fotos en la PWA antes de enviarlas** (p. ej. a 1600 px y calidad 80 %: ~0,5 MB). | Una foto de teléfono pasaría de 30 MB a menos de 1 MB: menos memoria, menos datos móviles y envíos de ~0,2 s. |
+| 1 | ✅ **Hecho (26/11).** El archivo se sube antes de tomar el bloqueo del formulario y se borra si el envío falla (`StoreFormResponse`). | Antes la latencia de SharePoint hacía fila para todo el formulario (~14 envíos/min con 4 s de subida). |
+| 2 | ✅ **Hecho (26/11).** La PWA reduce las fotos a 1600 px y JPEG al 80 % (~0,5 MB; `utils/reducir-foto.ts`). | Una foto de teléfono pasa de 30 MB a menos de 1 MB: menos memoria, menos datos móviles y envíos más rápidos. |
 | 3 | **Subir el contenedor de la API a 2 GB**, o bajar `pm.max_children` si se mantiene en 1 GB. | 12 workers × ~100 MB por foto grande no caben en 1 GB con margen. |
 | 4 | Si hace falta más de ~33 peticiones/s, **dar 2 CPU a la API** antes que más workers. | El límite medido es la CPU, no la cantidad de workers. |
+| 5 | ✅ **Hecho (26/11).** Ante un 429 o 503, la PWA pausa el envío, avisa «Servidor ocupado, se reintentará» y reintenta sola según `Retry-After`. | Seguir insistiendo solo alargaba la fila del servidor. |
+| 6 | ✅ **Hecho (26/11).** El límite de envíos es por persona, no por IP. | Las brigadas comparten la IP de la red; el límite por IP las frenaba a todas juntas. |
+| 7 | Evitar que las exportaciones grandes frenen a los encuestadores: generarlas en segundo plano (cola) o limitar cuántas corren a la vez. | En la prueba mixta, 6 CSV grandes llevan la CPU al 100 % durante ~55 s y el p95 de los encuestadores sube a ~9 s. |

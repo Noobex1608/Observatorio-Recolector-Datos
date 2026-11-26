@@ -476,6 +476,12 @@
   background-color: #fee2e2;
 }
 
+.reduciendo {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .error-banner {
   display: flex;
   align-items: center;

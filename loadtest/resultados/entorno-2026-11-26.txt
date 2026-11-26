@@ -1,0 +1,9 @@
+fecha: 2026-11-26 10:23:26 -0500
+commit: dbc1678 (con cambios sin commit en backend/deploy)
+cpu_host: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+nucleos_logicos_host: 16
+docker: 28.4.0 cpus_vm=16 memoria_vm=8208441344
+imagen_api: sha256:a2aba8d14bd23545111a263a8fa033429d8f5dd98fee6622937e54d17748d8f5 2026-11-26T15:23:2
+limites: api 1 CPU / 1 GB, db 1 CPU / 2 GB (compose.yml, iguales a deploy/compose.yml)
+php-fpm: pm.max_children = 12 pm.start_servers = 4 pm.min_spare_servers = 2 pm.max_spare_servers = 6 pm.max_requests = 500 
+respuestas previas: 101000

@@ -14,10 +14,16 @@ class InMemoryResponseMediaStorage implements ResponseMediaStorage
 
     public bool $failUpload = false;
 
+    /** Se llama en cada subida (para revisar en qué momento del envío ocurre). */
+    public ?\Closure $onUpload = null;
+
     public function upload(string $path, string $bytes, string $mimeType): void
     {
         if ($this->failUpload) {
             throw new RuntimeException('storage unavailable');
+        }
+        if ($this->onUpload) {
+            ($this->onUpload)();
         }
         if (isset($this->objects[$path])) {
             throw new RuntimeException('duplicate path');

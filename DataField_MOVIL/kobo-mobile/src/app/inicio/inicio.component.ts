@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { DbService } from '../db.service';
 import { AuthService } from '../auth.service';
 import { ApiService } from '../api.service';
-import { SyncService, avisoRetirados } from '../sync.service';
+import { SyncService, avisoRetirados, textoEspera } from '../sync.service';
 import { ThemeService } from '../theme.service';
 import { ToastService } from '../toast.service';
 import { TranslatePipe } from '../translate.pipe';
@@ -339,14 +339,17 @@ export class InicioComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     try {
-      const { enviados, fallos } = await this.sync.enviarPendientes();
+      const { enviados, fallos, ocupadoSegundos } = await this.sync.enviarPendientes();
       this.enviando = false;
       await this.cargarContadores();
 
       const msgs: string[] = [];
       if (enviados > 0) msgs.push(`${enviados} formulario(s) subidos.`);
       if (fallos > 0) msgs.push(`${fallos} fallaron.`);
-      this.toast.show(msgs.join(' '));
+      if (ocupadoSegundos !== undefined) {
+        msgs.push(`Servidor ocupado: el resto se reintentará solo en ${textoEspera(ocupadoSegundos)}. Tus encuestas siguen guardadas.`);
+      }
+      this.toast.show(msgs.join(' '), ocupadoSegundos !== undefined ? 'warning' : undefined);
     } catch (err: any) {
       this.enviando = false;
       if (err?.status === 401) {

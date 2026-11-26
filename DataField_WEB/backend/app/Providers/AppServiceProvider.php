@@ -67,25 +67,21 @@ class AppServiceProvider extends ServiceProvider
             (string) (config('services.microsoft.mail_sender') ?: config('mail.from.address')),
         ));
 
-        RateLimiter::for('public-form-submit', function (Request $request) {
-            $ip = $request->ip() ?? 'unknown';
-            $form = (string) $request->route('link_uuid');
-
-            return [
-                Limit::perMinute(30)->by('public-submit-ip:'.$ip),
-                Limit::perMinute(20)->by('public-submit-form:'.$form.':'.$ip),
-            ];
-        });
-        RateLimiter::for('mobile-form-submit', function (Request $request) {
-            $ip = $request->ip() ?? 'unknown';
-            $user = $request->user()?->id ?? 'anonymous';
-            $form = (string) $request->input('form_id', 'unknown');
-
-            return [
-                Limit::perMinute(60)->by('mobile-submit-ip:'.$ip),
-                Limit::perMinute(30)->by('mobile-submit-user-form:'.$user.':'.$form),
-            ];
-        });
+        // Envíos: el límite es por persona, no por IP. Las brigadas comparten la red del lugar (una sola
+        // IP para decenas de teléfonos) y un límite por IP las frenaba a todas juntas. La IP solo cuenta
+        // si la petición llega sin sesión.
+        // El envío público (/forms/submit) no pasa por auth:sanctum: el token se lee aquí con ese guard.
+        $quien = fn (Request $request): string => ($user = $request->user('sanctum'))
+            ? 'user:'.$user->getAuthIdentifier()
+            : 'ip:'.($request->ip() ?? 'unknown');
+        RateLimiter::for('public-form-submit', fn (Request $request) => [
+            Limit::perMinute(30)->by('public-submit:'.$quien($request)),
+            Limit::perMinute(20)->by('public-submit-form:'.$request->route('link_uuid').':'.$quien($request)),
+        ]);
+        RateLimiter::for('mobile-form-submit', fn (Request $request) => [
+            Limit::perMinute(60)->by('mobile-submit:'.$quien($request)),
+            Limit::perMinute(30)->by('mobile-submit-form:'.$request->input('form_id', 'unknown').':'.$quien($request)),
+        ]);
         RateLimiter::for('response-export', fn (Request $request) => [
             Limit::perMinute(10)->by('response-export-user:'.($request->user()?->id ?? 'anonymous')),
             Limit::perMinute(5)->by('response-export-form:'.$request->route('id').':'.($request->user()?->id ?? 'anonymous')),

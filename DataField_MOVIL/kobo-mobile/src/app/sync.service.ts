@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { ToastService } from './toast.service';
 import { mediaBudgetError } from './utils/media-limits';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
@@ -31,8 +32,35 @@ export function avisoRetirados({ quitados, conPendientes }: FormulariosRetirados
   return partes.length > 0 ? partes.join(' ') : null;
 }
 
+/** Resultado de un envío. `ocupadoSegundos`: el servidor pidió esperar; lo que faltaba no se intentó. */
+export interface ResultadoEnvio {
+  enviados: number;
+  fallos: number;
+  ocupadoSegundos?: number;
+}
+
+/**
+ * Segundos a esperar si el servidor rechazó por exceso de envíos (429) o está saturado (503), o null si
+ * fue otro error. Usa el Retry-After del servidor (entre 15 s y 10 min; 60 s si no lo manda).
+ */
+export function esperaPorServidorOcupado(error: any): number | null {
+  if (error?.status !== 429 && error?.status !== 503) return null;
+  const pedido = Number(error?.headers?.get?.('Retry-After'));
+  const base = Number.isFinite(pedido) && pedido > 0 ? pedido : 60;
+  return Math.min(Math.max(Math.ceil(base), 15), 600);
+}
+
+/** «45 s» o «2 min», para el aviso al encuestador. */
+export function textoEspera(segundos: number): string {
+  return segundos < 60 ? `${segundos} s` : `${Math.round(segundos / 60)} min`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SyncService {
+  private toast = inject(ToastService);
+  /** Hasta cuándo no se envía nada porque el servidor pidió esperar (ms desde epoch). */
+  private pausaHasta = 0;
+  private reintento: ReturnType<typeof setTimeout> | null = null;
   private auth = inject(AuthService);
   private api = inject(ApiService);
   private db = inject(DbService);
@@ -107,9 +135,12 @@ export class SyncService {
     return { descargados, errores };
   }
 
-  async enviarPendientes(ids?: number[]): Promise<{ enviados: number; fallos: number }> {
+  async enviarPendientes(ids?: number[]): Promise<ResultadoEnvio> {
     const servidor = this.auth.obtenerUrlServidor();
     if (!servidor) throw new Error('No hay servidor configurado');
+    // En pausa no se vuelve a insistir: el reintento ya está programado.
+    const restante = Math.ceil((this.pausaHasta - Date.now()) / 1000);
+    if (restante > 0) return { enviados: 0, fallos: 0, ocupadoSegundos: restante };
 
     const accountScope = localStorage.getItem(ACCOUNT_SCOPE_KEY);
     const assertAccount = () => {
@@ -129,6 +160,7 @@ export class SyncService {
 
     let enviados = 0;
     let fallos = 0;
+    let ocupadoSegundos: number | undefined;
 
     for (const resp of pendientes) {
       try {
@@ -185,6 +217,13 @@ export class SyncService {
         enviados++;
       } catch (error: any) {
         console.error('[Sync] Error enviando respuesta:', error?.status, error?.message || error);
+        // Servidor ocupado: se detiene todo el envío (seguir solo empeora la fila) y se reintenta solo.
+        // No es un fallo de la encuesta: sigue en «Listo para enviar» sin motivo de rechazo.
+        const espera = esperaPorServidorOcupado(error);
+        if (espera !== null) {
+          ocupadoSegundos = this.pausar(espera, ids);
+          break;
+        }
         fallos++;
         // Rechazos que no se arreglan reintentando: se guarda el motivo para mostrarlo al encuestador.
         const reason = error?.reason
@@ -201,7 +240,32 @@ export class SyncService {
       await this.actualizarAvance().catch(() => undefined);
     }
 
-    return { enviados, fallos };
+    return ocupadoSegundos === undefined ? { enviados, fallos } : { enviados, fallos, ocupadoSegundos };
+  }
+
+  /**
+   * Pausa los envíos y programa un reintento. Se suma hasta un 30 % al azar para que los teléfonos
+   * de una brigada no vuelvan todos en el mismo segundo. Devuelve los segundos de espera.
+   */
+  private pausar(segundos: number, ids?: number[]): number {
+    const espera = Math.ceil(segundos * (1 + Math.random() * 0.3));
+    this.pausaHasta = Date.now() + espera * 1000;
+    if (this.reintento) clearTimeout(this.reintento);
+    this.reintento = setTimeout(() => {
+      this.reintento = null;
+      this.pausaHasta = 0;
+      if (!navigator.onLine) return;
+      this.enviarPendientes(ids).then(({ enviados, fallos, ocupadoSegundos }) => {
+        if (ocupadoSegundos !== undefined) return; // sigue ocupado: ya se reprogramó
+        if (enviados > 0) {
+          this.toast.show(enviados === 1 ? 'Se envió la encuesta que estaba en espera.' : `Se enviaron ${enviados} encuestas que estaban en espera.`);
+        }
+        if (fallos > 0) {
+          this.toast.show(`${fallos} encuesta(s) no se pudieron enviar: revisa el motivo en «Listo para enviar».`, 'error');
+        }
+      }).catch(() => undefined);
+    }, espera * 1000);
+    return espera;
   }
 
   /**

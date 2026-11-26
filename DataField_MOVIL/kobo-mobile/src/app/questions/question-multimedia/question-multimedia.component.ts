@@ -12,6 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormQuestion } from '../../db.service';
 import { MediaStorageService, MultimediaPayload } from '../../services/media-storage.service';
+import { reducirFoto } from '../../utils/reducir-foto';
 
 export type MultimediaTab = 'photo' | 'audio' | 'video';
 
@@ -39,6 +40,8 @@ export class QuestionMultimediaComponent implements OnDestroy {
   readonly currentMedia = signal<MultimediaPayload | null>(null);
   readonly previewUrl = signal<string | null>(null);
   readonly mediaSize = signal<number | null>(null);
+  /** Mientras se reduce una foto recién tomada (tarda ~1 s en teléfonos modestos). */
+  readonly reduciendo = signal(false);
 
   // Audio recorder state signals
   readonly isRecording = signal<boolean>(false);
@@ -174,8 +177,11 @@ export class QuestionMultimediaComponent implements OnDestroy {
     const inputEl = event.target as HTMLInputElement;
     if (!inputEl.files || inputEl.files.length === 0) return;
 
-    const file = inputEl.files[0];
-    const mediaType = file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('audio/') ? 'AUDIO' : 'VIDEO';
+    const original = inputEl.files[0];
+    const mediaType = original.type.startsWith('image/') ? 'IMAGE' : original.type.startsWith('audio/') ? 'AUDIO' : 'VIDEO';
+    // Las fotos se reducen antes de revisar el límite: una de 30 MB queda en ~0,5 MB y sí cabe.
+    if (mediaType === 'IMAGE') this.reduciendo.set(true);
+    const file = mediaType === 'IMAGE' ? await reducirFoto(original).finally(() => this.reduciendo.set(false)) : original;
 
     // Se valida aquí, sin señal en campo: si no, el archivo solo fallaría al sincronizar.
     if (file.size > this.maxFileMb() * 1024 * 1024) {
