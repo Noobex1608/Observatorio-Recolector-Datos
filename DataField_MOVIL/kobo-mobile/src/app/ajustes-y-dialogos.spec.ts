@@ -6,6 +6,7 @@ import { AjustesComponent } from './ajustes/ajustes.component';
 import { ApiService } from './api.service';
 import { AppComponent } from './app';
 import { AuthService } from './auth.service';
+import { AppUpdateService } from './services/app-update.service';
 import { BorradoresComponent } from './borradores/borradores.component';
 import { DbService } from './db.service';
 import { StorageService } from './storage.service';
@@ -20,7 +21,11 @@ describe('Diálogo propio de la app', () => {
   function app() {
     TestBed.overrideComponent(AppComponent, { set: { template: '', imports: [] } });
     TestBed.configureTestingModule({
-      providers: [{ provide: Router, useValue: { url: '/' } }, { provide: ThemeService, useValue: { t: (k: string) => k } }],
+      providers: [
+        { provide: Router, useValue: { url: '/' } },
+        { provide: ThemeService, useValue: { t: (k: string) => k } },
+        { provide: AppUpdateService, useValue: { iniciar: () => undefined } },
+      ],
     });
     const fixture = TestBed.createComponent(AppComponent);
     return { fixture, component: fixture.componentInstance, toast: TestBed.inject(ToastService) };

@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ThemeService } from './theme.service';
 import { ToastService } from './toast.service';
 import { StoragePersistenceService } from './services/storage-persistence.service';
+import { AppUpdateService } from './services/app-update.service';
+import { AppInstallService } from './services/app-install.service';
 
 @Component({
   selector: 'app-root',
@@ -16,11 +18,20 @@ export class AppComponent {
   private router = inject(Router);
   theme = inject(ThemeService);
   toast = inject(ToastService);
+  update = inject(AppUpdateService);
+  install = inject(AppInstallService);
   title = 'ULEAM';
 
   constructor() {
     // Que el navegador no borre borradores ni respuestas pendientes (con sus fotos y videos) si falta espacio.
     void inject(StoragePersistenceService).request();
+    this.update.iniciar();
+    this.install.iniciar();
+  }
+
+  /** En plena encuesta se avisa que guarde antes: recargar descarta lo que no está en borradores. */
+  get llenandoEncuesta(): boolean {
+    return this.router.url.startsWith('/llenar/');
   }
   dialogValue = '';
   private readonly document = inject(DOCUMENT);

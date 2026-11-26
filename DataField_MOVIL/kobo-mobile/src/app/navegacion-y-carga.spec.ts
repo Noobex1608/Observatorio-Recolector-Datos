@@ -313,6 +313,28 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
       expect(instance.formValido()).toBe(true);
     });
 
+    it('«Atrás» vuelve a la pregunta anterior real y salta subpreguntas ocultas', async () => {
+      const { instance } = llenar();
+      instance.ngOnInit();
+      await flush(10);
+      const provincia = { id: 'prov', type: 'SINGLE_CHOICE', label: 'Provincia', order: 0, required: true, options: ['Manabí', 'Otro'] };
+      const otra = { id: 'otra', type: 'TEXT', label: 'Provincia (escriba)', order: 1, required: true, parent_question_id: 'prov', properties: { show_if: { options: ['Otro'] } } };
+      const canton = { id: 'cant', type: 'SINGLE_CHOICE', label: 'Cantón', order: 2, required: true, options: ['Manta'] };
+      instance.formulario = { ...form, step_by_step: true, questions: [provincia, otra, canton] };
+      instance.preguntaActualIndex = 0;
+
+      instance.respuestas['prov'] = 'Manabí';
+      instance.avanzarPregunta();
+      expect(instance.preguntaActualIndex).toBe(2); // salta «escriba el nombre»
+      instance.retrocederPregunta();
+      expect(instance.preguntaActualIndex).toBe(0); // antes volvía a la subpregunta oculta
+
+      // Sin historial (borrador continuado en el cantón) también salta la oculta.
+      instance.preguntaActualIndex = 2;
+      instance.retrocederPregunta();
+      expect(instance.preguntaActualIndex).toBe(0);
+    });
+
     it('acepta o rechaza el consentimiento', async () => {
       const { instance, router } = llenar();
       instance.ngOnInit();
@@ -321,6 +343,10 @@ describe('Pantallas de la app: carga inicial y navegación', () => {
       instance.aceptarConsentimiento();
       await flush();
       expect(instance.respuestas['_consentimiento_aceptado']).toBe(true);
+      // Aceptar guarda el borrador pero no saca de la encuesta.
+      expect(instance.draftId).toBeDefined();
+      expect(instance.mostrarConsentimiento).toBe(false);
+      expect(router.navigate).not.toHaveBeenCalled();
 
       instance.draftId = 7;
       await instance.rechazarConsentimiento();

@@ -138,6 +138,28 @@ class RedPrioritySecurityTest extends TestCase
         $this->assertSame('Respuesta', $q->fresh()->label);
     }
 
+    public function test_clone_points_cascades_and_calculations_to_the_copied_questions(): void
+    {
+        [$form, $owner] = $this->campaign();
+        $provincia = $form->questions()->create(['type' => 'SINGLE_CHOICE', 'label' => 'Provincia', 'order' => 10, 'options' => ['Manabí', 'Santo Domingo']]);
+        $form->questions()->create([
+            'type' => 'SINGLE_CHOICE', 'label' => 'Cantón', 'order' => 11, 'options' => ['Manta', 'La Concordia'],
+            'properties' => ['choice_filter' => ['question_id' => $provincia->id, 'parents' => [['Manabí'], ['Santo Domingo']]]],
+        ]);
+        $edad = $form->questions()->create(['type' => 'NUMBER', 'label' => 'Edad', 'order' => 12]);
+        $form->questions()->create(['type' => 'CALCULATE', 'label' => 'Edad en meses', 'order' => 13, 'properties' => ['expression' => '${'.$edad->id.'} * 12']]);
+        Sanctum::actingAs($owner);
+
+        $copy = Form::with('questions')->find($this->postJson('/api/forms/'.$form->id.'/clone')->assertCreated()->json('id'));
+        $byLabel = $copy->questions->keyBy('label');
+
+        $this->assertSame($byLabel['Provincia']->id, $byLabel['Cantón']->properties['choice_filter']['question_id']);
+        $this->assertSame([['Manabí'], ['Santo Domingo']], $byLabel['Cantón']->properties['choice_filter']['parents']);
+        $this->assertSame('${'.$byLabel['Edad']->id.'} * 12', $byLabel['Edad en meses']->properties['expression']);
+        // El original no cambia.
+        $this->assertSame($provincia->id, $form->questions()->where('label', 'Cantón')->first()->properties['choice_filter']['question_id']);
+    }
+
     public function test_put_deactivation_and_password_reset_revoke_real_tokens(): void
     {
         $admin = User::factory()->create(['rol' => User::ROLE_SUPER_ADMIN]);

@@ -5,6 +5,42 @@
   </main>
 </div>
 
+@if (update.disponible()) {
+  <div class="update-banner" role="status">
+    <p class="update-text">
+      <strong>Hay una versión nueva de la app.</strong>
+      @if (llenandoEncuesta) {
+        Guarda la encuesta como borrador antes de actualizar.
+      } @else {
+        Actualiza para usar las últimas correcciones.
+      }
+    </p>
+    <button type="button" class="update-btn" [disabled]="update.actualizando()" (click)="update.actualizar()">
+      {{ update.actualizando() ? 'Actualizando…' : 'Actualizar' }}
+    </button>
+  </div>
+} @else if (install.mostrar() && !llenandoEncuesta) {
+  <div class="update-banner install-banner" role="region" aria-label="Instalar la app">
+    <img class="install-icon" src="icons/icon-96x96.png" alt="" width="40" height="40" />
+    <p class="update-text">
+      <strong>Instala ULEAM DataField</strong>
+      @if (install.esIos()) {
+        Toca <span class="ios-share">Compartir</span> y luego «Agregar a inicio».
+      } @else {
+        Ábrela desde tu pantalla de inicio y úsala sin conexión.
+      }
+    </p>
+    <div class="install-actions">
+      @if (!install.esIos()) {
+        <button type="button" class="update-btn" (click)="install.instalar()">Instalar</button>
+      }
+      <button type="button" class="install-later" (click)="install.posponer()">
+        {{ install.esIos() ? 'Entendido' : 'Ahora no' }}
+      </button>
+    </div>
+  </div>
+}
+
 <div class="toast-container">
   <div class="toast-region" aria-live="assertive">
     @for (t of toast.toasts(); track t.id) {
