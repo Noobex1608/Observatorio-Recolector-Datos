@@ -77,7 +77,9 @@ services:
       start_period: 20s
     deploy:
       resources:
-        limits: { cpus: "1", memory: 2G }
+        # Elecciones 28-29/11/2026: temporal, volver a 1 CPU / 2G el lunes 30. Con la API en 4 CPU,
+        # la base pasa a ser el límite (k6 estrés: ~70 % de 1 CPU con la API al 100 %).
+        limits: { cpus: "2", memory: 3G }
 
   migraciones:
     image: crotm.azurecr.io/udf/api:${OTM_TAG}
@@ -118,7 +120,8 @@ services:
       traefik.http.services.udf-prod-api.loadbalancer.server.port: "8080"
     deploy:
       resources:
-        limits: { cpus: "1", memory: 1G }
+        # Elecciones 28-29/11/2026: temporal, volver a 1 CPU / 1G el lunes 30 (y pm.max_children a 12).
+        limits: { cpus: "4", memory: 4G }
 
   worker:
     image: crotm.azurecr.io/udf/api:${OTM_TAG}
