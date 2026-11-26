@@ -60,6 +60,8 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
   targetAlcanzado = false;
   flujoFinalizado = false;
   preguntaActualIndex = 0;
+  /** Preguntas por las que se pasó (paso a paso), para que «Atrás» vuelva a la anterior real y no a una oculta o saltada. */
+  private historialPreguntas: number[] = [];
 
   tiempoInicio: Date = new Date();
   tiempoInicioFormato = '';
@@ -423,15 +425,39 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.historialPreguntas.push(this.preguntaActualIndex);
     this.preguntaActualIndex = nextIndex;
   }
 
+  /**
+   * Vuelve a la pregunta desde la que se llegó. Sin historial (p. ej. al continuar un borrador)
+   * retrocede a la anterior que esté visible, saltando subpreguntas que no corresponden.
+   */
   retrocederPregunta() {
-    if (!this.formulario?.step_by_step || this.preguntaActualIndex <= 0) {
+    if (!this.formulario?.step_by_step) {
       return;
     }
-    this.preguntaActualIndex = Math.max(0, this.preguntaActualIndex - 1);
-    this.flujoFinalizado = false;
+    // Al volver desde el final, la última pregunta respondida es la actual.
+    if (this.flujoFinalizado) {
+      this.flujoFinalizado = false;
+      return;
+    }
+    if (this.preguntaActualIndex <= 0) {
+      return;
+    }
+    const preguntas = this.formulario.questions;
+    let anterior = this.historialPreguntas.pop();
+    // Lo respondido pudo cambiar después de pasar por esa pregunta: se descartan las que ya no se muestran.
+    while (anterior !== undefined && !this.subpreguntaVisible(preguntas[anterior])) {
+      anterior = this.historialPreguntas.pop();
+    }
+    if (anterior === undefined) {
+      anterior = this.preguntaActualIndex - 1;
+      while (anterior > 0 && !this.subpreguntaVisible(preguntas[anterior])) {
+        anterior--;
+      }
+    }
+    this.preguntaActualIndex = Math.max(0, anterior);
   }
 
   private inicializarRespuestas() {
@@ -451,6 +477,7 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
       }
     }
     this.preguntaActualIndex = 0;
+    this.historialPreguntas = [];
     this.flujoFinalizado = false;
   }
 
@@ -1055,7 +1082,11 @@ export class LlenarEncuestaComponent implements OnInit, OnDestroy {
     this.respuestas['_consentimiento_fecha'] = new Date().toISOString();
     this.mostrarConsentimiento = false;
     this.toast.show('Consentimiento informado aceptado.');
-    void this.guardarBorrador();
+    // Deja constancia del consentimiento en un borrador, pero sin salir de la encuesta:
+    // guardarBorrador() vuelve al inicio y cerraba la encuesta recién aceptada.
+    void this.guardarConEstado('borrador').catch(() => {
+      // Sin espacio: la encuesta sigue abierta y el borrador se intenta de nuevo al guardar o terminar.
+    });
     this.cdr.detectChanges();
   }
 

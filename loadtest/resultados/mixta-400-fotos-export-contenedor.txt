@@ -1,0 +1,2 @@
+oom_contenedor=false reinicios=0 estado=running
+workers_terminados_por_senal=0

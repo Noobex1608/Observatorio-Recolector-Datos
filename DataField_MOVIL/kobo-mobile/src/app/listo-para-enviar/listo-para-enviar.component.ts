@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StorageService } from '../storage.service';
-import { SyncService } from '../sync.service';
+import { SyncService, textoEspera } from '../sync.service';
 import { AuthService } from '../auth.service';
 import { SavedResponse } from '../db.service';
 import { ThemeService } from '../theme.service';
@@ -116,7 +116,7 @@ export class ListoParaEnviarComponent implements OnInit {
     this.cdr.detectChanges();
 
     const idsSeleccionados = Array.from(this.seleccionados);
-    const { enviados, fallos } = await this.sync.enviarPendientes(idsSeleccionados);
+    const { enviados, fallos, ocupadoSegundos } = await this.sync.enviarPendientes(idsSeleccionados);
 
     this.sentCount = enviados;
     this.sending = false;
@@ -126,7 +126,11 @@ export class ListoParaEnviarComponent implements OnInit {
     this.seleccionados.clear();
     this.cdr.detectChanges();
 
-    if (fallos > 0) {
+    if (ocupadoSegundos !== undefined) {
+      // No es un error de las encuestas: el servidor pidió esperar y el envío se reintenta solo.
+      const hechas = enviados > 0 ? `Se enviaron ${enviados}. ` : '';
+      this.toast.show(`${hechas}Servidor ocupado: las demás se reintentarán solas en ${textoEspera(ocupadoSegundos)}. Siguen guardadas en el teléfono.`, 'warning');
+    } else if (fallos > 0) {
       this.toast.show(`Se enviaron ${enviados}. ${fallos} no se pudieron enviar: revisa el motivo en cada una y vuelve a intentarlo.`, 'error');
     } else {
       this.toast.show(enviados === 1 ? 'Encuesta enviada al servidor.' : `${enviados} encuestas enviadas al servidor.`);

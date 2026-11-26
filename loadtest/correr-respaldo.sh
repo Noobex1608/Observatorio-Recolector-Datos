@@ -1,8 +1,10 @@
 #!/bin/sh
 # Corre todas las pruebas de carga del respaldo para TI y guarda los resultados en resultados/.
 # Uso (desde loadtest/, con Docker y las imágenes udf-api-base y udf-api-local construidas):
-#   sh correr-respaldo.sh
-# Dura ~30 min. Borra y vuelve a crear la base de la copia local de prueba (no toca ningún servidor real).
+#   sh correr-respaldo.sh          todas las pruebas (~45 min)
+#   sh correr-respaldo.sh nuevas   solo la mixta y la de IP compartida (~25 min con la siembra)
+# Borra y vuelve a crear la base de la copia local de prueba (no toca ningún servidor real).
+SOLO=${1:-todas}
 set -u
 cd "$(dirname "$0")"
 DIR=$(pwd -W 2>/dev/null || pwd)
@@ -60,12 +62,14 @@ paso "Fotos de prueba (PNG válidos rellenados hasta 1, 5 y 30 MB)"
 python -I - <<'EOF'
 import os
 base = open("../DataField_MOVIL/kobo-mobile/public/icons/icon-72x72.png", "rb").read()
-for mb in (1, 5, 30):
-    destino = f"fotos/foto-{mb}mb.png"
-    if not os.path.exists(destino) or os.path.getsize(destino) != mb * 1024 * 1024:
+# 0.5 MB: lo que pesa una foto después de que la PWA la reduce.
+for mb in (0.5, 1, 5, 30):
+    destino = f"fotos/foto-{mb:g}mb.png"
+    tam = int(mb * 1024 * 1024)
+    if not os.path.exists(destino) or os.path.getsize(destino) != tam:
         with open(destino, "wb") as f:
             # Bytes después del cierre del PNG: la imagen sigue siendo válida y pesa lo pedido.
-            f.write(base + os.urandom(mb * 1024 * 1024 - len(base)))
+            f.write(base + os.urandom(tam - len(base)))
     print(destino, os.path.getsize(destino))
 EOF
 
@@ -79,6 +83,7 @@ paso "Datos: 400 encuestadores, 3 formularios de 20 preguntas, 100.000 respuesta
 docker compose exec -T api php loadtest-seed.php 400 100000 > tokens.json
 docker compose exec -T db psql -U postgres -d udf -qAt -c "ANALYZE;" -c "select 'respuestas previas: '||count(*) from form_responses;" | tee -a "$R/entorno.txt"
 
+if [ "$SOLO" = "todas" ]; then
 # 1) Los «400 usuarios»: ritmo de campo y estrés sin pausas.
 k6run campo-400 k6-campo.js -e PERFIL=campo -e VUS=400
 k6run estres-400 k6-campo.js -e PERFIL=estres -e VUS=400
@@ -103,6 +108,20 @@ STUB_DELAY_MS=0 docker compose up -d almacenamiento >/dev/null 2>&1; sleep 5
 k6run export-csv-6 k6-exportaciones.js -e FORMATO=csv -e N=6
 sleep 45
 k6run export-xlsx-5 k6-exportaciones.js -e FORMATO=xlsx -e N=5
+sleep 45
+fi
+
+# 5) Mixta: los 400 encuestadores + fotos ya reducidas por la PWA (0,5 MB, 30/min) + 6 exportaciones CSV
+#    al minuto 3, todo en la misma corrida. Con 3 s por subida, como la red hacia SharePoint.
+paso "Almacenamiento simulado con 3 s por subida (mixta)"
+STUB_DELAY_MS=3000 docker compose up -d almacenamiento >/dev/null 2>&1; sleep 5
+k6run mixta-400-fotos-export k6-mixta.js -e VUS=400 -e MB=0.5 -e POR_MIN=30 -e N=6 -e FORMATO=csv
+STUB_DELAY_MS=0 docker compose up -d almacenamiento >/dev/null 2>&1; sleep 5
+
+# 6) IP compartida: los 400 encuestadores llegan con la MISMA IP (una brigada o un campus detrás de una
+#    red). Con el límite antiguo (60 envíos/min por IP) buena parte de los envíos recibía 429; ahora el
+#    límite es por persona y no debe haber ninguno.
+k6run ip-compartida-400 k6-campo.js -e PERFIL=campo -e VUS=400 -e IP_COMPARTIDA=203.0.113.10
 
 paso "Listo. Resultados en $R/"
 ls "$R"

@@ -385,6 +385,7 @@ class FormController extends Controller
                     'parent_question_id' => $question->parent_question_id
                         ? ($questionIds[$question->parent_question_id]->id ?? null) : null,
                     'branch_rules' => $rules,
+                    'properties' => $this->remapClonedProperties($question->properties, $questionIds),
                 ]);
             }
 
@@ -398,6 +399,35 @@ class FormController extends Controller
         $this->enqueueFormSchemaSync->enqueue($copy->fresh(['questions' => fn ($q) => $q->orderBy('order')]));
 
         return response()->json($copy, 201);
+    }
+
+    /**
+     * Las propiedades que nombran otras preguntas (origen de las opciones en cascada y las
+     * referencias ${id} de los cálculos) deben apuntar a las preguntas de la copia, no a las del
+     * formulario original: si no, la copia no se puede publicar ni filtra ni calcula.
+     *
+     * @param  array<string, FormQuestion>  $questionIds  id original => pregunta copiada
+     */
+    private function remapClonedProperties(mixed $properties, array $questionIds): mixed
+    {
+        if (! is_array($properties)) {
+            return $properties;
+        }
+
+        $sourceId = $properties['choice_filter']['question_id'] ?? null;
+        if (is_string($sourceId) && isset($questionIds[$sourceId])) {
+            $properties['choice_filter']['question_id'] = $questionIds[$sourceId]->id;
+        }
+
+        if (is_string($properties['expression'] ?? null)) {
+            $properties['expression'] = preg_replace_callback(
+                '/\$\{([^}]+)\}/',
+                fn ($match) => isset($questionIds[$match[1]]) ? '${'.$questionIds[$match[1]]->id.'}' : $match[0],
+                $properties['expression'],
+            ) ?? $properties['expression'];
+        }
+
+        return $properties;
     }
 
     #[OA\Post(path: '/forms/{id}/deploy', summary: 'Implementar formulario y generar enlace publico', security: [['sanctum' => []]], tags: ['Forms'])]

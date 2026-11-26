@@ -139,6 +139,8 @@ Las respuestas (`/admin/forms/:id/responses`) muestran contadores de progreso po
 - Perfil de usuario editable (`/perfil`).
 - Pide almacenamiento persistente (`navigator.storage.persist()`) al abrir y al terminar encuestas, para que el navegador no borre borradores ni pendientes; el estado se ve en Ajustes.
 - Antes de terminar una encuesta revisa el limite del servidor por respuesta (35 MB y 10 archivos en total, `utils/media-limits.ts`); los envios rechazados que no se arreglan reintentando guardan su motivo (`errorEnvio`) y se muestra en «Listo para enviar».
+- Las fotos se reducen al elegirlas o tomarlas (`utils/reducir-foto.ts`): lado mayor de 1600 px, JPEG al 80 % y sin EXIF (~0,5 MB en vez de 5-30 MB). Si el navegador no puede decodificarla (p. ej. HEIC) o no pesa menos, se guarda la original.
+- Servidor ocupado (429 por limite de envios o 503): `SyncService.enviarPendientes` se detiene en ese punto (no sigue con las demas), no lo cuenta como fallo ni guarda `errorEnvio`, avisa «Servidor ocupado: se reintentara en N s» y reintenta solo tras el `Retry-After` (15 s a 10 min, 60 s si no viene) mas hasta un 30 % al azar. Durante la pausa, pulsar «Enviar» no vuelve a llamar al servidor. CORS expone `Retry-After`.
 - Build: `npx ng build` desde `DataField_MOVIL/kobo-mobile/`.
 
 ### Rutas moviles
@@ -177,6 +179,8 @@ El registro publico esta deshabilitado. Los usuarios se crean desde el panel adm
 - `RESPONSE_MEDIA_DRIVER=sharepoint` guarda en la biblioteca de SharePoint de ULEAM (`SharePoint__SiteId`, `SharePoint__LibraryId`; nombres acordados con DIIT, que pone los IDs de produccion en su pipeline). Ruta: `responses/{form_id}/{uuid}.{ext}`.
 - Usa la app de Microsoft 365 con token de aplicacion (Graph). Hasta 4 MB se sube en una peticion; mas grande (videos) por sesion de carga en partes de 10 MiB. La vista de respuestas recibe un enlace de descarga temporal de Graph; el archivo no queda publico.
 - Cada respuesta guarda `storage_driver`: los archivos anteriores en Supabase se siguen leyendo de Supabase despues de cambiar a SharePoint.
+- Los archivos se suben ANTES de bloquear la fila del formulario (`StoreFormResponse`): primero se revisan permisos, periodo, consentimiento y metas sin bloqueo, luego se sube, y con el bloqueo se repiten las revisiones y se guarda. Si el envio se rechaza en ese ultimo paso, o el mismo `client_submission_id` llego por otro lado, se borran los archivos subidos. Asi la latencia de SharePoint no hace esperar a los demas encuestadores del formulario.
+- Limite de envios (`AppServiceProvider`, `mobile-form-submit` y `public-form-submit`): por persona (token Sanctum), no por IP; las brigadas comparten la IP de la red. Solo sin sesion se usa la IP. Movil: 60/min por persona y 30/min por persona y formulario.
 - Limites de tamaño: `RESPONSE_MEDIA_MAX_FILE_BYTES` (30 MB por archivo) y `RESPONSE_MEDIA_MAX_TOTAL_BYTES` (35 MB por respuesta); cada pregunta fija `max_file_size_mb` (tope 30).
 - Duracion de video: propiedad `max_video_seconds` de la pregunta MULTIMEDIA (5 a 120 s, 60 por defecto; validada en backend). La PWA graba dentro de la app (720p, ~1 Mbps: 120 s ≈ 16 MB) y se detiene sola al llegar al limite; los videos de la galeria (PWA y `/collect`) se rechazan si duran mas. El servidor no puede medir la duracion: el control es del cliente mas el limite de tamaño.
 

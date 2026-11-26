@@ -7,6 +7,9 @@
 //   POR_MIN   envíos por minuto (llegan a ritmo fijo, no dependen de lo que tarde la API; por defecto 30)
 //   DURACION  por defecto 2m
 //   MAX_VUS   envíos en curso como máximo del lado de k6 (por defecto 30)
+//   IP_COMPARTIDA  si se indica, todos los envíos llegan con esa IP (brigada en la misma red)
+//
+// envioConFoto() también la usa k6-mixta.js.
 //
 // docker run --rm --network udf-loadtest_default -v "$PWD:/scripts" -e MB=5 -e POR_MIN=60 \
 //   grafana/k6:1.3.0 run --summary-export /scripts/resultados/fotos-5mb.json /scripts/k6-fotos.js
@@ -22,6 +25,7 @@ const MB = Number(__ENV.MB || 1);
 const POR_MIN = Number(__ENV.POR_MIN || 30);
 const DURACION = __ENV.DURACION || '2m';
 const MAX_VUS = Number(__ENV.MAX_VUS || 30);
+const IP_COMPARTIDA = __ENV.IP_COMPARTIDA || '';
 
 const datos = JSON.parse(open(__ENV.DATOS || './tokens.json'));
 const usuarios = new SharedArray('usuarios', () => datos.users);
@@ -61,7 +65,7 @@ function uuid() {
   });
 }
 
-export default function () {
+export function envioConFoto() {
   const i = Math.floor(Math.random() * usuarios.length);
   const data = { _consentimiento_aceptado: true };
   for (const q of formulario.questions) {
@@ -72,7 +76,7 @@ export default function () {
       Authorization: `Bearer ${usuarios[i].token}`,
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-Forwarded-For': `198.51.${Math.floor(i / 250)}.${i % 250}`,
+      'X-Forwarded-For': IP_COMPARTIDA || `198.51.${Math.floor(i / 250)}.${i % 250}`,
     },
     timeout: '120s',
     tags: { name: 'envio_con_foto' },
@@ -86,4 +90,8 @@ export default function () {
   if (!check(r, { 'envío 2xx': (res) => res.status >= 200 && res.status < 300 }) && Math.random() < 0.05) {
     console.warn(`HTTP ${r.status}: ${String(r.body).slice(0, 200)}`);
   }
+}
+
+export default function () {
+  envioConFoto();
 }

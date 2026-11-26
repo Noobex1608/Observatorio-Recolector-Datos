@@ -263,6 +263,83 @@
   }
 }
 
+/* Aviso de versión nueva: abajo, fijo y sin cerrarse solo, para que se vea aunque se esté en otra cosa. */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(440px, calc(100vw - 24px));
+  padding: 12px 12px 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.update-text {
+  flex: 1;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.update-text strong { display: block; }
+
+.update-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.update-btn:hover:not(:disabled) { background: var(--primary-dark); }
+.update-btn:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 2px; }
+.update-btn:disabled { opacity: 0.7; cursor: progress; }
+
+.install-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.install-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.install-later {
+  min-height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.install-later:hover { background: var(--bg-item-hover); }
+.install-later:focus-visible { outline: 3px solid var(--primary-light); outline-offset: 2px; }
+
+.ios-share { font-weight: 600; }
+
 .toast-container {
   position: fixed;
   /* Debajo de la barra superior de cada pantalla (hasta ~75px en Llenar encuesta), sin tapar el título ni el botón de volver. */
